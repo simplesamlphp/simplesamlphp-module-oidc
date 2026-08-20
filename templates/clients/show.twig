@@ -1,4 +1,5 @@
-{% set subPageTitle = 'Client '|trans ~ client.getIdentifier %}
+{# The separating space is kept out of the translated literal, so the key matches the catalog entry. #}
+{% set subPageTitle = 'Client'|trans ~ ' ' ~ client.getIdentifier %}
 
 {% extends "@oidc/base.twig" %}
 

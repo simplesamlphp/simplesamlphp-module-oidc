@@ -151,9 +151,18 @@ class ConfigController
                         $trustMarkIssuerConfigurationStatement,
                     );
                 } catch (\Exception $e) {
-                    $message = Translate::noop('Error fetching dynamic trust mark: ') .
-                    "trust_mark_type => $trustMarkType, issuer_id => $trustMarkIssuerId. " . $e->getMessage();
-                    $this->sessionMessagesService->addMessage($message);
+                    // Added as two messages rather than one concatenated string. The template
+                    // translates each message whole, so a sentence with identifiers and an exception
+                    // spliced into it can never match its catalog entry -- it would be marked for
+                    // translation and then silently never translated. The detail, which is not
+                    // translatable in any case, goes on its own line below it.
+                    $this->sessionMessagesService->addMessage(
+                        Translate::noop('Error fetching dynamic trust mark:'),
+                    );
+                    $this->sessionMessagesService->addMessage(
+                        "trust_mark_type => $trustMarkType, issuer_id => $trustMarkIssuerId. " .
+                        $e->getMessage(),
+                    );
                 }
             }
         }

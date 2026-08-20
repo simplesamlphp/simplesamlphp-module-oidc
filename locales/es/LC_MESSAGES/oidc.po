@@ -1885,3 +1885,364 @@ msgid ""
 "than the host being resolved a second time."
 msgstr ""
 
+msgid ""
+"Allowed request URIs from which the authorization server is allowed to "
+"fetch request objects. Must be a valid https URI, one per line. Example: "
+"https://example.org/foo?bar=1"
+msgstr ""
+
+msgid "Allowed Response Modes"
+msgstr ""
+
+msgid "Allowed response modes"
+msgstr ""
+
+msgid ""
+"Allowed response modes for this Client. Set to 'form_post' only to protect "
+"against browser-swapping attacks (if supported by the client)."
+msgstr ""
+
+msgid "Application Type"
+msgstr ""
+
+msgid "Ascending"
+msgstr ""
+
+msgid "At least one response mode is required."
+msgstr ""
+
+msgid "Authentication source to be used for user login."
+msgstr ""
+
+msgid "Authorization token does not have defined scopes."
+msgstr ""
+
+msgid "Authorization token is not authorized for this action."
+msgstr ""
+
+msgid "Authorization token not provided."
+msgstr ""
+
+msgid "Auth Source ID"
+msgstr ""
+
+msgid "Back-Channel Logout URI"
+msgstr ""
+
+msgid "Basic options"
+msgstr ""
+
+msgid ""
+"Check if you want to use Transaction Code protection for pre-authorized "
+"code grant."
+msgstr ""
+
+msgid "Clear"
+msgstr ""
+
+msgid ""
+"Client authentication method the Client must use at the token endpoint. If "
+"not set, the method is not enforced."
+msgstr ""
+
+msgid "Client URI"
+msgstr ""
+
+msgid "Contacts (one per line)"
+msgstr ""
+
+msgid ""
+"Contacts for this Client (e.g. administrator e-mail addresses). One per "
+"line."
+msgstr ""
+
+msgid "Credential Configuration ID"
+msgstr ""
+
+msgid "Credential Configuration ID to be offered."
+msgstr ""
+
+msgid "Credential Offer:"
+msgstr ""
+
+msgid "Curently configured Trust Anchors for this entity:"
+msgstr ""
+
+msgid "Default ACR Values"
+msgstr ""
+
+msgid "Default Max Age (seconds)"
+msgstr ""
+
+msgid ""
+"Default Maximum Authentication Age, in seconds, applied when the "
+"authorization request omits max_age. Leave empty for no default."
+msgstr ""
+
+msgid ""
+"Default requested Authentication Context Class Reference values, applied "
+"when the authorization request omits acr_values. Selected from the ACRs "
+"supported by this OP."
+msgstr ""
+
+msgid ""
+"Default value for attribute name is taken from module configuration, "
+"however, override if necessary."
+msgstr ""
+
+msgid "Descending"
+msgstr ""
+
+msgid "Discovering..."
+msgstr ""
+
+msgid "Dynamic"
+msgstr ""
+
+msgid "Entities"
+msgstr ""
+
+msgid "Entity ID"
+msgstr ""
+
+msgid "Entity Types"
+msgstr ""
+
+msgid "Error fetching dynamic trust mark:"
+msgstr ""
+
+msgid ""
+"Federation discovery passed (there were no warnings or errors during the "
+"process)."
+msgstr ""
+
+msgid ""
+"Federation tooling could not be built from the current configuration, so "
+"trust marks are not shown. Check the federation options below, and the "
+"outbound destination policy on the Protocol configuration screen, which "
+"federation fetches also depend on."
+msgstr ""
+
+msgid "Filtering"
+msgstr ""
+
+msgid "Grant Type"
+msgstr ""
+
+msgid "Grant Types"
+msgstr ""
+
+msgid ""
+"Grant types this Client is allowed to use. If none are selected, the Client "
+"is not restricted by grant type. Note that the refresh_token grant is "
+"allowed whenever the Client was granted the offline_access scope, "
+"regardless of this setting."
+msgstr ""
+
+msgid "Grant Type to be used in credential issuance."
+msgstr ""
+
+msgid "ID Token Signing Algorithm"
+msgstr ""
+
+msgid ""
+"If selected, server will send the transaction code to user's email address."
+msgstr ""
+
+msgid ""
+"If Transaction Code protection is used, this attribute will be used to get "
+"user's email address to which the transaction code will be sent."
+msgstr ""
+
+msgid "Initiate Login URI"
+msgstr ""
+
+msgid ""
+"JSON object (string) defining Authentication Processing Filters specific to "
+"this client, in the same format as the global authproc filters in the "
+"module configuration. These run in addition to the global filters. The "
+"object is keyed by priority; each filter is a class string or an object "
+"with a 'class' property. For security reasons, these can only be set here "
+"(by an administrator) and are never accepted from dynamic / federation "
+"client registration. Example: {\"60\": {\"class\": \"core:AttributeAdd\", "
+"\"groups\": [\"members\"]}}"
+msgstr ""
+
+msgid ""
+"JWS alg algorithm for signing the ID Token issued to this Client. If not "
+"set, the default one from configuration file will be used."
+msgstr ""
+
+msgid ""
+"Kind of application. For dynamically registered clients this constrains the "
+"allowed Redirect URIs: native clients may only use custom URI schemes or "
+"loopback addresses (localhost, 127.0.0.1, [::1]); web clients using the "
+"implicit grant must use https and must not use localhost."
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid ""
+"Log messages will show if any warnings or errors were raised during the "
+"process."
+msgstr ""
+
+msgid "Next page"
+msgstr ""
+
+msgid "No entities were found matching the criteria."
+msgstr ""
+
+msgid "No Trust Anchors are currently configured for this entity."
+msgstr ""
+
+msgid "OIDC OP"
+msgstr ""
+
+msgid "Page limit"
+msgstr ""
+
+msgid "Pagination"
+msgstr ""
+
+msgid "Pre-authorized Code"
+msgstr ""
+
+msgid "Proceed"
+msgstr ""
+
+msgid "Proceeding..."
+msgstr ""
+
+msgid "Release User Claims in ID Token"
+msgstr ""
+
+msgid "Request URIs"
+msgstr ""
+
+msgid "Require auth_time in ID Token"
+msgstr ""
+
+msgid ""
+"Require this client to always sign a request object (even in case of OpenID "
+"Connect flavor which does not require signing). Make sure the client has a "
+"JWKS key configured if this option is enabled."
+msgstr ""
+
+msgid "Require this client to always use PAR in authorization requests."
+msgstr ""
+
+msgid "Resolving..."
+msgstr ""
+
+msgid "Response Types"
+msgstr ""
+
+msgid ""
+"Response types this Client is allowed to use at the authorization endpoint. "
+"If none are selected, the Client is not restricted by response type. "
+"Selecting a response type automatically selects the grant types it "
+"requires."
+msgstr ""
+
+msgid "Search Query"
+msgstr ""
+
+msgid "SimpleSAMLphp Admin access required."
+msgstr ""
+
+msgid "Software ID"
+msgstr ""
+
+msgid "Software Version"
+msgstr ""
+
+msgid "Sort by"
+msgstr ""
+
+msgid "Sorting"
+msgstr ""
+
+msgid "Submit"
+msgstr ""
+
+msgid "Terms of Service URI"
+msgstr ""
+
+msgid ""
+"There are some setup errors which you should deal with before proceeding."
+msgstr ""
+
+msgid ""
+"This type is derived from the metadata where possible: if a Token Endpoint "
+"Authentication Method is selected below, it determines this type (\"none\" "
+"means public, any other method means confidential); otherwise, an "
+"Application Type of \"native\" means public. When neither is set, your "
+"explicit choice above is kept. To make a native client confidential, give "
+"it a real authentication method."
+msgstr ""
+
+msgid "Token Endpoint Authentication Method"
+msgstr ""
+
+msgid "Total matching entities:"
+msgstr ""
+
+msgid ""
+"To test Verifiable Credential issuance, choose authentication source, "
+"desired Credential Configuration ID, Grant Type, and click Proceed."
+msgstr ""
+
+msgid "Trust Mark Types (one per line)"
+msgstr ""
+
+msgid "Types"
+msgstr ""
+
+msgid "Unable to initiate admin authentication."
+msgstr ""
+
+msgid ""
+"URI using the https scheme that a third party can use to initiate a login "
+"by the RP. Informational."
+msgstr ""
+
+msgid "User's Email Attribute Name"
+msgstr ""
+
+msgid "Use Transaction Code?"
+msgstr ""
+
+msgid "Validating..."
+msgstr ""
+
+msgid ""
+"When enabled, the auth_time claim is always included in ID Tokens issued to "
+"this Client."
+msgstr ""
+
+msgid ""
+"When enabled, the user's claims (resolved from the granted scopes) are "
+"included directly in the ID Token issued to this Client, in addition to "
+"being available from the UserInfo endpoint. This is useful for clients that "
+"do not call the UserInfo endpoint and rely solely on the ID Token to obtain "
+"user attributes. Leave it disabled (the default) unless a client needs it, "
+"as it opens some privacy challenges (for example, ID token ending up in "
+"access logs), and as it increases the ID Token size. For security reasons, "
+"this can only be set here (by an administrator) and is never accepted from "
+"dynamic / federation client registration."
+msgstr ""
+
+msgid "You are currently authenticated with the following user data:"
+msgstr ""
+
+msgid ""
+"You can use the form below to test Federation Discovery under given Trust "
+"Anchor."
+msgstr ""
+
+msgid ""
+"You will be presented with a Credential Offer which you can use to test "
+"credential issuance."
+msgstr ""

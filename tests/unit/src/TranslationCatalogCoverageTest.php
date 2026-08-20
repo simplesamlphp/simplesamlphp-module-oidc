@@ -93,7 +93,7 @@ class TranslationCatalogCoverageTest extends TestCase
     {
         $unresolvable = [];
 
-        foreach ($this->filesUnder('src', 'php') as $path) {
+        foreach ($this->phpSources() as $path) {
             foreach ($this->noopArguments($path) as $argument) {
                 if ($argument === null) {
                     $unresolvable[] = substr($path, strlen(self::$projectRoot) + 1);
@@ -111,7 +111,7 @@ class TranslationCatalogCoverageTest extends TestCase
     {
         $strings = [];
 
-        foreach ($this->filesUnder('src', 'php') as $path) {
+        foreach ($this->phpSources() as $path) {
             foreach ($this->noopArguments($path) as $argument) {
                 if (is_string($argument) && $argument !== '') {
                     $strings[] = $argument;
@@ -142,6 +142,19 @@ class TranslationCatalogCoverageTest extends TestCase
         $this->assertNotEmpty($paths, 'Found no message catalogs.');
 
         return $paths;
+    }
+
+    /**
+     * Every PHP file which can mark a string for translation.
+     *
+     * `hooks/` counts as much as `src/` does: the admin menu entry and the federation page links are
+     * declared there, and scanning only `src/` let those labels sit outside the catalogs unnoticed.
+     *
+     * @return string[]
+     */
+    protected function phpSources(): array
+    {
+        return array_merge($this->filesUnder('src', 'php'), $this->filesUnder('hooks', 'php'));
     }
 
     /**
@@ -255,6 +268,60 @@ class TranslationCatalogCoverageTest extends TestCase
         if (preg_match_all('/{%\s*trans\s*%}(.*?){%\s*endtrans\s*%}/s', $contents, $matches)) {
             foreach ($matches[1] as $match) {
                 $strings[] = trim($match);
+            }
+        }
+
+        return array_merge($strings, $this->parenthesisedTransStrings($contents));
+    }
+
+    /**
+     * Literals inside a parenthesised expression which is then piped to `trans`.
+     *
+     * `(actionText|default('Submit'))|trans` and `(client.isConfidential ? 'Confidential' : 'Public')|trans`
+     * both translate a literal which is not itself directly in front of the filter, so the patterns
+     * above miss them. Everything quoted inside the parentheses is collected, which can pick up a
+     * literal that is not really translated; that is the safe direction to err in, since a msgid
+     * nothing uses is inert while a used string missing from the catalogs is the bug being guarded
+     * against.
+     *
+     * @return string[]
+     */
+    protected function parenthesisedTransStrings(string $contents): array
+    {
+        if (!preg_match_all('/\)\s*\|\s*trans/', $contents, $matches, PREG_OFFSET_CAPTURE)) {
+            return [];
+        }
+
+        $strings = [];
+
+        foreach ($matches[0] as $match) {
+            $closingIndex = (int)$match[1];
+            $depth = 0;
+            $openingIndex = null;
+
+            for ($i = $closingIndex; $i >= 0; $i--) {
+                if ($contents[$i] === ')') {
+                    $depth++;
+                } elseif ($contents[$i] === '(') {
+                    $depth--;
+
+                    if ($depth === 0) {
+                        $openingIndex = $i;
+                        break;
+                    }
+                }
+            }
+
+            if ($openingIndex === null) {
+                continue;
+            }
+
+            $inner = substr($contents, $openingIndex + 1, $closingIndex - $openingIndex - 1);
+
+            if (preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $inner, $literals)) {
+                foreach ($literals[1] as $literal) {
+                    $strings[] = str_replace(["\\'", '\\\\'], ["'", '\\'], $literal);
+                }
             }
         }
 
