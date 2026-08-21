@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="geant_incubator" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 50">
+  <defs>
+    <style>
+      .geant-color { fill: #4d798f; }
+      .text-primary { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13.5px; font-weight: 700; fill: #003b5c; }
+      .text-secondary { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11.5px; font-weight: 600; fill: #4d798f; letter-spacing: 1.5px; }
+      .divider { stroke: #d1d5db; stroke-width: 1.5; stroke-linecap: round; }
+    </style>
+  </defs>
+  <g transform="translate(4, 7.5)">
+    <!-- GEANT Mark -->
+    <path class="geant-color" d="M15.9,17.8c.6-.5,1.1-.7,1.5-.7,1,0,1.3.7,1.3,1.1-.2,0-4.5,1.5-4.7,1.6,0,0-.1-.2-.2-.3.2-.2,2.1-1.8,2.1-1.8"/>
+    <path class="geant-color" d="M0,27C0,31.8,2.1,34.3,6.3,34.3s4.5-1.2,4.5-1.3h.1v-6.8h-5.8v1.9h3.4v3.8c-.3.2-1.2.6-2.4.6-2.5,0-3.7-1.8-3.7-5.4s.6-4.6,3.4-4.6,2.6,1.1,2.6,2.1v.3h2.6v-.3c0-2.4-2.1-4-5.2-4S0,22.9,0,27"/>
+    <polygon class="geant-color" points="20.2 20.7 12.6 20.7 12.6 34.1 20.7 34.1 20.7 32.2 14.9 32.2 14.9 28 20.3 28 20.3 26.2 14.9 26.2 14.9 22.6 20.5 22.6 20.5 20.7 20.2 20.7"/>
+    <path class="geant-color" d="M54.5,20.7h-11.6v9.9c-.9-1.6-5.7-9.9-5.7-9.9h-2.7v13.4h2.3v-9.9c.9,1.6,5.7,9.9,5.7,9.9h2.7s0-10.9,0-11.5h3.7v11.5h2.4v-11.5h3.6v-1.9h-.3Z"/>
+    <path class="geant-color" d="M28.9,20.7h-2.5l-5,13.4h2.4s1.3-3.5,1.5-3.9h4.9c.1.4,1.5,3.9,1.5,3.9h2.4l-5.1-13.4ZM25.9,28.3c.2-.7,1.4-3.9,1.8-5,.4,1.2,1.5,4.4,1.8,5h-3.5Z"/>
+    <path class="geant-color" d="M77,8c-8.8-10.9-44.4,4.5-54,8.5-.7.3-1.6.2-2.1-.8.4,1,1.2,1.3,2.2,1,12.7-5.1,43.4-16.1,51.1-6,3.5,4.6,2.5,10.2-1.3,18.1-.2.3-.3.6-.3.6,0,0,0,0,0,0,0,0,0,0,0,0-.3.5-.7.7-1,.8.4,0,.9-.2,1.3-.8,0-.1.2-.3.4-.6h0c5.6-9.4,7.6-16.4,3.9-20.9"/>
+    <path class="geant-color" d="M70.3,30c-.1-.1-1.7-1.5-3.3-3C58.7,19.1,33.5-5.3,22.4,1.1c-3.1,1.8-3.6,7.1-1.7,14.1,0,0,0,0,0,0h0c0,0,0,.2,0,.3.2.7.7,1.2,1.4,1.2-.5-.1-.9-.5-1.1-1,0,0,0-.2,0-.2,0-.1,0-.2,0-.4h0c0,0,0-.2,0-.2-1-5.9.2-9.8,2.6-11.4,8.8-5.8,30.1,12.5,40.7,21.7,2.4,2.1,5.2,4.5,6,5.1,1.2.9,2.2-.1,2.5-.6-.4.6-1.4,1.1-2.4.4"/>
+  </g>
+  <line class="divider" x1="93" y1="8" x2="93" y2="42" />
+  <text class="text-primary" x="103" y="24">Trust &amp; Identity</text>
+  <text class="text-secondary" x="103" y="39">INCUBATOR</text>
+</svg>
