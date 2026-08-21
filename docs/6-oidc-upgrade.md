@@ -497,8 +497,8 @@ redirected. Requests that do include `id_token_hint` are unchanged: the
 values, and the redirection is performed as before.
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
-- The requirement on package `lcobucci/jwt` has been removed in favor of
-already used packages `simplesamlphp/openid` and `web-token/jwt-framework`.
+- The requirements on packages `lcobucci/jwt` and `web-token/jwt-framework`
+have been removed in favor of `simplesamlphp/openid`.
 - The requirement on package `laminas/laminas-diactoros` has been removed in
 favor of `nyholm/psr7` which is already required by SimpleSAMLphp.
 - The requirement on package `laminas/laminas-httphandlerrunner` has been

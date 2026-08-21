@@ -6,7 +6,6 @@ namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use Jose\Component\Core\JWK;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,6 +27,7 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
+use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\TokenStatusList;
 use SimpleSAML\OpenID\TokenStatusList\Factories\StatusListFactory;
@@ -121,8 +121,7 @@ class DbStatusListTokenProviderTest extends TestCase
      */
     protected function signatureKeyPair(): SignatureKeyPair
     {
-        $publicKey = $this->createMock(JwkDecorator::class);
-        $publicKey->method('jwk')->willReturn(new JWK(['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x', 'y' => 'y']));
+        $publicKey = (new JwkDecoratorFactory())->fromData(['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x', 'y' => 'y']);
 
         $keyPair = $this->createMock(KeyPair::class);
         $keyPair->method('getKeyId')->willReturn(self::SIGNING_KEY_ID);

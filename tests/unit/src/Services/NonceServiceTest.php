@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
-use Jose\Component\Core\JWK;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -16,6 +15,7 @@ use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\Helpers\DateTime;
+use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\Factories\ParsedJwsFactory;
@@ -70,12 +70,9 @@ class NonceServiceTest extends TestCase
      */
     protected function buildSignatureKeyPair(array $publicJwk): MockObject
     {
-        $jwkMock = $this->createMock(JWK::class);
-        $jwkMock->method('all')->willReturn($publicJwk);
-        $publicKeyMock = $this->createMock(JwkDecorator::class);
-        $publicKeyMock->method('jwk')->willReturn($jwkMock);
+        $publicKey = (new JwkDecoratorFactory())->fromData($publicJwk);
         $keyPairMock = $this->createMock(KeyPair::class);
-        $keyPairMock->method('getPublicKey')->willReturn($publicKeyMock);
+        $keyPairMock->method('getPublicKey')->willReturn($publicKey);
 
         $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
@@ -134,13 +131,9 @@ class NonceServiceTest extends TestCase
         $this->dateTimeHelperMock->method('getUtc')->willReturn(new \DateTimeImmutable('2024-01-01 00:00:00'));
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
 
-        $jwkMock = $this->createMock(JWK::class);
-        $jwkMock->method('all')->willReturn(['kty' => 'EC']);
-        $publicKeyMock = $this->createMock(JwkDecorator::class);
-        $publicKeyMock->method('jwk')->willReturn($jwkMock);
-
+        $publicKey = (new JwkDecoratorFactory())->fromData(['kty' => 'EC']);
         $keyPairMock = $this->createMock(KeyPair::class);
-        $keyPairMock->method('getPublicKey')->willReturn($publicKeyMock);
+        $keyPairMock->method('getPublicKey')->willReturn($publicKey);
         $this->signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
 
         $this->parsedJwsMock->method('getIssuer')->willReturn('https://issuer.example.com');
@@ -223,13 +216,9 @@ class NonceServiceTest extends TestCase
         $this->dateTimeHelperMock->method('getUtc')->willReturn(new \DateTimeImmutable('2024-01-01 00:00:00'));
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
 
-        $jwkMock = $this->createMock(JWK::class);
-        $jwkMock->method('all')->willReturn(['kty' => 'EC']);
-        $publicKeyMock = $this->createMock(JwkDecorator::class);
-        $publicKeyMock->method('jwk')->willReturn($jwkMock);
-
+        $publicKey = (new JwkDecoratorFactory())->fromData(['kty' => 'EC']);
         $keyPairMock = $this->createMock(KeyPair::class);
-        $keyPairMock->method('getPublicKey')->willReturn($publicKeyMock);
+        $keyPairMock->method('getPublicKey')->willReturn($publicKey);
         $this->signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
 
         $this->parsedJwsMock->method('getIssuer')->willReturn('https://other.example.com');
@@ -249,13 +238,9 @@ class NonceServiceTest extends TestCase
         $this->dateTimeHelperMock->method('getUtc')->willReturn(new \DateTimeImmutable('2024-01-01 00:00:00'));
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
 
-        $jwkMock = $this->createMock(JWK::class);
-        $jwkMock->method('all')->willReturn(['kty' => 'EC']);
-        $publicKeyMock = $this->createMock(JwkDecorator::class);
-        $publicKeyMock->method('jwk')->willReturn($jwkMock);
-
+        $publicKey = (new JwkDecoratorFactory())->fromData(['kty' => 'EC']);
         $keyPairMock = $this->createMock(KeyPair::class);
-        $keyPairMock->method('getPublicKey')->willReturn($publicKeyMock);
+        $keyPairMock->method('getPublicKey')->willReturn($publicKey);
         $this->signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
 
         $this->parsedJwsMock->method('getIssuer')->willReturn('https://issuer.example.com');
