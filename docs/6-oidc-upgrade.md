@@ -497,6 +497,8 @@ redirected. Requests that do include `id_token_hint` are unchanged: the
 values, and the redirection is performed as before.
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
+- The requirement on package `lcobucci/jwt` has been removed in favor of 
+already used packages `simplesamlphp/openid` and `web-token/jwt-framework`. 
 
 ## Version 6.4.3 to 6.4.4
 
