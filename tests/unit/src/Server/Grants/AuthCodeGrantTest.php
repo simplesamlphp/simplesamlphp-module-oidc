@@ -8,23 +8,33 @@ use Closure;
 use DateInterval;
 use DateTimeImmutable;
 use Defuse\Crypto\Key;
+use Laminas\Diactoros\Response;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
+use LogicException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
@@ -33,9 +43,26 @@ use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
+use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -46,6 +73,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Core\IdTokenHint;
 use Stringable;
 
 /**
@@ -66,12 +94,17 @@ use Stringable;
 #[UsesClass(Result::class)]
 #[UsesClass(ScopeEntity::class)]
 #[UsesClass(ResolvedClientAuthenticationMethod::class)]
+#[UsesClass(AuthorizationRequest::class)]
+#[UsesClass(UserEntity::class)]
+#[UsesClass(Arr::class)]
+#[UsesClass(QueryResponseMode::class)]
 class AuthCodeGrantTest extends TestCase
 {
     private const string AUTH_CODE_ID = 'auth-code-id';
     private const string CLIENT_ID = 'client-id';
     private const string USER_ID = 'user-id';
     private const string REDIRECT_URI = 'https://rp.example.org/callback';
+    private const string STATE = 'opaque-state-value';
     private const string CODE_VERIFIER = 'ZG9uLXQtdXNlLXRoaXMtdmVyaWZpZXItaW4tcHJvZHVjdGlvbg';
 
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
@@ -95,6 +128,9 @@ class AuthCodeGrantTest extends TestCase
     /** @var array<int,array{message:string,context:array}> */
     private array $logRecords = [];
 
+    /** What the access token factory was last called with, for assertions on values with no other outlet. */
+    private array $accessTokenFactoryArguments = [];
+
     protected function setUp(): void
     {
         $this->authCodeRepositoryMock = $this->createMock(AuthCodeRepository::class);
@@ -115,6 +151,9 @@ class AuthCodeGrantTest extends TestCase
         $this->encryptionKey = Key::createNewRandomKey();
 
         $this->helpersMock->method('scope')->willReturn($this->scopeHelperMock);
+        // The real array helper rather than a double: findByCallback() is a pure function, and stubbing it
+        // would mean deciding in the test what counts as an OIDC request, which is the thing under test.
+        $this->helpersMock->method('arr')->willReturn(new Arr());
         $this->scopeHelperMock->method('exists')->willReturnCallback(fn(): bool => $this->offlineAccessGranted);
 
         $this->scopeRepositoryMock->method('getScopeEntityByIdentifier')
@@ -521,6 +560,381 @@ class AuthCodeGrantTest extends TestCase
         $this->assertStringContainsString('code_verifier', json_encode($this->logRecords, JSON_THROW_ON_ERROR));
     }
 
+    // Authorization request: deciding whether this grant handles it at all.
+
+    public function testRespondsOnlyToAuthorizationRequestsAskingForACode(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertTrue(
+            $sut->canRespondToAuthorizationRequest(
+                $this->request(['response_type' => 'code', 'client_id' => self::CLIENT_ID]),
+            ),
+        );
+        $this->assertFalse(
+            $sut->canRespondToAuthorizationRequest(
+                $this->request(['response_type' => 'token', 'client_id' => self::CLIENT_ID]),
+            ),
+            'A request for an implicit response type belongs to a different grant.',
+        );
+        $this->assertFalse(
+            $sut->canRespondToAuthorizationRequest($this->request(['response_type' => 'code'])),
+            'Without a client_id there is nothing to resolve the request against.',
+        );
+        $this->assertFalse($sut->canRespondToAuthorizationRequest($this->request([])));
+    }
+
+    public function testTreatsARequestAsOidcOnlyWhenItAsksForTheOpenidScope(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertTrue($sut->isOidcCandidate($this->oAuth2AuthorizationRequest([new ScopeEntity('openid')])));
+        $this->assertFalse($sut->isOidcCandidate($this->oAuth2AuthorizationRequest([new ScopeEntity('profile')])));
+        $this->assertFalse($sut->isOidcCandidate($this->oAuth2AuthorizationRequest([])));
+    }
+
+    // Authorization request validation.
+
+    public function testReturnsAPlainOAuth2RequestWhenItIsNeitherOidcNorVerifiableCredential(): void
+    {
+        // No openid scope and not a credential request, so there is nothing OIDC-specific to carry and the
+        // grant must not promote it to the richer request type.
+        $request = $this->validatedAuthorizationRequest(scopes: [new ScopeEntity('profile')]);
+
+        $this->assertInstanceOf(OAuth2AuthorizationRequest::class, $request);
+        $this->assertNotInstanceOf(AuthorizationRequest::class, $request);
+    }
+
+    public function testReturnsAnOidcRequestWhenTheOpenidScopeIsRequested(): void
+    {
+        $this->assertInstanceOf(AuthorizationRequest::class, $this->validatedAuthorizationRequest());
+    }
+
+    public function testReturnsAnOidcRequestForACredentialRequestWithoutTheOpenidScope(): void
+    {
+        // A wallet asking for a credential does not send openid, but still needs the OIDC request type.
+        $request = $this->validatedAuthorizationRequest(
+            scopes: [new ScopeEntity('profile')],
+            isVciRequest: true,
+        );
+
+        $this->assertInstanceOf(AuthorizationRequest::class, $request);
+        $this->assertTrue($request->isVciRequest());
+        $this->assertSame(FlowTypeEnum::VciAuthorizationCode, $request->getFlowType());
+    }
+
+    public function testCarriesTheCodeChallengeOntoTheAuthorizationRequestOnlyWhenOneWasSent(): void
+    {
+        $withPkce = $this->validatedAuthorizationRequest(
+            ruleResults: [CodeChallengeRule::class => $this->codeChallenge(), CodeChallengeMethodRule::class => 'S256'],
+        );
+
+        $this->assertSame($this->codeChallenge(), $withPkce->getCodeChallenge());
+        $this->assertSame('S256', $withPkce->getCodeChallengeMethod());
+
+        $this->setUp();
+
+        $this->assertNull($this->validatedAuthorizationRequest()->getCodeChallenge());
+    }
+
+    public function testCarriesTheAuthenticationContextParametersOntoTheAuthorizationRequest(): void
+    {
+        $idTokenHint = $this->createMock(IdTokenHint::class);
+        $idTokenHint->method('getSubject')->willReturn('the-subject');
+
+        $request = $this->validatedAuthorizationRequest(
+            nonce: 'the-nonce',
+            ruleResults: [
+                MaxAgeRule::class => 1_700_000_000,
+                RequestedClaimsRule::class => ['userinfo' => ['email' => null]],
+                AcrValuesRule::class => ['urn:mace:incommon:iap:silver'],
+                UiLocalesRule::class => 'hr en',
+                LoginHintRule::class => 'user@example.org',
+                IdTokenHintRule::class => $idTokenHint,
+                IssuerStateRule::class => 'issuer-state-value',
+            ],
+        );
+
+        $this->assertSame('the-nonce', $request->getNonce());
+        $this->assertSame(1_700_000_000, $request->getAuthTime());
+        $this->assertSame(['userinfo' => ['email' => null]], $request->getClaims());
+        $this->assertSame(['urn:mace:incommon:iap:silver'], $request->getRequestedAcrValues());
+        $this->assertSame('hr en', $request->getUiLocales());
+        $this->assertSame('user@example.org', $request->getLoginHint());
+        $this->assertSame('the-subject', $request->getIdTokenHintSubject());
+        $this->assertSame('issuer-state-value', $request->getIssuerState());
+    }
+
+    public function testDoesNotLogTheLoginHintValue(): void
+    {
+        // login_hint is routinely an email address or a username, so only its presence may be recorded.
+        $loginHint = 'someone@example.org';
+
+        $this->validatedAuthorizationRequest(ruleResults: [LoginHintRule::class => $loginHint]);
+
+        $this->assertSecretsWereNotLogged($loginHint);
+    }
+
+    public function testBindsTheUsedClientIdAndRedirectUriWhenTheClientIsGeneric(): void
+    {
+        // A generic client stands in for many wallets, so the identifiers actually used have to be recorded
+        // on the request; they are what the token endpoint later checks the redemption against.
+        $request = $this->validatedAuthorizationRequest(
+            client: $this->clientMock(isGeneric: true),
+            ruleResults: [ClientIdRule::class => 'wallet-client-id'],
+        );
+
+        $this->assertSame('wallet-client-id', $request->getBoundClientId());
+        $this->assertSame(self::REDIRECT_URI, $request->getBoundRedirectUri());
+    }
+
+    public function testDoesNotBindClientIdentifiersForARegisteredClient(): void
+    {
+        $request = $this->validatedAuthorizationRequest();
+
+        $this->assertNull($request->getBoundClientId());
+        $this->assertNull($request->getBoundRedirectUri());
+    }
+
+    public function testAddsCredentialConfigurationIdsFromAuthorizationDetailsToTheScopes(): void
+    {
+        $authorizationDetails = [
+            ['type' => 'openid_credential', 'credential_configuration_id' => 'UniversityDegree'],
+            ['type' => 'something_else', 'credential_configuration_id' => 'Ignored'],
+        ];
+
+        $request = $this->validatedAuthorizationRequest(
+            ruleResults: [AuthorizationDetailsRule::class => $authorizationDetails],
+        );
+
+        $scopeIdentifiers = array_map(
+            static fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(),
+            $request->getScopes(),
+        );
+
+        $this->assertContains('UniversityDegree', $scopeIdentifiers);
+        $this->assertNotContains('Ignored', $scopeIdentifiers);
+        $this->assertSame($authorizationDetails, $request->getAuthorizationDetails());
+    }
+
+    // Authorization request completion.
+
+    public function testRefusesToCompleteAnAuthorizationRequestWithoutThisModulesUserEntity(): void
+    {
+        // The grant reads claims off the module's own UserEntity, so a bare league user entity is not
+        // enough to issue a code from, and it must say so rather than fail later on a missing method.
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setUser($this->createMock(UserEntityInterface::class));
+
+        $this->authCodeRepositoryMock->expects($this->never())->method('persistNewAuthCode');
+        $this->expectException(LogicException::class);
+
+        $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
+    }
+
+    public function testRedirectsWithAccessDeniedWhenTheUserDeclinedTheRequest(): void
+    {
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setAuthorizationApproved(false);
+
+        $this->authCodeRepositoryMock->expects($this->never())->method('persistNewAuthCode');
+
+        try {
+            $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
+            $this->fail('A declined authorization must not produce an authorization code.');
+        } catch (OAuthServerException $exception) {
+            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertSame(self::REDIRECT_URI, $exception->getRedirectUri());
+        }
+    }
+
+    public function testFallsBackToTheClientsRegisteredRedirectUriWhenTheRequestCarriesNone(): void
+    {
+        // The registered URI is the only one that was ever validated, so it is the only safe fallback.
+        $client = $this->clientMock();
+        $client->method('getRedirectUri')->willReturn([self::REDIRECT_URI, 'https://rp.example.org/other']);
+
+        $authorizationRequest = $this->approvedAuthorizationRequest($client);
+        $authorizationRequest->setRedirectUri(null);
+
+        $this->expectAuthCodeToBeIssued($client);
+
+        $response = $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
+
+        $this->assertStringStartsWith(self::REDIRECT_URI . '?', $this->redirectUriOf($response));
+    }
+
+    public function testIssuesAnAuthorizationCodeAndRedirectsBackWithItAndTheState(): void
+    {
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setState(self::STATE);
+
+        $this->expectAuthCodeToBeIssued();
+
+        $query = $this->redirectQueryOf($this->sut()->completeOidcAuthorizationRequest($authorizationRequest));
+
+        $this->assertArrayHasKey('code', $query);
+        $this->assertNotSame('', $query['code']);
+        $this->assertSame(self::STATE, $query['state'], 'The state must be echoed back untouched.');
+    }
+
+    public function testStampsTheIssuedCodeWithTheFlowItBelongsTo(): void
+    {
+        $verifiableCredentialRequest = $this->approvedAuthorizationRequest();
+        $verifiableCredentialRequest->setIsVciRequest(true);
+
+        $this->assertContains(
+            FlowTypeEnum::VciAuthorizationCode,
+            $this->argumentsTheAuthCodeWasBuiltFrom($verifiableCredentialRequest),
+        );
+
+        $this->setUp();
+
+        $this->assertContains(
+            FlowTypeEnum::OidcAuthorizationCode,
+            $this->argumentsTheAuthCodeWasBuiltFrom($this->approvedAuthorizationRequest()),
+        );
+    }
+
+    public function testRejectsAnUnexpectedAuthCodeRepositoryWhenIssuingACode(): void
+    {
+        $foreignRepository = $this->createMock(OAuth2AuthCodeRepositoryInterface::class);
+
+        $this->expectException(OAuthServerException::class);
+
+        $this->sut($foreignRepository)->completeOidcAuthorizationRequest($this->approvedAuthorizationRequest());
+    }
+
+    public function testDoesNotLogTheAuthorizationCodeItIssues(): void
+    {
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $this->expectAuthCodeToBeIssued();
+
+        $query = $this->redirectQueryOf($this->sut()->completeOidcAuthorizationRequest($authorizationRequest));
+
+        $this->assertSecretsWereNotLogged($query['code']);
+    }
+
+    public function testRoutesAnOidcAuthorizationRequestToTheOidcCompletionPath(): void
+    {
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setState(self::STATE);
+        $this->expectAuthCodeToBeIssued();
+
+        $query = $this->redirectQueryOf($this->sut()->completeAuthorizationRequest($authorizationRequest));
+
+        $this->assertArrayHasKey('code', $query);
+        $this->assertSame(self::STATE, $query['state']);
+    }
+
+    public function testUsesTheRegisteredRedirectUriWhenTheClientHasExactlyOne(): void
+    {
+        // A client may register its redirect URI as a bare string rather than a list.
+        $client = $this->clientMock();
+        $client->method('getRedirectUri')->willReturn(self::REDIRECT_URI);
+
+        $authorizationRequest = $this->approvedAuthorizationRequest($client);
+        $authorizationRequest->setRedirectUri(null);
+
+        $this->expectAuthCodeToBeIssued($client);
+
+        $this->assertStringStartsWith(
+            self::REDIRECT_URI . '?',
+            $this->redirectUriOf($this->sut()->completeOidcAuthorizationRequest($authorizationRequest)),
+        );
+    }
+
+    public function testRetriesWithAFreshIdentifierWhenTheGeneratedOneCollides(): void
+    {
+        // Identifiers are random, so a collision is rare but survivable: the grant must try again rather
+        // than fail an otherwise valid authorization. Retrying with the same identifier would collide
+        // again forever, so the identifiers themselves are what this asserts on, not just the retry count.
+        $identifiers = [];
+        $this->authCodeEntityFactoryMock->method('fromData')
+            ->willReturnCallback(function (string $identifier) use (&$identifiers): AuthCodeEntity {
+                $identifiers[] = $identifier;
+
+                return $this->authCodeEntity();
+            });
+
+        $attempts = 0;
+        $this->authCodeRepositoryMock->expects($this->exactly(2))
+            ->method('persistNewAuthCode')
+            ->willReturnCallback(function () use (&$attempts): void {
+                $attempts++;
+
+                if ($attempts === 1) {
+                    throw UniqueTokenIdentifierConstraintViolationException::create();
+                }
+            });
+
+        $query = $this->redirectQueryOf(
+            $this->sut()->completeOidcAuthorizationRequest($this->approvedAuthorizationRequest()),
+        );
+
+        $this->assertArrayHasKey('code', $query);
+        $this->assertCount(2, $identifiers);
+        $this->assertNotSame(
+            $identifiers[0],
+            $identifiers[1],
+            'A collision must be retried with a freshly generated identifier, not the one that collided.',
+        );
+    }
+
+    /**
+     * The two halves of the grant have to agree on the shape of the encrypted payload.
+     *
+     * Nothing else checks that. The authorization half writes the payload and the token half reads it back
+     * by property name, so renaming a field on one side leaves the other silently reading a missing property
+     * -- which PHP evaluates as null rather than failing. Issuing a code and then redeeming it is the only
+     * assertion that holds both sides to the same format.
+     */
+    public function testACodeIssuedForAnAuthorizationRequestIsRedeemableAtTheTokenEndpoint(): void
+    {
+        $client = $this->clientMock();
+        $authCode = $this->expectAuthCodeToBeIssued($client);
+
+        // Every optional field is populated. The reader skips a field it cannot find rather than failing,
+        // so a field left null here would make the test pass whether or not the two sides still agree on
+        // its name -- which is the whole thing being guarded against.
+        $claims = ['userinfo' => ['email' => null]];
+        $authorizationRequest = $this->approvedAuthorizationRequest($client);
+        $authorizationRequest->setCodeChallenge($this->codeChallenge());
+        $authorizationRequest->setCodeChallengeMethod('S256');
+        $authorizationRequest->setNonce('the-nonce');
+        $authorizationRequest->setAuthTime(1_700_000_000);
+        $authorizationRequest->setAcr('urn:mace:incommon:iap:silver');
+        $authorizationRequest->setSessionId('the-session-id');
+        $authorizationRequest->setClaims($claims);
+
+        $query = $this->redirectQueryOf($this->sut()->completeOidcAuthorizationRequest($authorizationRequest));
+
+        // Second half: redeem the code that was just issued, through the real token endpoint path.
+        $this->authCodeRepositoryMock->method('findById')->willReturn($authCode);
+        $this->rulesReturn(codeVerifier: self::CODE_VERIFIER);
+        $accessToken = $this->expectAccessTokenToBeIssued();
+
+        $responseType = $this->responseType();
+        $responseType->expects($this->once())->method('setAccessToken')->with($accessToken);
+        $responseType->expects($this->once())->method('setNonce')->with('the-nonce');
+        $responseType->expects($this->once())->method('setAuthTime')->with(1_700_000_000);
+        $responseType->expects($this->once())->method('setAcr')->with('urn:mace:incommon:iap:silver');
+        $responseType->expects($this->once())->method('setSessionId')->with('the-session-id');
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->request([
+                'code' => $query['code'],
+                'redirect_uri' => self::REDIRECT_URI,
+                'code_verifier' => self::CODE_VERIFIER,
+            ]),
+            $responseType,
+            new DateInterval('PT5M'),
+        );
+
+        // Claims do not reach the response type; they are carried into the access token instead.
+        $this->assertContains($claims, $this->accessTokenFactoryArguments);
+    }
+
     // Helpers.
 
     private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): AuthCodeGrant
@@ -541,6 +955,10 @@ class AuthCodeGrantTest extends TestCase
 
         $grant->setEncryptionKey($this->encryptionKey);
         $grant->setScopeRepository($this->scopeRepositoryMock);
+        // AuthorizationServerFactory registers every grant through enableGrantType(), which sets the default
+        // scope on it. Without this the property stays uninitialized, which is a state the grant never
+        // reaches in production.
+        $grant->setDefaultScope('');
 
         return $grant;
     }
@@ -761,11 +1179,199 @@ class AuthCodeGrantTest extends TestCase
         $this->requestRulesManagerMock->method('check')->willReturn($resultBag);
     }
 
+    /**
+     * Drive validateAuthorizationRequestWithRequestRules() with a full set of rule results.
+     *
+     * The method reads roughly fifteen rule results, most with getOrFail(), so every one has to be present
+     * or the failure is a missing key rather than the behavior under test. Defaults stand in for "the rule
+     * ran and found nothing"; `ruleResults` overrides individual ones by rule class.
+     *
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[]|null $scopes
+     * @param array<class-string,mixed> $ruleResults
+     */
+    private function validatedAuthorizationRequest(
+        ?array $scopes = null,
+        ?ClientEntity $client = null,
+        bool $isVciRequest = false,
+        ?string $nonce = null,
+        array $ruleResults = [],
+    ): OAuth2AuthorizationRequest {
+        $client ??= $this->clientMock();
+        $scopes ??= [new ScopeEntity('openid')];
+
+        $defaults = [
+            ScopeRule::class => $scopes,
+            CodeChallengeRule::class => null,
+            CodeChallengeMethodRule::class => null,
+            AcrValuesRule::class => null,
+            UiLocalesRule::class => null,
+            LoginHintRule::class => null,
+            IdTokenHintRule::class => null,
+            MaxAgeRule::class => null,
+            RequestedClaimsRule::class => null,
+            IssuerStateRule::class => null,
+            AuthorizationDetailsRule::class => null,
+            ClientIdRule::class => null,
+            ResponseModeRule::class => new QueryResponseMode(),
+        ];
+
+        $checked = new ResultBag();
+        foreach (array_merge($defaults, $ruleResults) as $rule => $value) {
+            // A rule class that is not imported still yields a `::class` string, just one in this namespace,
+            // and the bag would then be missing the entry the grant asks for. Fail on the cause instead.
+            $this->assertTrue(class_exists($rule), sprintf('Rule class "%s" does not exist.', $rule));
+
+            $checked->add(new Result($rule, $value));
+        }
+
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->method('check')->willReturn($checked);
+
+        $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
+        $this->resolverReturnsTheRequestBody($this->requestParamsResolverMock);
+        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequest')->willReturn($isVciRequest);
+        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
+            ->willReturnCallback(
+                static fn(string $parameter): ?string => $parameter === ParamsEnum::Nonce->value ? $nonce : null,
+            );
+
+        // What the caller has already resolved before these rules run.
+        $incoming = new ResultBag();
+        $incoming->add(new Result(ClientRedirectUriRule::class, self::REDIRECT_URI));
+        $incoming->add(new Result(StateRule::class, self::STATE));
+        $incoming->add(new Result(ClientRule::class, $client));
+        $incoming->add(new Result(ResponseModeRule::class, new QueryResponseMode()));
+
+        return $this->sut()->validateAuthorizationRequestWithRequestRules($this->request([]), $incoming);
+    }
+
+    /**
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     */
+    private function oAuth2AuthorizationRequest(array $scopes): OAuth2AuthorizationRequest
+    {
+        $request = new OAuth2AuthorizationRequest();
+        $request->setScopes($scopes);
+
+        return $request;
+    }
+
+    /**
+     * An authorization request in the state the authorization screen leaves it in: a user is attached and
+     * the user approved it. Individual tests take it back apart to cover the paths that do not get here.
+     */
+    private function approvedAuthorizationRequest(?ClientEntity $client = null): AuthorizationRequest
+    {
+        $request = new AuthorizationRequest();
+        $request->setGrantTypeId('authorization_code');
+        $request->setClient($client ?? $this->clientMock());
+        $request->setRedirectUri(self::REDIRECT_URI);
+        $request->setScopes([new ScopeEntity('openid')]);
+        $request->setUser(new UserEntity(self::USER_ID, new DateTimeImmutable(), new DateTimeImmutable()));
+        $request->setAuthorizationApproved(true);
+
+        return $request;
+    }
+
+    private function clientMock(bool $isGeneric = false, ?array $grantTypes = null): ClientEntity&MockObject
+    {
+        $client = $this->createMock(ClientEntity::class);
+        $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $client->method('isGeneric')->willReturn($isGeneric);
+        $client->method('getGrantTypes')->willReturn($grantTypes ?? ['authorization_code']);
+
+        return $client;
+    }
+
+    private function authCodeEntity(?ClientEntity $client = null, bool $isRevoked = false): AuthCodeEntity
+    {
+        return new AuthCodeEntity(
+            self::AUTH_CODE_ID,
+            $client ?? $this->clientMock(),
+            [new ScopeEntity('openid')],
+            new DateTimeImmutable('+1 hour'),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            isRevoked: $isRevoked,
+            boundClientId: self::CLIENT_ID,
+            boundRedirectUri: self::REDIRECT_URI,
+        );
+    }
+
+    /**
+     * Complete the request and report what the auth code factory was called with.
+     *
+     * The grant passes several of these by name, and PHPUnit records an invocation positionally, so the
+     * arguments are returned as a flat list and asserted against by value rather than by parameter name.
+     *
+     * @return array<int,mixed>
+     */
+    private function argumentsTheAuthCodeWasBuiltFrom(AuthorizationRequest $authorizationRequest): array
+    {
+        $captured = [];
+
+        $this->authCodeEntityFactoryMock->method('fromData')
+            ->willReturnCallback(
+                function (...$arguments) use (&$captured): AuthCodeEntity {
+                    $captured = $arguments;
+
+                    return $this->authCodeEntity();
+                },
+            );
+
+        $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
+
+        return $captured;
+    }
+
+    private function expectAuthCodeToBeIssued(?ClientEntity $client = null): AuthCodeEntity
+    {
+        $authCode = $this->authCodeEntity($client);
+
+        $this->authCodeEntityFactoryMock->method('fromData')->willReturn($authCode);
+        $this->authCodeRepositoryMock->expects($this->once())
+            ->method('persistNewAuthCode')
+            ->with($authCode);
+
+        return $authCode;
+    }
+
+    /**
+     * The base64url encoded SHA-256 of the shared verifier, per RFC 7636 section 4.2.
+     */
+    private function codeChallenge(): string
+    {
+        return strtr(rtrim(base64_encode(hash('sha256', self::CODE_VERIFIER, true)), '='), '+/', '-_');
+    }
+
+    private function redirectUriOf(AbstractResponseType $response): string
+    {
+        return $response->generateHttpResponse(new Response())->getHeaderLine('location');
+    }
+
+    /**
+     * The query parameters the client is redirected back with.
+     *
+     * @return array<string,string>
+     */
+    private function redirectQueryOf(AbstractResponseType $response): array
+    {
+        parse_str((string)parse_url($this->redirectUriOf($response), PHP_URL_QUERY), $query);
+
+        /** @var array<string,string> $query */
+        return $query;
+    }
+
     private function expectAccessTokenToBeIssued(): AccessTokenEntity&MockObject
     {
         $accessToken = $this->createMock(AccessTokenEntity::class);
 
-        $this->accessTokenEntityFactoryMock->method('fromData')->willReturn($accessToken);
+        $this->accessTokenEntityFactoryMock->method('fromData')
+            ->willReturnCallback(function (...$arguments) use ($accessToken): AccessTokenEntity {
+                $this->accessTokenFactoryArguments = $arguments;
+
+                return $accessToken;
+            });
         $this->accessTokenRepositoryMock->expects($this->once())
             ->method('persistNewAccessToken')
             ->with($accessToken);
