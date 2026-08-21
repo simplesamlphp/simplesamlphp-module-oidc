@@ -9,23 +9,27 @@
 ![Main screen capture](docs/oidc.png)
 
 ## Documentation
+
 To get started, refer to module [documentation](docs/1-oidc.md).
 
 ## Authors & Acknowledgements
 
 ### Original Author
+
 * **Sergio Gómez** ([Universidad de Córdoba](https://www.uco.es) / [RedIRIS](https://www.rediris.es)) — Initial author and creator of the module.
-In 2021, the module was transfered to the official SimpleSAMLphp organization.
+  In 2021, the module was transferred to the official SimpleSAMLphp organization.
 
 ### Maintainers & Core Contributors
+
 * **Marko Ivančić** ([SRCE - University Computing Centre, University of Zagreb](https://www.srce.unizg.hr))
 * **Patrick Radtke** ([Cirrus Identity](https://www.cirrusidentity.com))
 
 Big chunk of work on the module is or was supported by the **GÉANT Trust & Identity Incubator** project,
-funded by the European Union. 
+funded by the European Union.
 
 ### Supported By
 
+<!-- markdownlint-disable MD033 -->
 <p align="center">
   <a href="https://simplesamlphp.org" target="_blank">
     <img src="docs/images/logos/simplesamlphp.svg" alt="SimpleSAMLphp" height="48" style="vertical-align: middle; margin: 10px 20px;">
@@ -43,3 +47,4 @@ funded by the European Union.
     <img src="docs/images/logos/cirrus-identity.svg" alt="Cirrus Identity" height="48" style="vertical-align: middle; margin: 10px 20px;">
   </a>
 </p>
+<!-- markdownlint-enable MD033 -->
