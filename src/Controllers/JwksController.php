@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers;
 
-use Laminas\Diactoros\Response\JsonResponse;
-use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Jwks;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class JwksController
 {
     public function __construct(
-        protected readonly PsrHttpBridge $psrHttpBridge,
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Jwks $jwks,
+        protected readonly Routes $routes,
     ) {
     }
 
@@ -39,7 +39,7 @@ class JwksController
         ? $this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys()
         : [];
 
-        return new JsonResponse(
+        return $this->routes->newJsonResponse(
             $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
                 ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
                 ...$federationPublicKeys,
@@ -84,7 +84,7 @@ class JwksController
 
     public function jwks(): Response
     {
-        $response = $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($this->__invoke());
+        $response = $this->__invoke();
         $response->headers->set('Access-Control-Allow-Origin', '*');
         return $response;
     }

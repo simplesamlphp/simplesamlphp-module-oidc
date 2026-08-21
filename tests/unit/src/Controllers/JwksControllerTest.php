@@ -4,17 +4,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
-use Laminas\Diactoros\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jwks\Factories\JwksDecoratorFactory;
 use SimpleSAML\OpenID\Jwks\JwksDecorator;
-use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\JwksController
@@ -23,11 +21,7 @@ class JwksControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
     protected MockObject $jwks;
-    protected MockObject $serverRequestMock;
-    protected MockObject $psrHttpBridgeMock;
-    protected MockObject $symfonyResponseMock;
-    protected MockObject $responseHeaderBagMock;
-    protected MockObject $httpFoundationFactoryMock;
+    protected MockObject $routesMock;
     protected MockObject $jwksDecoratorFactoryMock;
     protected MockObject $jwksDecoratorMock;
 
@@ -38,16 +32,15 @@ class JwksControllerTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->jwks = $this->createMock(Jwks::class);
-        $this->serverRequestMock = $this->createMock(ServerRequest::class);
-        $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
-
-        $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
-        $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
-        $this->symfonyResponseMock->headers = $this->responseHeaderBagMock;
-
-        $this->httpFoundationFactoryMock = $this->createMock(HttpFoundationFactory::class);
-        $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
-        $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
+        $this->routesMock = $this->createMock(Routes::class);
+        $this->routesMock->method('newJsonResponse')->willReturnCallback(
+            fn (
+                array|null $data = null,
+                int $status = 200,
+                array $headers = [],
+                bool $json = false,
+            ) => new JsonResponse($data, $status, $headers, $json),
+        );
 
         $this->jwksDecoratorMock = $this->createMock(JwksDecorator::class);
         $this->jwksDecoratorFactoryMock = $this->createMock(JwksDecoratorFactory::class);
@@ -57,18 +50,18 @@ class JwksControllerTest extends TestCase
     }
 
     protected function mock(
-        ?PsrHttpBridge $psrHttpBridge = null,
         ?ModuleConfig $moduleConfig = null,
         ?Jwks $jwks = null,
+        ?Routes $routes = null,
     ): JwksController {
-        $psrHttpBridge ??= $this->psrHttpBridgeMock;
         $moduleConfig ??= $this->moduleConfigMock;
         $jwks ??= $this->jwks;
+        $routes ??= $this->routesMock;
 
         return new JwksController(
-            $psrHttpBridge,
             $moduleConfig,
             $jwks,
+            $routes,
         );
     }
 
@@ -97,15 +90,14 @@ class JwksControllerTest extends TestCase
 
         $this->assertSame(
             $keys,
-            $this->mock()->__invoke()->getPayload(),
+            json_decode((string) $this->mock()->__invoke()->getContent(), true),
         );
     }
 
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {
-        $this->responseHeaderBagMock->expects($this->once())->method('set')
-            ->with('Access-Control-Allow-Origin', '*');
-
-        $this->mock()->jwks();
+        $response = $this->mock()->jwks();
+        $this->assertTrue($response->headers->has('Access-Control-Allow-Origin'));
+        $this->assertSame('*', $response->headers->get('Access-Control-Allow-Origin'));
     }
 }

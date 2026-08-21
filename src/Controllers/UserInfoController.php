@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers;
 
-use Laminas\Diactoros\Response\JsonResponse;
 use League\OAuth2\Server\Exception\OAuthServerException;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
@@ -19,6 +17,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -34,6 +33,7 @@ class UserInfoController
         private readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         private readonly PsrHttpBridge $psrHttpBridge,
         private readonly ErrorResponder $errorResponder,
+        private readonly Routes $routes,
     ) {
     }
 
@@ -42,11 +42,11 @@ class UserInfoController
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
-    public function __invoke(ServerRequestInterface $request): ResponseInterface
+    public function __invoke(ServerRequestInterface $request): Response
     {
         // Check if this is actually a CORS preflight request...
         if (strtoupper($request->getMethod()) === 'OPTIONS') {
-            return $this->handleCors($request);
+            return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($this->handleCors($request));
         }
 
         $authorization = $this->resourceServer->validateAuthenticatedRequest($request);
@@ -70,19 +70,13 @@ class UserInfoController
         );
         $claims = array_merge($additionalClaims, $claims);
 
-        return new JsonResponse($claims);
+        return $this->routes->newJsonResponse($claims);
     }
 
     public function userInfo(Request $request): Response
     {
         try {
-            /**
-             * @psalm-suppress DeprecatedMethod Until we drop support for old public/*.php routes, we need to bridge
-             * between PSR and Symfony HTTP messages.
-             */
-            $response = $this->psrHttpBridge->getHttpFoundationFactory()->createResponse(
-                $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request)),
-            );
+            $response = $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request));
 
             // If not already handled, allow CORS (for JS clients).
             if (!$response->headers->has('Access-Control-Allow-Origin')) {

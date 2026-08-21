@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 
-use Laminas\Diactoros\ServerRequest;
-use Laminas\Diactoros\StreamFactory;
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -49,7 +49,7 @@ class BearerTokenValidatorTest extends TestCase
     public function setUp(): void
     {
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
-        $this->serverRequest = new ServerRequest();
+        $this->serverRequest = new ServerRequest('GET', '/');
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn('issuer123');
 
@@ -139,7 +139,7 @@ class BearerTokenValidatorTest extends TestCase
     public function testValidatesForPostBodyParam()
     {
         $bodyArray = ['access_token' => $this->accessToken];
-        $tempStream = (new StreamFactory())->createStream(http_build_query($bodyArray));
+        $tempStream = (new Psr17Factory())->createStream(http_build_query($bodyArray));
 
         $serverRequest = $this->serverRequest
             ->withMethod('POST')

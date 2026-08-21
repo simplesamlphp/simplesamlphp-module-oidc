@@ -11,11 +11,11 @@ services:
       League\OAuth2\Server\Repositories\ScopeRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ScopeRepository'
       League\OAuth2\Server\CryptKey|string $privateKey: '@oidc.key.private'
       League\OAuth2\Server\CryptKey|string $publicKey: '@oidc.key.public'
-      Psr\Http\Message\ServerRequestFactoryInterface: '@Laminas\Diactoros\ServerRequestFactory'
-      Psr\Http\Message\RequestFactoryInterface: '@Laminas\Diactoros\RequestFactory'
-      Psr\Http\Message\ResponseFactoryInterface: '@Laminas\Diactoros\ResponseFactory'
-      Psr\Http\Message\StreamFactoryInterface: '@Laminas\Diactoros\StreamFactory'
-      Psr\Http\Message\UploadedFileFactoryInterface: '@Laminas\Diactoros\UploadedFileFactory'
+      Psr\Http\Message\ServerRequestFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
+      Psr\Http\Message\RequestFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
+      Psr\Http\Message\ResponseFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
+      Psr\Http\Message\StreamFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
+      Psr\Http\Message\UploadedFileFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
       League\OAuth2\Server\AuthorizationValidators\AuthorizationValidatorInterface: '@SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator'
 
   SimpleSAML\Module\oidc\Controllers\:
@@ -142,12 +142,8 @@ services:
   SimpleSAML\Module\oidc\Utils\ProtocolCache:
     factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forProtocol'] # Can return null
 
-  # Use (already available) Laminas\Diactoros package as PSR HTTP Factories.
-  Laminas\Diactoros\ServerRequestFactory: ~
-  Laminas\Diactoros\RequestFactory: ~
-  Laminas\Diactoros\ResponseFactory: ~
-  Laminas\Diactoros\StreamFactory: ~
-  Laminas\Diactoros\UploadedFileFactory: ~
+  # Use Nyholm\Psr7 package as PSR HTTP Factories.
+  Nyholm\Psr7\Factory\Psr17Factory: ~
 
   # Symfony
   Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory: ~

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
-use Laminas\Diactoros\ServerRequest;
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
@@ -20,7 +21,10 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
@@ -39,10 +43,12 @@ class UserInfoControllerTest extends TestCase
     protected MockObject $userEntityMock;
     protected MockObject $psrHttpBridgeMock;
     protected MockObject $errorResponderMock;
+    protected MockObject $routesMock;
     protected MockObject $symfonyRequestMock;
     protected MockObject $symfonyResponseMock;
     protected MockObject $responseHeaderBagMock;
     protected MockObject $httpFoundationFactoryMock;
+    protected MockObject $psrHttpFactoryMock;
 
     protected function setUp(): void
     {
@@ -60,6 +66,16 @@ class UserInfoControllerTest extends TestCase
         $this->psrHttpBridgeMock = $this->createMock(PsrHttpBridge::class);
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
 
+        $this->routesMock = $this->createMock(Routes::class);
+        $this->routesMock->method('newJsonResponse')->willReturnCallback(
+            fn (
+                array|null $data = null,
+                int $status = 200,
+                array $headers = [],
+                bool $json = false,
+            ) => new JsonResponse($data, $status, $headers, $json),
+        );
+
         $this->symfonyRequestMock = $this->createMock(\Symfony\Component\HttpFoundation\Request::class);
         $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
         $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
@@ -68,6 +84,10 @@ class UserInfoControllerTest extends TestCase
         $this->httpFoundationFactoryMock = $this->createMock(HttpFoundationFactory::class);
         $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
         $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
+
+        $this->psrHttpFactoryMock = $this->createMock(PsrHttpFactory::class);
+        $this->psrHttpFactoryMock->method('createRequest')->willReturn($this->serverRequestMock);
+        $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($this->psrHttpFactoryMock);
     }
 
     protected function mock(): UserInfoController
@@ -80,6 +100,7 @@ class UserInfoControllerTest extends TestCase
             $this->claimTranslatorExtractorMock,
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
+            $this->routesMock,
         );
     }
 
@@ -92,11 +113,11 @@ class UserInfoControllerTest extends TestCase
     }
 
     /**
-     * @throws \SimpleSAML\Error\UserNotFound
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \SimpleSAML\Error\UserNotFound
      */
-    public function testItReturnsUserClaims(): void
+    public function testItReturnsExtractedClaims(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('GET');
         $this->authorizationServerRequestMock
@@ -150,9 +171,11 @@ class UserInfoControllerTest extends TestCase
             ->with([], ['mail' => ['userid@localhost.localdomain']])
             ->willReturn([]);
 
+        $response = $this->mock()->__invoke($this->serverRequestMock);
+        $this->assertInstanceOf(JsonResponse::class, $response);
         $this->assertSame(
             ['email' => 'userid@localhost.localdomain'],
-            $this->mock()->__invoke($this->serverRequestMock)->getPayload(),
+            json_decode((string) $response->getContent(), true),
         );
     }
 
@@ -238,13 +261,29 @@ class UserInfoControllerTest extends TestCase
     public function testItHandlesCorsRequest(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
+        $corsResponseMock = $this->createMock(ResponseInterface::class);
+
         $userInfoControllerMock = $this->getMockBuilder(UserInfoController::class)
-            ->disableOriginalConstructor()
+            ->setConstructorArgs([
+                $this->resourceServerMock,
+                $this->accessTokenRepositoryMock,
+                $this->userRepositoryMock,
+                $this->allowedOriginRepositoryMock,
+                $this->claimTranslatorExtractorMock,
+                $this->psrHttpBridgeMock,
+                $this->errorResponderMock,
+                $this->routesMock,
+            ])
             ->onlyMethods(['handleCors'])
             ->getMock();
-        $userInfoControllerMock->expects($this->once())->method('handleCors');
 
-        $userInfoControllerMock->__invoke($this->serverRequestMock);
+        $userInfoControllerMock->expects($this->once())
+            ->method('handleCors')
+            ->with($this->serverRequestMock)
+            ->willReturn($corsResponseMock);
+
+        $response = $userInfoControllerMock->__invoke($this->serverRequestMock);
+        $this->assertSame($this->symfonyResponseMock, $response);
     }
 
     public function testItUsesRequestTrait(): void
@@ -254,9 +293,6 @@ class UserInfoControllerTest extends TestCase
 
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {
-        $this->responseHeaderBagMock->expects($this->once())->method('set')
-            ->with('Access-Control-Allow-Origin', '*');
-
         $this->authorizationServerRequestMock
             ->expects($this->atLeast(2))
             ->method('getAttribute')
@@ -308,6 +344,8 @@ class UserInfoControllerTest extends TestCase
             ->with([], ['mail' => ['userid@localhost.localdomain']])
             ->willReturn([]);
 
-        $this->mock()->userInfo($this->symfonyRequestMock);
+        $response = $this->mock()->userInfo($this->symfonyRequestMock);
+        $this->assertTrue($response->headers->has('Access-Control-Allow-Origin'));
+        $this->assertSame('*', $response->headers->get('Access-Control-Allow-Origin'));
     }
 }

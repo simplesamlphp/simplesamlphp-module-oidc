@@ -6,8 +6,8 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseTypes;
 
 use DateTimeImmutable;
 use Exception;
-use Laminas\Diactoros\Response;
 use League\OAuth2\Server\CryptKey;
+use Nyholm\Psr7\Response;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;

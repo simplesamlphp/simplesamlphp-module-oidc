@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseModes;
 
-use Laminas\Diactoros\Response;
+use Nyholm\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
