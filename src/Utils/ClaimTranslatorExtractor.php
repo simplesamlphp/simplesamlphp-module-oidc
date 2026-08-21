@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils;
 
-use Lcobucci\JWT\Token\RegisteredClaims;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface;
@@ -26,7 +25,13 @@ class ClaimTranslatorExtractor
      * From JSON Web Token Claims registry: https://www.iana.org/assignments/jwt/jwt.xhtml
      */
     final public const array REGISTERED_CLAIMS = [
-        ...RegisteredClaims::ALL,
+        'iss',
+        'sub',
+        'aud',
+        'exp',
+        'nbf',
+        'iat',
+        'jti',
         'azp',
         'nonce',
         'auth_time',

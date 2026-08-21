@@ -4,18 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
-use Lcobucci\JWT\Configuration;
-use Lcobucci\JWT\Signer\Key\InMemory;
-use Lcobucci\JWT\Signer\Rsa\Sha256;
-use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
-use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
@@ -25,7 +21,6 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\IdToken;
-use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule
@@ -37,30 +32,14 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     protected Stub $resultBagStub;
     protected Stub $clientStub;
 
-    protected static string $certFolder;
-    protected static string $privateKeyPath;
-    protected static string $publicKeyPath;
-    protected static CryptKey $privateKey;
-    protected static CryptKey $publicKey;
-
     protected static string $postLogoutRedirectUri = 'https://redirect.org/uri';
     protected static string $issuer = 'https://example.org';
-    private Configuration $jwtConfig;
 
     protected Stub $loggerServiceStub;
     protected Stub $requestParamsResolverStub;
     protected Helpers $helpers;
     protected MockObject $idTokenMock;
     protected Stub $responseModeStub;
-
-    public static function setUpBeforeClass(): void
-    {
-        self::$certFolder = dirname(__DIR__, 5) . '/cert/';
-        self::$privateKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_PRIVATE_KEY_FILENAME;
-        self::$publicKeyPath = self::$certFolder . ModuleConfig::DEFAULT_PKI_CERTIFICATE_FILENAME;
-        self::$privateKey = new CryptKey(self::$privateKeyPath, null, false);
-        self::$publicKey = new CryptKey(self::$publicKeyPath, null, false);
-    }
 
     /**
      * @throws \Exception
@@ -72,12 +51,6 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestStub->method('getMethod')->willReturn('GET');
         $this->resultBagStub = $this->createStub(ResultBagInterface::class);
         $this->clientStub = $this->createStub(ClientEntityInterface::class);
-
-        $this->jwtConfig = Configuration::forAsymmetricSigner(
-            new Sha256(),
-            InMemory::plainText(self::$privateKey->getKeyContents()),
-            InMemory::plainText(self::$publicKey->getKeyContents()),
-        );
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
@@ -159,18 +132,14 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn(self::$postLogoutRedirectUri);
 
-        $jwt = $this->jwtConfig->builder()->issuedBy(self::$issuer)
-            ->getToken(
-                new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents()),
-            );
+        $this->idTokenMock->method('getAudience')->willReturn([]);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt),
+            new Result(IdTokenHintRule::class, $this->idTokenMock),
         );
 
-        $this->expectException(Throwable::class);
+        $this->expectException(OidcServerException::class);
 
         $this->sut()->checkRule(
             $this->requestStub,
@@ -189,22 +158,17 @@ class PostLogoutRedirectUriRuleTest extends TestCase
     {
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn(self::$postLogoutRedirectUri);
-        $jwt = $this->jwtConfig->builder()
-            ->issuedBy(self::$issuer)
-            ->permittedFor('invalid-client-id')
-            ->getToken(
-                new Sha256(),
-                InMemory::plainText(self::$privateKey->getKeyContents()),
-            );
+
+        $this->idTokenMock->method('getAudience')->willReturn(['invalid-client-id']);
 
         $this->clientRepositoryStub->method('findById')->willReturn(null);
 
         $this->resultBagStub->method('getOrFail')->willReturnOnConsecutiveCalls(
             new Result(StateRule::class),
-            new Result(IdTokenHintRule::class, $jwt),
+            new Result(IdTokenHintRule::class, $this->idTokenMock),
         );
 
-        $this->expectException(Throwable::class);
+        $this->expectException(OidcServerException::class);
 
         $this->sut()->checkRule(
             $this->requestStub,
@@ -238,7 +202,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             new Result(IdTokenHintRule::class, $this->idTokenMock),
         );
 
-        $this->expectException(Throwable::class);
+        $this->expectException(OidcServerException::class);
 
         $this->sut()->checkRule(
             $this->requestStub,

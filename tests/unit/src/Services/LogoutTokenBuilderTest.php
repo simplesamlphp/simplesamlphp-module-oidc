@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
-use Lcobucci\JWT\Signer\Rsa\Sha256;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Factories\CoreFactory;
@@ -25,12 +24,6 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
  */
 class LogoutTokenBuilderTest extends TestCase
 {
-    private static string $certFolder;
-    private static string $privateKeyPath;
-    private static string $publicKeyPath;
-    private static Sha256 $signerSha256;
-    private static string $selfUrlHost = 'https://example.org';
-
     private static string $clientId = 'client123';
     private static string $userId = 'user123';
     private static string $sessionId = 'session123';
