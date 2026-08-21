@@ -83,7 +83,7 @@
     },
     "scripts": {
         "pre-commit": [
-            "vendor/bin/phpcbf -pn",
+            "vendor/bin/phpcbf -pn || true",
             "vendor/bin/phpcs -p",
             "vendor/bin/psalm",
             "vendor/bin/phpunit"

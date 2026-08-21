@@ -1,24 +1,14 @@
 <?php
 
-declare(strict_types=1);
-
-/*
- * This file is part of the simplesamlphp-module-oidc.
- *
- * Copyright (C) 2018 by the Spanish Research and Academic Network.
- *
- * This code was developed by Universidad de Córdoba (UCO https://www.uco.es)
- * for the RedIRIS SIR service (SIR: http://www.rediris.es/sir)
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- *
+/**
  * This file contains modified code from the 'steverhoades/oauth2-openid-connect-server' library
  * (https://github.com/steverhoades/oauth2-openid-connect-server), with original author, copyright notice and licence:
  * @author Steve Rhoades <sedonami@gmail.com>
  * @copyright (c) 2018 Steve Rhoades <sedonami@gmail.com>
  * @license http://opensource.org/licenses/MIT MIT
  */
+
+declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils;
 

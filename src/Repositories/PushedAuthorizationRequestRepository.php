@@ -2,15 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * This file is part of the simplesamlphp-module-oidc.
- *
- * Copyright (C) 2026 by the Spanish Research and Academic Network.
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace SimpleSAML\Module\oidc\Repositories;
 
 use PDO;
