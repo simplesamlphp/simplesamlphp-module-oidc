@@ -374,9 +374,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // OAuth2 implementation
         //[$clientId] = $this->getClientCredentials($request);
 
+        // Log parameter names only, never their values.
         $this->loggerService->debug(
             'AuthCodeGrant::respondToAccessTokenRequest',
-            $this->requestParamsResolver->getAllBasedOnAllowedMethods($request, $this->allowedTokenHttpMethods),
+            [
+                'params' => array_keys(
+                    $this->requestParamsResolver->getAllBasedOnAllowedMethods(
+                        $request,
+                        $this->allowedTokenHttpMethods,
+                    ),
+                ),
+            ],
         );
 
         $encryptedAuthCode = $this->getRequestParameter('code', $request);
