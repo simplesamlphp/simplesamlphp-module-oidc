@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use DateTimeImmutable;
+use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
@@ -21,6 +23,11 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\Factories\IdTokenFactory;
 use SimpleSAML\OpenID\Core\IdToken;
+use SimpleSAML\OpenID\Helpers;
+use SimpleSAML\OpenID\Helpers\Base64Url;
+use SimpleSAML\OpenID\Helpers\DateTime;
+use SimpleSAML\OpenID\Helpers\Random;
+use SimpleSAML\OpenID\Helpers\Type;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
@@ -57,13 +64,11 @@ class IdTokenBuilderTest extends TestCase
         $this->protocolSignatureKeyBagMock->method('getFirstOrFail')
             ->willReturn($this->protocolSignatureKeyPairMock);
 
-
         $this->idTokenFactoryMock = $this->createMock(IdTokenFactory::class);
         $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
 
         $this->userEntityMock = $this->createMock(UserEntity::class);
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
-
 
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
         $this->accessTokenEntityMock->method('getClient')->willReturn($this->clientEntityMock);
@@ -144,13 +149,13 @@ class IdTokenBuilderTest extends TestCase
         $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
 
         // The `sub` payload value passes through the type helper, so make it return the value it is given.
-        $typeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Type::class);
+        $typeHelperMock = $this->createMock(Type::class);
         $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
-        $dateTimeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\DateTime::class);
+        $dateTimeHelperMock = $this->createMock(DateTime::class);
         $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
-        $randomHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Random::class);
+        $randomHelperMock = $this->createMock(Random::class);
         $randomHelperMock->method('string')->willReturn('random-jti');
-        $openIdHelpersMock = $this->createMock(\SimpleSAML\OpenID\Helpers::class);
+        $openIdHelpersMock = $this->createMock(Helpers::class);
         $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
         $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
         $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
@@ -195,13 +200,13 @@ class IdTokenBuilderTest extends TestCase
         $this->userEntityMock->method('getIdentifier')->willReturn('0');
         $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['0']]);
 
-        $typeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Type::class);
+        $typeHelperMock = $this->createMock(Type::class);
         $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
-        $dateTimeHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\DateTime::class);
+        $dateTimeHelperMock = $this->createMock(DateTime::class);
         $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
-        $randomHelperMock = $this->createMock(\SimpleSAML\OpenID\Helpers\Random::class);
+        $randomHelperMock = $this->createMock(Random::class);
         $randomHelperMock->method('string')->willReturn('random-jti');
-        $openIdHelpersMock = $this->createMock(\SimpleSAML\OpenID\Helpers::class);
+        $openIdHelpersMock = $this->createMock(Helpers::class);
         $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
         $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
         $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
@@ -264,7 +269,7 @@ class IdTokenBuilderTest extends TestCase
     public function testThrowsForInvalidUserEntity(): void
     {
         $userEntityInterfaceMock = $this->createMock(UserEntityInterface::class);
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('ClaimSetInterface');
 
         $this->sut()->buildFor(
@@ -286,7 +291,7 @@ class IdTokenBuilderTest extends TestCase
             $this->createMock(\League\OAuth2\Server\Entities\ClientEntityInterface::class),
         );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('ClientEntity');
 
         $this->sut()->buildFor(
@@ -299,5 +304,65 @@ class IdTokenBuilderTest extends TestCase
             null,
             null,
         );
+    }
+
+    public function testGenerateAccessTokenHash(): void
+    {
+        $accessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $accessTokenMock->method('toString')->willReturn('jHkWEdUXMU1BOmNcgmVMJw');
+
+        $base64UrlHelper = new Base64Url();
+        $helpersMock = $this->createMock(Helpers::class);
+        $helpersMock->method('base64Url')->willReturn($base64UrlHelper);
+        $this->coreMock->method('helpers')->willReturn($helpersMock);
+
+        $expectedAtHash = $base64UrlHelper->encode(
+            substr(hash('sha256', 'jHkWEdUXMU1BOmNcgmVMJw', true), 0, 16),
+        );
+
+        $this->assertSame(
+            $expectedAtHash,
+            $this->sut()->generateAccessTokenHash($accessTokenMock, 'RS256'),
+        );
+    }
+
+    public function testGenerateAccessTokenHashWithEdDsa(): void
+    {
+        $accessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $accessTokenMock->method('toString')->willReturn('jHkWEdUXMU1BOmNcgmVMJw');
+
+        $base64UrlHelper = new Base64Url();
+        $helpersMock = $this->createMock(Helpers::class);
+        $helpersMock->method('base64Url')->willReturn($base64UrlHelper);
+        $this->coreMock->method('helpers')->willReturn($helpersMock);
+
+        $expectedAtHash = $base64UrlHelper->encode(
+            substr(hash('sha512', 'jHkWEdUXMU1BOmNcgmVMJw', true), 0, 32),
+        );
+
+        $this->assertSame(
+            $expectedAtHash,
+            $this->sut()->generateAccessTokenHash($accessTokenMock, SignatureAlgorithmEnum::EdDSA->value),
+        );
+    }
+
+    public function testGenerateAccessTokenHashThrowsForUnsupportedAlgorithm(): void
+    {
+        $accessTokenMock = $this->createMock(AccessTokenEntity::class);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('JWS algorithm not supported');
+
+        $this->sut()->generateAccessTokenHash($accessTokenMock, 'UNSUPPORTED');
+    }
+
+    public function testGenerateAccessTokenHashThrowsWhenNotEntityStringRepresentationInterface(): void
+    {
+        $accessTokenMock = $this->createMock(AccessTokenEntityInterface::class);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('AccessTokenEntity must implement');
+
+        $this->sut()->generateAccessTokenHash($accessTokenMock, 'RS256');
     }
 }
