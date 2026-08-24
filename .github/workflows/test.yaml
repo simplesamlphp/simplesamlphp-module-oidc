@@ -21,7 +21,7 @@ jobs:
         with:
           php-version: ${{ matrix.php-versions }}
           extensions: mbstring, xml
-          tools: composer:v2, phpcov
+          tools: composer:v2
           coverage: pcov
 
       - name: Setup problem matchers for PHP
@@ -72,7 +72,7 @@ jobs:
       - name: Merge coverage data
         if: ${{ matrix.php-versions == '8.5' }}
         run: |
-          phpcov merge --clover build/logs/clover.xml build/logs/partial_clover/
+          ./vendor/bin/phpcov merge --clover build/logs/clover.xml build/logs/partial_clover/
 
       - name: Save coverage data
         if: ${{ matrix.php-versions == '8.5' }}
