@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
@@ -14,10 +15,12 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 
 #[CoversClass(GeneralOverviewBuilder::class)]
 #[CoversClass(AbstractOverviewBuilder::class)]
+#[AllowMockObjectsWithoutExpectations]
 class GeneralOverviewBuilderTest extends TestCase
 {
     use OverviewTestTrait;
     use GeneralOverviewTestTrait;
+
 
     /**
      * The prepared permissions value of the given sections.
@@ -36,6 +39,7 @@ class GeneralOverviewBuilderTest extends TestCase
         return $value;
     }
 
+
     /**
      * A single prepared permission entry, by name.
      */
@@ -53,6 +57,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->fail("No permission entry named '$name' was prepared.");
     }
 
+
     /**
      * @throws \Exception
      */
@@ -60,6 +65,7 @@ class GeneralOverviewBuilderTest extends TestCase
     {
         $this->assertInstanceOf(GeneralOverviewBuilder::class, $this->buildGeneralOverviewBuilder());
     }
+
 
     /**
      * @throws \Exception
@@ -78,6 +84,7 @@ class GeneralOverviewBuilderTest extends TestCase
         }
     }
 
+
     /**
      * @throws \Exception
      */
@@ -91,6 +98,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame($anchors, array_unique($anchors));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -100,6 +108,7 @@ class GeneralOverviewBuilderTest extends TestCase
             $this->assertNotEmpty($row->getLabel());
         }
     }
+
 
     /**
      * @throws \Exception
@@ -118,6 +127,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('cron module runs this tag', (string)$row->getNote());
     }
 
+
     /**
      * Without a tag the cron hook returns before cleaning anything, so the tables grow unbounded.
      *
@@ -135,6 +145,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame(ConfigOverviewValueTypeEnum::Text, $row->getValueType());
         $this->assertStringContainsString('never', (string)$row->getWarning());
     }
+
 
     /**
      * The hook compares the configured value with the tag being run, so a value which is not a
@@ -157,6 +168,7 @@ class GeneralOverviewBuilderTest extends TestCase
         }
     }
 
+
     /**
      * A tag only ever reaches the module through the cron module's hook dispatch.
      *
@@ -176,6 +188,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame('hourly', $row->getValue());
         $this->assertStringContainsString('cron module is not enabled', (string)$row->getWarning());
     }
+
 
     /**
      * Cron::runTag() refuses a tag which is not allowed, so the hook is never reached. Nothing in
@@ -200,6 +213,7 @@ class GeneralOverviewBuilderTest extends TestCase
             (string)$row->getWarning(),
         );
     }
+
 
     /**
      * Cron::isValidTag() reads the allowed tags as a required option, so an absent one is not read
@@ -226,6 +240,7 @@ class GeneralOverviewBuilderTest extends TestCase
         }
     }
 
+
     /**
      * @throws \Exception
      */
@@ -243,6 +258,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertStringNotContainsString('Not set', (string)$row->getNote());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -259,6 +275,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame('20', $row->getValue());
         $this->assertStringContainsString('Not set', (string)$row->getNote());
     }
+
 
     /**
      * ClientRepository resolves the value the same way, so an out of range value breaks the client
@@ -279,6 +296,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame('N/A', $row->getValue());
         $this->assertStringContainsString('could not be resolved', (string)$row->getWarning());
     }
+
 
     /**
      * @throws \Exception
@@ -302,6 +320,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertNull($client['ineffectiveReason']);
     }
 
+
     /**
      * The entitlements are read through getArrayizeString(), which accepts a lone string too.
      *
@@ -321,6 +340,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame(['urn:example:oidc:manage:client'], $client['entitlements']);
         $this->assertNull($client['ineffectiveReason']);
     }
+
 
     /**
      * Without an attribute to inspect, requirePermission() reports permissions as not enabled and
@@ -352,6 +372,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('permissions are off', (string)$row->getNote());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -364,6 +385,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertNull($value['attribute']);
         $this->assertSame([], $value['permissions']);
     }
+
 
     /**
      * getString() rejects a non-string attribute, which leaves the check failing for everyone.
@@ -385,6 +407,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertTrue($value['isAttributeInvalid']);
     }
 
+
     /**
      * Only the 'client' permission is ever requested, so any other key grants nothing.
      *
@@ -403,6 +426,7 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame('notChecked', $this->permissionEntry($sections, 'federation')['ineffectiveReason']);
         $this->assertNull($this->permissionEntry($sections, 'client')['ineffectiveReason']);
     }
+
 
     /**
      * A permission nobody can present an entitlement for can only ever fall back to administrator
@@ -429,6 +453,7 @@ class GeneralOverviewBuilderTest extends TestCase
         }
     }
 
+
     /**
      * The attribute names the option to read, so it must not be listed as a permission of its own.
      *
@@ -448,6 +473,7 @@ class GeneralOverviewBuilderTest extends TestCase
 
         $this->assertSame(['client'], array_column($permissions, 'name'));
     }
+
 
     /**
      * A malformed option must fail on its own row rather than take the screen down.

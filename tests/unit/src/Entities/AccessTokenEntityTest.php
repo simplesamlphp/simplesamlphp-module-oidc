@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
+use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -20,17 +22,25 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AccessTokenEntity
  */
+#[AllowMockObjectsWithoutExpectations]
 class AccessTokenEntityTest extends TestCase
 {
     protected array $state;
 
     protected string $id = '123';
+
     protected array $scopes;
+
     protected string $expiresAt;
+
     protected string $userId = 'user123';
+
     protected bool $isRevoked = false;
+
     protected string $authCodeId = 'authCode123';
+
     protected array $requestedClaims = ['key' => 'value'];
+
     protected string $clientId = 'client123';
 
     protected ClientEntity $clientEntityStub;
@@ -38,13 +48,19 @@ class AccessTokenEntityTest extends TestCase
     protected ScopeEntity $scopeEntityOpenId;
 
     protected ScopeEntity $scopeEntityProfile;
+
     protected MockObject $unencryptedTokenMock;
+
     protected DateTimeImmutable $expiryDateTime;
 
     protected MockObject $moduleConfigMock;
+
     protected MockObject $jwsMock;
+
     protected MockObject $signatureKeyPairMock;
+
     protected MockObject $signatureKeyPairBagMock;
+
 
     /**
      * @throws \Exception
@@ -67,7 +83,7 @@ class AccessTokenEntityTest extends TestCase
         ];
 
         $this->expiryDateTime = (new DateTimeImmutable('now', new DateTimeZone('UTC')))
-            ->add(new \DateInterval('PT1M'));
+            ->add(new DateInterval('PT1M'));
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->jwsMock = $this->createMock(Jws::class);
@@ -83,6 +99,7 @@ class AccessTokenEntityTest extends TestCase
         $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);
     }
+
 
     public function mock(): AccessTokenEntity
     {
@@ -100,6 +117,7 @@ class AccessTokenEntityTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(
@@ -107,6 +125,7 @@ class AccessTokenEntityTest extends TestCase
             $this->mock(),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -121,6 +140,7 @@ class AccessTokenEntityTest extends TestCase
 
         $this->assertSame($this->requestedClaims, $this->mock()->getRequestedClaims());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

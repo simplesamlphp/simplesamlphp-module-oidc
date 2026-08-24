@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Forms;
 
 use Nette\Forms\Controls\SelectBox;
 use Nette\Forms\Form;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -17,12 +18,17 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(CredentialStatusForm::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CredentialStatusFormTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $csrfProtectionMock;
+
     protected MockObject $sspBridgeMock;
+
     protected Helpers $helpers;
+
 
     protected function setUp(): void
     {
@@ -31,6 +37,7 @@ class CredentialStatusFormTest extends TestCase
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
         $this->helpers = new Helpers();
     }
+
 
     /**
      * @throws \Exception
@@ -45,6 +52,7 @@ class CredentialStatusFormTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -55,6 +63,7 @@ class CredentialStatusFormTest extends TestCase
         $this->assertNotNull($form->getComponent(CredentialStatusForm::FIELD_CREDENTIAL_ID));
         $this->assertNotNull($form->getComponent(CredentialStatusForm::FIELD_STATUS));
     }
+
 
     /**
      * CSRF protection is why this class exists at all: the markup is written out in the template, and
@@ -67,6 +76,7 @@ class CredentialStatusFormTest extends TestCase
         $this->assertSame($this->csrfProtectionMock, $this->sut()->getComponent(Form::ProtectorId));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -74,6 +84,7 @@ class CredentialStatusFormTest extends TestCase
     {
         $this->assertSame(Form::Post, $this->sut()->getMethod());
     }
+
 
     /**
      * The listing shows fewer options per row, since a list can be unable to carry a status. This
@@ -92,6 +103,7 @@ class CredentialStatusFormTest extends TestCase
         );
     }
 
+
     /**
      * The submitted value has to come back as the Status Type's own backing value, since that is what
      * the controller turns back into a Status Type.
@@ -109,6 +121,7 @@ class CredentialStatusFormTest extends TestCase
         $this->assertSame(StatusTypeEnum::Suspended->value, $status->getValue());
     }
 
+
     /**
      * "Invalid" is what the specification calls a status which every other document in this space
      * calls revoked, and an administrator should not have to know that to withdraw a credential.
@@ -119,6 +132,7 @@ class CredentialStatusFormTest extends TestCase
         $this->assertSame('Valid', CredentialStatusForm::labelFor(StatusTypeEnum::Valid));
         $this->assertSame('Suspended', CredentialStatusForm::labelFor(StatusTypeEnum::Suspended));
     }
+
 
     public function testOffersOneOptionPerStatus(): void
     {

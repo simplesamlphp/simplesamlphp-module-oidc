@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
@@ -20,15 +21,18 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 #[CoversClass(ProtocolOverviewBuilder::class)]
 #[CoversClass(Row::class)]
 #[CoversClass(Section::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ProtocolOverviewBuilderTest extends TestCase
 {
     use OverviewTestTrait;
     use ProtocolOverviewTestTrait;
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(ProtocolOverviewBuilder::class, $this->buildProtocolOverviewBuilder());
     }
+
 
     public function testCanBuildSections(): void
     {
@@ -44,6 +48,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         }
     }
 
+
     public function testSectionAnchorsAreUnique(): void
     {
         $anchors = array_map(
@@ -54,12 +59,14 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame($anchors, array_unique($anchors));
     }
 
+
     public function testEveryRowHasALabel(): void
     {
         foreach ($this->flattenRows($this->buildProtocolOverviewBuilder()->build()) as $row) {
             $this->assertNotEmpty($row->getLabel());
         }
     }
+
 
     public function testEachConfigOptionIsShownOnlyOnce(): void
     {
@@ -76,6 +83,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame($configOptions, array_unique($configOptions));
     }
 
+
     public function testRendersDurationsIncludingYears(): void
     {
         $sections = $this->buildProtocolOverviewBuilder(
@@ -87,6 +95,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame('1 year (P1Y)', $row->getValue());
     }
+
 
     public function testNotesWhenIssuerIsNotExplicitlyConfigured(): void
     {
@@ -105,6 +114,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('derived', (string)$derivedRow->getNote());
     }
 
+
     /**
      * A broken option must be reported in place rather than take the screen down, since this is the
      * screen an administrator opens to diagnose it. Mirrors the federation screen's behaviour.
@@ -122,6 +132,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
     }
 
+
     public function testReportsIssuerErrorInPlace(): void
     {
         // With no configured issuer and a host which resolves to an empty string, getIssuer() throws.
@@ -136,6 +147,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame('N/A', $row->getValue());
         $this->assertNotNull($row->getWarning());
     }
+
 
     /**
      * The destination policy options are what an administrator comes to this screen to check when
@@ -160,6 +172,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $this->findRowForOption($sections, ModuleConfig::OPTION_OUTBOUND_ADDRESS_PINNING_MODE),
         );
     }
+
 
     /**
      * Who may introspect another client's tokens is exactly the sort of thing an administrator opens
@@ -189,6 +202,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($this->findRowForOption($sections, ModuleConfig::OPTION_API_TOKENS));
     }
 
+
     /**
      * A non-string issuer makes getOptionalString() throw, which both getIssuer() and
      * isIssuerConfigured() go through. Resolving the configured state outside the guard would
@@ -207,6 +221,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         // Neither note applies: the issuer is configured, it is simply unusable.
         $this->assertNull($row->getNote());
     }
+
 
     /**
      * The scope list pulls in Verifiable Credential scopes, so a malformed VCI configuration can
@@ -234,6 +249,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNull($defaultScopesRow->getNote());
     }
 
+
     public function testDoesNotExposeConfigurationErrorDetail(): void
     {
         $loggerMock = $this->createMock(LoggerService::class);
@@ -258,6 +274,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringNotContainsString('At least one', (string)$row->getWarning());
     }
 
+
     public function testNeverExposesEncryptionKey(): void
     {
         $sections = $this->buildProtocolOverviewBuilder(
@@ -274,6 +291,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('Dedicated', (string)$row->getValue());
     }
 
+
     public function testReportsEncryptionKeyFallbackToSecretSalt(): void
     {
         $row = $this->findRowForOption(
@@ -284,6 +302,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertStringContainsString('secret salt', (string)$row->getValue());
     }
+
 
     public function testNeverExposesInitialAccessTokens(): void
     {
@@ -302,6 +321,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame('1', $row->getValue());
     }
 
+
     public function testNeverExposesApiTokens(): void
     {
         $sections = $this->buildProtocolOverviewBuilder([
@@ -314,6 +334,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $this->renderableContent($sections),
         );
     }
+
 
     public function testNeverExposesCacheAdapterArguments(): void
     {
@@ -328,6 +349,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $this->renderableContent($sections),
         );
     }
+
 
     public function testRedactsCredentialsInHttpClientOptions(): void
     {
@@ -362,6 +384,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame('(not shown)', $value['cert']);
     }
 
+
     public function testStillDetectsDisabledTlsVerificationBehindRedaction(): void
     {
         $row = $this->findRowForOption(
@@ -382,6 +405,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertFalse($value['verify']);
         $this->assertSame('(not shown)', $value['auth']);
     }
+
 
     public function testConfiguredValuesAreNotTranslatable(): void
     {
@@ -408,6 +432,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         }
     }
 
+
     public function testWarnsWhenTlsVerificationIsDisabled(): void
     {
         $sections = $this->buildProtocolOverviewBuilder([
@@ -420,6 +445,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('man-in-the-middle', (string)$row->getWarning());
     }
 
+
     public function testDoesNotWarnAboutTlsVerificationByDefault(): void
     {
         $row = $this->findRowForOption(
@@ -430,6 +456,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     public function testShowsFederationRequestUriAllowlist(): void
     {
@@ -452,6 +479,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNull($allowlistedRow->getWarning());
     }
 
+
     public function testWarnsWhenAnyFederationRequestUriIsAllowed(): void
     {
         $row = $this->findRowForOption(
@@ -465,6 +493,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertStringContainsString('server-side request forgery', (string)$row->getWarning());
     }
+
 
     public function testDoesNotWarnAboutRequestUriAllowlistWhenFetchingIsDisabled(): void
     {
@@ -480,6 +509,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     /**
      * RequestParamsResolver only takes the federation by-reference path when federation is enabled,
@@ -501,6 +531,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('Federation is disabled', (string)$row->getNote());
     }
 
+
     public function testWarnsWhenDynamicClientRegistrationIsOpen(): void
     {
         $row = $this->findRowForOption(
@@ -512,6 +543,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('open', (string)$row->getWarning());
     }
 
+
     public function testDoesNotWarnAboutOpenRegistrationWhenDcrIsDisabled(): void
     {
         $row = $this->findRowForOption(
@@ -522,6 +554,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     public function testWarnsWhenInitialAccessTokenModeHasNoTokens(): void
     {
@@ -538,6 +571,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('rejected', (string)$row->getWarning());
     }
 
+
     public function testWarnsWhenImpersonationProtectionIsDisabled(): void
     {
         $row = $this->findRowForOption(
@@ -551,6 +585,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNotNull($row->getWarning());
     }
+
 
     public function testNotesWhenDcrDefaultScopesFallBackToAllSupported(): void
     {
@@ -571,6 +606,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNull($configuredRow->getNote());
         $this->assertSame(['openid'], $configuredRow->getValue());
     }
+
 
     public function testMarksScopeOrigin(): void
     {
@@ -603,6 +639,7 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame(['national_document_id'], $scopesByName['private']['claims']);
     }
 
+
     public function testRendersAuthProcFiltersInBothConfigForms(): void
     {
         $row = $this->findRowForOption(
@@ -626,6 +663,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $row->getValue(),
         );
     }
+
 
     /**
      * SimpleSAMLphp's ProcessingChain runs filters by priority, not by order of declaration, so the
@@ -654,6 +692,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $row->getValue(),
         );
     }
+
 
     public function testShowsRegistrationEndpointOnlyWhenDcrIsEnabled(): void
     {

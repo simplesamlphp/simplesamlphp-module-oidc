@@ -18,6 +18,7 @@ class TokenStatusListFactory
     ) {
     }
 
+
     /**
      * @throws \ReflectionException
      * @throws \SimpleSAML\Error\ConfigurationError

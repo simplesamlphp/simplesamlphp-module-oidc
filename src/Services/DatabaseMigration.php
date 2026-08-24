@@ -25,20 +25,26 @@ class DatabaseMigration
 {
     /** Driver name reported for MySQL and MariaDB, the one driver needing its own DDL below. */
     private const string DRIVER_MYSQL = 'mysql';
+
     private const string DRIVER_SQLITE = 'sqlite';
+
     private const string DRIVER_PGSQL = 'pgsql';
 
+
     private readonly Database $database;
+
 
     public function __construct(?Database $database = null)
     {
         $this->database = $database ?? Database::getInstance();
     }
 
+
     public function isMigrated(): bool
     {
         return empty($this->getNotImplementedVersions());
     }
+
 
     public function getNotImplementedVersions(): array
     {
@@ -52,6 +58,7 @@ class DatabaseMigration
         });
     }
 
+
     public function versions(): array
     {
         $versionsTablename = $this->versionsTableName();
@@ -63,6 +70,7 @@ class DatabaseMigration
             ->read("SELECT version FROM $versionsTablename")
             ->fetchAll(PDO::FETCH_COLUMN, 0);
     }
+
 
     public function migrate(): void
     {
@@ -260,10 +268,12 @@ class DatabaseMigration
         }
     }
 
+
     private function versionsTableName(): string
     {
         return $this->database->applyPrefix('oidc_migration_versions');
     }
+
 
     /**
      * @return void
@@ -349,6 +359,7 @@ EOT
         ,);
     }
 
+
     /**
      * @return void
      */
@@ -362,6 +373,7 @@ EOT
         ,);
     }
 
+
     private function version20200517071100(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -371,6 +383,7 @@ EOT
 EOT
         ,);
     }
+
 
     private function version20200901163000(): void
     {
@@ -382,6 +395,7 @@ EOT
         ,);
     }
 
+
     private function version20210902113500(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -391,6 +405,7 @@ EOT
 EOT
         ,);
     }
+
 
     /**
      * Add auth_code_id column to access token and refresh token tables
@@ -412,6 +427,7 @@ EOT
         ,);
     }
 
+
     /**
      * Add requested claims to authorization token
      */
@@ -424,6 +440,7 @@ EOT
 EOT
         ,);
     }
+
 
     /**
      * Add table for allowed origins.
@@ -447,6 +464,7 @@ EOT
         ,);
     }
 
+
     /**
      * Add post_logout_redirect_uri to client.
      */
@@ -460,6 +478,7 @@ EOT
         ,);
     }
 
+
     /**
      * Add backchannel_logout_uri to client
      */
@@ -472,6 +491,7 @@ EOT
 EOT
         ,);
     }
+
 
     /**
      * Add logout_ticket table
@@ -487,6 +507,7 @@ EOT
 EOT
         ,);
     }
+
 
     /**
      * Add Entity Identifier column
@@ -517,6 +538,7 @@ EOT
         ,);
     }
 
+
     /**
      * Add Client Registration Types column
      */
@@ -530,6 +552,7 @@ EOT
             ,);
     }
 
+
     private function version20240820132400(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -539,6 +562,7 @@ EOT
 EOT
             ,);
     }
+
 
     private function version20240828153300(): void
     {
@@ -550,6 +574,7 @@ EOT
             ,);
     }
 
+
     private function version20240830153300(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -560,6 +585,7 @@ EOT
             ,);
     }
 
+
     private function version20240902120000(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -569,6 +595,7 @@ EOT
 EOT
             ,);
     }
+
 
     private function version20240905120000(): void
     {
@@ -616,6 +643,7 @@ EOT
         }
     }
 
+
     private function version20240906120000(): void
     {
         $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
@@ -625,6 +653,7 @@ EOT
 EOT
             ,);
     }
+
 
     private function version20250818163000(): void
     {
@@ -641,6 +670,7 @@ EOT
             ,);
     }
 
+
     private function version20250908163000(): void
     {
         $issuerStateTableName = $this->database->applyPrefix(IssuerStateRepository::TABLE_NAME);
@@ -654,6 +684,7 @@ EOT
 EOT
             ,);
     }
+
 
     private function version20250912163000(): void
     {
@@ -670,6 +701,7 @@ EOT
             ,);
     }
 
+
     private function version20250913163000(): void
     {
         $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
@@ -680,6 +712,7 @@ EOT
 EOT
             ,);
     }
+
 
     private function version20250915163000(): void
     {
@@ -700,6 +733,7 @@ EOT
             ,);
     }
 
+
     private function version20250916163000(): void
     {
         $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
@@ -710,6 +744,7 @@ EOT
 EOT
             ,);
     }
+
 
     private function version20250917163000(): void
     {
@@ -737,6 +772,7 @@ EOT
             ,);
     }
 
+
     private function version20251021000001(): void
     {
         $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
@@ -747,6 +783,7 @@ EOT
         ,);
     }
 
+
     private function version20251021000002(): void
     {
         $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
@@ -756,6 +793,7 @@ EOT
 EOT
         ,);
     }
+
 
     private function version20260109000001(): void
     {
@@ -803,6 +841,7 @@ EOT
 
         $this->database->write("CREATE INDEX $idxParExpiresAt ON $parTableName (expires_at)");
     }
+
 
     /**
      * Add storage for the OpenID Connect Dynamic Client Registration Access Token (a hash of it), used to
@@ -912,6 +951,7 @@ EOT
         );
     }
 
+
     /**
      * Create the Status List entry table.
      *
@@ -991,6 +1031,7 @@ EOT
         );
     }
 
+
     /**
      * Create the Status List audit table.
      *
@@ -1026,6 +1067,7 @@ EOT
         $this->createIndex($idxCredentialIdHash, $auditTableName, 'credential_id_hash');
     }
 
+
     /**
      * Count of how many times a Status List's published token has been invalidated.
      *
@@ -1058,6 +1100,7 @@ EOT
             ,);
     }
 
+
     /**
      * Indexes the administration screens read Status List entries by.
      *
@@ -1087,6 +1130,7 @@ EOT
             'subject_ref',
         );
     }
+
 
     /**
      * Whether a table already has a column.
@@ -1132,6 +1176,7 @@ EOT
         return $existing !== [];
     }
 
+
     /**
      * Column type for a value which can reach a few hundred kilobytes.
      *
@@ -1143,6 +1188,7 @@ EOT
         return $this->database->getDriver() === self::DRIVER_MYSQL ? 'MEDIUMTEXT' : 'TEXT';
     }
 
+
     /**
      * Column type for a point in time.
      *
@@ -1153,6 +1199,7 @@ EOT
     {
         return $this->database->getDriver() === self::DRIVER_MYSQL ? 'DATETIME' : 'TIMESTAMP';
     }
+
 
     /**
      * Create an index unless it is already there.
@@ -1196,6 +1243,7 @@ EOT
 
         $this->database->write("CREATE {$unique}INDEX $indexName ON $tableName ($columns)");
     }
+
 
     /**
      * @param string[] $columnNames

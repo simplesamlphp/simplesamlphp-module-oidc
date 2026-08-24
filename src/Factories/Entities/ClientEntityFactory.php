@@ -44,12 +44,14 @@ class ClientEntityFactory
         ClaimsEnum::SoftwareVersion->value,
     ];
 
+
     public function __construct(
         private readonly SspBridge $sspBridge,
         private readonly Helpers $helpers,
         private readonly ModuleConfig $moduleConfig,
     ) {
     }
+
 
     /**
      * @param string[] $redirectUri
@@ -114,6 +116,7 @@ class ClientEntityFactory
             $registrationAccessToken,
         );
     }
+
 
     /**
      * Resolve client data from registration metadata.
@@ -240,7 +243,7 @@ class ClientEntityFactory
         $this->helpers->arr()->ensureStringValues($metadata[ClaimsEnum::ClientRegistrationTypes->value]) :
         $metadataFallbackClient?->getClientRegistrationTypes();
 
-        $federationJwks = $federationJwks ?? $metadataFallbackClient?->getFederationJwks();
+        $federationJwks ??= $metadataFallbackClient?->getFederationJwks();
 
         /** @var ?array[] $jwks */
         $jwks = isset($metadata[ClaimsEnum::Jwks->value]) &&
@@ -465,6 +468,7 @@ class ClientEntityFactory
         );
     }
 
+
     protected function determineIsConfidential(
         array $metadata,
     ): bool {
@@ -506,6 +510,7 @@ class ClientEntityFactory
         // Assume confidential client.
         return true;
     }
+
 
     /**
      * @throws \JsonException
@@ -629,6 +634,7 @@ class ClientEntityFactory
             $registrationAccessToken,
         );
     }
+
 
     public function getGenericForVci(): ClientEntityInterface
     {

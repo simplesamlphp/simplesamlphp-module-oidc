@@ -16,24 +16,31 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 class SspBridge
 {
     protected static ?Auth $auth = null;
+
     protected static ?Utils $utils = null;
+
     protected static ?Module $module = null;
+
     protected static ?Locale $locale = null;
+
 
     public function utils(): Utils
     {
         return self::$utils ??= new Utils();
     }
 
+
     public function module(): Module
     {
         return self::$module ??= new Module();
     }
 
+
     public function auth(): Auth
     {
         return self::$auth ??= new Auth();
     }
+
 
     public function locale(): Locale
     {

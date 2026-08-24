@@ -37,7 +37,7 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  * @see \SimpleSAML\Module\oidc\Utils\RequestParamsResolver
  * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
  *
- * @extends AbstractRule<string>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<string>
  */
 class RequestUriRule extends AbstractRule
 {
@@ -50,12 +50,13 @@ class RequestUriRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -142,6 +143,7 @@ class RequestUriRule extends AbstractRule
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
@@ -207,8 +209,9 @@ class RequestUriRule extends AbstractRule
         return new Result($this->getKey(), $requestUri);
     }
 
+
     /**
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      */

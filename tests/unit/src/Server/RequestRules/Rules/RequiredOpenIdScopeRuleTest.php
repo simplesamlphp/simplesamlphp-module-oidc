@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -24,20 +25,27 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class RequiredOpenIdScopeRuleTest extends TestCase
 {
     protected array $scopeEntities = [];
 
     protected Result $redirectUriResult;
+
     protected Result $stateResult;
+
     protected Result $scopeResult;
 
     protected Stub $requestStub;
 
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -58,6 +66,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -71,6 +80,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -81,6 +91,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -93,6 +104,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -116,6 +128,7 @@ class RequiredOpenIdScopeRuleTest extends TestCase
 
         $this->assertTrue($result->getValue());
     }
+
 
     /**
      * @throws \Throwable

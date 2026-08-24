@@ -36,6 +36,7 @@ final class ResponseTypeGrantTypeCorrespondence
         ];
     }
 
+
     /**
      * The unique set of grant types required by the given response types, in stable order.
      *
@@ -55,6 +56,7 @@ final class ResponseTypeGrantTypeCorrespondence
 
         return array_values($required);
     }
+
 
     /**
      * Merge the grant types required by the given response types into the given grant types, preserving the

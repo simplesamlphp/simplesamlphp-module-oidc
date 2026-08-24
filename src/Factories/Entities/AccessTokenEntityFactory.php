@@ -24,6 +24,7 @@ class AccessTokenEntityFactory
     ) {
     }
 
+
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
@@ -60,6 +61,7 @@ class AccessTokenEntityFactory
             issuerState: $issuerState,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

@@ -40,12 +40,14 @@ class DbStatusUpdater implements StatusUpdaterInterface
      */
     protected const int MAX_UPDATE_ATTEMPTS = 3;
 
+
     public function __construct(
         protected readonly StatusListRepository $statusListRepository,
         protected readonly StatusListEntryRepository $statusListEntryRepository,
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -126,6 +128,7 @@ class DbStatusUpdater implements StatusUpdaterInterface
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -135,6 +138,7 @@ class DbStatusUpdater implements StatusUpdaterInterface
     {
         $this->enforceStatusFits($this->requireList($statusListId), $status);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -151,6 +155,7 @@ class DbStatusUpdater implements StatusUpdaterInterface
         return $statusList;
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
@@ -164,6 +169,7 @@ class DbStatusUpdater implements StatusUpdaterInterface
 
         return $entry->getStatus();
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -193,6 +199,7 @@ class DbStatusUpdater implements StatusUpdaterInterface
 
         return $entry;
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException

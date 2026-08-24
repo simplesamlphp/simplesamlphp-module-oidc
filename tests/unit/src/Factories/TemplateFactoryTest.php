@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
-use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Admin\Menu;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Module;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Module\Admin;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
@@ -18,18 +20,25 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\XHTML\Template;
 
 #[CoversClass(TemplateFactory::class)]
-#[UsesClass(Template::class)]
-#[UsesClass(Configuration::class)]
+#[AllowMockObjectsWithoutExpectations]
 class TemplateFactoryTest extends TestCase
 {
     protected Configuration $sspConfiguration;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $menuMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $sessionMessagesServiceMock;
+
     protected MockObject $routes;
+
     protected MockObject $sspBridgeModuleMock;
+
     protected MockObject $sspBridgeModuleAdminMock;
+
 
     protected function setUp(): void
     {
@@ -43,11 +52,12 @@ class TemplateFactoryTest extends TestCase
         $this->sessionMessagesServiceMock = $this->createMock(SessionMessagesService::class);
         $this->routes = $this->createMock(Routes::class);
 
-        $this->sspBridgeModuleMock = $this->createMock(SspBridge\Module::class);
+        $this->sspBridgeModuleMock = $this->createMock(Module::class);
         $this->sspBridgeMock->method('module')->willReturn($this->sspBridgeModuleMock);
-        $this->sspBridgeModuleAdminMock = $this->createMock(SspBridge\Module\Admin::class);
+        $this->sspBridgeModuleAdminMock = $this->createMock(Admin::class);
         $this->sspBridgeModuleMock->method('admin')->willReturn($this->sspBridgeModuleAdminMock);
     }
+
 
     protected function sut(
         ?Configuration $configuration = null,
@@ -74,10 +84,12 @@ class TemplateFactoryTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(TemplateFactory::class, $this->sut());
     }
+
 
     public function testCanBuildTemplate(): void
     {
@@ -85,6 +97,7 @@ class TemplateFactoryTest extends TestCase
 
         $this->assertInstanceOf(Template::class, $template);
     }
+
 
     public function testCanAddTemplatesFromAdminModule(): void
     {
@@ -96,6 +109,7 @@ class TemplateFactoryTest extends TestCase
         $this->sut()->build('oidc:clients.twig');
     }
 
+
     public function testCanSetActiveHrefPath(): void
     {
         $this->menuMock->expects($this->once())->method('setActiveHrefPath');
@@ -105,6 +119,7 @@ class TemplateFactoryTest extends TestCase
         $sut->setActiveHrefPath('path');
         $sut->getActiveHrefPath();
     }
+
 
     public function testCanSetTemplateFactoryProperties(): void
     {

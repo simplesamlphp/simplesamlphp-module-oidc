@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Controllers;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
-use SimpleSAML\Error;
+use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -25,6 +25,7 @@ class UserInfoController
 {
     use RequestTrait;
 
+
     public function __construct(
         private readonly ResourceServer $resourceServer,
         private readonly AccessTokenRepository $accessTokenRepository,
@@ -36,6 +37,7 @@ class UserInfoController
         private readonly Routes $routes,
     ) {
     }
+
 
     /**
      * @throws \SimpleSAML\Error\UserNotFound
@@ -58,7 +60,7 @@ class UserInfoController
 
         $accessToken = $this->accessTokenRepository->findById($tokenId);
         if (!$accessToken instanceof AccessTokenEntity) {
-            throw new Error\UserNotFound('Access token not found');
+            throw new UserNotFound('Access token not found');
         }
         $user = $this->getUser($accessToken);
 
@@ -72,6 +74,7 @@ class UserInfoController
 
         return $this->routes->newJsonResponse($claims);
     }
+
 
     public function userInfo(Request $request): Response
     {
@@ -89,6 +92,7 @@ class UserInfoController
         }
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\Error\UserNotFound
@@ -98,7 +102,7 @@ class UserInfoController
         $userIdentifier = (string) $accessToken->getUserIdentifier();
         $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
         if (!$user instanceof UserEntity) {
-            throw new Error\UserNotFound("User $userIdentifier not found");
+            throw new UserNotFound("User $userIdentifier not found");
         }
 
         return $user;

@@ -14,10 +14,12 @@ class Language
         SspLanguage::setLanguageCookie($language);
     }
 
+
     public function getLanguageCookie(): ?string
     {
         return SspLanguage::getLanguageCookie();
     }
+
 
     /**
      * Get the languages available in SimpleSAMLphp (configured in language.available and known to the

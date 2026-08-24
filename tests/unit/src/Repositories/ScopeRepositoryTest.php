@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use League\OAuth2\Server\Entities\ClientEntityInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
@@ -16,6 +17,7 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\ScopeRepository
  */
+#[AllowMockObjectsWithoutExpectations]
 class ScopeRepositoryTest extends TestCase
 {
     public static function setUpBeforeClass(): void
@@ -34,6 +36,7 @@ class ScopeRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -51,6 +54,7 @@ class ScopeRepositoryTest extends TestCase
         $this->assertEquals($expected, $scope);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -60,6 +64,7 @@ class ScopeRepositoryTest extends TestCase
 
         $this->assertNull($scopeRepository->getScopeEntityByIdentifier('none'));
     }
+
 
     /**
      * @throws \Exception
@@ -80,6 +85,7 @@ class ScopeRepositoryTest extends TestCase
         ];
         $this->assertEquals($expectedScopes, $finalizedScopes);
     }
+
 
     public function testFinalizeScopesReturnsEmptyIfNotClientEntity(): void
     {

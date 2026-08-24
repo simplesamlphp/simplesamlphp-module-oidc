@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,12 +20,17 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager
  */
+#[AllowMockObjectsWithoutExpectations]
 class RequestRulesManagerTest extends TestCase
 {
     protected string $key = 'some-key';
+
     protected string $value = 'some-value';
+
     protected Stub $resultStub;
+
     protected Stub $ruleStub;
+
     protected Stub $request;
 
 
@@ -44,6 +51,7 @@ class RequestRulesManagerTest extends TestCase
         $this->request = $this->createStub(ServerRequestInterface::class);
     }
 
+
     public function testConstructWithoutRules(): RequestRulesManager
     {
         $requestRulesManager = new RequestRulesManager();
@@ -51,6 +59,7 @@ class RequestRulesManagerTest extends TestCase
 
         return $requestRulesManager;
     }
+
 
     /**
      * @throws \Exception
@@ -64,11 +73,11 @@ class RequestRulesManagerTest extends TestCase
         );
     }
 
+
     /**
-     * @depends testConstructWithoutRules
-     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
+    #[Depends('testConstructWithoutRules')]
     public function testAddAndCheck(RequestRulesManager $requestRulesManager): void
     {
         $requestRulesManager->add($this->ruleStub);
@@ -79,22 +88,22 @@ class RequestRulesManagerTest extends TestCase
         $this->assertArrayHasKey($this->key, $resultBag->getAll());
     }
 
+
     /**
-     * @depends testConstructWithoutRules
-     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
+    #[Depends('testConstructWithoutRules')]
     public function testCheckWithNonExistingRuleKeyThrows(RequestRulesManager $requestRulesManager): void
     {
         $this->expectException(LogicException::class);
         $requestRulesManager->check($this->request, ['wrong-key']);
     }
 
+
     /**
-     * @depends testConstructWithoutRules
-     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
+    #[Depends('testConstructWithoutRules')]
     public function testPredefineResult(RequestRulesManager $requestRulesManager): void
     {
         $requestRulesManager->predefineResult($this->resultStub);
@@ -104,12 +113,12 @@ class RequestRulesManagerTest extends TestCase
         $this->assertArrayHasKey($this->key, $resultBag->getAll());
     }
 
+
     /**
-     * @depends testConstructWithoutRules
-     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
      */
+    #[Depends('testConstructWithoutRules')]
     public function testSetData(RequestRulesManager $requestRulesManager): void
     {
         $requestRulesManager->setData($this->key, $this->value);

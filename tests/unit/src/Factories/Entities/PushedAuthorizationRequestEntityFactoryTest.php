@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Factories\Entities;
 
 use DateInterval;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -18,10 +19,13 @@ use SimpleSAML\OpenID\Exceptions\OpenIdException;
 
 #[CoversClass(PushedAuthorizationRequestEntityFactory::class)]
 #[UsesClass(PushedAuthorizationRequestEntity::class)]
+#[AllowMockObjectsWithoutExpectations]
 class PushedAuthorizationRequestEntityFactoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected Helpers $helpers;
+
 
     protected function setUp(): void
     {
@@ -29,6 +33,7 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
         $this->moduleConfigMock->method('getParRequestUriTtl')->willReturn(new DateInterval('PT5M'));
         $this->helpers = new Helpers();
     }
+
 
     protected function sut(): PushedAuthorizationRequestEntityFactory
     {
@@ -38,10 +43,12 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(PushedAuthorizationRequestEntityFactory::class, $this->sut());
     }
+
 
     public function testCanBuildNew(): void
     {
@@ -70,6 +77,7 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
         );
     }
 
+
     public function testBuildNewGeneratesUniqueRequestUris(): void
     {
         $sut = $this->sut();
@@ -79,6 +87,7 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
             $sut->fromData('client123', [])->getRequestUri(),
         );
     }
+
 
     public function testCanBuildFromState(): void
     {
@@ -104,6 +113,7 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
             $entity->getExpiresAt()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
         );
     }
+
 
     public function testFromStateThrowsForInvalidState(): void
     {

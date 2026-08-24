@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -37,6 +38,7 @@ use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 
 #[CoversClass(DbStatusListTokenProvider::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DbStatusListTokenProviderTest extends TestCase
 {
     protected const string LIST_ID = 'a-status-list-id';
@@ -51,15 +53,25 @@ class DbStatusListTokenProviderTest extends TestCase
 
     protected const string PUBLISHED_TOKEN = 'already.published.token';
 
+
     protected MockObject $statusListRepositoryMock;
+
     protected MockObject $statusListEntryRepositoryMock;
+
     protected MockObject $statusListKeyResolverMock;
+
     protected MockObject $statusListTokenFactoryMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $didJwkResolverMock;
+
     protected MockObject $loggerServiceMock;
+
     protected StatusListContentHasher $statusListContentHasher;
+
     protected Helpers $helpers;
+
 
     /**
      * @throws \Exception
@@ -84,6 +96,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn(self::DID_JWK);
     }
+
 
     /**
      * Assembled here rather than in setUp so that a test can put its own token factory in place first,
@@ -116,6 +129,7 @@ class DbStatusListTokenProviderTest extends TestCase
         );
     }
 
+
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
      */
@@ -135,6 +149,7 @@ class DbStatusListTokenProviderTest extends TestCase
         return $signatureKeyPair;
     }
 
+
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
      */
@@ -145,6 +160,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         return $statusListToken;
     }
+
 
     /**
      * @throws \Exception
@@ -186,6 +202,7 @@ class DbStatusListTokenProviderTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -194,6 +211,7 @@ class DbStatusListTokenProviderTest extends TestCase
         return $moment === null ? null : new DateTimeImmutable($moment, new DateTimeZone('UTC'));
     }
 
+
     /**
      * @param array<int,int> $statuses
      */
@@ -201,6 +219,7 @@ class DbStatusListTokenProviderTest extends TestCase
     {
         return $this->statusListContentHasher->hash(2, 64, $statuses);
     }
+
 
     /**
      * A published token signed just now, with its full life ahead of it.
@@ -218,6 +237,7 @@ class DbStatusListTokenProviderTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -227,6 +247,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->assertNull($this->sut()->getToken(self::LIST_ID));
     }
+
 
     /**
      * Retirement, not deactivation, is what ends publication: a list stops taking new credentials long
@@ -241,6 +262,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->assertNull($this->sut()->getToken(self::LIST_ID));
     }
+
 
     /**
      * The common path: one row is read and nothing else, which is what makes serving a list of a hundred
@@ -260,6 +282,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->assertSame(self::PUBLISHED_TOKEN, $result->getToken());
         $this->assertSame(43200, $result->getTtlSeconds());
     }
+
 
     /**
      * @return array<string,array{?string,string,?string,?string}>
@@ -298,6 +321,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->assertSame(self::SIGNED_TOKEN, $result->getToken());
     }
 
+
     /**
      * The compare-and-set has to be given the hash which was on the row, so that a signer whose snapshot
      * was superseded fails to publish rather than overwriting a newer token.
@@ -319,6 +343,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->assertInstanceOf(StatusListTokenResult::class, $this->sut()->getToken(self::LIST_ID));
     }
+
 
     /**
      * While the content hash is empty it cannot settle publication on its own: an invalidation arriving
@@ -343,6 +368,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->assertInstanceOf(StatusListTokenResult::class, $this->sut()->getToken(self::LIST_ID));
     }
 
+
     /**
      * Fail closed. A token signed with a key the credential's holder never bound to is not one they can
      * verify, and reaching for the current key instead would look like success.
@@ -366,6 +392,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->sut()->getToken(self::LIST_ID);
     }
+
 
     /**
      * A revocation landing while the token is being signed is not visible to the compare-and-set, which
@@ -398,6 +425,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->sut()->getToken(self::LIST_ID);
     }
 
+
     /**
      * Losing the race is not a failure. The winner's token describes the same list, so it is served
      * rather than signed again.
@@ -418,6 +446,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->assertSame(self::PUBLISHED_TOKEN, $result->getToken());
     }
 
+
     /**
      * A list retired between the read which decided to re-sign and the authoritative one is gone, not
      * broken.
@@ -432,6 +461,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->assertNull($this->sut()->getToken(self::LIST_ID));
     }
+
 
     /**
      * The token has to name the list by the URI which was stored, since a Relying Party compares it byte
@@ -462,6 +492,7 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->sut()->getToken(self::LIST_ID);
     }
 
+
     /**
      * Under the JWKS profile the key is resolved through the issuer's published key set instead, so the
      * token names the issuer and the plain key identifier.
@@ -490,6 +521,7 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->sut()->getToken(self::LIST_ID);
     }
+
 
     /**
      * @throws \Exception

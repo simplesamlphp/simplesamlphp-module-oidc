@@ -37,6 +37,7 @@ class EndSessionController
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -141,6 +142,7 @@ class EndSessionController
         return $this->resolveResponse($logoutRequest, $wasLogoutActionCalled, $uiLanguage);
     }
 
+
     /**
      * Resolve the UI language to use for the logout page based on the ui_locales logout request parameter, if
      * any of the requested languages are available in SimpleSAMLphp. The resolved language is applied only when
@@ -167,6 +169,7 @@ class EndSessionController
         return $language;
     }
 
+
     public function endSession(Request $request): Response
     {
         try {
@@ -179,6 +182,7 @@ class EndSessionController
             return $this->errorResponder->forException($exception);
         }
     }
+
 
     /**
      * Logout handler function registered using Session::registerLogoutHandler() during authn.
@@ -237,6 +241,7 @@ class EndSessionController
 
         (new BackChannelLogoutHandler())->handle($relyingPartyAssociations);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError

@@ -47,6 +47,7 @@ class ClientMetadataValidator
 
     // Front-channel logout metadata (not modelled in ClaimsEnum; this OP only supports back-channel logout).
     private const string CLAIM_FRONTCHANNEL_LOGOUT_URI = 'frontchannel_logout_uri';
+
     private const string CLAIM_FRONTCHANNEL_LOGOUT_SESSION_REQUIRED = 'frontchannel_logout_session_required';
 
     /**
@@ -97,11 +98,13 @@ class ClientMetadataValidator
      */
     private const int MAX_REQUEST_URIS = 20;
 
+
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly DestinationPolicy $destinationPolicy,
     ) {
     }
+
 
     /**
      * Validate the incoming registration metadata. Returns the metadata unchanged on success.
@@ -136,6 +139,7 @@ class ClientMetadataValidator
         return $metadata;
     }
 
+
     /**
      * redirect_uris is REQUIRED; it must be a non-empty array of valid absolute URIs.
      *
@@ -169,6 +173,7 @@ class ClientMetadataValidator
         return $validated;
     }
 
+
     /**
      * logo_uri, client_uri, policy_uri and tos_uri must be valid absolute URIs when present.
      *
@@ -188,6 +193,7 @@ class ClientMetadataValidator
             }
         }
     }
+
 
     /**
      * request_uris, when present, must be an array of absolute https URIs. A fragment component is permitted:
@@ -231,6 +237,7 @@ class ClientMetadataValidator
             }
         }
     }
+
 
     /**
      * Every URI this OP will later fetch from must name a destination the outbound policy permits.
@@ -317,6 +324,7 @@ class ClientMetadataValidator
         }
     }
 
+
     /**
      * Whether a URI carries a userinfo component, which the destination policy refuses outright.
      *
@@ -329,6 +337,7 @@ class ClientMetadataValidator
 
         return is_array($parts) && (isset($parts['user']) || isset($parts['pass']));
     }
+
 
     /**
      * The part of a URI that decides where a request goes, used to charge one DNS lookup per destination
@@ -349,6 +358,7 @@ class ClientMetadataValidator
         strtolower($parts['host']) .
         (isset($parts['port']) ? ':' . $parts['port'] : '');
     }
+
 
     /**
      * contacts, when present, must be an array of non-empty strings.
@@ -375,6 +385,7 @@ class ClientMetadataValidator
         }
     }
 
+
     /**
      * application_type, when present, must be one of the defined values (web or native).
      *
@@ -395,6 +406,7 @@ class ClientMetadataValidator
             throw OidcServerException::invalidClientMetadata('Invalid application_type value.');
         }
     }
+
 
     /**
      * Reject registration of grant_types / response_types / token_endpoint_auth_method values that this OP does not
@@ -431,6 +443,7 @@ class ClientMetadataValidator
         }
     }
 
+
     /**
      * Reject the registration when a list-valued metadata field contains a value outside the supported set. When
      * present, the field must be an array of strings, each of which must be supported.
@@ -462,6 +475,7 @@ class ClientMetadataValidator
             }
         }
     }
+
 
     /**
      * Verify that every registered redirect_uri conforms to the constraints implied by application_type, as
@@ -516,6 +530,7 @@ class ClientMetadataValidator
         }
     }
 
+
     /**
      * Whether the host is a loopback address per OIDC DCR (localhost, 127.0.0.1 or the IPv6 literal [::1]).
      */
@@ -523,6 +538,7 @@ class ClientMetadataValidator
     {
         return in_array($host, ['localhost', '127.0.0.1', '[::1]', '::1'], true);
     }
+
 
     /**
      * Whether the registration declares use of the implicit grant, via grant_types (`implicit`) or via a
@@ -553,6 +569,7 @@ class ClientMetadataValidator
         );
     }
 
+
     /**
      * subject_type, when present, must be 'public': this OP only issues public subject identifiers (no pairwise).
      *
@@ -577,6 +594,7 @@ class ClientMetadataValidator
             );
         }
     }
+
 
     /**
      * Validate additional supported metadata: the behavioral "default when omitted" fields (default_max_age,
@@ -658,6 +676,7 @@ class ClientMetadataValidator
         }
     }
 
+
     /**
      * Reject metadata requesting features this OP does not support (see UNSUPPORTED_FEATURE_CLAIMS and front-channel
      * logout), rather than silently ignoring it. This keeps the registration response an honest contract: the OP
@@ -684,6 +703,7 @@ class ClientMetadataValidator
             );
         }
     }
+
 
     /**
      * Impersonation protection (OIDC Dynamic Client Registration 1.0, Section 9.1): each protected informational
@@ -720,10 +740,12 @@ class ClientMetadataValidator
         }
     }
 
+
     private function isValidAbsoluteUri(string $uri): bool
     {
         return filter_var($uri, FILTER_VALIDATE_URL) !== false && $this->extractHost($uri) !== null;
     }
+
 
     /**
      * Whether the URI has a (non-empty) scheme component, i.e. is an absolute URI.
@@ -735,6 +757,7 @@ class ClientMetadataValidator
         return is_string($scheme) && $scheme !== '';
     }
 
+
     /**
      * Whether the URI has a fragment component at all. OpenID Connect Core 3.1.2.1 requires redirect_uris to
      * contain no fragment component, which includes an empty fragment: a trailing '#' (e.g. ".../cb#") is a
@@ -745,6 +768,7 @@ class ClientMetadataValidator
     {
         return str_contains($uri, '#');
     }
+
 
     /**
      * Extract the lower-cased host component of a URI, or null if absent.

@@ -18,9 +18,10 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use Throwable;
 
 /**
- * @extends AbstractRule<string>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<string>
  */
 class ClientRedirectUriRule extends AbstractRule
 {
@@ -32,13 +33,14 @@ class ClientRedirectUriRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @inheritDoc
      *
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -81,7 +83,7 @@ class ClientRedirectUriRule extends AbstractRule
             ) {
                 throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
             }
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             if (
                 $this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods) &&
                 $this->moduleConfig->getVciEnabled() &&

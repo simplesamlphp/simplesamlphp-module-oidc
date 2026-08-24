@@ -17,7 +17,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
- * @extends AbstractRule<array>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<array>
  */
 class RequestedClaimsRule extends AbstractRule
 {
@@ -33,8 +33,8 @@ class RequestedClaimsRule extends AbstractRule
     /**
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -81,6 +81,7 @@ class RequestedClaimsRule extends AbstractRule
 
         return new Result($this->getKey(), $claims);
     }
+
 
     private function filterUnauthorizedClaims(array &$requestClaims, string $key, array $authorized): void
     {

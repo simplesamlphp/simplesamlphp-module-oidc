@@ -14,10 +14,12 @@ class DateTime
         return new DateTimeImmutable($time, new DateTimeZone('UTC'));
     }
 
+
     public function getFromTimestamp(int $timestamp): DateTimeImmutable
     {
         return $this->getUtc()->setTimestamp($timestamp);
     }
+
 
     public function getSecondsToExpirationTime(int $expirationTime): int
     {

@@ -34,6 +34,7 @@ class CredentialStatusForm extends Form
 
     final public const string FIELD_STATUS = 'status';
 
+
     /**
      * @throws \Exception
      */
@@ -47,6 +48,7 @@ class CredentialStatusForm extends Form
 
         $this->buildForm();
     }
+
 
     /**
      * The statuses this form accepts, as submitted value to label.
@@ -64,6 +66,7 @@ class CredentialStatusForm extends Form
         return $options;
     }
 
+
     /**
      * Wording an administrator can act on, rather than the specification's own terms.
      *
@@ -79,6 +82,7 @@ class CredentialStatusForm extends Form
             StatusTypeEnum::Suspended => Translate::noop('Suspended'),
         };
     }
+
 
     /**
      * @throws \Exception

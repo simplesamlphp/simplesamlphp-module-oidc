@@ -14,7 +14,7 @@ use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 
 /**
  * @template T
- * @implements RequestRuleInterface<T>
+ * @implements \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface<T>
  */
 abstract class AbstractRule implements RequestRuleInterface
 {
@@ -24,6 +24,7 @@ abstract class AbstractRule implements RequestRuleInterface
     ) {
     }
 
+
     /**
      * @inheritDoc
      */
@@ -31,6 +32,7 @@ abstract class AbstractRule implements RequestRuleInterface
     {
         return static::class;
     }
+
 
     /**
      * Check if the authorization request is an OpenID Connect request

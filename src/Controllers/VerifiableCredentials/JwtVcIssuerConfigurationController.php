@@ -37,6 +37,7 @@ class JwtVcIssuerConfigurationController
         }
     }
 
+
     public function configuration(): Response
     {
         $configuration = [

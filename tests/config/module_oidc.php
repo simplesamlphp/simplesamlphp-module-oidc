@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
+use SimpleSAML\Module\oidc\Codebooks\LimitsEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 $config = [
     ModuleConfig::OPTION_ISSUER => 'http://test.issuer',
 
     ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
         [
-            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
             ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
             ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
         ],
@@ -39,7 +42,7 @@ $config = [
     ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS => [
     ],
 
-    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\ArrayAdapter::class,
+    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => ArrayAdapter::class,
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [],
     ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null,
     ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => 'PT10M',
@@ -57,7 +60,7 @@ $config = [
 
     ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => [
         [
-            ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
             ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
             ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
         ],
@@ -81,19 +84,19 @@ $config = [
         // We are limiting federation participation using Trust Marks for 'https://ta.example.org/'.
         'https://ta.example.org/' => [
             // Entities must have (at least) one Trust Mark from the list below.
-            \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::OneOf->value => [
+            LimitsEnum::OneOf->value => [
                 'trust-mark-type',
                 'trust-mark-type-2',
             ],
             // Entities must have all Trust Marks from the list below.
-            \SimpleSAML\Module\oidc\Codebooks\LimitsEnum::AllOf->value => [
+            LimitsEnum::AllOf->value => [
                 'trust-mark-type-3',
                 'trust-mark-type-4',
             ],
         ],
     ],
 
-    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\ArrayAdapter::class,
+    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => ArrayAdapter::class,
     ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS => [],
     ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION => 'P1D',
     ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED => 'PT2M',

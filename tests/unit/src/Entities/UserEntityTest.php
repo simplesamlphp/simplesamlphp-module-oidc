@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -12,6 +13,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\UserEntity
  */
+#[AllowMockObjectsWithoutExpectations]
 class UserEntityTest extends TestCase
 {
     protected array $state;
@@ -21,7 +23,9 @@ class UserEntityTest extends TestCase
     protected array $claims = [];
 
     protected Stub $createdAt;
+
     protected Stub $updatedAt;
+
 
     protected function setUp(): void
     {
@@ -35,6 +39,7 @@ class UserEntityTest extends TestCase
         $this->createdAt = $this->createStub(DateTimeImmutable::class);
         $this->updatedAt = $this->createStub(DateTimeImmutable::class);
     }
+
 
     protected function mock(
         ?string $identifier = null,
@@ -55,6 +60,7 @@ class UserEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
@@ -67,6 +73,7 @@ class UserEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
@@ -77,6 +84,7 @@ class UserEntityTest extends TestCase
         $this->assertSame($userEntity->getIdentifier(), 'id');
         $this->assertSame($userEntity->getClaims(), []);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

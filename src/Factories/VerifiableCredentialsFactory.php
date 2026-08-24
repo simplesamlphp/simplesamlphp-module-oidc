@@ -16,6 +16,7 @@ class VerifiableCredentialsFactory
     ) {
     }
 
+
     /**
      * @throws \ReflectionException
      * @throws \SimpleSAML\Error\ConfigurationError

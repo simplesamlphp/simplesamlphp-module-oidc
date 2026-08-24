@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -23,10 +25,13 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class ResponseTypeRuleTest extends TestCase
 {
     protected Stub $requestStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
 
     protected array $requestParams = [
@@ -54,7 +59,9 @@ class ResponseTypeRuleTest extends TestCase
     private ResultBag $resultBag;
 
     protected Stub $loggerServiceStub;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -75,6 +82,7 @@ class ResponseTypeRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -88,10 +96,11 @@ class ResponseTypeRuleTest extends TestCase
         );
     }
 
+
     /**
-     * @dataProvider validResponseTypeProvider
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
+    #[DataProvider('validResponseTypeProvider')]
     public function testResponseTypeRuleTest($responseType)
     {
         $this->requestParams['response_type'] = $responseType;
@@ -107,6 +116,7 @@ class ResponseTypeRuleTest extends TestCase
         $this->assertSame($responseType, $result->getValue());
     }
 
+
     public static function validResponseTypeProvider(): array
     {
         return [
@@ -114,6 +124,7 @@ class ResponseTypeRuleTest extends TestCase
             ['code'],
         ];
     }
+
 
     public function testRejectsResponseTypeNotRegisteredForClient(): void
     {
@@ -138,6 +149,7 @@ class ResponseTypeRuleTest extends TestCase
         );
     }
 
+
     public function testEmptyRegisteredResponseTypesIsNotEnforced(): void
     {
         // A present-but-empty response_types list means "not configured / unconstrained", not "allow nothing".
@@ -161,6 +173,7 @@ class ResponseTypeRuleTest extends TestCase
 
         $this->assertSame('id_token', $result?->getValue());
     }
+
 
     public function testResponseTypeRuleThrowsWithNoResponseTypeParamTest()
     {

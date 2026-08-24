@@ -15,7 +15,7 @@ class FingerprintGenerator
      * @param string $algo One of the supported algorithms (see hash_algos() function)
      * @return string
      *
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public static function forFile(string $path, string $algo = 'md5'): string
     {
@@ -29,6 +29,7 @@ class FingerprintGenerator
 
         return $fingerprint;
     }
+
 
     /**
      * Generate a fingerprint (hash) for a provided string.

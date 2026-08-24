@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -23,6 +24,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  *    with a short reason.
  */
 #[CoversNothing]
+#[AllowMockObjectsWithoutExpectations]
 class ConfigOptionCoverageTest extends TestCase
 {
     use OverviewTestTrait;
@@ -30,6 +32,7 @@ class ConfigOptionCoverageTest extends TestCase
     use ProtocolOverviewTestTrait;
     use FederationOverviewTestTrait;
     use VciOverviewTestTrait;
+
 
     /**
      * The overview screens, and how to build each one's sections.
@@ -43,6 +46,7 @@ class ConfigOptionCoverageTest extends TestCase
         'OPTION_PKI_PRIVATE_KEY_PASSPHRASE' =>
             'Legacy option which is no longer read anywhere in the module.',
     ];
+
 
     /**
      * @return array<string, string> Constant name to constant value.
@@ -62,6 +66,7 @@ class ConfigOptionCoverageTest extends TestCase
 
         return $options;
     }
+
 
     /**
      * Config option values displayed by a single builder, in the order the rows appear.
@@ -92,6 +97,7 @@ class ConfigOptionCoverageTest extends TestCase
         return $displayed;
     }
 
+
     /**
      * Config option values displayed anywhere in the admin UI.
      *
@@ -109,16 +115,19 @@ class ConfigOptionCoverageTest extends TestCase
         return $displayed;
     }
 
+
     protected function isExcluded(string $constantName): bool
     {
         return array_key_exists($constantName, self::NOT_DISPLAYED);
     }
+
 
     public function testFoundModuleConfigOptions(): void
     {
         // Sanity check, so that a broken reflection lookup can not make the coverage test pass.
         $this->assertGreaterThan(50, count($this->moduleConfigOptions()));
     }
+
 
     /**
      * @throws \Exception
@@ -145,6 +154,7 @@ class ConfigOptionCoverageTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -168,6 +178,7 @@ class ConfigOptionCoverageTest extends TestCase
         }
     }
 
+
     /**
      * @throws \Exception
      */
@@ -183,6 +194,7 @@ class ConfigOptionCoverageTest extends TestCase
             );
         }
     }
+
 
     /**
      * An option may legitimately appear on more than one screen (the issuer is both a protocol and

@@ -97,16 +97,18 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 {
     use IssueAccessTokenTrait;
 
+
     protected DateInterval $authCodeTTL;
 
     /** @var \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface[] */
     protected array $codeChallengeVerifiers = [];
 
-    /** @var HttpMethodsEnum[]  */
+    /** @var \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[]  */
     protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
 
-    /** @var HttpMethodsEnum[]  */
+    /** @var \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[]  */
     protected array $allowedTokenHttpMethods = [HttpMethodsEnum::POST];
+
 
     /**
      * @psalm-type AuthCodePayloadObject = object{
@@ -154,6 +156,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
     }
 
+
     /**
      * Reimplemented in order to support HTTP POST method.
      *
@@ -175,6 +178,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             && isset($requestParams['client_id']));
     }
 
+
     /**
      * Check if the authorization request is OIDC candidate (can respond with ID token).
      */
@@ -187,6 +191,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             fn(ScopeEntityInterface $scope) => $scope->getIdentifier() === 'openid',
         );
     }
+
 
     /**
      * @inheritDoc
@@ -202,6 +207,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         return parent::completeAuthorizationRequest($authorizationRequest);
     }
+
 
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
@@ -283,6 +289,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         return $response;
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -333,6 +340,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         throw OAuthServerException::serverError('Could not issue OIDC Auth Code.');
     }
 
+
     /**
      * Get the client redirect URI if not set in the request.
      *
@@ -351,6 +359,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         return $redirectUri;
     }
+
 
     /**
      * Reimplementation of respondToAccessTokenRequest because of features like nonce, private_key_jwt, acr...
@@ -395,10 +404,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         try {
+            // phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
             /**
              * @noinspection PhpUndefinedClassInspection
              * @psalm-var AuthCodePayloadObject $authCodePayload
              */
+            // phpcs:enable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
             $authCodePayload = json_decode($this->decrypt($encryptedAuthCode), null, 512, JSON_THROW_ON_ERROR);
         } catch (LogicException $e) {
             $this->loggerService->warning(
@@ -647,9 +658,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 //            }
 
             if (property_exists($authCodePayload, 'code_challenge_method')) {
-                $codeChallengeMethod = isset($authCodePayload->code_challenge_method) ?
-                $authCodePayload->code_challenge_method :
-                '';
+                $codeChallengeMethod = $authCodePayload->code_challenge_method ?? '';
                 if (isset($this->codeChallengeVerifiers[$codeChallengeMethod])) {
                     $codeChallengeVerifier = $this->codeChallengeVerifiers[$codeChallengeMethod];
 
@@ -766,6 +775,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         return $responseType;
     }
 
+
     /**
      * Reimplementation because of private parent access
      *
@@ -781,10 +791,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         ServerRequestInterface $request,
         AuthCodeEntity $storedAuthCodeEntity,
     ): void {
+        // phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
         /**
          * @noinspection PhpUndefinedClassInspection
          * @psalm-var AuthCodePayloadObject $authCodePayload
          */
+        // phpcs:enable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
 
         if (! is_a($this->accessTokenRepository, AccessTokenRepositoryInterface::class)) {
             throw OidcServerException::serverError('Unexpected access token repository entity type.');
@@ -852,6 +864,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             );
         }
     }
+
 
     /**
      * @inheritDoc
@@ -1094,6 +1107,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         return $authorizationRequest;
     }
+
 
     /**
      * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken

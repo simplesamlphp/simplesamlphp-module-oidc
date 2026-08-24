@@ -20,9 +20,10 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\RequestObject as ConnectRequestObject;
 use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
+use Throwable;
 
 /**
- * @extends AbstractRule<array>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<array>
  */
 class RequestObjectRule extends AbstractRule
 {
@@ -35,12 +36,13 @@ class RequestObjectRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -191,6 +193,7 @@ class RequestObjectRule extends AbstractRule
         return new Result($this->getKey(), $requestObject->getPayload());
     }
 
+
     /**
      * Check whether the request carries a Request Object, either by value (request param) or by reference
      * (https request_uri param). Note that a Pushed Authorization Request URI (urn form) is not a Request
@@ -220,6 +223,7 @@ class RequestObjectRule extends AbstractRule
 
         return is_string($requestUri) && str_starts_with(strtolower($requestUri), 'https://');
     }
+
 
     /**
      * Validate the Request Object audience (aud) claim.
@@ -256,6 +260,7 @@ class RequestObjectRule extends AbstractRule
             );
         }
     }
+
 
     /**
      * Validate the Request Object issuer (iss) claim.
@@ -294,6 +299,7 @@ class RequestObjectRule extends AbstractRule
         }
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -314,7 +320,7 @@ class RequestObjectRule extends AbstractRule
 
         try {
             $requestObject->verifyWithKeySet($jwks);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             throw OidcServerException::accessDenied(
                 'request object validation failed: ' . $exception->getMessage(),
                 $redirectUri,

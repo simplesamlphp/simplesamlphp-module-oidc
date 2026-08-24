@@ -25,6 +25,7 @@ class FederationFactory
     ) {
     }
 
+
     /**
      * @throws \ReflectionException
      * @throws \SimpleSAML\Error\ConfigurationError

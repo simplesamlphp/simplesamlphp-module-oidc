@@ -12,9 +12,10 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use Throwable;
 
 /**
- * @extends AbstractRule<bool>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<bool>
  */
 class RequiredOpenIdScopeRule extends AbstractRule
 {
@@ -23,8 +24,8 @@ class RequiredOpenIdScopeRule extends AbstractRule
      *
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -61,7 +62,7 @@ class RequiredOpenIdScopeRule extends AbstractRule
                     $responseMode,
                 );
             }
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             if ($this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods)) {
                 $loggerService->info('RequiredOpenIdScopeRule: Skippping openid scope check for VCI request.');
             } else {

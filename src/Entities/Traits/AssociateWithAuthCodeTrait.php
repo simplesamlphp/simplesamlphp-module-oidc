@@ -8,10 +8,12 @@ trait AssociateWithAuthCodeTrait
 {
     protected ?string $authCodeId = null;
 
+
     public function setAuthCodeId(?string $authCodeId): void
     {
         $this->authCodeId = $authCodeId;
     }
+
 
     public function getAuthCodeId(): ?string
     {

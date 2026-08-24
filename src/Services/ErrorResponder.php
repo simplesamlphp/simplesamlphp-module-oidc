@@ -19,6 +19,7 @@ class ErrorResponder
     ) {
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Error\Error
@@ -51,6 +52,7 @@ class ErrorResponder
         );
     }
 
+
     /**
      * Create a JSON error response (as specified for the token endpoint),
      * regardless of any redirect URI contained in the exception. This is
@@ -76,6 +78,7 @@ class ErrorResponder
             ['Cache-Control' => 'no-cache, no-store'],
         );
     }
+
 
     /**
      * Log an OAuth error that is about to be returned to the client. This is the single place every endpoint's
@@ -110,6 +113,7 @@ class ErrorResponder
             $this->loggerService->notice($message, $context);
         }
     }
+
 
     private function logUnexpectedException(Throwable $exception): void
     {

@@ -27,6 +27,7 @@ class IdTokenBuilder
     ) {
     }
 
+
     /**
      * @psalm-suppress MixedAssignment
      */
@@ -130,6 +131,7 @@ class IdTokenBuilder
             $header,
         );
     }
+
 
     /**
      * @param string $jwsAlgorithm JWS Algorithm designation (like RS256,

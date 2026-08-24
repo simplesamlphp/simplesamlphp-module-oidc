@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestTypes;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
@@ -12,13 +13,17 @@ use SimpleSAML\OpenID\Core\IdToken;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest
  */
+#[AllowMockObjectsWithoutExpectations]
 class LogoutRequestTest extends TestCase
 {
     protected Stub $idTokenHintStub;
 
     protected static string $postLogoutRedirectUri = 'https://redirect.org/uri';
+
     protected static string $state = 'state123';
+
     protected static string $uiLocales = 'en';
+
 
     /**
      * @throws \Exception
@@ -27,6 +32,7 @@ class LogoutRequestTest extends TestCase
     {
         $this->idTokenHintStub = $this->createStub(IdToken::class);
     }
+
 
     public function testConstructWithoutParams(): void
     {
@@ -38,6 +44,7 @@ class LogoutRequestTest extends TestCase
         $this->assertNull($logoutRequest->getState());
         $this->assertNull($logoutRequest->getUiLocales());
     }
+
 
     public function testConstructWithParams(): void
     {
@@ -55,6 +62,7 @@ class LogoutRequestTest extends TestCase
         $this->assertEquals(self::$state, $logoutRequest->getState());
         $this->assertEquals(self::$uiLocales, $logoutRequest->getUiLocales());
     }
+
 
     public function testFluentPropertySetters(): void
     {

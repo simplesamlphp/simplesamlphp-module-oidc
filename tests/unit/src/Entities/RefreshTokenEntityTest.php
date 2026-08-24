@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -15,13 +16,19 @@ use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\RefreshTokenEntity
  */
+#[AllowMockObjectsWithoutExpectations]
 class RefreshTokenEntityTest extends TestCase
 {
     protected string $id;
+
     protected DateTimeImmutable $expiryDateTime;
+
     protected MockObject $accessTokenEntityMock;
+
     protected false $isRevoked;
+
     protected string $authCodeId;
+
 
     /**
      * @throws \Exception
@@ -35,6 +42,7 @@ class RefreshTokenEntityTest extends TestCase
         $this->isRevoked = false;
         $this->authCodeId = 'auth_code_id';
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -50,6 +58,7 @@ class RefreshTokenEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -60,6 +69,7 @@ class RefreshTokenEntityTest extends TestCase
             $this->mock(),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

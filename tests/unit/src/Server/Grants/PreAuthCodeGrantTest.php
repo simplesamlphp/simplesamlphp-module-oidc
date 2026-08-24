@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 use DateInterval;
 use DateTimeImmutable;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -36,26 +37,41 @@ use Stringable;
 #[CoversClass(PreAuthCodeGrant::class)]
 #[UsesClass(AuthCodeEntity::class)]
 #[UsesClass(ResultBag::class)]
+#[AllowMockObjectsWithoutExpectations]
 class PreAuthCodeGrantTest extends TestCase
 {
     private const string PRE_AUTHORIZED_CODE = 'pre-authorized-code-secret';
+
     private const string TRANSACTION_CODE = '1234';
+
     private const string CLIENT_ID = 'wallet-client';
 
+
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
+
     private AccessTokenRepositoryInterface&MockObject $accessTokenRepositoryMock;
+
     private RefreshTokenRepositoryInterface&MockObject $refreshTokenRepositoryMock;
+
     private RequestRulesManager&MockObject $requestRulesManagerMock;
+
     private RequestParamsResolver&MockObject $requestParamsResolverMock;
+
     private AccessTokenEntityFactory&MockObject $accessTokenEntityFactoryMock;
+
     private AuthCodeEntityFactory&MockObject $authCodeEntityFactoryMock;
+
     private RefreshTokenIssuer&MockObject $refreshTokenIssuerMock;
+
     private Helpers&MockObject $helpersMock;
+
     private LoggerService&MockObject $loggerServiceMock;
+
     private ServerRequestInterface&MockObject $requestMock;
 
     /** @var array<int, array{message: string, context: array}> */
     private array $logRecords = [];
+
 
     protected function setUp(): void
     {
@@ -77,6 +93,7 @@ class PreAuthCodeGrantTest extends TestCase
         $this->captureLogs('warning');
         $this->captureLogs('error');
     }
+
 
     public function testRedeemsPreAuthorizedCodeOnlyAfterAtomicConsumption(): void
     {
@@ -120,6 +137,7 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
 
+
     public function testRejectsReplayBeforeIssuingAnotherAccessToken(): void
     {
         $this->configureRequestParameters(null);
@@ -146,6 +164,7 @@ class PreAuthCodeGrantTest extends TestCase
 
         $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE);
     }
+
 
     public function testRejectsInvalidTransactionCodeWithoutConsumingPreAuthorizedCode(): void
     {
@@ -174,6 +193,7 @@ class PreAuthCodeGrantTest extends TestCase
             $submittedTransactionCode,
         );
     }
+
 
     public function testTokenPersistenceFailureLeavesPreAuthorizedCodeConsumed(): void
     {
@@ -222,6 +242,7 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE);
     }
 
+
     private function sut(): PreAuthCodeGrant
     {
         return new PreAuthCodeGrant(
@@ -238,6 +259,7 @@ class PreAuthCodeGrantTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     private function preAuthorizedCode(?string $transactionCode = null): AuthCodeEntity
     {
@@ -256,6 +278,7 @@ class PreAuthCodeGrantTest extends TestCase
         );
     }
 
+
     private function configureRequestParameters(?string $transactionCode): void
     {
         $this->requestParamsResolverMock->expects($this->never())->method('getAllFromRequest');
@@ -270,6 +293,7 @@ class PreAuthCodeGrantTest extends TestCase
             );
     }
 
+
     private function captureLogs(string $level): void
     {
         $this->loggerServiceMock->method($level)->willReturnCallback(
@@ -278,6 +302,7 @@ class PreAuthCodeGrantTest extends TestCase
             },
         );
     }
+
 
     private function assertSecretsWereNotLogged(string ...$secrets): void
     {

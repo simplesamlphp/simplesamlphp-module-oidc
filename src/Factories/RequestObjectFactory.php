@@ -18,10 +18,11 @@ class RequestObjectFactory
     ) {
     }
 
+
     /**
      * Builds a new RequestObject instance.
      *
-     * @return RequestObject
+     * @return \SimpleSAML\OpenID\RequestObject
      */
     public function build(): RequestObject
     {

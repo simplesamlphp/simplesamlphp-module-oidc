@@ -25,15 +25,18 @@ class CredentialStatusChange
     ) {
     }
 
+
     public function getStatusListId(): string
     {
         return $this->statusListId;
     }
 
+
     public function getIdx(): int
     {
         return $this->idx;
     }
+
 
     /**
      * The status observed immediately before the change, as a raw value.
@@ -46,10 +49,12 @@ class CredentialStatusChange
         return $this->previousStatus;
     }
 
+
     public function getStatus(): StatusTypeEnum
     {
         return $this->status;
     }
+
 
     /**
      * Whether this call is what put the credential into that status, as opposed to finding it there.

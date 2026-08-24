@@ -11,6 +11,7 @@ interface NonceResponseTypeInterface
      */
     public function setNonce(?string $nonce): void;
 
+
     /**
      * @return string|null
      */

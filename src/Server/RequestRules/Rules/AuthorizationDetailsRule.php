@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
+use JsonException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -18,7 +19,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
- * @extends AbstractRule<array>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<array>
  */
 class AuthorizationDetailsRule extends AbstractRule
 {
@@ -30,11 +31,12 @@ class AuthorizationDetailsRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @inheritDoc
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -63,7 +65,7 @@ class AuthorizationDetailsRule extends AbstractRule
 
         try {
             $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (JsonException) {
             $loggerService->error(
                 'AuthorizationDetailsRule: Could not JSON decode authorization_details parameter value.',
             );

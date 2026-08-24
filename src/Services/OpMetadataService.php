@@ -22,6 +22,7 @@ class OpMetadataService
 {
     private array $metadata;
 
+
     /**
      * @throws \Exception
      */
@@ -33,6 +34,7 @@ class OpMetadataService
     ) {
         $this->initMetadata();
     }
+
 
     /**
      * Initialize metadata array.
@@ -121,6 +123,7 @@ class OpMetadataService
         // OPTIONAL
         // pre-authorized_grant_anonymous_access_supported // TODO mivanci Make configurable
     }
+
 
     /**
      * Get OIDC Provider (OP) metadata array.

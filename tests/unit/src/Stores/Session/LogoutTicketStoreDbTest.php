@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Stores\Session;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -12,6 +13,7 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 /**
  * @covers \SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb
  */
+#[AllowMockObjectsWithoutExpectations]
 class LogoutTicketStoreDbTest extends TestCase
 {
     public static function setUpBeforeClass(): void
@@ -29,6 +31,7 @@ class LogoutTicketStoreDbTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -45,6 +48,7 @@ class LogoutTicketStoreDbTest extends TestCase
 
         $this->assertEmpty($store->getAll());
     }
+
 
     /**
      * @throws \Exception
@@ -74,6 +78,7 @@ class LogoutTicketStoreDbTest extends TestCase
 
         $this->assertEmpty($store->getAll());
     }
+
 
     /**
      * @throws \Exception

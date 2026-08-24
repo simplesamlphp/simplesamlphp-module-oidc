@@ -20,6 +20,7 @@ class AuthCodeEntityFactory
     ) {
     }
 
+
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
@@ -56,6 +57,7 @@ class AuthCodeEntityFactory
             $issuerState,
         );
     }
+
 
     /**
      * @throws \Exception

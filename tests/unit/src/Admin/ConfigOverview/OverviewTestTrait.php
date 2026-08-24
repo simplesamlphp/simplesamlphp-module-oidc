@@ -8,6 +8,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Row;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\ValueAbstracts;
 use SimpleSAML\Utils\Config;
@@ -40,7 +41,7 @@ trait OverviewTestTrait
         $sspBridgeUtilsHttpMock = $this->createMock(HTTP::class);
         $sspBridgeUtilsHttpMock->method('getSelfURLHost')->willReturn($derivedHost);
 
-        $sspBridgeUtilsMock = $this->createMock(SspBridge\Utils::class);
+        $sspBridgeUtilsMock = $this->createMock(Utils::class);
         $sspBridgeUtilsMock->method('config')->willReturn($sspBridgeUtilsConfigMock);
         $sspBridgeUtilsMock->method('http')->willReturn($sspBridgeUtilsHttpMock);
 
@@ -55,6 +56,7 @@ trait OverviewTestTrait
             $this->createMock(ValueAbstracts::class),
         );
     }
+
 
     /**
      * Flatten all rows of the given sections.
@@ -76,6 +78,7 @@ trait OverviewTestTrait
         return $rows;
     }
 
+
     /**
      * Find the row which displays the given ModuleConfig::OPTION_* value.
      *
@@ -92,6 +95,7 @@ trait OverviewTestTrait
         return null;
     }
 
+
     /**
      * Find a row by its label.
      *
@@ -107,6 +111,7 @@ trait OverviewTestTrait
 
         return null;
     }
+
 
     /**
      * All displayable (scalar or array) row content, as one searchable string. Used to assert that

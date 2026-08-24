@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,12 +18,17 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 
 #[CoversClass(FormFactory::class)]
 #[UsesClass(ClientForm::class)]
+#[AllowMockObjectsWithoutExpectations]
 class FormFactoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $csrfProtectionMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $helpersMock;
+
 
     protected function setUp(): void
     {
@@ -31,6 +37,7 @@ class FormFactoryTest extends TestCase
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
         $this->helpersMock = $this->createMock(Helpers::class);
     }
+
 
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
@@ -51,10 +58,12 @@ class FormFactoryTest extends TestCase
         );
     }
 
+
     public function testCanConstruct(): void
     {
         $this->assertInstanceOf(FormFactory::class, $this->sut());
     }
+
 
     public function testCanBuildClientForm(): void
     {

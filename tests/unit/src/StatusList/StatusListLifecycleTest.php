@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
 use DateInterval;
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -26,19 +27,28 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(StatusListLifecycle::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListLifecycleTest extends TestCase
 {
     protected const string LIST_ID = 'a-status-list-id';
 
     protected const string SIGNING_KEY_ID = 'a-signing-key-id';
 
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $statusListRepositoryMock;
+
     protected MockObject $statusListEntryRepositoryMock;
+
     protected MockObject $statusAuditRepositoryMock;
+
     protected MockObject $statusListKeyResolverMock;
+
     protected MockObject $loggerServiceMock;
+
     protected Helpers $helpers;
+
 
     /**
      * @throws \Exception
@@ -67,6 +77,7 @@ class StatusListLifecycleTest extends TestCase
         $this->statusAuditRepositoryMock->method('removeOlderThan')->willReturn(0);
     }
 
+
     protected function sut(): StatusListLifecycle
     {
         return new StatusListLifecycle(
@@ -79,6 +90,7 @@ class StatusListLifecycleTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     /**
      * @throws \Exception
@@ -98,6 +110,7 @@ class StatusListLifecycleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -114,6 +127,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertSame(1120, $this->sut()->clearExpiredCredentialLinkage());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -126,6 +140,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(3, $this->sut()->clearExpiredCredentialLinkage());
     }
+
 
     /**
      * @throws \Exception
@@ -154,6 +169,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(2, $this->sut()->deactivateSupersededStatusLists());
     }
+
 
     /**
      * A pool which allocates into both lanes has two current lists, and neither may be deactivated. Got
@@ -188,6 +204,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertSame(0, $this->sut()->deactivateSupersededStatusLists());
     }
 
+
     /**
      * An operator who has switched the feature off for a moment has not asked for every list they have
      * to start winding down, and switching it back on would not undo it.
@@ -204,6 +221,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(0, $this->sut()->deactivateSupersededStatusLists());
     }
+
 
     /**
      * @throws \Exception
@@ -232,6 +250,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertLessThan($this->helpers->dateTime()->getUtc(), $spentBefore);
     }
 
+
     /**
      * Whether anything is still holding the list is decided by the statement which retires it, not by a
      * read beforehand. A list which stopped qualifying in between -- an issuance which was already in
@@ -248,6 +267,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(0, $this->sut()->retireSpentStatusLists());
     }
+
 
     /**
      * Nothing is read from the entries here. Deciding first and retiring second leaves a gap, and there
@@ -268,6 +288,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(1, $this->sut()->retireSpentStatusLists());
     }
+
 
     /**
      * Retiring a list takes it out of the set being paged through, so the next query has to resume after
@@ -297,6 +318,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertSame([null, 'list-100'], $seenCursors);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -315,6 +337,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertSame(2250, $this->sut()->purgeRetiredStatusListEntries());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -324,6 +347,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(0, $this->sut()->purgeRetiredStatusListEntries());
     }
+
 
     /**
      * A list retired a moment ago is left alone. Retirement can not be serialised against an issuance
@@ -352,6 +376,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertLessThan($this->helpers->dateTime()->getUtc(), $retiredBefore);
     }
 
+
     /**
      * How long a record of who revoked what needs keeping follows from the deployment's own obligations,
      * so nothing is discarded unless an operator has said how long is long enough.
@@ -365,6 +390,7 @@ class StatusListLifecycleTest extends TestCase
 
         $this->assertSame(0, $this->sut()->pruneStatusAuditTrail());
     }
+
 
     /**
      * @throws \Exception
@@ -389,6 +415,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertInstanceOf(DateTimeImmutable::class, $cutOff);
         $this->assertLessThan($this->helpers->dateTime()->getUtc(), $cutOff);
     }
+
 
     /**
      * @throws \Exception
@@ -418,6 +445,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertTrue($report->hasChanges());
     }
 
+
     /**
      * The steps share tables but not purposes, and one of them is an undertaking made to the people the
      * credentials were issued to. A failure elsewhere must not quietly suspend it.
@@ -444,6 +472,7 @@ class StatusListLifecycleTest extends TestCase
         $this->assertCount(1, $report->getFailures());
         $this->assertStringContainsString('the database went away', $report->getFailures()[0]);
     }
+
 
     /**
      * @throws \Exception

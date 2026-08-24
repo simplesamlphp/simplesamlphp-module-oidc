@@ -12,6 +12,7 @@ interface TokenRevokableInterface
      */
     public function isRevoked(): bool;
 
+
     /**
      * Revoke token
      */

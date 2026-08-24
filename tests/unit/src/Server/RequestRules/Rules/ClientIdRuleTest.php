@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -29,12 +30,17 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 #[CoversClass(ClientIdRule::class)]
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientIdRuleTest extends TestCase
 {
     private RequestParamsResolver&MockObject $requestParamsResolverMock;
+
     private ServerRequestInterface&MockObject $requestMock;
+
     private LoggerService&MockObject $loggerServiceMock;
+
     private ResponseModeInterface&MockObject $responseModeMock;
+
 
     protected function setUp(): void
     {
@@ -46,12 +52,14 @@ class ClientIdRuleTest extends TestCase
         $this->requestMock->method('getServerParams')->willReturn([]);
     }
 
+
     public function testResolvesTheClientIdFromTheRequestParameters(): void
     {
         $this->resolverReturns('client-from-parameter');
 
         $this->assertSame('client-from-parameter', $this->check()?->getValue());
     }
+
 
     public function testFallsBackToTheHttpBasicAuthenticationUser(): void
     {
@@ -65,6 +73,7 @@ class ClientIdRuleTest extends TestCase
         $this->assertSame('client-from-basic-auth', $this->check($request)?->getValue());
     }
 
+
     public function testPrefersTheRequestParameterOverTheBasicAuthenticationUser(): void
     {
         $this->resolverReturns('client-from-parameter');
@@ -74,6 +83,7 @@ class ClientIdRuleTest extends TestCase
 
         $this->assertSame('client-from-parameter', $this->check($request)?->getValue());
     }
+
 
     public function testRejectsARequestThatNamesNoClientAtAll(): void
     {
@@ -87,6 +97,7 @@ class ClientIdRuleTest extends TestCase
         }
     }
 
+
     private function resolverReturns(?string $clientId): void
     {
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
@@ -96,6 +107,7 @@ class ClientIdRuleTest extends TestCase
                     null,
             );
     }
+
 
     private function check(?ServerRequestInterface $request = null): ?Result
     {

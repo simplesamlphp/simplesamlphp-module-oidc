@@ -27,6 +27,7 @@ class RefreshTokenIssuer extends AbstractTokenIssuer
         parent::__construct($helpers);
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

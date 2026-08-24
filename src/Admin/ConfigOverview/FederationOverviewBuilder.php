@@ -44,6 +44,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         ];
     }
 
+
     /**
      * @throws \Exception
      */
@@ -130,6 +131,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -149,6 +151,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     protected function buildSignatureKeysSection(): Section
     {
@@ -180,6 +183,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -236,6 +240,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @param \SimpleSAML\OpenID\Federation\TrustMark[] $trustMarks
@@ -332,6 +337,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -384,6 +390,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -438,6 +445,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -464,6 +472,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @param array $trustAnchors Trust Anchor ID to JWKS JSON string, or null.
      * @return array<array{id: string, jwks: ?string, isJwksInvalid: bool}>
@@ -486,6 +495,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         return $list;
     }
 
+
     /**
      * @param array<array{id: string, jwks: ?string, isJwksInvalid: bool}> $trustAnchorList
      */
@@ -499,6 +509,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
 
         return false;
     }
+
 
     /**
      * Read the resolved Trust Marks for display.
@@ -540,6 +551,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         return $list;
     }
 
+
     /**
      * Present the dynamic Trust Mark configuration as a map of Trust Mark Type to a single-item
      * list holding its issuer, matching the StringMap rendering used elsewhere.
@@ -557,6 +569,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
 
         return $map;
     }
+
 
     /**
      * Normalize the participation limits into plain, displayable arrays.
@@ -595,6 +608,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         return $limits;
     }
 
+
     /**
      * Whether any participation limit entry has a shape the runtime validator rejects: a Trust
      * Anchor which does not map to a list of limits, a limit which does not map to a list, or a
@@ -626,6 +640,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         return false;
     }
 
+
     /**
      * Limit identifiers which are configured but which LimitsEnum does not recognize.
      *
@@ -652,6 +667,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
 
         return $unknown;
     }
+
 
     /**
      * Human readable description of when the Trust Mark status endpoint is consulted.

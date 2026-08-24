@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use DateInterval;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -18,10 +19,13 @@ use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 
 #[CoversClass(FederationFactory::class)]
+#[AllowMockObjectsWithoutExpectations]
 class FederationFactoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $loggerServiceMock;
+
 
     protected function setUp(): void
     {
@@ -42,6 +46,7 @@ class FederationFactoryTest extends TestCase
             ->willReturn(102400);
     }
 
+
     protected function sut(): FederationFactory
     {
         $destinationPolicyFactory = $this->createMock(DestinationPolicyFactory::class);
@@ -53,6 +58,7 @@ class FederationFactoryTest extends TestCase
             $destinationPolicyFactory,
         );
     }
+
 
     /**
      * The destination policy must not be built until a Federation is.
@@ -74,6 +80,7 @@ class FederationFactoryTest extends TestCase
         );
     }
 
+
     public function testCanBuild(): void
     {
         $this->moduleConfigMock->method('getFederationMaxTrustChainDepth')->willReturn(9);
@@ -83,6 +90,7 @@ class FederationFactoryTest extends TestCase
 
         $this->assertInstanceOf(Federation::class, $this->sut()->build());
     }
+
 
     /**
      * Values distinct from the library's own defaults, so that a limit which is not actually wired through

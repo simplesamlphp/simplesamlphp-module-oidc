@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence
  */
+#[AllowMockObjectsWithoutExpectations]
 class ResponseTypeGrantTypeCorrespondenceTest extends TestCase
 {
     public function testRequiredGrantTypesForSupportedResponseTypes(): void
@@ -23,11 +25,13 @@ class ResponseTypeGrantTypeCorrespondenceTest extends TestCase
         );
     }
 
+
     public function testRequiredGrantTypesIgnoresUnknownResponseTypes(): void
     {
         $this->assertSame([], ResponseTypeGrantTypeCorrespondence::requiredGrantTypes(['unknown', 'whatever']));
         $this->assertSame([], ResponseTypeGrantTypeCorrespondence::requiredGrantTypes([]));
     }
+
 
     public function testMergeAugmentsWithoutDuplicatesAndKeepsOrder(): void
     {
@@ -40,6 +44,7 @@ class ResponseTypeGrantTypeCorrespondenceTest extends TestCase
             ),
         );
     }
+
 
     public function testMergeDerivesGrantTypesWhenNoneGiven(): void
     {

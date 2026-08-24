@@ -17,10 +17,12 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
+use SimpleSAML\OpenID\Core\ClientAssertion;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\RequestObject;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 use Symfony\Component\HttpFoundation\Request;
+use Throwable;
 
 /**
  * Resolve authorization params from an HTTP request (based or not based on
@@ -54,6 +56,7 @@ class RequestParamsResolver
      */
     protected array $pushedAuthorizationRequestParams = [];
 
+
     public function __construct(
         protected readonly Helpers $helpers,
         protected readonly Core $core,
@@ -66,6 +69,7 @@ class RequestParamsResolver
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * Get all HTTP request params (not from Request Object).
@@ -80,6 +84,7 @@ class RequestParamsResolver
 
         return $this->helpers->http()->getAllRequestParams($request);
     }
+
 
     /**
      * Get all HTTP request params based on allowed methods (not from
@@ -101,6 +106,7 @@ class RequestParamsResolver
             $allowedMethods,
         ) ?? [];
     }
+
 
     /**
      * Get all request params, including those from Request Object if present.
@@ -139,6 +145,7 @@ class RequestParamsResolver
         );
     }
 
+
     /**
      * Get param value from an HTTP request or Request Object if present.
      *
@@ -148,6 +155,7 @@ class RequestParamsResolver
     {
         return $this->getAll($request)[$paramKey] ?? null;
     }
+
 
     /**
      * Get param value from an HTTP request or Request Object if present,
@@ -164,6 +172,7 @@ class RequestParamsResolver
         $allParams = $this->getAllBasedOnAllowedMethods($request, $allowedMethods);
         return $allParams[$paramKey] ?? null;
     }
+
 
     /**
      * Get param value as null or string from an HTTP request or Request Object
@@ -186,6 +195,7 @@ class RequestParamsResolver
         (string)$value;
     }
 
+
     /**
      * Get param value from an HTTP request (not from Request Object), based
      * on allowed methods.
@@ -201,6 +211,7 @@ class RequestParamsResolver
 
         return isset($allParams[$paramKey]) ? (string)$allParams[$paramKey] : null;
     }
+
 
     /**
      * Check if Request Object is present as a request param (passed by value)
@@ -223,6 +234,7 @@ class RequestParamsResolver
         // checks are done in RequestObjectRule).
         return $this->parseRequestObjectBagByToken($token)?->get(Core\RequestObject::class)?->getPayload() ?? [];
     }
+
 
     /**
      * Check if Request URI is present as a request param and resolve its claims
@@ -264,6 +276,7 @@ class RequestParamsResolver
             ?->get(Core\RequestObject::class)?->getPayload() ?? [];
     }
 
+
     /**
      * @return mixed[]
      */
@@ -276,7 +289,7 @@ class RequestParamsResolver
         try {
             return $this->pushedAuthorizationRequestParams[$requestUri] =
             $this->pushedAuthorizationRequestRepository->findValid($requestUri)?->getParameters() ?? [];
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             $this->loggerService->warning(
                 'RequestParamsResolver: error resolving pushed authorization request: ' . $throwable->getMessage(),
                 compact('requestUri'),
@@ -284,6 +297,7 @@ class RequestParamsResolver
             return $this->pushedAuthorizationRequestParams[$requestUri] = [];
         }
     }
+
 
     /**
      * Resolve the Request Object Bag for the current request, regardless of
@@ -322,6 +336,7 @@ class RequestParamsResolver
         return null;
     }
 
+
     /**
      * Parse (memoized) the Request Object token using all available Request
      * Object flavors (OpenID Connect Core, JAR, OpenID Federation). The
@@ -338,7 +353,7 @@ class RequestParamsResolver
             try {
                 $this->requestObjectBagsByToken[$token] = $this->requestObject->requestObjectParser()
                     ->fromToken($token);
-            } catch (\Throwable $throwable) {
+            } catch (Throwable $throwable) {
                 $this->loggerService->warning(
                     'RequestParamsResolver: error parsing request object: ' . $throwable->getMessage(),
                 );
@@ -348,6 +363,7 @@ class RequestParamsResolver
 
         return $this->requestObjectBagsByToken[$token];
     }
+
 
     /**
      * Fetch and parse (memoized) the Request Object from the given https
@@ -370,7 +386,7 @@ class RequestParamsResolver
                     $this->moduleConfig->getRequestUriFetchTimeout(),
                     $this->moduleConfig->getRequestUriMaxSizeBytes(),
                 );
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             $this->loggerService->warning(
                 'RequestParamsResolver: error fetching request object from request_uri: ' . $throwable->getMessage(),
                 compact('requestUri'),
@@ -378,6 +394,7 @@ class RequestParamsResolver
             return $this->requestObjectBagsByUri[$requestUri] = null;
         }
     }
+
 
     /**
      * Decide whether a https Request URI (Request Object by reference) is
@@ -420,6 +437,7 @@ class RequestParamsResolver
         $this->isFederationRequestUriAllowed($requestUri);
     }
 
+
     /**
      * Check the federation request_uri against the configured prefix allowlist
      * (SSRF / DoS mitigation for the outbound fetch of a not-yet-trusted
@@ -443,6 +461,7 @@ class RequestParamsResolver
         return false;
     }
 
+
     /**
      * Parse the Request Object token according to OpenID Core specification.
      * Note that this won't do signature validation of it.
@@ -456,6 +475,7 @@ class RequestParamsResolver
         return $this->core->requestObjectFactory()->fromToken($token);
     }
 
+
     /**
      * Parse the Request Object token according to OpenID Federation
      * specification. Note that this won't do signature validation of it.
@@ -468,16 +488,18 @@ class RequestParamsResolver
         return $this->federation->requestObjectFactory()->fromToken($token);
     }
 
+
     /**
      * Parse the Client Assertion token according to OpenID Core specification.
      * Note that this won't do signature validation of it.
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
-    public function parseClientAssertionToken(string $clientAssertionParam): Core\ClientAssertion
+    public function parseClientAssertionToken(string $clientAssertionParam): ClientAssertion
     {
         return $this->core->clientAssertionFactory()->fromToken($clientAssertionParam);
     }
+
 
     /**
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods

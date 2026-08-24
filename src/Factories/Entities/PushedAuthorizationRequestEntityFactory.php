@@ -14,11 +14,13 @@ class PushedAuthorizationRequestEntityFactory
 {
     final public const string REQUEST_URI_PREFIX = 'urn:ietf:params:oauth:request_uri:';
 
+
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Helpers $helpers,
     ) {
     }
+
 
     /**
      * @param mixed[] $parameters
@@ -42,6 +44,7 @@ class PushedAuthorizationRequestEntityFactory
             $expiresAt,
         );
     }
+
 
     /**
      * @param mixed[] $state

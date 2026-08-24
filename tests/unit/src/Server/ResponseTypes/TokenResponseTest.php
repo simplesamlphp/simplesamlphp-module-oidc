@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Exception;
 use League\OAuth2\Server\CryptKey;
 use Nyholm\Psr7\Response;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -33,32 +34,58 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse
  */
+#[AllowMockObjectsWithoutExpectations]
 class TokenResponseTest extends TestCase
 {
-    final public const TOKEN_ID = 'tokenId';
-    final public const ISSUER = 'someIssuer';
-    final public const CLIENT_ID = 'clientId';
-    final public const SUBJECT = 'userId';
-    final public const KEY_ID = 'bafd184e90a88107054f4bc05f5e7a76';
-    final public const USER_ID_ATTR = 'uid';
+    final public const string TOKEN_ID = 'tokenId';
+
+    final public const string ISSUER = 'someIssuer';
+
+    final public const string CLIENT_ID = 'clientId';
+
+    final public const string SUBJECT = 'userId';
+
+    final public const string KEY_ID = 'bafd184e90a88107054f4bc05f5e7a76';
+
+    final public const string USER_ID_ATTR = 'uid';
+
+
     protected string $certFolder;
+
     protected UserEntity $userEntity;
+
     protected array $scopes;
+
     protected DateTimeImmutable $expiration;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $accessTokenEntityMock;
+
     protected MockObject $identityProviderMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $sspConfigurationMock;
+
     protected CryptKey $privateKey;
+
     protected IdTokenBuilder $idTokenBuilder;
+
     protected Stub $claimSetEntityFactoryStub;
+
     protected MockObject $loggerMock;
+
     protected MockObject $coreMock;
+
     protected MockObject $protocolSignatureKeyPairBagMock;
+
     protected MockObject $idTokenFactoryMock;
+
     protected MockObject $idTokenMock;
+
     protected MockObject $signatureKeyPairMock;
+
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -133,6 +160,7 @@ class TokenResponseTest extends TestCase
         $this->idTokenMock = $this->createMock(IdToken::class);
     }
 
+
     protected function prepareMockedInstance(?IdTokenBuilder $idTokenBuilder = null): TokenResponse
     {
         $idTokenBuilder ??= $this->idTokenBuilder;
@@ -152,6 +180,7 @@ class TokenResponseTest extends TestCase
         return $tokenResponse;
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -159,6 +188,7 @@ class TokenResponseTest extends TestCase
             $this->prepareMockedInstance(),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -180,6 +210,7 @@ class TokenResponseTest extends TestCase
         $body = $response->getBody()->getContents();
         $this->assertTrue($this->shouldHaveValidIdToken($body));
     }
+
 
     /**
      * @throws \Exception
@@ -219,6 +250,7 @@ class TokenResponseTest extends TestCase
         $this->assertTrue($this->shouldHaveValidIdToken($body, ['name' => 'Homer Simpson']));
     }
 
+
     /**
      * When the client is configured to release user claims in the ID Token (admin-only
      * `add_claims_to_id_token`), the ID Token is built with $addClaimsFromScopes = true, so the scope-derived
@@ -253,6 +285,7 @@ class TokenResponseTest extends TestCase
         $idTokenResponse->generateHttpResponse(new Response());
     }
 
+
     /**
      * By default (client not configured to release claims in the ID Token), the ID Token is built with
      * $addClaimsFromScopes = false, so scope-derived user claims remain available only at the UserInfo endpoint.
@@ -286,6 +319,7 @@ class TokenResponseTest extends TestCase
         $idTokenResponse->generateHttpResponse(new Response());
     }
 
+
     public function testNoExtraParamsForNonOidcRequest(): void
     {
         $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
@@ -301,6 +335,7 @@ class TokenResponseTest extends TestCase
         $this->expectException(Exception::class);
         $this->shouldHaveValidIdToken($body);
     }
+
 
     /**
      * @throws \Exception

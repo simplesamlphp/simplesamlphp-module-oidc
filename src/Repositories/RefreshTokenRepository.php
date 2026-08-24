@@ -34,6 +34,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     /**
      * @return string
      */
@@ -42,6 +43,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
     /**
      * {@inheritdoc}
      */
@@ -49,6 +51,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
     {
         throw new RuntimeException('Not implemented. Use RefreshTokenEntityFactory instead.');
     }
+
 
     /**
      * {@inheritdoc}
@@ -79,6 +82,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $this->getCacheKey($refreshTokenEntity->getIdentifier()),
         );
     }
+
 
     /**
      * Find Refresh Token by id.
@@ -121,6 +125,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $refreshTokenEntity;
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -137,6 +142,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $this->update($refreshToken);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -151,6 +157,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $this->revokeRefreshToken((string)$id);
         }
     }
+
 
     /**
      * {@inheritdoc}
@@ -167,6 +174,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         return $refreshToken->isRevoked();
     }
 
+
     /**
      * Removes expired refresh tokens.
      * @throws \Exception
@@ -180,6 +188,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             ],
         );
     }
+
 
     private function update(RefreshTokenEntityInterface $refreshTokenEntity): void
     {
@@ -202,6 +211,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $this->getCacheKey($refreshTokenEntity->getIdentifier()),
         );
     }
+
 
     protected function preparePdoState(array $state): array
     {

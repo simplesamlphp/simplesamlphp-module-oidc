@@ -25,6 +25,7 @@ class DestinationPolicyFactory
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException On unusable configuration, which the

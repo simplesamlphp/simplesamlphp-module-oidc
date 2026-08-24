@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList\Values;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
@@ -12,11 +14,13 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(StatusListPool::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListPoolTest extends TestCase
 {
     protected const string POOL_ID = 'default';
 
     protected const string KEY_ID = 'signing-key-1';
+
 
     /**
      * @param array<array-key,mixed> $overrides
@@ -36,6 +40,7 @@ class StatusListPoolTest extends TestCase
         );
     }
 
+
     public function testAppliesDefaultsForEverythingNotConfigured(): void
     {
         $pool = $this->sut();
@@ -49,12 +54,14 @@ class StatusListPoolTest extends TestCase
         $this->assertSame(['SomeCredential'], $pool->getCredentialConfigurationIds());
     }
 
+
     public function testDefaultCapacityIsDivisibleByEight(): void
     {
         // The specification recommends this for the list size, and it is what keeps the number of
         // indices the list conveys a status for equal to the capacity which was asked for.
         $this->assertSame(0, StatusListPool::DEFAULT_CAPACITY % 8);
     }
+
 
     public function testTakesTheGlobalKeyProfileAndAllowsAPoolToOverrideIt(): void
     {
@@ -81,6 +88,7 @@ class StatusListPoolTest extends TestCase
         );
     }
 
+
     public function testRejectsAnUnknownKeyProfile(): void
     {
         $this->expectException(ConfigurationError::class);
@@ -88,6 +96,7 @@ class StatusListPoolTest extends TestCase
 
         $this->sut([StatusListPool::KEY_KEY_PROFILE => 'x509']);
     }
+
 
     public function testRejectsAPoolWithNoCredentialConfigurations(): void
     {
@@ -97,6 +106,7 @@ class StatusListPoolTest extends TestCase
         StatusListPool::fromConfig(self::POOL_ID, [], StatusListKeyProfileEnum::DidJwk);
     }
 
+
     /**
      * @return array<string,array{int}>
      */
@@ -105,7 +115,8 @@ class StatusListPoolTest extends TestCase
         return ['zero' => [0], 'three' => [3], 'five' => [5], 'sixteen' => [16], 'negative' => [-1]];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('invalidBitsProvider')]
+
+    #[DataProvider('invalidBitsProvider')]
     public function testRejectsBitsWhichAreNotOneOfTheAllowedValues(int $bits): void
     {
         $this->expectException(ConfigurationError::class);
@@ -113,17 +124,20 @@ class StatusListPoolTest extends TestCase
         $this->sut([StatusListPool::KEY_BITS => $bits]);
     }
 
+
     public function testRejectsACapacityWhichIsNotAPositiveMultipleOfEight(): void
     {
         $this->expectException(ConfigurationError::class);
         $this->sut([StatusListPool::KEY_CAPACITY => 100]);
     }
 
+
     public function testRejectsANonPositiveCapacity(): void
     {
         $this->expectException(ConfigurationError::class);
         $this->sut([StatusListPool::KEY_CAPACITY => 0]);
     }
+
 
     /**
      * The number of bits fixes the largest status a list can ever carry, and reconfiguring it later
@@ -140,6 +154,7 @@ class StatusListPoolTest extends TestCase
         ]);
     }
 
+
     public function testAcceptsSuspendedOnceThereAreEnoughBits(): void
     {
         $pool = $this->sut([
@@ -149,6 +164,7 @@ class StatusListPoolTest extends TestCase
 
         $this->assertTrue($pool->isStatusAllowed(StatusTypeEnum::Suspended));
     }
+
 
     /**
      * An entry which can be revoked has to be able to be reinstated, and an index which was never
@@ -162,6 +178,7 @@ class StatusListPoolTest extends TestCase
         $this->assertSame('0,1', $pool->getAllowedStatusesAsString());
     }
 
+
     public function testAcceptsAStatusGivenAsItsRegisteredIntegerValue(): void
     {
         $pool = $this->sut([
@@ -172,6 +189,7 @@ class StatusListPoolTest extends TestCase
         $this->assertTrue($pool->isStatusAllowed(StatusTypeEnum::Suspended));
         $this->assertSame('0,1,2', $pool->getAllowedStatusesAsString());
     }
+
 
     /**
      * Casting a string to an integer turns every typo into 0, which is Valid, so a misspelt status
@@ -184,12 +202,14 @@ class StatusListPoolTest extends TestCase
         $this->sut([StatusListPool::KEY_ALLOWED_STATUSES => ['invalid']]);
     }
 
+
     public function testRejectsAnUnregisteredStatusValue(): void
     {
         $this->expectException(ConfigurationError::class);
 
         $this->sut([StatusListPool::KEY_BITS => 4, StatusListPool::KEY_ALLOWED_STATUSES => [7]]);
     }
+
 
     /**
      * Getting this the wrong way round leaves a recurring window in every cycle where the published
@@ -206,6 +226,7 @@ class StatusListPoolTest extends TestCase
         ]);
     }
 
+
     public function testRejectsARefreshIntervalLeavingLessThanTheSafetyMargin(): void
     {
         $this->expectException(ConfigurationError::class);
@@ -217,6 +238,7 @@ class StatusListPoolTest extends TestCase
         ]);
     }
 
+
     public function testAcceptsARefreshIntervalWithEnoughHeadroom(): void
     {
         $pool = $this->sut([
@@ -227,6 +249,7 @@ class StatusListPoolTest extends TestCase
         $this->assertSame(1800, $pool->getRefreshIntervalInSeconds());
     }
 
+
     public function testRejectsAnUnparsableDuration(): void
     {
         $this->expectException(ConfigurationError::class);
@@ -234,12 +257,14 @@ class StatusListPoolTest extends TestCase
         $this->sut([StatusListPool::KEY_TTL => 'twelve hours']);
     }
 
+
     public function testRejectsANonIntegerBitsValue(): void
     {
         $this->expectException(ConfigurationError::class);
 
         $this->sut([StatusListPool::KEY_BITS => '2']);
     }
+
 
     public function testTellsWhichCredentialConfigurationsItServes(): void
     {
@@ -252,6 +277,7 @@ class StatusListPoolTest extends TestCase
         $this->assertFalse($pool->hasCredentialConfigurationId('C'));
     }
 
+
     public function testPolicyFingerprintIsStableForTheSamePolicy(): void
     {
         $this->assertSame(
@@ -259,6 +285,7 @@ class StatusListPoolTest extends TestCase
             $this->sut()->getPolicyFingerprint(self::KEY_ID),
         );
     }
+
 
     /**
      * A duration has no length until something anchors it, and anchoring it to "now" in a timezone
@@ -290,6 +317,7 @@ class StatusListPoolTest extends TestCase
         }
     }
 
+
     /**
      * The same, seen through the value which actually matters: the fingerprint allocation filters on.
      */
@@ -309,6 +337,7 @@ class StatusListPoolTest extends TestCase
             date_default_timezone_set($originalTimezone);
         }
     }
+
 
     /**
      * @return array<string,array{array<array-key,mixed>}>
@@ -331,7 +360,7 @@ class StatusListPoolTest extends TestCase
     /**
      * @param array<array-key,mixed> $override
      */
-    #[\PHPUnit\Framework\Attributes\DataProvider('policyChangingOverrideProvider')]
+    #[DataProvider('policyChangingOverrideProvider')]
     public function testPolicyFingerprintChangesWithAnySettingBakedIntoALists(array $override): void
     {
         $this->assertNotSame(
@@ -339,6 +368,7 @@ class StatusListPoolTest extends TestCase
             $this->sut($override)->getPolicyFingerprint(self::KEY_ID),
         );
     }
+
 
     /**
      * During a key rotation the issuer signs credentials with the current key, so a list still bound to
@@ -351,6 +381,7 @@ class StatusListPoolTest extends TestCase
             $this->sut()->getPolicyFingerprint('signing-key-2'),
         );
     }
+
 
     /**
      * The refresh interval governs when a token is re-signed, not what any credential resolves to, so
@@ -365,6 +396,7 @@ class StatusListPoolTest extends TestCase
                 ->getPolicyFingerprint(self::KEY_ID),
         );
     }
+
 
     /**
      * The pool a credential belongs to is not part of what a list carries, but two pools sharing a

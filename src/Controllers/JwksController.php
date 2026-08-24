@@ -21,6 +21,7 @@ class JwksController
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
@@ -47,6 +48,7 @@ class JwksController
             )->jsonSerialize(),
         );
     }
+
 
     /**
      * Whether any configured Status List pool expects its tokens to be verified through this key set.
@@ -81,6 +83,7 @@ class JwksController
 
         return false;
     }
+
 
     public function jwks(): Response
     {

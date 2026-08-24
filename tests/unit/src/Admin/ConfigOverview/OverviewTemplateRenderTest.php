@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -21,6 +22,7 @@ use Twig\TwigFilter;
  * Strict variables are enabled so that unknown properties are errors rather than empty output.
  */
 #[CoversNothing]
+#[AllowMockObjectsWithoutExpectations]
 class OverviewTemplateRenderTest extends TestCase
 {
     use OverviewTestTrait;
@@ -28,6 +30,7 @@ class OverviewTemplateRenderTest extends TestCase
     use ProtocolOverviewTestTrait;
     use FederationOverviewTestTrait;
     use VciOverviewTestTrait;
+
 
     protected function twig(): Environment
     {
@@ -40,6 +43,7 @@ class OverviewTemplateRenderTest extends TestCase
         return $twig;
     }
 
+
     /**
      * @throws \Exception
      */
@@ -47,6 +51,7 @@ class OverviewTemplateRenderTest extends TestCase
     {
         return $this->renderSections($this->buildProtocolOverviewBuilder($overrides)->build());
     }
+
 
     /**
      * @throws \Exception
@@ -58,6 +63,7 @@ class OverviewTemplateRenderTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -66,6 +72,7 @@ class OverviewTemplateRenderTest extends TestCase
         return $this->renderSections($this->buildVciOverviewBuilder($overrides)->build());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -73,6 +80,7 @@ class OverviewTemplateRenderTest extends TestCase
     {
         return $this->renderSections($this->buildGeneralOverviewBuilder($overrides)->build());
     }
+
 
     /**
      * @param \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[] $sections
@@ -85,6 +93,7 @@ class OverviewTemplateRenderTest extends TestCase
             ['sections' => $sections],
         );
     }
+
 
     /**
      * @throws \Exception
@@ -101,6 +110,7 @@ class OverviewTemplateRenderTest extends TestCase
         }
     }
 
+
     /**
      * @throws \Exception
      */
@@ -112,6 +122,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('10 minutes (PT10M)', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -119,6 +130,7 @@ class OverviewTemplateRenderTest extends TestCase
     {
         $this->assertStringContainsString('rel="noopener noreferrer"', $this->render());
     }
+
 
     /**
      * @throws \Exception
@@ -129,6 +141,7 @@ class OverviewTemplateRenderTest extends TestCase
 
         $this->assertStringContainsString('<li>eduPersonPrincipalName</li>', $html);
     }
+
 
     /**
      * @throws \Exception
@@ -142,6 +155,7 @@ class OverviewTemplateRenderTest extends TestCase
 
         $this->assertStringContainsString('example-userpass', $html);
     }
+
 
     /**
      * @throws \Exception
@@ -167,6 +181,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('openid', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -179,6 +194,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('code-box-content', $html);
         $this->assertStringContainsString('&quot;timeout&quot;', $html);
     }
+
 
     /**
      * @throws \Exception
@@ -193,6 +209,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('man-in-the-middle', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -200,6 +217,7 @@ class OverviewTemplateRenderTest extends TestCase
     {
         $this->assertStringContainsString('config-note', $this->render());
     }
+
 
     /**
      * @throws \Exception
@@ -220,6 +238,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('&quot;timeout&quot;', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -234,6 +253,7 @@ class OverviewTemplateRenderTest extends TestCase
             $this->assertStringContainsString($section->getTitle(), $html);
         }
     }
+
 
     /**
      * @throws \Exception
@@ -252,6 +272,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('code-box-content', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -266,6 +287,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('https://ta.example.org/trust-mark-type', $html);
         $this->assertStringContainsString('trust_mark_type', $html);
     }
+
 
     /**
      * The key pair bag is null when it could not be resolved, and the template must cope.
@@ -282,6 +304,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('config-warning', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -296,6 +319,7 @@ class OverviewTemplateRenderTest extends TestCase
             $this->assertStringContainsString($section->getTitle(), $html);
         }
     }
+
 
     /**
      * @throws \Exception
@@ -326,6 +350,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('Research and Scholarship', $html);
         $this->assertStringContainsString('credentialSubject.mail', $html);
     }
+
 
     /**
      * The two ineffective mapping markers are matched on a string the builder produces, so a renamed
@@ -366,6 +391,7 @@ class OverviewTemplateRenderTest extends TestCase
         );
     }
 
+
     /**
      * Only the pair issuance actually reads is listed, so without this marker the entry would look
      * complete while the row warning claims something is wrong with it.
@@ -402,6 +428,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringNotContainsString('<code>eduPersonPrincipalName</code> &rarr;', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -416,6 +443,7 @@ class OverviewTemplateRenderTest extends TestCase
             $this->assertStringContainsString($section->getTitle(), $html);
         }
     }
+
 
     /**
      * @throws \Exception
@@ -432,6 +460,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('eduPersonEntitlement', $html);
         $this->assertStringContainsString('urn:example:oidc:manage:client', $html);
     }
+
 
     /**
      * The two ineffective permission markers are matched on a string the builder produces, so a
@@ -455,6 +484,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('not a permission this module checks, so it grants nothing', $html);
     }
 
+
     /**
      * Permissions are off without an attribute to inspect, but what is configured must stay visible.
      *
@@ -472,6 +502,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringContainsString('urn:example:oidc:manage:client', $html);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -485,6 +516,7 @@ class OverviewTemplateRenderTest extends TestCase
 
         $this->assertStringContainsString('The attribute to inspect is not a string', $html);
     }
+
 
     /**
      * @throws \Exception
@@ -505,6 +537,7 @@ class OverviewTemplateRenderTest extends TestCase
         $this->assertStringNotContainsString('super-secret-password', $html);
         $this->assertStringNotContainsString('super-secret-basic-password', $html);
     }
+
 
     /**
      * @throws \Exception

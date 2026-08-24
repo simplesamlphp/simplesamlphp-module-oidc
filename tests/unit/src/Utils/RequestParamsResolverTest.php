@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +15,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\Http;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
@@ -29,21 +31,35 @@ use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 use SimpleSAML\OpenID\RequestObject\RequestObjectParser;
 
 #[CoversClass(RequestParamsResolver::class)]
+#[AllowMockObjectsWithoutExpectations]
 class RequestParamsResolverTest extends TestCase
 {
     protected MockObject $helpersMock;
+
     protected MockObject $httpHelperMock;
+
     protected MockObject $coreMock;
+
     protected MockObject $requestMock;
+
     protected MockObject $requestObjectMock;
+
     protected MockObject $requestObjectFactoryMock;
+
     protected MockObject $federationMock;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $requestObjectFacadeMock;
+
     protected MockObject $requestObjectParserMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $pushedAuthorizationRequestRepositoryMock;
+
     protected MockObject $loggerServiceMock;
 
     protected array $queryParams = [
@@ -58,10 +74,11 @@ class RequestParamsResolverTest extends TestCase
         'e' => 'f',
     ];
 
+
     protected function setUp(): void
     {
         $this->requestMock = $this->createMock(ServerRequestInterface::class);
-        $this->httpHelperMock = $this->createMock(Helpers\Http::class);
+        $this->httpHelperMock = $this->createMock(Http::class);
         $this->httpHelperMock->method('getAllRequestParams')
             ->willReturn(array_merge($this->queryParams, $this->bodyParams));
         $this->helpersMock = $this->createMock(Helpers::class);
@@ -89,6 +106,7 @@ class RequestParamsResolverTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
+
     protected function mock(
         ?MockObject $helpersMock = null,
         ?MockObject $coreMock = null,
@@ -113,6 +131,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     protected function bagWithCore(): MockObject
     {
         $bag = $this->createMock(RequestObjectBag::class);
@@ -121,9 +140,10 @@ class RequestParamsResolverTest extends TestCase
         return $bag;
     }
 
+
     protected function helpersWithParams(array $params): MockObject
     {
-        $httpHelperMock = $this->createMock(Helpers\Http::class);
+        $httpHelperMock = $this->createMock(Http::class);
         $httpHelperMock->method('getAllRequestParams')->willReturn($params);
         $httpHelperMock->method('getAllRequestParamsBasedOnAllowedMethods')->willReturn($params);
         $helpersMock = $this->createMock(Helpers::class);
@@ -132,10 +152,12 @@ class RequestParamsResolverTest extends TestCase
         return $helpersMock;
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(RequestParamsResolver::class, $this->mock());
     }
+
 
     public function testCanGetAllFromRequest(): void
     {
@@ -144,6 +166,7 @@ class RequestParamsResolverTest extends TestCase
             $this->mock()->getAllFromRequest($this->requestMock),
         );
     }
+
 
     public function testCanGetAllFromRequestBasedOnAllowedMethods(): void
     {
@@ -156,6 +179,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testCanGetAllWithNoRequestObject(): void
     {
         $this->assertSame(
@@ -163,6 +187,7 @@ class RequestParamsResolverTest extends TestCase
             $this->mock()->getAll($this->requestMock),
         );
     }
+
 
     public function testCanGetAllWithRequestObject(): void
     {
@@ -177,6 +202,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testCanGetAllBasedOnAllowedMethods(): void
     {
         $this->httpHelperMock->expects($this->once())->method('getAllRequestParamsBasedOnAllowedMethods');
@@ -184,6 +210,7 @@ class RequestParamsResolverTest extends TestCase
 
         $this->mock()->getAllBasedOnAllowedMethods($this->requestMock, [HttpMethodsEnum::GET]);
     }
+
 
     public function testCanGetBasedOnAllowedMethods(): void
     {
@@ -194,6 +221,7 @@ class RequestParamsResolverTest extends TestCase
             $this->mock()->getBasedOnAllowedMethods('a', $this->requestMock),
         );
     }
+
 
     public function testCanGetAsStringBasedOnAllowedMethods(): void
     {
@@ -207,6 +235,7 @@ class RequestParamsResolverTest extends TestCase
         $this->assertNull($this->mock()->getAsStringBasedOnAllowedMethods('b', $this->requestMock));
     }
 
+
     public function testCanGetFromRequestBasedOnAllowedMethods(): void
     {
         $this->httpHelperMock->method('getAllRequestParamsBasedOnAllowedMethods')
@@ -216,6 +245,7 @@ class RequestParamsResolverTest extends TestCase
             $this->mock()->getFromRequestBasedOnAllowedMethods('a', $this->requestMock),
         );
     }
+
 
     public function testCanGetAllWithPushedAuthorizationRequestUri(): void
     {
@@ -244,6 +274,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testGetAllResolvesNothingForInvalidPushedAuthorizationRequestUri(): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
@@ -258,6 +289,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testGetAllSkipsRequestUriResolutionIfRequestParamIsAlsoPresent(): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
@@ -269,6 +301,7 @@ class RequestParamsResolverTest extends TestCase
 
         $this->mock($helpersMock)->getAll($this->requestMock);
     }
+
 
     public function testCanGetAllWithHttpsRequestUriForRegisteredClient(): void
     {
@@ -296,6 +329,7 @@ class RequestParamsResolverTest extends TestCase
         $sut->getAll($this->requestMock);
     }
 
+
     public function testGetAllDoesNotFetchHttpsRequestUriIfNotRegisteredForClient(): void
     {
         $requestUri = 'https://client.example.org/request-object.jwt';
@@ -312,6 +346,7 @@ class RequestParamsResolverTest extends TestCase
         $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
 
+
     public function testGetAllDoesNotFetchHttpsRequestUriIfNotSupported(): void
     {
         $requestUri = 'https://client.example.org/request-object.jwt';
@@ -326,6 +361,7 @@ class RequestParamsResolverTest extends TestCase
 
         $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
+
 
     public function testCanFetchHttpsRequestUriForFederationClient(): void
     {
@@ -350,6 +386,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testCanFetchHttpsRequestUriForFederationClientWithAllowedPrefix(): void
     {
         $requestUri = 'https://rp.example.org/request-object.jwt';
@@ -372,6 +409,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testDoesNotFetchHttpsRequestUriForFederationClientWithDisallowedPrefix(): void
     {
         $requestUri = 'https://attacker.example.org/request-object.jwt';
@@ -392,6 +430,7 @@ class RequestParamsResolverTest extends TestCase
         $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
 
+
     public function testDoesNotFetchHttpsRequestUriForFederationClientWhenPrefixListIsEmpty(): void
     {
         $requestUri = 'https://rp.example.org/request-object.jwt';
@@ -408,6 +447,7 @@ class RequestParamsResolverTest extends TestCase
         $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
 
+
     public function testDoesNotFetchHttpsRequestUriForUnknownClientWhenFederationDisabled(): void
     {
         $requestUri = 'https://rp.example.org/request-object.jwt';
@@ -421,6 +461,7 @@ class RequestParamsResolverTest extends TestCase
 
         $this->assertSame($queryParams, $this->mock($helpersMock)->getAll($this->requestMock));
     }
+
 
     public function testGetRequestObjectBagForRequestParam(): void
     {
@@ -436,6 +477,7 @@ class RequestParamsResolverTest extends TestCase
         );
     }
 
+
     public function testGetRequestObjectBagReturnsNullForParUrn(): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
@@ -446,6 +488,7 @@ class RequestParamsResolverTest extends TestCase
                 ->getRequestObjectBag($this->requestMock, [HttpMethodsEnum::GET]),
         );
     }
+
 
     public function testGetRequestObjectBagReturnsNullWhenNoSource(): void
     {

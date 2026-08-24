@@ -19,40 +19,48 @@ class PushedAuthorizationRequestEntity implements MementoInterface
     ) {
     }
 
+
     public function getRequestUri(): string
     {
         return $this->requestUri;
     }
+
 
     public function getClientId(): string
     {
         return $this->clientId;
     }
 
+
     public function getParameters(): array
     {
         return $this->parameters;
     }
+
 
     public function getExpiresAt(): DateTimeImmutable
     {
         return $this->expiresAt;
     }
 
+
     public function isConsumed(): bool
     {
         return $this->isConsumed;
     }
+
 
     public function consume(): void
     {
         $this->isConsumed = true;
     }
 
+
     public function isExpired(DateTimeImmutable $now): bool
     {
         return $this->expiresAt < $now;
     }
+
 
     /**
      * @throws \JsonException

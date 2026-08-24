@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,10 +24,13 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AddClaimsToIdTokenRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class AddClaimsToIdTokenRuleTest extends TestCase
 {
     protected Stub $requestStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
 
     protected array $requestParams = [
@@ -51,7 +56,9 @@ class AddClaimsToIdTokenRuleTest extends TestCase
     private ResultBag $resultBag;
 
     private Stub $loggerServiceStub;
+
     private Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -67,6 +74,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -80,10 +88,11 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         );
     }
 
+
     /**
-     * @dataProvider validResponseTypeProvider
      * @throws \Throwable
      */
+    #[DataProvider('validResponseTypeProvider')]
     public function testAddClaimsToIdTokenRuleTest($responseType)
     {
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
@@ -99,6 +108,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $this->assertTrue($result->getValue());
     }
 
+
     public static function validResponseTypeProvider(): array
     {
         return [
@@ -106,10 +116,11 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         ];
     }
 
+
     /**
-     * @dataProvider invalidResponseTypeProvider
      * @throws \Throwable
      */
+    #[DataProvider('invalidResponseTypeProvider')]
     public function testDoNotAddClaimsToIdTokenRuleTest($responseType)
     {
         $this->resultBag->add(new Result(ResponseTypeRule::class, $responseType));
@@ -126,6 +137,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $this->assertFalse($result->getValue());
     }
 
+
     public static function invalidResponseTypeProvider(): array
     {
         return [
@@ -137,6 +149,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
             ['code id_token token'],
         ];
     }
+
 
     /**
      * A client configured with the administrator-only `add_claims_to_id_token` option gets the claims released
@@ -164,6 +177,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
         $this->assertTrue($result->getValue());
     }
 
+
     /**
      * When neither the response type nor the client requests it, claims are not released in the ID Token.
      *
@@ -188,6 +202,7 @@ class AddClaimsToIdTokenRuleTest extends TestCase
 
         $this->assertFalse($result->getValue());
     }
+
 
     /**
      * @throws \Throwable

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,10 +16,13 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
 #[CoversClass(ErrorResponder::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ErrorResponderTest extends TestCase
 {
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $loggerServiceMock;
+
 
     protected function setUp(): void
     {
@@ -26,10 +30,12 @@ class ErrorResponderTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
+
     protected function sut(): ErrorResponder
     {
         return new ErrorResponder($this->psrHttpBridgeMock, $this->loggerServiceMock);
     }
+
 
     public function testForExceptionJsonLogsClientErrorAsNotice(): void
     {
@@ -42,6 +48,7 @@ class ErrorResponderTest extends TestCase
         $this->assertSame(400, $response->getStatusCode());
     }
 
+
     public function testForExceptionJsonLogsAccessDeniedAsWarning(): void
     {
         $this->loggerServiceMock->expects($this->once())->method('warning');
@@ -52,6 +59,7 @@ class ErrorResponderTest extends TestCase
         $this->assertSame(401, $response->getStatusCode());
     }
 
+
     public function testForExceptionJsonLogsServerErrorAsError(): void
     {
         $this->loggerServiceMock->expects($this->once())->method('error');
@@ -61,6 +69,7 @@ class ErrorResponderTest extends TestCase
 
         $this->assertSame(500, $response->getStatusCode());
     }
+
 
     public function testForExceptionLogsUnexpectedThrowableAsError(): void
     {

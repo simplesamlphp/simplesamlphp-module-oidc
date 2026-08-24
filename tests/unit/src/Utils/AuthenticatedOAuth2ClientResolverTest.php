@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -32,28 +35,46 @@ use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(AuthenticatedOAuth2ClientResolver::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AuthenticatedOAuth2ClientResolverTest extends TestCase
 {
-    protected const CLIENT_ID = 'test-client-id';
-    protected const CLIENT_SECRET = 'test-client-secret';
-    protected const TOKEN_ENDPOINT = 'https://example.org/oidc/token.php';
-    protected const ISSUER = 'https://example.org';
+    protected const string CLIENT_ID = 'test-client-id';
+
+    protected const string CLIENT_SECRET = 'test-client-secret';
+
+    protected const string TOKEN_ENDPOINT = 'https://example.org/oidc/token.php';
+
+    protected const string ISSUER = 'https://example.org';
+
 
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $psrHttpFactoryMock;
+
     protected MockObject $jwksResolverMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $helpersMock;
+
     protected MockObject $dateTimeHelperMock;
+
     protected Stub $protocolCacheStub;
 
     protected MockObject $serverRequestMock;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $clientAssertionMock;
+
 
     protected function setUp(): void
     {
@@ -73,7 +94,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
                 [RoutesEnum::Authorization->value, 'https://example.org/oidc/authorization.php'],
                 [RoutesEnum::PushedAuthorizationRequest->value, 'https://example.org/oidc/par'],
             ]);
-        $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
+        $this->dateTimeHelperMock = $this->createMock(DateTime::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
         $this->protocolCacheStub = $this->createStub(ProtocolCache::class);
@@ -92,6 +113,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
         $this->clientAssertionMock->method('getExpirationTime')->willReturn(time() + 60);
     }
+
 
     protected function sut(?ProtocolCache $protocolCache = null): AuthenticatedOAuth2ClientResolver
     {
@@ -128,12 +150,14 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forPublicClient($this->serverRequestMock, null));
     }
 
+
     public function testForPublicClientReturnsNullWhenClientIdIsEmptyString(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('');
 
         $this->assertNull($this->sut()->forPublicClient($this->serverRequestMock, null));
     }
+
 
     public function testForPublicClientThrowsWhenClientIsConfidential(): void
     {
@@ -147,6 +171,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->sut()->forPublicClient($this->serverRequestMock, null);
     }
 
+
     public function testForPublicClientThrowsWhenClientNotFound(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -157,6 +182,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forPublicClient($this->serverRequestMock, null);
     }
+
 
     public function testForPublicClientReturnsResolvedResultForPublicClient(): void
     {
@@ -171,6 +197,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertSame($this->clientEntityMock, $result->getClient());
         $this->assertSame(ClientAuthenticationMethodsEnum::None, $result->getClientAuthenticationMethod());
     }
+
 
     public function testForPublicClientUsesPreFetchedClientWhenProvided(): void
     {
@@ -196,6 +223,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forClientSecretBasic($this->serverRequestMock));
     }
 
+
     public function testForClientSecretBasicReturnsNullWhenHeaderIsNotBasic(): void
     {
         $this->serverRequestMock->method('getHeader')->with('Authorization')
@@ -203,6 +231,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->forClientSecretBasic($this->serverRequestMock));
     }
+
 
     public function testForClientSecretBasicReturnsNullWhenBase64DecodeFailsStrictMode(): void
     {
@@ -214,6 +243,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forClientSecretBasic($this->serverRequestMock));
     }
 
+
     public function testForClientSecretBasicReturnsNullWhenDecodedValueHasNoColon(): void
     {
         // Valid base64 of a string with no colon.
@@ -224,6 +254,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forClientSecretBasic($this->serverRequestMock));
     }
 
+
     public function testForClientSecretBasicReturnsNullWhenClientIdIsEmpty(): void
     {
         // Colon present but client ID part is empty: ":secret"
@@ -233,6 +264,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->forClientSecretBasic($this->serverRequestMock));
     }
+
 
     public function testForClientSecretBasicThrowsWhenClientIsNotConfidential(): void
     {
@@ -246,6 +278,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forClientSecretBasic($this->serverRequestMock);
     }
+
 
     public function testForClientSecretBasicThrowsWhenSecretIsEmpty(): void
     {
@@ -261,6 +294,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->sut()->forClientSecretBasic($this->serverRequestMock);
     }
 
+
     public function testForClientSecretBasicThrowsWhenSecretIsInvalid(): void
     {
         $encoded = 'Basic ' . base64_encode(self::CLIENT_ID . ':wrong-secret');
@@ -274,6 +308,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forClientSecretBasic($this->serverRequestMock);
     }
+
 
     public function testForClientSecretBasicReturnsResolvedResultOnSuccess(): void
     {
@@ -293,6 +328,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             $result->getClientAuthenticationMethod(),
         );
     }
+
 
     public function testForClientSecretBasicConvertsSymfonyRequestToPsr(): void
     {
@@ -323,6 +359,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forClientSecretPost($this->serverRequestMock));
     }
 
+
     public function testForClientSecretPostReturnsNullWhenClientIdIsEmpty(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -330,6 +367,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->forClientSecretPost($this->serverRequestMock));
     }
+
 
     public function testForClientSecretPostThrowsWhenClientIsNotConfidential(): void
     {
@@ -343,6 +381,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->sut()->forClientSecretPost($this->serverRequestMock);
     }
 
+
     public function testForClientSecretPostReturnsNullWhenSecretIsNull(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -351,6 +390,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forClientSecretPost($this->serverRequestMock));
     }
 
+
     public function testForClientSecretPostReturnsNullWhenSecretIsEmpty(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -358,6 +398,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->forClientSecretPost($this->serverRequestMock));
     }
+
 
     public function testForClientSecretPostThrowsWhenSecretIsInvalid(): void
     {
@@ -371,6 +412,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forClientSecretPost($this->serverRequestMock);
     }
+
 
     public function testForClientSecretPostReturnsResolvedResultOnSuccess(): void
     {
@@ -402,6 +444,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forPrivateKeyJwt($this->serverRequestMock));
     }
 
+
     public function testForPrivateKeyJwtReturnsNullWhenAssertionTypeIsNotJwtBearer(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -409,6 +452,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->forPrivateKeyJwt($this->serverRequestMock));
     }
+
 
     public function testForPrivateKeyJwtThrowsWhenJwksNotAvailable(): void
     {
@@ -424,6 +468,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
     }
+
 
     public function testForPrivateKeyJwtThrowsWhenSignatureVerificationFails(): void
     {
@@ -441,6 +486,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
     }
+
 
     public function testForPrivateKeyJwtThrowsWhenJtiAlreadyUsed(): void
     {
@@ -461,6 +507,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut($protocolCacheMock)->forPrivateKeyJwt($this->serverRequestMock);
     }
+
 
     public function testForPrivateKeyJwtThrowsWhenIssuerClaimDoesNotMatchClientId(): void
     {
@@ -483,6 +530,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->sut()->forPrivateKeyJwt($this->serverRequestMock, $mismatchedClient);
     }
 
+
     public function testForPrivateKeyJwtThrowsWhenSubjectClaimDoesNotMatchClientId(): void
     {
         $clientAssertionMock = $this->createMock(ClientAssertion::class);
@@ -502,6 +550,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
     }
+
 
     public function testForPrivateKeyJwtThrowsWhenAudienceClaimDoesNotContainExpectedValue(): void
     {
@@ -524,6 +573,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
     }
+
 
     public function testForPrivateKeyJwtAcceptsPushedAuthorizationRequestEndpointAsAudience(): void
     {
@@ -550,6 +600,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         );
     }
 
+
     public function testForPrivateKeyJwtAcceptsIssuerIdentifierAsAudience(): void
     {
         $clientAssertionMock = $this->createMock(ClientAssertion::class);
@@ -573,6 +624,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         );
     }
 
+
     public function testForPrivateKeyJwtReturnsResolvedResultOnSuccess(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -592,6 +644,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             $result->getClientAuthenticationMethod(),
         );
     }
+
 
     public function testForPrivateKeyJwtStoresJtiInCacheAfterSuccess(): void
     {
@@ -616,6 +669,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut($protocolCacheMock)->forPrivateKeyJwt($this->serverRequestMock);
     }
+
 
     public function testForPrivateKeyJwtSkipsJtiCheckWhenNoCacheProvided(): void
     {
@@ -646,11 +700,12 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock));
     }
 
+
     public function testForAnySupportedMethodReturnsNullAndLogsErrorOnException(): void
     {
         // Trigger a hard exception to verify the catch-all swallows it and logs.
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
-            ->willThrowException(new \RuntimeException('Unexpected error'));
+            ->willThrowException(new RuntimeException('Unexpected error'));
 
         $this->loggerServiceMock->expects($this->once())->method('error');
 
@@ -658,6 +713,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($result);
     }
+
 
     public function testForAnySupportedMethodPrefersPrivateKeyJwtOverOtherMethods(): void
     {
@@ -702,6 +758,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->findActiveClient(self::CLIENT_ID));
     }
 
+
     public function testFindActiveClientReturnsNullWhenClientIsDisabled(): void
     {
         $disabledClient = $this->createMock(ClientEntityInterface::class);
@@ -711,6 +768,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->findActiveClient(self::CLIENT_ID));
     }
+
 
     public function testFindActiveClientReturnsNullWhenClientIsExpired(): void
     {
@@ -722,6 +780,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertNull($this->sut()->findActiveClient(self::CLIENT_ID));
     }
+
 
     public function testFindActiveClientReturnsClientWhenActive(): void
     {
@@ -743,6 +802,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->sut()->findActiveClientOrFail(self::CLIENT_ID);
     }
 
+
     public function testFindActiveClientOrFailReturnsClientWhenActive(): void
     {
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
@@ -762,6 +822,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->sut()->validateClientSecret($this->clientEntityMock, 'wrong-secret');
     }
+
 
     public function testValidateClientSecretDoesNotThrowWhenSecretMatches(): void
     {

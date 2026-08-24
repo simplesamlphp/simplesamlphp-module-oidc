@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -28,21 +29,34 @@ use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 
 #[CoversClass(RequestUriRule::class)]
 #[UsesClass(Result::class)]
+#[AllowMockObjectsWithoutExpectations]
 class RequestUriRuleTest extends TestCase
 {
-    protected const PAR_REQUEST_URI = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
-    protected const HTTPS_REQUEST_URI = 'https://client.example.org/request-object.jwt';
+    protected const string PAR_REQUEST_URI = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
+
+    protected const string HTTPS_REQUEST_URI = 'https://client.example.org/request-object.jwt';
+
 
     protected MockObject $clientMock;
+
     protected MockObject $resultBagMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $pushedAuthorizationRequestRepositoryMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $parEntityMock;
+
     protected Stub $requestStub;
+
     protected MockObject $loggerServiceMock;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
 
     protected function setUp(): void
     {
@@ -65,6 +79,7 @@ class RequestUriRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(): RequestUriRule
     {
         return new RequestUriRule(
@@ -74,6 +89,7 @@ class RequestUriRuleTest extends TestCase
             $this->moduleConfigMock,
         );
     }
+
 
     /**
      * Set raw request params which will be resolved from the request itself (not the merged view).
@@ -86,6 +102,7 @@ class RequestUriRuleTest extends TestCase
             ->willReturnCallback(fn(string $paramKey): ?string => $params[$paramKey] ?? null);
     }
 
+
     protected function checkRule(): mixed
     {
         return $this->sut()->checkRule(
@@ -97,10 +114,12 @@ class RequestUriRuleTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(RequestUriRule::class, $this->sut());
     }
+
 
     public function testRequestUriParamCanBeAbsent(): void
     {
@@ -108,6 +127,7 @@ class RequestUriRuleTest extends TestCase
 
         $this->assertNull($this->checkRule());
     }
+
 
     public function testThrowsIfParIsRequiredGloballyButNotUsed(): void
     {
@@ -118,6 +138,7 @@ class RequestUriRuleTest extends TestCase
         $this->checkRule();
     }
 
+
     public function testThrowsIfParIsRequiredForClientButNotUsed(): void
     {
         $this->prepareRawParams([]);
@@ -127,6 +148,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testThrowsIfRequestAndRequestUriAreBothPresent(): void
     {
@@ -140,6 +162,7 @@ class RequestUriRuleTest extends TestCase
         $this->checkRule();
     }
 
+
     public function testThrowsIfClientIdParamIsMissing(): void
     {
         $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI]);
@@ -147,6 +170,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testThrowsForInvalidRequestUriScheme(): void
     {
@@ -156,6 +180,7 @@ class RequestUriRuleTest extends TestCase
         $this->checkRule();
     }
 
+
     public function testThrowsIfPushedAuthorizationRequestIsNotFound(): void
     {
         $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
@@ -164,6 +189,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testThrowsIfPushedAuthorizationRequestIsExpired(): void
     {
@@ -175,6 +201,7 @@ class RequestUriRuleTest extends TestCase
         $this->checkRule();
     }
 
+
     public function testThrowsIfPushedAuthorizationRequestIsConsumed(): void
     {
         $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
@@ -185,6 +212,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testThrowsIfPushedAuthorizationRequestIsBoundToDifferentClient(): void
     {
@@ -198,6 +226,7 @@ class RequestUriRuleTest extends TestCase
         $this->checkRule();
     }
 
+
     public function testThrowsIfPushedAuthorizationRequestConsumptionFails(): void
     {
         $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
@@ -210,6 +239,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testCanUseValidPushedAuthorizationRequestUri(): void
     {
@@ -230,6 +260,7 @@ class RequestUriRuleTest extends TestCase
         $this->assertSame(self::PAR_REQUEST_URI, $result->getValue());
     }
 
+
     public function testThrowsForHttpsRequestUriIfParIsRequired(): void
     {
         $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
@@ -238,6 +269,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testThrowsForHttpsRequestUriIfNotSupported(): void
     {
@@ -264,6 +296,7 @@ class RequestUriRuleTest extends TestCase
         );
     }
 
+
     public function testThrowsForUnresolvableHttpsRequestUri(): void
     {
         $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
@@ -273,6 +306,7 @@ class RequestUriRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->checkRule();
     }
+
 
     public function testCanUseResolvableHttpsRequestUri(): void
     {

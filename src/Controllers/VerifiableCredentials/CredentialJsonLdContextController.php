@@ -35,6 +35,7 @@ class CredentialJsonLdContextController
         }
     }
 
+
     /**
      * Return the JSON-LD context document for the given credential configuration ID.
      *

@@ -17,6 +17,7 @@ class Http
         );
     }
 
+
     /**
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
@@ -38,6 +39,7 @@ class Http
             default => null,
         };
     }
+
 
     /**
      * Extract a Bearer token from an Authorization header value (RFC 6750,

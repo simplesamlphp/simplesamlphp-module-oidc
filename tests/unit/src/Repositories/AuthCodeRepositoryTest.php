@@ -8,8 +8,10 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
@@ -20,6 +22,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -29,23 +32,37 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
  */
+#[AllowMockObjectsWithoutExpectations]
 class AuthCodeRepositoryTest extends TestCase
 {
-    final public const CLIENT_ID = 'auth_code_client_id';
-    final public const USER_ID = 'auth_code_user_id';
-    final public const AUTH_CODE_ID = 'auth_code_id';
-    final public const REDIRECT_URI = 'http://localhost/redirect';
+    final public const string CLIENT_ID = 'auth_code_client_id';
+
+    final public const string USER_ID = 'auth_code_user_id';
+
+    final public const string AUTH_CODE_ID = 'auth_code_id';
+
+    final public const string REDIRECT_URI = 'http://localhost/redirect';
+
 
     protected AuthCodeRepository $repository;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $authCodeEntityFactoryMock;
+
     protected MockObject $helpersMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $protocolCacheMock;
+
     protected MockObject $dateTimeHelperMock;
+
     /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[]  */
     protected array $scopes;
+
 
     /**
      * @throws \Exception
@@ -65,6 +82,7 @@ class AuthCodeRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
@@ -80,7 +98,7 @@ class AuthCodeRepositoryTest extends TestCase
         $this->authCodeEntityFactoryMock = $this->createMock(AuthCodeEntityFactory::class);
 
         $this->helpersMock = $this->createMock(Helpers::class);
-        $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
+        $this->dateTimeHelperMock = $this->createMock(DateTime::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
 
         $database = Database::getInstance();
@@ -95,10 +113,12 @@ class AuthCodeRepositoryTest extends TestCase
         );
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_auth_code', $this->repository->getTableName());
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -132,6 +152,7 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertEquals($authCode, $foundAuthCode);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -141,6 +162,7 @@ class AuthCodeRepositoryTest extends TestCase
 
         $this->assertNull($notFoundAuthCode);
     }
+
 
     /**
      * @throws \JsonException
@@ -182,6 +204,7 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+
     /**
      * @throws \JsonException
      */
@@ -192,12 +215,14 @@ class AuthCodeRepositoryTest extends TestCase
         $this->repository->revokeAuthCode('nocode');
     }
 
+
     public function testErrorCheckIsRevokedInvalidAuthCode(): void
     {
         $this->expectException(Exception::class);
 
         $this->repository->isAuthCodeRevoked('nocode');
     }
+
 
     /**
      * @throws \JsonException
@@ -229,6 +254,7 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
     }
 
+
     /**
      * @throws \JsonException
      * @throws \SimpleSAML\Error\Error
@@ -251,6 +277,7 @@ class AuthCodeRepositoryTest extends TestCase
 
         $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
     }
+
 
     /**
      * @throws \JsonException
@@ -276,6 +303,7 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -292,12 +320,14 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertNull($notFoundAuthCode);
     }
 
+
     public function testGetNewAuthCodeThrows(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
 
         $this->repository->getNewAuthCode();
     }
+
 
     public function testPersistNewAuthCodeThrowsIfNotAuthCodeEntity(): void
     {

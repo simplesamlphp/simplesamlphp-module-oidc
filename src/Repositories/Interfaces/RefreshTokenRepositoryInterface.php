@@ -14,6 +14,7 @@ interface RefreshTokenRepositoryInterface extends OAuth2RefreshTokenRepositoryIn
      */
     public function revokeByAuthCodeId(string $authCodeId): void;
 
+
     /**
      * Creates a new refresh token
      */

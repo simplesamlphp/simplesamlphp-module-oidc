@@ -45,12 +45,19 @@ use Throwable;
 class ModuleConfig
 {
     final public const string MODULE_NAME = 'oidc';
+
     protected const string KEY_DESCRIPTION = 'description';
+
     public const string KEY_ALGORITHM = 'algorithm';
+
     public const string KEY_PRIVATE_KEY_FILENAME = 'private_key_filename';
+
     public const string KEY_PUBLIC_KEY_FILENAME = 'public_key_filename';
+
     public const string KEY_PRIVATE_KEY_PASSWORD = 'private_key_password';
+
     public const string KEY_KEY_ID = 'key_id';
+
     final public const string DEFAULT_FILE_NAME = 'module_oidc.php';
 
     /**
@@ -68,82 +75,144 @@ class ModuleConfig
     final public const int MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS = 3600;
 
     final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
+
     final public const string DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
+
     final public const string DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
+
     final public const string OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
+
     final public const string OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
+
     final public const string OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
+
     final public const string OPTION_ENCRYPTION_KEY = 'encryption_key';
+
     final public const string OPTION_AUTH_SOURCE = 'auth';
+
     final public const string OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE = 'useridattr';
+
     final public const string OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
+
     final public const string OPTION_AUTH_CUSTOM_SCOPES = 'scopes';
+
     final public const string OPTION_AUTH_ACR_VALUES_SUPPORTED = 'acrValuesSupported';
+
     final public const string OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP = 'authSourcesToAcrValuesMap';
+
     final public const string OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION =
     'forcedAcrValueForCookieAuthentication';
+
     final public const string OPTION_AUTH_PROCESSING_FILTERS = 'authproc.oidc';
+
     final public const string OPTION_CRON_TAG = 'cron_tag';
+
     final public const string OPTION_ADMIN_UI_PERMISSIONS = 'permissions';
+
     final public const string OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE = 'items_per_page';
+
     final public const string DEFAULT_PKI_FEDERATION_PRIVATE_KEY_FILENAME = 'oidc_module_federation.key';
+
     final public const string DEFAULT_PKI_FEDERATION_CERTIFICATE_FILENAME = 'oidc_module_federation.crt';
+
     final public const string OPTION_ISSUER = 'issuer';
+
     final public const string OPTION_FEDERATION_ENTITY_STATEMENT_DURATION = 'federation_entity_statement_duration';
+
     final public const string OPTION_FEDERATION_AUTHORITY_HINTS = 'federation_authority_hints';
+
     final public const string OPTION_ORGANIZATION_NAME = 'organization_name';
+
     final public const string OPTION_DISPLAY_NAME = 'display_name';
+
     final public const string OPTION_DESCRIPTION = 'description';
+
     final public const string OPTION_KEYWORDS = 'keywords';
+
     final public const string OPTION_CONTACTS = 'contacts';
+
     final public const string OPTION_LOGO_URI = 'logo_uri';
+
     final public const string OPTION_POLICY_URI = 'policy_uri';
+
     final public const string OPTION_INFORMATION_URI = 'information_uri';
+
     final public const string OPTION_ORGANIZATION_URI = 'organization_uri';
+
     final public const string OPTION_FEDERATION_ENABLED = 'federation_enabled';
+
     final public const string OPTION_FEDERATION_CACHE_ADAPTER = 'federation_cache_adapter';
+
     final public const string OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS = 'federation_cache_adapter_arguments';
+
     final public const string OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED =
     'federation_cache_max_duration_for_fetched';
+
     final public const string OPTION_FEDERATION_TRUST_ANCHORS = 'federation_trust_anchors';
+
     final public const string OPTION_FEDERATION_TRUST_MARK_TOKENS = 'federation_trust_mark_tokens';
+
     final public const string OPTION_FEDERATION_DYNAMIC_TRUST_MARKS = 'federation_dynamic_trust_mark_tokens';
+
     final public const string OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS =
     'federation_participation_limit_by_trust_marks';
+
     final public const string OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY =
     'federation_trust_mark_status_endpoint_usage_policy';
+
     final public const string OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED = 'federation_cache_duration_for_produced';
+
     final public const string OPTION_FEDERATION_HTTP_CLIENT_OPTIONS = 'federation_http_client_options';
+
     final public const string OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH = 'federation_max_trust_chain_depth';
+
     final public const string OPTION_FEDERATION_MAX_AUTHORITY_HINTS = 'federation_max_authority_hints';
+
     final public const string OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES = 'federation_max_trust_chain_fetches';
+
     final public const string OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT =
     'federation_trust_chain_resolve_timeout';
+
     final public const string OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES = 'federation_max_fetch_size_bytes';
+
     final public const string OPTION_PROTOCOL_CACHE_ADAPTER = 'protocol_cache_adapter';
+
     final public const string OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS = 'protocol_cache_adapter_arguments';
+
     final public const string OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION = 'protocol_user_entity_cache_duration';
+
     final public const string OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
+
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
     'protocol_discover_show_claims_supported';
+
     final public const string OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS = 'protocol_http_client_options';
+
     final public const string OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS =
     'backchannel_logout_http_client_options';
 
     final public const string OPTION_VCI_ENABLED = 'vci_enabled';
+
     final public const string OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED =
     'vci_credential_configurations_supported';
+
     final public const string OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP =
     'vci_user_attribute_to_credential_claim_path_map';
+
     final public const string OPTION_API_ENABLED = 'api_enabled';
+
     final public const string OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED =
     'api_vci_credential_offer_endpoint_enabled';
+
     final public const string OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED =
     'api_vci_credential_status_endpoint_enabled';
+
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED =
     'api_oauth2_token_introspection_endpoint_enabled';
+
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS =
     'api_oauth2_token_introspection_resource_server_client_ids';
+
     final public const string OPTION_API_TOKENS = 'api_tokens';
 
     /** Optional key naming an API token, so that an audit trail can say who made a change. */
@@ -160,45 +229,79 @@ class ModuleConfig
     final public const int MAX_API_TOKEN_NAME_LENGTH = 191;
 
     final public const string OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
+
     final public const string OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP =
     'auth_sources_to_users_email_attribute_name_map';
+
     final public const string OPTION_VCI_ISSUER_STATE_TTL = 'vci_issuer_state_ttl';
+
     final public const string OPTION_VCI_NONCE_TTL = 'vci_nonce_ttl';
+
     final public const string OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
+
     final public const string OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS =
     'vci_allowed_redirect_uri_prefixes_for_non_registered_clients';
+
     final public const string OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS = 'protocol_signature_key_pairs';
+
     final public const string OPTION_FEDERATION_SIGNATURE_KEY_PAIRS = 'federation_signature_key_pairs';
+
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
+
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
+
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
+
     final public const string OPTION_VCI_STATUS_LIST_ENABLED = 'vci_status_list_enabled';
+
     final public const string OPTION_VCI_STATUS_LIST_KEY_PROFILE = 'vci_status_list_key_profile';
+
     final public const string OPTION_VCI_STATUS_LIST_POOLS = 'vci_status_list_pools';
+
     final public const string OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE = 'vci_status_list_requests_per_minute';
+
     final public const string OPTION_VCI_STATUS_LIST_RETIREMENT_GRACE = 'vci_status_list_retirement_grace';
+
     final public const string OPTION_VCI_STATUS_LIST_AUDIT_RETENTION = 'vci_status_list_audit_retention';
+
     final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
+
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
+
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
+
     final public const string OPTION_DCR_INITIAL_ACCESS_TOKENS = 'dcr_initial_access_tokens';
+
     final public const string OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED =
     'dcr_impersonation_protection_enabled';
+
     final public const string OPTION_DCR_DEFAULT_SCOPES = 'dcr_default_scopes';
+
     final public const string OPTION_DCR_REGISTERED_CLIENTS_ENABLED = 'dcr_registered_clients_enabled';
+
     final public const string OPTION_PAR_REQUEST_URI_TTL = 'par_request_uri_ttl';
+
     final public const string OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS = 'require_pushed_authorization_requests';
+
     final public const string OPTION_REQUIRE_SIGNED_REQUEST_OBJECT = 'require_signed_request_object';
+
     final public const string OPTION_REQUEST_URI_PARAMETER_SUPPORTED = 'request_uri_parameter_supported';
+
     final public const string OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES =
     'federation_request_uri_allowed_prefixes';
+
     final public const string OPTION_REQUEST_URI_FETCH_TIMEOUT = 'request_uri_fetch_timeout';
+
     final public const string OPTION_REQUEST_URI_MAX_SIZE_BYTES = 'request_uri_max_size_bytes';
 
     final public const string OPTION_OUTBOUND_ALLOWED_SCHEMES = 'outbound_allowed_schemes';
+
     final public const string OPTION_OUTBOUND_ALLOWED_HOSTS = 'outbound_allowed_hosts';
+
     final public const string OPTION_OUTBOUND_ALLOWED_CIDRS = 'outbound_allowed_cidrs';
+
     final public const string OPTION_OUTBOUND_ADDRESS_PINNING_MODE = 'outbound_address_pinning_mode';
+
 
     protected static array $standardScopes = [
         ScopesEnum::OpenId->value => [
@@ -222,22 +325,30 @@ class ModuleConfig
     ];
 
     /**
-     * @var Configuration Module configuration instance created form module config file.
+     * @var \SimpleSAML\Configuration Module configuration instance created form module config file.
      */
     private readonly Configuration $moduleConfig;
+
     /**
-     * @var Configuration SimpleSAMLphp configuration instance.
+     * @var \SimpleSAML\Configuration SimpleSAMLphp configuration instance.
      */
     private readonly Configuration $sspConfig;
+
     protected ?SignatureKeyPairBag $protocolSignatureKeyPairBag = null;
+
     protected ?SignatureKeyPairConfigBag $protocolSignatureKeyPairConfigBag = null;
+
     protected ?SignatureKeyPairBag $federationSignatureKeyPairBag = null;
+
     protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
+
     protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
+
     protected ?StatusListPoolBag $vciStatusListPoolBag = null;
 
     /** @var ?array<string,\DateInterval> Credential configuration ID to how long its credentials live. */
     protected ?array $vciCredentialTtls = null;
+
 
     /**
      * @throws \Exception
@@ -257,6 +368,7 @@ class ModuleConfig
 
         $this->validate();
     }
+
 
     /**
      * @return void
@@ -331,10 +443,12 @@ class ModuleConfig
         }
     }
 
+
     public function moduleName(): string
     {
         return self::MODULE_NAME;
     }
+
 
     /**
      * Get SimpleSAMLphp Configuration (config.php) instance.
@@ -343,6 +457,7 @@ class ModuleConfig
     {
         return $this->sspConfig;
     }
+
 
     /**
      * Get module config Configuration instance.
@@ -371,6 +486,7 @@ class ModuleConfig
         return $issuer;
     }
 
+
     /**
      * Whether the issuer is explicitly configured. If it is not, getIssuer() derives it from the
      * current HTTP host, which means it can differ depending on how the OP is reached.
@@ -382,12 +498,14 @@ class ModuleConfig
         return $issuer !== null && $issuer !== '';
     }
 
+
     public function getAuthCodeDuration(): DateInterval
     {
         return new DateInterval(
             $this->config()->getString(self::OPTION_TOKEN_AUTHORIZATION_CODE_TTL),
         );
     }
+
 
     public function getAccessTokenDuration(): DateInterval
     {
@@ -396,12 +514,14 @@ class ModuleConfig
         );
     }
 
+
     public function getRefreshTokenDuration(): DateInterval
     {
         return new DateInterval(
             $this->config()->getString(self::OPTION_TOKEN_REFRESH_TOKEN_TTL),
         );
     }
+
 
     public function getParRequestUriTtl(): DateInterval
     {
@@ -410,15 +530,18 @@ class ModuleConfig
         );
     }
 
+
     public function getRequirePushedAuthorizationRequests(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS, false);
     }
 
+
     public function getRequireSignedRequestObject(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT, false);
     }
+
 
     /**
      * Whether the OP supports passing the Request Object by reference using the https request_uri parameter
@@ -429,6 +552,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalBoolean(self::OPTION_REQUEST_URI_PARAMETER_SUPPORTED, true);
     }
+
 
     /**
      * Allowed https request_uri prefixes for OpenID Federation candidates (clients not registered in storage,
@@ -469,10 +593,12 @@ class ModuleConfig
         return array_values(array_filter($value, 'is_string'));
     }
 
+
     public function getRequestUriFetchTimeout(): int
     {
         return $this->config()->getOptionalInteger(self::OPTION_REQUEST_URI_FETCH_TIMEOUT, 5);
     }
+
 
     public function getRequestUriMaxSizeBytes(): int
     {
@@ -499,6 +625,7 @@ class ModuleConfig
         return array_values(array_filter($schemes, 'is_string'));
     }
 
+
     /**
      * Hosts this deployment declares legitimate whatever they resolve to.
      *
@@ -512,6 +639,7 @@ class ModuleConfig
         return array_values(array_filter($hosts, 'is_string'));
     }
 
+
     /**
      * Address ranges permitted alongside the public ones, as CIDR.
      *
@@ -524,6 +652,7 @@ class ModuleConfig
 
         return array_values(array_filter($cidrs, 'is_string'));
     }
+
 
     /**
      * How strictly to insist on connecting to the address that was validated.
@@ -559,6 +688,7 @@ class ModuleConfig
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -566,6 +696,7 @@ class ModuleConfig
     {
         return $this->config()->getString(self::OPTION_AUTH_SOURCE);
     }
+
 
     /**
      * Get the ordered list of candidate user identifier attributes.
@@ -589,6 +720,7 @@ class ModuleConfig
         return array_values(array_filter($value, 'is_string'));
     }
 
+
     /**
      * Returns the primary (first) configured user ID candidate.
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -599,6 +731,7 @@ class ModuleConfig
         return $this->getUserIdentifierAttributes()[0]
         ?? throw new ConfigurationError('No user identifier attribute configured.');
     }
+
 
     public function getSupportedAlgorithms(): SupportedAlgorithms
     {
@@ -618,6 +751,7 @@ class ModuleConfig
         );
     }
 
+
     public function getSupportedSerializers(): SupportedSerializers
     {
         return new SupportedSerializers(
@@ -626,6 +760,7 @@ class ModuleConfig
             ),
         );
     }
+
 
     /**
      * @return string[]
@@ -638,6 +773,7 @@ class ModuleConfig
             ResponseModesEnum::FormPost->value,
         ];
     }
+
 
     /**
      * Response types a client may be registered to use.
@@ -657,6 +793,7 @@ class ModuleConfig
         ];
     }
 
+
     /**
      * Grant types a client may be registered to use.
      *
@@ -675,6 +812,7 @@ class ModuleConfig
         ];
     }
 
+
     /**
      * Token endpoint authentication methods a client may be registered to use.
      *
@@ -690,8 +828,9 @@ class ModuleConfig
         ];
     }
 
+
     /**
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      * @return non-empty-array
      */
     public function getProtocolSignatureKeyPairs(): array
@@ -704,6 +843,7 @@ class ModuleConfig
 
         return $signatureKeyPairs;
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -720,6 +860,7 @@ class ModuleConfig
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
@@ -735,6 +876,7 @@ class ModuleConfig
             ->fromConfig($this->getProtocolSignatureKeyPairConfigBag());
     }
 
+
     /**
      * Get supported Authentication Context Class References (ACRs).
      *
@@ -746,6 +888,7 @@ class ModuleConfig
         return array_values($this->config()->getOptionalArray(self::OPTION_AUTH_ACR_VALUES_SUPPORTED, []));
     }
 
+
     /**
      * Get a map of auth sources and their supported ACRs
      *
@@ -756,6 +899,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalArray(self::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP, []);
     }
+
 
     /**
      * @return null|string
@@ -774,6 +918,7 @@ class ModuleConfig
         return (string)$value;
     }
 
+
     /**
      * @throws \Exception
      */
@@ -787,6 +932,7 @@ class ModuleConfig
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -794,6 +940,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalArray(self::OPTION_AUTH_CUSTOM_SCOPES, []);
     }
+
 
     /**
      * Get the encryption key used to encrypt / decrypt artifacts like
@@ -834,6 +981,7 @@ class ModuleConfig
         }
     }
 
+
     /**
      * Whether a dedicated encryption key is configured. When it is not, getEncryptionKey() falls
      * back to the SimpleSAMLphp secret salt, which is used as a password from which the actual key
@@ -848,6 +996,7 @@ class ModuleConfig
 
         return $encryptionKey !== null && $encryptionKey !== '';
     }
+
 
     /**
      * Get the configured SAML attribute to OIDC claim translation table.
@@ -867,6 +1016,7 @@ class ModuleConfig
         return $this->config()->getOptionalArray(self::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
     }
 
+
     /**
      * Get autproc filters defined in the OIDC configuration.
      *
@@ -878,15 +1028,18 @@ class ModuleConfig
         return $this->config()->getOptionalArray(self::OPTION_AUTH_PROCESSING_FILTERS, []);
     }
 
+
     public function getProtocolCacheAdapterClass(): ?string
     {
         return $this->config()->getOptionalString(self::OPTION_PROTOCOL_CACHE_ADAPTER, null);
     }
 
+
     public function getProtocolCacheAdapterArguments(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
     }
+
 
     /**
      * Get cache duration for user entities (user data). If not set in configuration, it will fall back to SSP session
@@ -904,6 +1057,7 @@ class ModuleConfig
         );
     }
 
+
     /**
      * Get cache duration for client entities (user data), with the given default
      *
@@ -919,6 +1073,7 @@ class ModuleConfig
         );
     }
 
+
     public function getProtocolDiscoveryShowClaimsSupported(): bool
     {
         return $this->config()->getOptionalBoolean(
@@ -926,6 +1081,7 @@ class ModuleConfig
             false,
         );
     }
+
 
     /**
      * Guzzle HTTP client options for the protocol-layer outbound fetches performed by the `openid` library
@@ -943,6 +1099,7 @@ class ModuleConfig
     {
         return $this->getHttpClientOptions(self::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS);
     }
+
 
     /**
      * Guzzle HTTP client options for the outbound Back-Channel Logout requests sent to the Relying Parties'
@@ -962,6 +1119,7 @@ class ModuleConfig
     {
         return $this->getHttpClientOptions(self::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS);
     }
+
 
     /**
      * Read a Guzzle HTTP client options array from the given config option.
@@ -994,6 +1152,7 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_FEDERATION_ENABLED, false);
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
@@ -1017,6 +1176,7 @@ class ModuleConfig
             ->fromConfig($signatureKeyPairConfigBag);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1029,6 +1189,7 @@ class ModuleConfig
             ) ?? 'P1D',
         );
     }
+
 
     /**
      * @throws \Exception
@@ -1043,6 +1204,7 @@ class ModuleConfig
         );
     }
 
+
     public function getFederationAuthorityHints(): ?array
     {
         $authorityHints = $this->config()->getOptionalArray(
@@ -1052,6 +1214,7 @@ class ModuleConfig
 
         return empty($authorityHints) ? null : $authorityHints;
     }
+
 
     public function getFederationTrustMarkTokens(): ?array
     {
@@ -1063,6 +1226,7 @@ class ModuleConfig
         return empty($trustMarks) ? null : $trustMarks;
     }
 
+
     public function getFederationDynamicTrustMarks(): ?array
     {
         $dynamicTrustMarks = $this->config()->getOptionalArray(
@@ -1073,6 +1237,7 @@ class ModuleConfig
         return empty($dynamicTrustMarks) ? null : $dynamicTrustMarks;
     }
 
+
     public function getOrganizationName(): ?string
     {
         return $this->config()->getOptionalString(
@@ -1080,6 +1245,7 @@ class ModuleConfig
             null,
         );
     }
+
 
     public function getDisplayName(): ?string
     {
@@ -1089,6 +1255,7 @@ class ModuleConfig
         );
     }
 
+
     public function getDescription(): ?string
     {
         return $this->config()->getOptionalString(
@@ -1096,6 +1263,7 @@ class ModuleConfig
             null,
         );
     }
+
 
     /**
      * JSON array with one or more strings representing search keywords, tags, categories, or labels that
@@ -1114,8 +1282,9 @@ class ModuleConfig
             return null;
         }
 
-        return array_filter($keywords, fn($keyword) => is_string($keyword));
+        return array_filter($keywords, 'is_string');
     }
+
 
     public function getContacts(): ?array
     {
@@ -1125,6 +1294,7 @@ class ModuleConfig
         );
     }
 
+
     public function getLogoUri(): ?string
     {
         return $this->config()->getOptionalString(
@@ -1132,6 +1302,7 @@ class ModuleConfig
             null,
         );
     }
+
 
     public function getPolicyUri(): ?string
     {
@@ -1141,6 +1312,7 @@ class ModuleConfig
         );
     }
 
+
     public function getInformationUri(): ?string
     {
         return $this->config()->getOptionalString(
@@ -1148,6 +1320,7 @@ class ModuleConfig
             null,
         );
     }
+
 
     public function getOrganizationUri(): ?string
     {
@@ -1157,15 +1330,18 @@ class ModuleConfig
         );
     }
 
+
     public function getFederationCacheAdapterClass(): ?string
     {
         return $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_ADAPTER, null);
     }
 
+
     public function getFederationCacheAdapterArguments(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS, []);
     }
+
 
     public function getFederationCacheMaxDurationForFetched(): DateInterval
     {
@@ -1173,6 +1349,7 @@ class ModuleConfig
             $this->config()->getOptionalString(self::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED, 'PT6H'),
         );
     }
+
 
     /**
      * Guzzle HTTP client options for the federation-layer outbound fetches performed by the `openid` library
@@ -1193,6 +1370,7 @@ class ModuleConfig
         return $this->getHttpClientOptions(self::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS);
     }
 
+
     /**
      * Maximum number of hops from the leaf entity up to a Trust Anchor. Mirrors the `openid` library default;
      * the library clamps it to 1..20.
@@ -1204,6 +1382,7 @@ class ModuleConfig
         return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH, 9);
     }
 
+
     /**
      * Maximum number of `authority_hints` honoured per entity, which is the branching factor of the trust
      * chain traversal. Mirrors the `openid` library default; the library clamps it to 1..12.
@@ -1214,6 +1393,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_MAX_AUTHORITY_HINTS, 6);
     }
+
 
     /**
      * Maximum number of entity statement fetches allowed for a single trust chain resolution. This, together
@@ -1227,6 +1407,7 @@ class ModuleConfig
         return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES, 100);
     }
 
+
     /**
      * Wall-clock deadline, in seconds, for a single trust chain resolution. Mirrors the `openid` library
      * default; clamped by it to 1..300.
@@ -1237,6 +1418,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalInteger(self::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT, 30);
     }
+
 
     /**
      * Maximum response body size, in bytes, read for a federation fetch. Mirrors the `openid` library default.
@@ -1250,6 +1432,7 @@ class ModuleConfig
             HttpClientDecorator::DEFAULT_MAX_FETCH_SIZE_BYTES,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -1265,6 +1448,7 @@ class ModuleConfig
         return $trustAnchors;
     }
 
+
     /**
      * @return non-empty-array<array-key, non-empty-string>
      * @psalm-suppress LessSpecificReturnStatement, MoreSpecificReturnType
@@ -1274,6 +1458,7 @@ class ModuleConfig
     {
         return array_map('strval', array_keys($this->getFederationTrustAnchors()));
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -1296,6 +1481,7 @@ class ModuleConfig
         );
     }
 
+
     public function getFederationParticipationLimitByTrustMarks(): array
     {
         return $this->config()->getOptionalArray(
@@ -1303,6 +1489,7 @@ class ModuleConfig
             [],
         );
     }
+
 
     public function getFederationTrustMarkStatusEndpointUsagePolicy(): TrustMarkStatusEndpointUsagePolicyEnum
     {
@@ -1319,6 +1506,7 @@ class ModuleConfig
         return TrustMarkStatusEndpointUsagePolicyEnum::RequiredIfEndpointProvidedForNonExpiringTrustMarksOnly;
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
@@ -1331,6 +1519,7 @@ class ModuleConfig
 
         return $participationLimit;
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -1349,6 +1538,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
     }
+
 
     /**
      * Whether new credentials get a Token Status List entry allocated to them.
@@ -1388,6 +1578,7 @@ class ModuleConfig
         return true;
     }
 
+
     /**
      * Whether the host SimpleSAMLphp can perform reads which bypass secondaries.
      *
@@ -1398,6 +1589,7 @@ class ModuleConfig
     {
         return method_exists(Database::class, self::SSP_PRIMARY_READ_METHOD);
     }
+
 
     /**
      * How many Status List requests one client may make per minute, or 0 for no limit.
@@ -1429,6 +1621,7 @@ class ModuleConfig
 
         return $configured;
     }
+
 
     /**
      * How long a Status List is left alone before it may be retired.
@@ -1481,6 +1674,7 @@ class ModuleConfig
         return $grace;
     }
 
+
     /**
      * How long rows in the status audit trail are kept, or null to keep them indefinitely.
      *
@@ -1498,6 +1692,7 @@ class ModuleConfig
             $this->config()->getOptionalValue(self::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION, null),
         );
     }
+
 
     /**
      * Reads an option which is a duration, is allowed to be absent, and has to be a length of time.
@@ -1555,6 +1750,7 @@ class ModuleConfig
         return $duration;
     }
 
+
     /**
      * Key profile used for Status List Tokens which do not have one set on their own pool.
      *
@@ -1592,6 +1788,7 @@ class ModuleConfig
             self::DEFAULT_FILE_NAME,
         );
     }
+
 
     /**
      * The configured Status List pools.
@@ -1637,6 +1834,7 @@ class ModuleConfig
         return $this->vciStatusListPoolBag = $poolBag;
     }
 
+
     /**
      * The pool a credential configuration allocates Status List entries from, or null if it is not
      * configured to use them, in which case its credentials are issued without a `status` claim.
@@ -1651,6 +1849,7 @@ class ModuleConfig
 
         return $this->getVciStatusListPoolBag()->getForCredentialConfigurationId($credentialConfigurationId);
     }
+
 
     /**
      * How long credentials of each configuration remain valid.
@@ -1701,6 +1900,7 @@ class ModuleConfig
         return $this->vciCredentialTtls = $ttls;
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
@@ -1750,6 +1950,7 @@ class ModuleConfig
         return $ttl;
     }
 
+
     /**
      * How long a credential of this configuration is valid for, or null if it does not expire.
      *
@@ -1759,6 +1960,7 @@ class ModuleConfig
     {
         return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
     }
+
 
     /**
      * Which Status List expiry lanes a pool would currently allocate into.
@@ -1817,6 +2019,7 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_DCR_ENABLED, false);
     }
 
+
     /**
      * Access-control mode for the registration endpoint: open registration
      * (default) or gated behind an Initial Access Token.
@@ -1830,6 +2033,7 @@ class ModuleConfig
             ),
         );
     }
+
 
     /**
      * Static allowlist of opaque Initial Access Tokens accepted by the
@@ -1854,6 +2058,7 @@ class ModuleConfig
         return $stringTokens;
     }
 
+
     /**
      * Whether impersonation protection (OIDC Dynamic Client Registration 1.0,
      * Section 9.1) is enforced. When on (default), the host of `logo_uri`,
@@ -1864,6 +2069,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalBoolean(self::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED, true);
     }
+
 
     /**
      * Whether a client registered through Dynamic Client Registration (RFC 7591 / OIDC DCR) is created enabled and
@@ -1877,6 +2083,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalBoolean(self::OPTION_DCR_REGISTERED_CLIENTS_ENABLED, true);
     }
+
 
     /**
      * Scopes assigned to a Dynamic Client Registration (DCR) client that registers without an explicit `scope`.
@@ -1908,7 +2115,7 @@ class ModuleConfig
 
 
     /**
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      * @return non-empty-array
      */
     public function getVciSignatureKeyPairs(): array
@@ -1939,6 +2146,7 @@ class ModuleConfig
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment, ArgumentTypeCoercion
@@ -1953,6 +2161,7 @@ class ModuleConfig
             ->signatureKeyPairBagFactory()
             ->fromConfig($this->getVciSignatureKeyPairConfigBag());
     }
+
 
     /**
      * The Verifiable Credential Issuance key pair which is currently signing.
@@ -1980,10 +2189,12 @@ class ModuleConfig
         return $this->getVciSignatureKeyPairBag()->getFirstOrFail();
     }
 
+
     public function getVciCredentialConfigurationsSupported(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
     }
+
 
     /**
      * @param string $credentialConfigurationId
@@ -2011,6 +2222,7 @@ class ModuleConfig
         return $credentialConfiguration;
     }
 
+
     /**
      * @return array<string>
      */
@@ -2021,6 +2233,7 @@ class ModuleConfig
             array_keys($this->getVciCredentialConfigurationsSupported()),
         );
     }
+
 
     /**
      * Helper function to get the credential configuration IDs in a format suitable for creating ScopeEntity instances.
@@ -2040,6 +2253,7 @@ class ModuleConfig
         }
         return $vciScopes;
     }
+
 
     public function getVciCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
     {
@@ -2066,6 +2280,7 @@ class ModuleConfig
 
         return null;
     }
+
 
     /**
      * Extract and parse the claims path definition from the credential configuration supported.
@@ -2101,10 +2316,12 @@ class ModuleConfig
         return array_filter($validPaths);
     }
 
+
     public function getVciUserAttributeToCredentialClaimPathMap(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP, []);
     }
+
 
     public function getVciUserAttributeToCredentialClaimPathMapFor(string $credentialConfigurationId): array
     {
@@ -2118,10 +2335,11 @@ class ModuleConfig
         return [];
     }
 
+
     /**
      * Get Issuer State Duration (TTL) if set. If not set, it will fall back to Authorization Code Duration.
      *
-     * @return DateInterval
+     * @return \DateInterval
      * @throws \Exception
      */
     public function getVciIssuerStateDuration(): DateInterval
@@ -2137,11 +2355,12 @@ class ModuleConfig
         );
     }
 
+
     /**
      * Get Nonce TTL (validity duration) used for VCI proof-of-possession
      * nonces. If not set, it defaults to 5 minutes.
      *
-     * @return DateInterval
+     * @return \DateInterval
      * @throws \Exception
      */
     public function getVciNonceTtl(): DateInterval
@@ -2155,10 +2374,12 @@ class ModuleConfig
         return new DateInterval($nonceTtl);
     }
 
+
     public function getVciAllowNonRegisteredClients(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS, false);
     }
+
 
     public function getVciAllowedRedirectUriPrefixesForNonRegisteredClients(): array
     {
@@ -2179,6 +2400,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT, []);
     }
+
 
     /**
      * Get the JSON-LD context document (as a PHP array) configured for a
@@ -2209,10 +2431,12 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_API_ENABLED, false);
     }
 
+
     public function getApiVciCredentialOfferEndpointEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED, false);
     }
+
 
     /**
      * Whether the endpoint through which a credential's status can be changed is served.
@@ -2226,10 +2450,12 @@ class ModuleConfig
         return $this->config()->getOptionalBoolean(self::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED, false);
     }
 
+
     public function getApiOAuth2TokenIntrospectionEndpointEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED, false);
     }
+
 
     /**
      * Clients allowed to introspect tokens issued to any client, and not only to themselves.
@@ -2254,6 +2480,7 @@ class ModuleConfig
         );
     }
 
+
     /**
      * @return mixed[]|null
      */
@@ -2261,6 +2488,7 @@ class ModuleConfig
     {
         return $this->config()->getOptionalArray(self::OPTION_API_TOKENS, null);
     }
+
 
     /**
      * @param string $token
@@ -2303,6 +2531,7 @@ class ModuleConfig
         // Settings which name a token and grant it nothing authorize nothing.
         return $positionalScopes === [] ? null : $positionalScopes;
     }
+
 
     /**
      * The name an API token is configured under, or null when it has none.
@@ -2349,6 +2578,7 @@ class ModuleConfig
         return $name;
     }
 
+
     /**
      * Whether an API token entry is written as a settings array rather than as a bare list of scopes.
      *
@@ -2364,10 +2594,12 @@ class ModuleConfig
         is_string($entry[self::KEY_API_TOKEN_NAME] ?? null);
     }
 
+
     public function getAuthSourcesToUsersEmailAttributeMap(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP, []);
     }
+
 
     public function getUsersEmailAttributeNameForAuthSourceId(string $authSource): string
     {
@@ -2381,10 +2613,12 @@ class ModuleConfig
         return $this->getDefaultUsersEmailAttributeName();
     }
 
+
     public function getDefaultUsersEmailAttributeName(): string
     {
         return $this->config()->getOptionalString(self::OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME, 'mail');
     }
+
 
     /**
      * @return array{
@@ -2394,7 +2628,7 @@ class ModuleConfig
      *     private_key_password: ?non-empty-string,
      *     key_id: ?non-empty-string
      * }
-     * @throws ConfigurationError     *
+     * @throws \SimpleSAML\Error\ConfigurationError     *
      */
     public function getValidatedSignatureKeyPairArray(mixed $signatureKeyPair): array
     {
@@ -2489,8 +2723,9 @@ class ModuleConfig
         ];
     }
 
+
     /**
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      * @psalm-suppress MixedAssignment
      */
     protected function getSignatureKeyPairConfigBag(array $signatureKeyPairs): SignatureKeyPairConfigBag
@@ -2499,7 +2734,7 @@ class ModuleConfig
 
         foreach ($signatureKeyPairs as $signatureKeyPair) {
             /**
-             * @var SignatureAlgorithmEnum $algorithm
+             * @var \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum $algorithm
              * @var non-empty-string $privateKeyFilename
              * @var non-empty-string $publicKeyFilename
              * @var ?non-empty-string $privateKeyPassword
@@ -2526,6 +2761,7 @@ class ModuleConfig
 
         return $signatureKeyPairConfigBag;
     }
+
 
     public function getTimestampValidationLeeway(): DateInterval
     {

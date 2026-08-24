@@ -17,7 +17,7 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 /**
  * Resolve a client instance based on a client_id or request object.
  *
- * @extends AbstractRule<string>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<string>
  */
 class ClientIdRule extends AbstractRule
 {
@@ -37,8 +37,8 @@ class ClientIdRule extends AbstractRule
      * @throws \SimpleSAML\OpenID\Exceptions\TrustChainException
      * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,

@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -25,19 +26,30 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
  */
+#[AllowMockObjectsWithoutExpectations]
 class RefreshTokenRepositoryTest extends TestCase
 {
-    final public const CLIENT_ID = 'refresh_token_client_id';
-    final public const USER_ID = 'refresh_token_user_id';
-    final public const ACCESS_TOKEN_ID = 'refresh_token_access_token_id';
-    final public const REFRESH_TOKEN_ID = 'refresh_token_id';
-    final public const AUTH_CODE_ID = 'auth_code_id';
+    final public const string CLIENT_ID = 'refresh_token_client_id';
+
+    final public const string USER_ID = 'refresh_token_user_id';
+
+    final public const string ACCESS_TOKEN_ID = 'refresh_token_access_token_id';
+
+    final public const string REFRESH_TOKEN_ID = 'refresh_token_id';
+
+    final public const string AUTH_CODE_ID = 'auth_code_id';
+
 
     protected RefreshTokenRepository $repository;
+
     protected MockObject $accessTokenMock;
+
     protected MockObject $accessTokenRepositoryMock;
+
     protected MockObject $refreshTokenEntityFactoryMock;
+
     protected MockObject $refreshTokenEntityMock;
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -60,6 +72,7 @@ class RefreshTokenRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     protected function setUp(): void
     {
         $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
@@ -81,10 +94,12 @@ class RefreshTokenRepositoryTest extends TestCase
         );
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_refresh_token', $this->repository->getTableName());
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -103,15 +118,18 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->refreshTokenEntityFactoryMock->expects($this->once())
             ->method('fromState')
-            ->with($this->callback(function (array $state): bool {
-                return $state['id'] === self::REFRESH_TOKEN_ID;
-            }))->willReturn($refreshToken);
+            ->with(
+                $this->callback(
+                    fn(array $state): bool => $state['id'] === self::REFRESH_TOKEN_ID,
+                ),
+            )->willReturn($refreshToken);
 
         $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
         $foundRefreshToken = $this->repository->findById(self::REFRESH_TOKEN_ID);
 
         $this->assertEquals($refreshToken, $foundRefreshToken);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -122,6 +140,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->assertNull($notFoundRefreshToken);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -134,9 +153,7 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->refreshTokenEntityMock->expects($this->once())->method('revoke');
         $this->refreshTokenEntityFactoryMock->expects($this->atLeastOnce())
             ->method('fromState')
-            ->with($this->callback(function (array $state): bool {
-                return $state['id'] === self::REFRESH_TOKEN_ID;
-            }))
+            ->with($this->callback(fn(array $state): bool => $state['id'] === self::REFRESH_TOKEN_ID))
             ->willReturnOnConsecutiveCalls($this->refreshTokenEntityMock, $revokedRefreshTokenMock);
 
         $this->repository->revokeRefreshToken(self::REFRESH_TOKEN_ID);
@@ -144,6 +161,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->assertTrue($isRevoked);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -155,6 +173,7 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->repository->revokeRefreshToken('notoken');
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -164,6 +183,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->repository->isRefreshTokenRevoked('notoken');
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -177,6 +197,7 @@ class RefreshTokenRepositoryTest extends TestCase
         $this->assertNull($notFoundRefreshToken);
     }
 
+
     public function testGetNewRefreshTokenThrows(): void
     {
         $this->expectException(RuntimeException::class);
@@ -184,6 +205,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->repository->getNewRefreshToken();
     }
+
 
     public function testPersistNewRefreshTokenThrowsIfNotRefreshTokenEntity(): void
     {
@@ -193,6 +215,7 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->repository->persistNewRefreshToken($oAuthRefreshTokenEntity);
     }
+
 
     public function testCanRevokeByAuthCodeId(): void
     {
@@ -207,9 +230,9 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->refreshTokenEntityFactoryMock->expects($this->once())
             ->method('fromState')
-            ->with($this->callback(function (array $state): bool {
-                return $state['id'] === self::REFRESH_TOKEN_ID;
-            }))->willReturn($this->refreshTokenEntityMock);
+            ->with(
+                $this->callback(fn(array $state): bool => $state['id'] === self::REFRESH_TOKEN_ID),
+            )->willReturn($this->refreshTokenEntityMock);
 
         $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
 

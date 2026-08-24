@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
@@ -13,13 +14,17 @@ use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Utils\Attributes;
+use stdClass;
 
 #[CoversClass(ClaimTranslatorExtractor::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClaimTranslatorExtractorTest extends TestCase
 {
     /** @var string[] */
     protected static array $userIdAttrs = ['uid'];
+
     protected Stub $claimSetEntityFactoryStub;
+
 
     protected function setUp(): void
     {
@@ -35,6 +40,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             );
     }
 
+
     protected function mock(
         array $claimSets = [],
         array $translationTable = [],
@@ -48,6 +54,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             $allowedMultiValueClaims,
         );
     }
+
 
     /**
      * Test various type conversions work, including types in subobjects
@@ -144,6 +151,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertSame($expectedClaims, $releasedClaims);
     }
 
+
     /**
      * Test that the default translator configuration sets address correctly.
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -169,6 +177,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $this->assertSame($expectedClaims, $releasedClaims);
     }
+
 
     /**
      * Test we can set the non-string standard claims
@@ -225,6 +234,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertSame($expectedClaims, $releasedClaims);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -243,6 +253,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claimTranslator->extract(['typeConversion'], $userAttributes);
     }
 
+
     public function testConvertsIntegerSubjectClaimToString(): void
     {
         $releasedClaims = $this->mock()->extract(
@@ -252,6 +263,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $this->assertSame(['sub' => '123'], $releasedClaims);
     }
+
 
     #[DataProvider('unsafeStringValuesProvider')]
     public function testRejectsUnsafeStringConversion(mixed $value, string $type): void
@@ -273,13 +285,15 @@ class ClaimTranslatorExtractorTest extends TestCase
         );
     }
 
+
     public static function unsafeStringValuesProvider(): array
     {
         return [
             'null' => [null, 'null'],
-            'non-stringable object' => [new \stdClass(), 'stdClass'],
+            'non-stringable object' => [new stdClass(), 'stdClass'],
         ];
     }
+
 
     public function testRejectsEmptySubjectClaimAfterStringConversion(): void
     {
@@ -291,6 +305,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             ['uid' => [false]],
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -308,6 +323,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertEquals(['name' => 'bob'], $claims);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -324,6 +340,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertEquals(['name' => 'bob'], $claims);
     }
 
+
     public function testCanGetSupportedClaims(): void
     {
         $translate = [
@@ -336,6 +353,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertTrue(in_array('custom', $this->mock([], $translate)->getSupportedClaims(), true));
     }
 
+
     public function testCanUnsetClaimWhichIsSupportedByDefault(): void
     {
         $this->assertTrue(in_array('nickname', $this->mock()->getSupportedClaims(), true));
@@ -343,6 +361,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $translate = ['nickname' => []];
         $this->assertFalse(in_array('nickname', $this->mock([], $translate)->getSupportedClaims(), true));
     }
+
 
     public function testCanReleaseMultiValueClaims(): void
     {
@@ -376,6 +395,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         $this->assertSame($expectedClaims, $releasedClaims);
     }
 
+
     public function testWillReleaseSingleValueClaimsIfMultiValueNotAllowed(): void
     {
         $claimSet = new ClaimSetEntity(
@@ -405,6 +425,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $this->assertSame($expectedClaims, $releasedClaims);
     }
+
 
     public function testWillReleaseSingleValueClaimsForMandatorySingleValueClaims(): void
     {

@@ -32,10 +32,12 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * @param string $identifier
@@ -82,6 +84,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         return $userEntity;
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \Exception
@@ -94,6 +97,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
     ): ?UserEntityInterface {
         throw new Exception('Not supported');
     }
+
 
     public function add(UserEntity $userEntity): void
     {
@@ -113,6 +117,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
         );
     }
 
+
     public function delete(UserEntity $userEntity): void
     {
         $this->database->write(
@@ -124,6 +129,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
         $this->protocolCache?->delete($this->getCacheKey($userEntity->getIdentifier()));
     }
+
 
     public function update(UserEntity $userEntity, ?DateTimeImmutable $updatedAt = null): void
     {

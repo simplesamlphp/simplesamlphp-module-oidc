@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Entities;
 
+use InvalidArgumentException;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 
@@ -13,6 +14,7 @@ use League\OAuth2\Server\Entities\Traits\EntityTrait;
 class ScopeEntity implements ScopeEntityInterface
 {
     use EntityTrait;
+
 
     /**
      * @param string[] $claims
@@ -24,21 +26,24 @@ class ScopeEntity implements ScopeEntityInterface
         protected array $claims = [],
     ) {
         if ($identifier === '') {
-            throw new \InvalidArgumentException('Scope identifier cannot be empty.');
+            throw new InvalidArgumentException('Scope identifier cannot be empty.');
         }
 
         $this->identifier = $identifier;
     }
+
 
     public function getIcon(): ?string
     {
         return $this->icon;
     }
 
+
     public function getDescription(): ?string
     {
         return $this->description;
     }
+
 
     /**
      * @return array<string>
@@ -47,6 +52,7 @@ class ScopeEntity implements ScopeEntityInterface
     {
         return $this->claims;
     }
+
 
     public function jsonSerialize(): string
     {

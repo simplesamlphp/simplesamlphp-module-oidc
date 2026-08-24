@@ -30,15 +30,18 @@ class StatusListAllocationTarget
     ) {
     }
 
+
     public function getPoolId(): string
     {
         return $this->poolId;
     }
 
+
     public function getPolicyFingerprint(): string
     {
         return $this->policyFingerprint;
     }
+
 
     public function getExpiryLane(): StatusListExpiryLaneEnum
     {

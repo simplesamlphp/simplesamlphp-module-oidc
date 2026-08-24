@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\StatusList;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use Throwable;
 
 /**
  * Which key a Status List Token is signed with.
@@ -30,6 +31,7 @@ class StatusListKeyResolver
     ) {
     }
 
+
     /**
      * The key newly created lists are bound to.
      *
@@ -44,7 +46,7 @@ class StatusListKeyResolver
     {
         try {
             return $this->moduleConfig->getActiveVciSignatureKeyPair();
-        } catch (\Throwable $throwable) {
+        } catch (Throwable $throwable) {
             throw new StatusListException(
                 'No Verifiable Credential Issuance signature key pair is configured, so Status Lists ' .
                 'can not be signed: ' . $throwable->getMessage(),
@@ -53,6 +55,7 @@ class StatusListKeyResolver
             );
         }
     }
+
 
     /**
      * The identifier stored against a list, being either the configured key ID or, when none was
@@ -65,6 +68,7 @@ class StatusListKeyResolver
     {
         return $this->getCurrent()->getKeyPair()->getKeyId();
     }
+
 
     /**
      * The key a list was created with.

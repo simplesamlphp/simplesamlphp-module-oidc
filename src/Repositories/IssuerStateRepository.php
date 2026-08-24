@@ -17,6 +17,7 @@ class IssuerStateRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_vci_issuer_state';
 
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -27,10 +28,12 @@ class IssuerStateRepository extends AbstractDatabaseRepository
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     public function find(string $value): ?IssuerStateEntity
     {
@@ -66,6 +69,7 @@ class IssuerStateRepository extends AbstractDatabaseRepository
         return $issuerState;
     }
 
+
     public function findValid(string $value): ?IssuerStateEntity
     {
         $issuerState = $this->find($value);
@@ -85,6 +89,7 @@ class IssuerStateRepository extends AbstractDatabaseRepository
         return $issuerState;
     }
 
+
     public function revoke(string $value): void
     {
         $issuerState = $this->find($value);
@@ -96,6 +101,7 @@ class IssuerStateRepository extends AbstractDatabaseRepository
         $issuerState->revoke();
         $this->update($issuerState);
     }
+
 
     public function update(IssuerStateEntity $issuerState): void
     {
@@ -127,6 +133,7 @@ EOS
         );
     }
 
+
     public function persist(IssuerStateEntity $issuerState): void
     {
         $stmt = sprintf(
@@ -154,6 +161,7 @@ EOS
         );
     }
 
+
     /**
      * Remove invalid issuer state entities (expired or revoked).
      * @return void
@@ -178,6 +186,7 @@ EOS
 
         $this->database->write($stmt, $this->preparePdoState($data));
     }
+
 
     protected function preparePdoState(array $state): array
     {

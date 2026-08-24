@@ -22,10 +22,12 @@ class Result
     {
     }
 
+
     public function getKey(): string
     {
         return $this->key;
     }
+
 
     /**
      * @return T

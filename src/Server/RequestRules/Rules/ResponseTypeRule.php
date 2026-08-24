@@ -16,15 +16,15 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
- * @extends AbstractRule<string>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<string>
  */
 class ResponseTypeRule extends AbstractRule
 {
     /**
      * @inheritDoc
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,

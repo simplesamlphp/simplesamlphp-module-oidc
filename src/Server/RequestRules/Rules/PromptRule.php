@@ -24,7 +24,7 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  * This rule never yields a value into the result bag (it only performs validation / side effects),
  * so its value type is `never`.
  *
- * @extends AbstractRule<never>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<never>
  */
 class PromptRule extends AbstractRule
 {
@@ -38,6 +38,7 @@ class PromptRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \SimpleSAML\Error\AuthSource
@@ -47,8 +48,8 @@ class PromptRule extends AbstractRule
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,

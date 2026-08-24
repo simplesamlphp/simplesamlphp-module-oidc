@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,11 +21,13 @@ use SimpleSAML\OpenID\Network\DestinationPolicy;
  * that reaches a resolver is one that fails on a train.
  */
 #[CoversClass(DestinationPolicyFactory::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DestinationPolicyFactoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
 
     protected MockObject $loggerServiceMock;
+
 
     protected function setUp(): void
     {
@@ -33,6 +36,7 @@ class DestinationPolicyFactoryTest extends TestCase
 
         $this->configure();
     }
+
 
     /**
      * @param list<string> $allowedSchemes
@@ -52,15 +56,18 @@ class DestinationPolicyFactoryTest extends TestCase
         $this->moduleConfigMock->method('getOutboundAddressPinningMode')->willReturn($pinningMode);
     }
 
+
     protected function sut(): DestinationPolicyFactory
     {
         return new DestinationPolicyFactory($this->moduleConfigMock, $this->loggerServiceMock);
     }
 
+
     public function testBuildsAPolicy(): void
     {
         $this->assertInstanceOf(DestinationPolicy::class, $this->sut()->build());
     }
+
 
     public function testPassesThroughTheConfiguredPinningMode(): void
     {
@@ -68,6 +75,7 @@ class DestinationPolicyFactoryTest extends TestCase
 
         $this->assertSame(AddressPinningModeEnum::Required, $this->sut()->build()->getAddressPinningMode());
     }
+
 
     public function testPassesThroughAllowedHosts(): void
     {
@@ -77,6 +85,7 @@ class DestinationPolicyFactoryTest extends TestCase
 
         $this->assertTrue($policy->isUriAllowed('https://rp.internal.example/jwks'));
     }
+
 
     /**
      * The narrow range is the point of the option: permitting one internal endpoint must not permit its
@@ -92,6 +101,7 @@ class DestinationPolicyFactoryTest extends TestCase
         $this->assertFalse($policy->isAddressAllowed('10.1.2.4'));
     }
 
+
     public function testRefusesPlainHttpUnlessConfiguredToAllowIt(): void
     {
         $this->configure(allowedHosts: ['rp.internal.example']);
@@ -102,6 +112,7 @@ class DestinationPolicyFactoryTest extends TestCase
 
         $this->assertTrue($this->sut()->build()->isUriAllowed('http://rp.internal.example/jwks'));
     }
+
 
     /**
      * A range that can never match is a configuration mistake that would otherwise look like a working

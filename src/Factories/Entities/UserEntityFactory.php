@@ -15,6 +15,7 @@ class UserEntityFactory
     ) {
     }
 
+
     public function fromData(string $identifier, array $claims = []): UserEntity
     {
         $createdAt = $updatedAt = $this->helpers->dateTime()->getUtc();
@@ -26,6 +27,7 @@ class UserEntityFactory
             $claims,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

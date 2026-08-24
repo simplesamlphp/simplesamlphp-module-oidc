@@ -11,6 +11,7 @@ interface TokenAssociatableWithAuthCodeInterface
      */
     public function setAuthCodeId(?string $authCodeId): void;
 
+
     /**
      * @return string|null
      */

@@ -10,7 +10,6 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
-use SimpleSAML\Error;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -39,6 +38,7 @@ class AuthenticationService
      */
     public const string LOGIN_PARAM_USERNAME = 'core:username';
 
+
     /**
      * ID of auth source used during authn.
      */
@@ -48,7 +48,8 @@ class AuthenticationService
      * Ordered list of candidate user identifier attributes.
      * @var string[]
      */
-    private array $userIdAttrs;
+    private readonly array $userIdAttrs;
+
 
     /**
      * @throws \Exception
@@ -71,15 +72,16 @@ class AuthenticationService
         $this->userIdAttrs = $this->moduleConfig->getUserIdentifierAttributes();
     }
 
+
     /**
-     * @param   ServerRequestInterface           $request
-     * @param   OAuth2AuthorizationRequestInterface       $authorizationRequest
+     * @param   \Psr\Http\Message\ServerRequestInterface           $request
+     * @param   \League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface       $authorizationRequest
      *
      * @return array
-     * @throws Error\AuthSource
-     * @throws Exception
+     * @throws \SimpleSAML\Error\AuthSource
+     * @throws \SimpleSAML\Error\Exception
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws Error\UnserializableException
+     * @throws \SimpleSAML\Error\UnserializableException
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
@@ -116,9 +118,9 @@ class AuthenticationService
     /**
      * @param array|null $state
      *
-     * @return UserEntity
-     * @throws Error\NotFound
-     * @throws Exception
+     * @return \SimpleSAML\Module\oidc\Entities\UserEntity
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Error\Exception
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
@@ -127,7 +129,7 @@ class AuthenticationService
         ?array $state,
     ): UserEntity {
         if (!isset($state['Attributes']) || !is_array($state['Attributes'])) {
-            throw new Error\Exception('State array does not contain any attributes.');
+            throw new Exception('State array does not contain any attributes.');
         }
 
         $claims = $state['Attributes'];
@@ -135,7 +137,7 @@ class AuthenticationService
         $userId = $this->userIdentifierResolver->resolve($this->userIdAttrs, $claims);
 
         if ($userId === null) {
-            throw new Error\Exception(
+            throw new Exception(
                 sprintf(
                     'None of the configured user identifier attributes (%s) exist in the user attribute state.' .
                     ' Available attributes are: %s.',
@@ -156,7 +158,7 @@ class AuthenticationService
         }
 
         if (empty($state['Oidc']['RelyingPartyMetadata']['id'])) {
-            throw new Error\Exception('OIDC RelyingPartyMetadata ID does not exist in state.');
+            throw new Exception('OIDC RelyingPartyMetadata ID does not exist in state.');
         }
 
         $client = $this->clientRepository->findById((string)$state['Oidc']['RelyingPartyMetadata']['id']);
@@ -172,8 +174,8 @@ class AuthenticationService
     /**
      * @param   array|null  $state
      *
-     * @return OAuth2AuthorizationRequestInterface
-     * @throws Exception
+     * @return \League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface
+     * @throws \SimpleSAML\Error\Exception
      */
 
     public function getAuthorizationRequestFromState(array|null $state): OAuth2AuthorizationRequestInterface
@@ -192,13 +194,13 @@ class AuthenticationService
     }
 
     /**
-     * @param   Simple                      $authSimple
-     * @param   OAuth2ClientEntityInterface       $client
-     * @param   ServerRequestInterface      $request
-     * @param   OAuth2AuthorizationRequestInterface  $authorizationRequest
+     * @param   \SimpleSAML\Auth\Simple                      $authSimple
+     * @param   \League\OAuth2\Server\Entities\ClientEntityInterface       $client
+     * @param   \Psr\Http\Message\ServerRequestInterface      $request
+     * @param   \League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface  $authorizationRequest
      *
      * @return array
-     * @throws Error\AuthSource
+     * @throws \SimpleSAML\Error\AuthSource
      */
 
     public function prepareStateArray(
@@ -241,6 +243,7 @@ class AuthenticationService
         return $state;
     }
 
+
     /**
      * @return bool
      */
@@ -248,6 +251,7 @@ class AuthenticationService
     {
         return (bool) $this->sessionService->getIsCookieBasedAuthn();
     }
+
 
     /**
      * @return string|null
@@ -257,6 +261,7 @@ class AuthenticationService
         return $this->authSourceId;
     }
 
+
     /**
      * @return string|null
      */
@@ -264,6 +269,7 @@ class AuthenticationService
     {
         return $this->sessionService->getCurrentSession()->getSessionId();
     }
+
 
     /**
      * Resolve additional login parameters to pass to the authentication source, based on the authorization request.
@@ -288,9 +294,10 @@ class AuthenticationService
         return [self::LOGIN_PARAM_USERNAME => $loginHint];
     }
 
+
     /**
-     * @throws Error\BadRequest
-     * @throws Error\NotFound
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
@@ -305,10 +312,11 @@ class AuthenticationService
         $authSimple->login($loginParams);
     }
 
+
     /**
-     * @throws Error\BadRequest
+     * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws Error\NotFound
+     * @throws \SimpleSAML\Error\NotFound
      * @throws \JsonException
      */
     public function authenticateForClient(
@@ -317,6 +325,7 @@ class AuthenticationService
     ): void {
         $this->authenticate($this->authSimpleFactory->build($clientEntity), $loginParams);
     }
+
 
     /**
      * Determine whether the given subject identifier corresponds to the End-User described by the released
@@ -349,6 +358,7 @@ class AuthenticationService
         return hash_equals($canonicalSubject, $subject);
     }
 
+
     /**
      * Store Relying on Party Association to the current session.
      * @throws \Exception
@@ -369,6 +379,7 @@ class AuthenticationService
         );
     }
 
+
     /**
      * This is a wrapper around Auth/State::loadState that facilitates testing by
      * hiding the static method
@@ -376,7 +387,7 @@ class AuthenticationService
      * @param   array  $queryParameters
      *
      * @return array|null
-     * @throws NoState
+     * @throws \SimpleSAML\Error\NoState
      */
     public function manageState(array $queryParameters): ?array
     {
@@ -395,6 +406,7 @@ class AuthenticationService
         return $state;
     }
 
+
     /**
      * Run authproc filters with the processing chain.
      *
@@ -411,8 +423,8 @@ class AuthenticationService
      * @param   array  $state
      *
      * @return void
-     * @throws Exception
-     * @throws Error\UnserializableException
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\UnserializableException
      * @throws \Exception
      */
     protected function runAuthProcs(array &$state): void
@@ -433,6 +445,7 @@ class AuthenticationService
 
         $this->processingChainFactory->build($state)->processState($state);
     }
+
 
     /**
      * Resolve per-client authproc filters from the OIDC relying party metadata

@@ -6,7 +6,9 @@ namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
+use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -32,19 +34,31 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 #[CoversClass(IdTokenBuilder::class)]
+#[AllowMockObjectsWithoutExpectations]
 class IdTokenBuilderTest extends TestCase
 {
     protected MockObject $claimTranslatorExtractorMock;
+
     protected MockObject $coreMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $protocolSignatureKeyBagMock;
+
     protected MockObject $protocolSignatureKeyPairMock;
+
     protected MockObject $idTokenFactoryMock;
+
     protected MockObject $userEntityMock;
+
     protected MockObject $accessTokenEntityMock;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $accessTokenExpiryDateTimeMock;
+
     protected MockObject $scopeEntityMock;
+
 
     protected function setUp(): void
     {
@@ -81,6 +95,7 @@ class IdTokenBuilderTest extends TestCase
         $this->accessTokenEntityMock->method('getScopes')->willReturn([$this->scopeEntityMock]);
     }
 
+
     protected function sut(
         ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
         ?Core $core = null,
@@ -97,10 +112,12 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(IdTokenBuilder::class, $this->sut());
     }
+
 
     public function testCanBuild(): void
     {
@@ -137,6 +154,7 @@ class IdTokenBuilderTest extends TestCase
             ),
         );
     }
+
 
     /**
      * The issued `sub` must be the canonical subject (the mapped `sub` claim when one is configured), regardless of
@@ -192,6 +210,7 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     /**
      * The subject is REQUIRED, so it must be kept even when its value would be considered falsy (e.g. "0").
      */
@@ -237,6 +256,7 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testWillNegotiateIdTokenSignatureAlgorithm(): void
     {
         $this->clientEntityMock->method('getIdTokenSignedResponseAlg')
@@ -266,6 +286,7 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testThrowsForInvalidUserEntity(): void
     {
         $userEntityInterfaceMock = $this->createMock(UserEntityInterface::class);
@@ -284,11 +305,12 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testThrowsForInvalidClientEntity(): void
     {
         $accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $accessTokenEntityMock->method('getClient')->willReturn(
-            $this->createMock(\League\OAuth2\Server\Entities\ClientEntityInterface::class),
+            $this->createMock(ClientEntityInterface::class),
         );
 
         $this->expectException(RuntimeException::class);
@@ -305,6 +327,7 @@ class IdTokenBuilderTest extends TestCase
             null,
         );
     }
+
 
     public function testGenerateAccessTokenHash(): void
     {
@@ -326,6 +349,7 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testGenerateAccessTokenHashWithEdDsa(): void
     {
         $accessTokenMock = $this->createMock(AccessTokenEntity::class);
@@ -346,6 +370,7 @@ class IdTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testGenerateAccessTokenHashThrowsForUnsupportedAlgorithm(): void
     {
         $accessTokenMock = $this->createMock(AccessTokenEntity::class);
@@ -355,6 +380,7 @@ class IdTokenBuilderTest extends TestCase
 
         $this->sut()->generateAccessTokenHash($accessTokenMock, 'UNSUPPORTED');
     }
+
 
     public function testGenerateAccessTokenHashThrowsWhenNotEntityStringRepresentationInterface(): void
     {

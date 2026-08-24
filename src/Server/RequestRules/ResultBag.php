@@ -16,10 +16,12 @@ class ResultBag implements ResultBagInterface
      */
     protected array $results = [];
 
+
     public function add(Result $result): void
     {
         $this->results[$result->getKey()] = $result;
     }
+
 
     /**
      * @template T
@@ -28,9 +30,11 @@ class ResultBag implements ResultBagInterface
      */
     public function get(string $key): ?Result
     {
+        // phpcs:ignore SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
         /** @var \SimpleSAML\Module\oidc\Server\RequestRules\Result<T>|null */
         return $this->results[$key] ?? null;
     }
+
 
     /**
      * @template T
@@ -50,6 +54,7 @@ class ResultBag implements ResultBagInterface
         return $result;
     }
 
+
     /**
      * @template T
      * @param class-string<\SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface<T>> $key
@@ -60,6 +65,7 @@ class ResultBag implements ResultBagInterface
         return $this->getOrFail($key)->getValue();
     }
 
+
     /**
      * @return array<string, \SimpleSAML\Module\oidc\Server\RequestRules\Result<mixed>>
      */
@@ -68,10 +74,12 @@ class ResultBag implements ResultBagInterface
         return $this->results;
     }
 
+
     public function remove(string $key): void
     {
         unset($this->results[$key]);
     }
+
 
     public function has(string $key): bool
     {

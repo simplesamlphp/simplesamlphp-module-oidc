@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Factories\CoreFactory;
@@ -22,12 +23,17 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 /**
  * @covers \SimpleSAML\Module\oidc\Services\LogoutTokenBuilder
  */
+#[AllowMockObjectsWithoutExpectations]
 class LogoutTokenBuilderTest extends TestCase
 {
     private static string $clientId = 'client123';
+
     private static string $userId = 'user123';
+
     private static string $sessionId = 'session123';
+
     private static string $backChannelLogoutUri = 'https//some-host.org/logout';
+
     private static string $logoutTokenType = 'logout+jwt';
 
     /**
@@ -39,11 +45,17 @@ class LogoutTokenBuilderTest extends TestCase
      * @var mixed
      */
     private MockObject $relyingPartyAssociationMock;
+
     private MockObject $loggerServiceMock;
+
     private MockObject $coreFactoryMock;
+
     private MockObject $protocolSignatureKeyPairBagMock;
+
     private MockObject $signatureKeyPairMock;
+
     private MockObject $coreMock;
+
     private MockObject $logoutTokenFactoryMock;
 
 
@@ -82,6 +94,7 @@ class LogoutTokenBuilderTest extends TestCase
         $this->coreMock->method('logoutTokenFactory')->willReturn($this->logoutTokenFactoryMock);
     }
 
+
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?LoggerService $loggerService = null,
@@ -98,10 +111,12 @@ class LogoutTokenBuilderTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(LogoutTokenBuilder::class, $this->sut());
     }
+
 
     /**
      * @throws \ReflectionException
@@ -132,6 +147,7 @@ class LogoutTokenBuilderTest extends TestCase
 
         $this->sut()->forRelyingPartyAssociation($this->relyingPartyAssociationMock);
     }
+
 
     public function testForRelyingPartyAssociationUsesNegotiatedSignatureKeyPair(): void
     {

@@ -18,6 +18,7 @@ class IssuerStateEntityFactory
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -37,9 +38,10 @@ class IssuerStateEntityFactory
         return $this->fromData($value, $createdAt, $expiresAt, $isRevoked);
     }
 
+
     /**
      * @param string $value Issuer State Entity value, max 64 characters.
-     * @throws OpenIdException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      */
     public function fromData(
         string $value,
@@ -54,10 +56,11 @@ class IssuerStateEntityFactory
         return new IssuerStateEntity($value, $createdAt, $expiresAt, $isRevoked);
     }
 
+
     /**
      * @param mixed[] $state
-     * @return IssuerStateEntity
-     * @throws OpenIdException
+     * @return \SimpleSAML\Module\oidc\Entities\IssuerStateEntity
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      */
     public function fromState(array $state): IssuerStateEntity
     {

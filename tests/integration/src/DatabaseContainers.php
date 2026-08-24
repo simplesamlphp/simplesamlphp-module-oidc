@@ -41,9 +41,11 @@ final class DatabaseContainers
 
     private static bool $isEnvironmentResolved = false;
 
+
     private function __construct()
     {
     }
+
 
     /**
      * @return array<string,mixed>
@@ -56,6 +58,7 @@ final class DatabaseContainers
         return self::$postgresConfig ??= self::startPostgres();
     }
 
+
     /**
      * @return array<string,mixed>
      * @throws \Exception
@@ -66,6 +69,7 @@ final class DatabaseContainers
 
         return self::$mysqlConfig ??= self::startMysql();
     }
+
 
     /**
      * @return array<string,mixed>
@@ -82,6 +86,7 @@ final class DatabaseContainers
         ];
     }
 
+
     /**
      * @return array<string,array{string}>
      */
@@ -93,6 +98,7 @@ final class DatabaseContainers
             'Sqlite' => ['sqliteConfig'],
         ];
     }
+
 
     private static function resolveEnvironment(): void
     {
@@ -114,6 +120,7 @@ final class DatabaseContainers
 
         self::$isEnvironmentResolved = true;
     }
+
 
     /**
      * @return array<string,mixed>
@@ -143,6 +150,7 @@ final class DatabaseContainers
             'database.driver_options' => [PDO::ATTR_TIMEOUT => 2],
         ];
     }
+
 
     /**
      * @return array<string,mixed>
@@ -177,6 +185,7 @@ final class DatabaseContainers
             'database.driver_options' => [PDO::ATTR_TIMEOUT => 2],
         ];
     }
+
 
     /**
      * A free port, found by opening a listening socket and closing it again.

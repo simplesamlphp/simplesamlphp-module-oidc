@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,13 +23,17 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class RequiredNonceRuleTest extends TestCase
 {
     protected ResultBag $resultBag;
+
     protected Result $redirectUriResult;
+
     protected Result $stateResult;
 
     protected Stub $requestStub;
+
     protected Helpers $helpers;
 
     protected array $requestQueryParams = [
@@ -37,8 +42,11 @@ class RequiredNonceRuleTest extends TestCase
     ];
 
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -59,6 +67,7 @@ class RequiredNonceRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -72,6 +81,7 @@ class RequiredNonceRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -82,6 +92,7 @@ class RequiredNonceRuleTest extends TestCase
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -94,6 +105,7 @@ class RequiredNonceRuleTest extends TestCase
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -115,6 +127,7 @@ class RequiredNonceRuleTest extends TestCase
 
         $this->assertEquals($this->requestQueryParams['nonce'], $result->getValue());
     }
+
 
     /**
      * @throws \Throwable

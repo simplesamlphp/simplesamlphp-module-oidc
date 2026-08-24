@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,25 +21,42 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Federation\EntityStatementFetcher;
 use SimpleSAML\OpenID\Federation\Factories\TrustMarkFactory;
+use SimpleSAML\OpenID\Federation\TrustMarkFetcher;
 
 #[CoversClass(ConfigController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ConfigControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $templateFactoryMock;
+
     protected MockObject $authorizationMock;
+
     protected MockObject $databaseMigrationMock;
+
     protected MockObject $sessionMessagesServiceMock;
+
     protected MockObject $federationMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $generalOverviewBuilderMock;
+
     protected MockObject $protocolOverviewBuilderMock;
+
     protected MockObject $federationOverviewBuilderMock;
+
     protected MockObject $vciOverviewBuilderMock;
+
     protected MockObject $trustMarkFactoryMock;
+
     protected MockObject $entityStatementFetcherMock;
+
     protected MockObject $trustMarkFetcherMock;
+
 
     protected function setUp(): void
     {
@@ -57,12 +75,13 @@ class ConfigControllerTest extends TestCase
         $this->trustMarkFactoryMock = $this->createMock(TrustMarkFactory::class);
         $this->federationMock->method('trustMarkFactory')->willReturn($this->trustMarkFactoryMock);
 
-        $this->entityStatementFetcherMock = $this->createMock(Federation\EntityStatementFetcher::class);
+        $this->entityStatementFetcherMock = $this->createMock(EntityStatementFetcher::class);
         $this->federationMock->method('entityStatementFetcher')->willReturn($this->entityStatementFetcherMock);
 
-        $this->trustMarkFetcherMock = $this->createMock(Federation\TrustMarkFetcher::class);
+        $this->trustMarkFetcherMock = $this->createMock(TrustMarkFetcher::class);
         $this->federationMock->method('trustMarkFetcher')->willReturn($this->trustMarkFetcherMock);
     }
+
 
     public function sut(
         ?ModuleConfig $moduleConfig = null,
@@ -110,11 +129,13 @@ class ConfigControllerTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->authorizationMock->expects($this->once())->method('requireAdmin');
         $this->assertInstanceOf(ConfigController::class, $this->sut());
     }
+
 
     public function testCanShowMigrationsScreen(): void
     {
@@ -123,6 +144,7 @@ class ConfigControllerTest extends TestCase
 
         $this->sut()->migrations();
     }
+
 
     public function testCanRunMigrations(): void
     {
@@ -133,6 +155,7 @@ class ConfigControllerTest extends TestCase
         $this->sut()->runMigrations();
     }
 
+
     public function testWontRunMigrationsIfAlreadyMigrated(): void
     {
         $this->databaseMigrationMock->expects($this->once())->method('isMigrated')->willReturn(true);
@@ -140,6 +163,7 @@ class ConfigControllerTest extends TestCase
 
         $this->sut()->runMigrations();
     }
+
 
     public function testCanShowGeneralSettingsScreen(): void
     {
@@ -151,6 +175,7 @@ class ConfigControllerTest extends TestCase
         $this->sut()->generalSettings();
     }
 
+
     public function testCanShowProtocolSettingsScreen(): void
     {
         $this->protocolOverviewBuilderMock->expects($this->once())->method('build')->willReturn([]);
@@ -161,6 +186,7 @@ class ConfigControllerTest extends TestCase
         $this->sut()->protocolSettings();
     }
 
+
     public function testCanShowFederationSettingsScreen(): void
     {
         $this->templateFactoryMock->expects($this->once())->method('build')
@@ -168,6 +194,7 @@ class ConfigControllerTest extends TestCase
 
         $this->sut()->federationSettings();
     }
+
 
     public function testCanIncludeTrustMarksInFederationSettings(): void
     {
@@ -180,6 +207,7 @@ class ConfigControllerTest extends TestCase
 
         $this->sut()->federationSettings();
     }
+
 
     public function testCanIncludeDynamicTrustMarksInFederationSettings(): void
     {

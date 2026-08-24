@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Psr16Cache;
+use Throwable;
 
 class CacheFactory
 {
@@ -22,6 +23,7 @@ class CacheFactory
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
@@ -31,7 +33,7 @@ class CacheFactory
     ): AdapterInterface {
         try {
             $instance = $this->classInstanceBuilder->build($class, $args);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $message = "Error building cache adapter instance: " . $exception->getMessage();
             $this->loggerService->error($message);
             throw new OidcException($message);
@@ -45,6 +47,7 @@ class CacheFactory
 
         return $instance;
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
@@ -64,6 +67,7 @@ class CacheFactory
 
         return new FederationCache(new Psr16Cache($adapter));
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException

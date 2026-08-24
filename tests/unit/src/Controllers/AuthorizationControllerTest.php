@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -13,7 +14,10 @@ use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Locale;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Locale\Language;
 use SimpleSAML\Module\oidc\Controllers\AuthorizationController;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
@@ -25,39 +29,66 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\AuthorizationController
  */
+#[AllowMockObjectsWithoutExpectations]
 class AuthorizationControllerTest extends TestCase
 {
-    final public const AUTH_SOURCE = 'auth_source';
-    final public const USER_ID_ATTR = 'uid';
-    final public const USERNAME = 'username';
-    final public const OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
-    final public const USER_ENTITY_ATTRIBUTES = [
+    final public const string AUTH_SOURCE = 'auth_source';
+
+    final public const string USER_ID_ATTR = 'uid';
+
+    final public const string USERNAME = 'username';
+
+    final public const array OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
+
+    final public const array USER_ENTITY_ATTRIBUTES = [
         self::USER_ID_ATTR => [self::USERNAME],
         'eduPersonTargetedId' => [self::USERNAME],
     ];
-    final public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
-    final public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
-    final public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
 
-    protected Stub $authenticationServiceStub;
+    final public const array AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
+
+    final public const array CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
+
+    final public const array AUTHZ_REQUEST_PARAMS = [
+        'client_id' => 'clientid',
+        'redirect_uri' => 'https://rp.example.org',
+    ];
+
+
+    protected MockObject $authenticationServiceStub;
+
     protected Stub $authorizationServerStub;
+
     protected Stub $moduleConfigStub;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $authorizationRequestMock;
+
     protected Stub $userEntityStub;
+
     protected Stub $serverRequestStub;
+
     protected Stub $responseStub;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $errorResponderMock;
+
     protected Stub $uiLocalesResolverStub;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $sspBridgeLocaleMock;
+
     protected MockObject $sspBridgeLocaleLanguageMock;
+
     protected array $state;
 
     protected static string $sampleAuthSourceId = 'authSource123';
@@ -67,16 +98,20 @@ class AuthorizationControllerTest extends TestCase
     protected static array $sampleRequestedAcrs = ['values' => ['1', '0'], 'essential' => false];
 
     protected MockObject $symfonyRequestMock;
+
     protected MockObject $symfonyResponseMock;
+
     protected MockObject $responseHeaderBagMock;
+
     protected MockObject $httpFoundationFactoryMock;
+
 
     /**
      * @throws \Exception
      */
     public function setUp(): void
     {
-        $this->authenticationServiceStub = $this->createStub(AuthenticationService::class);
+        $this->authenticationServiceStub = $this->createMock(AuthenticationService::class);
         $this->authorizationServerStub = $this->createStub(AuthorizationServer::class);
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
@@ -91,8 +126,8 @@ class AuthorizationControllerTest extends TestCase
 
         $this->uiLocalesResolverStub = $this->createStub(UiLocalesResolver::class);
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
-        $this->sspBridgeLocaleMock = $this->createMock(SspBridge\Locale::class);
-        $this->sspBridgeLocaleLanguageMock = $this->createMock(SspBridge\Locale\Language::class);
+        $this->sspBridgeLocaleMock = $this->createMock(Locale::class);
+        $this->sspBridgeLocaleLanguageMock = $this->createMock(Language::class);
         $this->sspBridgeMock->method('locale')->willReturn($this->sspBridgeLocaleMock);
         $this->sspBridgeLocaleMock->method('language')->willReturn($this->sspBridgeLocaleLanguageMock);
 
@@ -107,7 +142,7 @@ class AuthorizationControllerTest extends TestCase
         ];
 
         $this->symfonyRequestMock = $this->createMock(Request::class);
-        $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
+        $this->symfonyResponseMock = $this->createMock(Response::class);
         $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
         $this->symfonyResponseMock->headers = $this->responseHeaderBagMock;
 
@@ -115,6 +150,7 @@ class AuthorizationControllerTest extends TestCase
         $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
         $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
     }
+
 
     public static function queryParameterValues(): array
     {
@@ -127,6 +163,7 @@ class AuthorizationControllerTest extends TestCase
             ],
         ];
     }
+
 
     protected function mock(
         ?AuthenticationService $authenticationService = null,
@@ -203,6 +240,7 @@ class AuthorizationControllerTest extends TestCase
         $this->assertInstanceOf(ResponseInterface::class, $controller($this->serverRequestStub));
     }
 
+
     /**
      * @throws \SimpleSAML\Error\AuthSource
      * @throws \SimpleSAML\Error\BadRequest
@@ -235,6 +273,7 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\AuthSource
@@ -270,6 +309,7 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\AuthSource
@@ -315,6 +355,7 @@ class AuthorizationControllerTest extends TestCase
         ($this->mock())($this->serverRequestStub);
     }
 
+
     /**
      * @throws \SimpleSAML\Error\AuthSource
      * @throws \SimpleSAML\Error\BadRequest
@@ -358,6 +399,7 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\AuthSource
@@ -403,6 +445,7 @@ class AuthorizationControllerTest extends TestCase
         ($this->mock())($this->serverRequestStub);
     }
 
+
     /**
      * @throws \SimpleSAML\Error\AuthSource
      * @throws \SimpleSAML\Error\BadRequest
@@ -446,6 +489,7 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\AuthSource
@@ -492,6 +536,7 @@ class AuthorizationControllerTest extends TestCase
         ($this->mock())($this->serverRequestStub);
     }
 
+
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {
         $this->authorizationServerStub
@@ -504,6 +549,7 @@ class AuthorizationControllerTest extends TestCase
 
         $this->mock()->authorization($this->symfonyRequestMock);
     }
+
 
     /**
      * @throws \Throwable
@@ -535,6 +581,7 @@ class AuthorizationControllerTest extends TestCase
         ($this->mock())($this->serverRequestStub);
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -563,6 +610,7 @@ class AuthorizationControllerTest extends TestCase
 
         ($this->mock())($this->serverRequestStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -595,6 +643,7 @@ class AuthorizationControllerTest extends TestCase
         ($this->mock())($this->serverRequestStub);
     }
 
+
     /**
      * When an id_token_hint is present and the authenticated End-User's subject matches it, the request proceeds.
      *
@@ -624,6 +673,7 @@ class AuthorizationControllerTest extends TestCase
         $this->assertInstanceOf(ResponseInterface::class, ($this->mock())($this->serverRequestStub));
     }
 
+
     /**
      * When an id_token_hint is present but the authenticated End-User's subject differs from it, the request is
      * rejected with login_required rather than issued for a different user.
@@ -632,7 +682,7 @@ class AuthorizationControllerTest extends TestCase
      */
     public function testValidateIdTokenHintThrowsLoginRequiredOnSubjectMismatch(): void
     {
-        $clientStub = $this->createStub(\SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface::class);
+        $clientStub = $this->createStub(ClientEntityInterface::class);
         $clientStub->method('getIdentifier')->willReturn('clientid');
 
         $this->authorizationRequestMock->method('getIdTokenHintSubject')->willReturn('subject-a');

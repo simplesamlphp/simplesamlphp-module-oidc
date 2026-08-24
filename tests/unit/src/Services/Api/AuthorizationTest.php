@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services\Api;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Exceptions\InsufficientScopeException;
@@ -21,15 +23,22 @@ use SimpleSAML\Utils\Auth as SspAuth;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(Authorization::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AuthorizationTest extends TestCase
 {
     protected const string TOKEN = 'a-strong-random-token';
 
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $apiTokenPrincipalResolverMock;
+
     protected Helpers $helpers;
+
 
     protected function setUp(): void
     {
@@ -41,6 +50,7 @@ class AuthorizationTest extends TestCase
         $this->helpers = new Helpers();
     }
 
+
     protected function sut(): Authorization
     {
         return new Authorization(
@@ -51,6 +61,7 @@ class AuthorizationTest extends TestCase
             $this->apiTokenPrincipalResolverMock,
         );
     }
+
 
     /**
      * @param array<string,string> $headers
@@ -67,6 +78,7 @@ class AuthorizationTest extends TestCase
         return new Request($query, [], [], [], [], $server);
     }
 
+
     /**
      * @return \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[]
      */
@@ -74,6 +86,7 @@ class AuthorizationTest extends TestCase
     {
         return [ApiScopesEnum::VciCredentialStatus, ApiScopesEnum::VciAll, ApiScopesEnum::All];
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
@@ -91,6 +104,7 @@ class AuthorizationTest extends TestCase
             ),
         );
     }
+
 
     /**
      * It returns who the caller is, never the secret they proved it with, so that nothing downstream
@@ -122,6 +136,7 @@ class AuthorizationTest extends TestCase
         );
     }
 
+
     /**
      * A request with no token at all is a different answer from one whose token was refused, since
      * the challenge sent back differs.
@@ -133,6 +148,7 @@ class AuthorizationTest extends TestCase
         $this->sut()->requireBearerTokenForAnyOfScope($this->request(), $this->requiredScopes());
     }
 
+
     /**
      * The reason this method exists at all. requireTokenForAnyOfScope() authorizes an administrator's
      * session before it examines any token, which means a request carrying an administrator's cookies
@@ -143,7 +159,7 @@ class AuthorizationTest extends TestCase
     {
         $auth = $this->createMock(SspAuth::class);
         $auth->method('isAdmin')->willReturn(true);
-        $utils = $this->createMock(SspBridge\Utils::class);
+        $utils = $this->createMock(Utils::class);
         $utils->method('auth')->willReturn($auth);
         $this->sspBridgeMock->method('utils')->willReturn($utils);
 
@@ -151,6 +167,7 @@ class AuthorizationTest extends TestCase
 
         $this->sut()->requireBearerTokenForAnyOfScope($this->request(), $this->requiredScopes());
     }
+
 
     /**
      * A token in the query string ends up in access logs, in browser history and in the Referer of
@@ -170,12 +187,14 @@ class AuthorizationTest extends TestCase
         );
     }
 
+
     public function testRefusesARequestWithNoAuthorizationHeader(): void
     {
         $this->expectException(AuthorizationException::class);
 
         $this->sut()->requireBearerTokenForAnyOfScope($this->request(), $this->requiredScopes());
     }
+
 
     public function testRefusesATokenWithNoConfiguredScopes(): void
     {
@@ -188,6 +207,7 @@ class AuthorizationTest extends TestCase
             $this->requiredScopes(),
         );
     }
+
 
     /**
      * A known token which does not cover this action is a different answer from an unusable one: the
@@ -205,6 +225,7 @@ class AuthorizationTest extends TestCase
             $this->requiredScopes(),
         );
     }
+
 
     /**
      * A token which is not configured and one configured without scopes are answered the same way, so

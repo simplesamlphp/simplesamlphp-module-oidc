@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Services;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,6 +25,7 @@ use SimpleSAML\Module\oidc\Factories\AuthSimpleFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -41,21 +43,34 @@ use SimpleSAML\Session;
 /**
  * @covers \SimpleSAML\Module\oidc\Services\AuthenticationService
  */
+#[AllowMockObjectsWithoutExpectations]
 class AuthenticationServiceTest extends TestCase
 {
-    final public const URI = 'https://some-server/authorize.php?abc=efg';
-    final public const AUTH_SOURCE = 'auth_source';
-    final public const USER_ID_ATTR = 'uid';
-    final public const USERNAME = 'username';
-    final public const OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
-    final public const USER_ENTITY_ATTRIBUTES = [
+    final public const string URI = 'https://some-server/authorize.php?abc=efg';
+
+    final public const string AUTH_SOURCE = 'auth_source';
+
+    final public const string USER_ID_ATTR = 'uid';
+
+    final public const string USERNAME = 'username';
+
+    final public const array OIDC_OP_METADATA = ['issuer' => 'https://idp.example.org'];
+
+    final public const array USER_ENTITY_ATTRIBUTES = [
         self::USER_ID_ATTR    => [self::USERNAME],
         'eduPersonTargetedId' => [self::USERNAME],
     ];
-    final public const AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
-    final public const CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
-    final public const AUTHZ_REQUEST_PARAMS = ['client_id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
-    final public const STATE = [
+
+    final public const array AUTH_DATA = ['Attributes' => self::USER_ENTITY_ATTRIBUTES];
+
+    final public const array CLIENT_ENTITY = ['id' => 'clientid', 'redirect_uri' => 'https://rp.example.org'];
+
+    final public const array AUTHZ_REQUEST_PARAMS = [
+        'client_id' => 'clientid',
+        'redirect_uri' => 'https://rp.example.org',
+    ];
+
+    final public const array STATE = [
         'Attributes' => self::AUTH_DATA['Attributes'],
         'Oidc'       => [
             'OpenIdProviderMetadata'         => self::OIDC_OP_METADATA,
@@ -64,28 +79,51 @@ class AuthenticationServiceTest extends TestCase
         ],
     ];
 
+
     protected MockObject $authSimpleFactoryMock;
+
     protected MockObject $authSimpleMock;
+
     protected MockObject $authSourceMock;
+
     protected MockObject $authorizationRequestMock;
+
     protected MockObject $claimTranslatorExtractorMock;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $opMetadataService;
+
     protected MockObject $processingChainFactoryMock;
+
     protected MockObject $processingChainMock;
+
     protected MockObject $serverRequestMock;
+
     protected MockObject $sessionMock;
+
     protected MockObject $sessionServiceMock;
+
     protected MockObject $stateServiceMock;
+
     protected MockObject $userEntityMock;
+
     protected MockObject $userRepositoryMock;
+
     protected MockObject $helpersMock;
+
     protected MockObject $clientHelperMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $userEntityFactoryMock;
+
     protected MockObject $routesMock;
+
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -123,7 +161,7 @@ class AuthenticationServiceTest extends TestCase
         $this->sessionServiceMock->method('getCurrentSession')->willReturn($this->sessionMock);
 
         $this->helpersMock = $this->createMock(Helpers::class);
-        $this->clientHelperMock = $this->createMock(Helpers\Client::class);
+        $this->clientHelperMock = $this->createMock(Client::class);
         $this->helpersMock->method('client')->willReturn($this->clientHelperMock);
 
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
@@ -134,8 +172,9 @@ class AuthenticationServiceTest extends TestCase
         $this->routesMock = $this->createMock(Routes::class);
     }
 
+
     /**
-     * @return AuthenticationService
+     * @return \SimpleSAML\Module\oidc\Services\AuthenticationService
      */
     public function mock(): AuthenticationService
     {
@@ -161,6 +200,7 @@ class AuthenticationServiceTest extends TestCase
             ->getMock();
     }
 
+
     /**
      * @return void
      */
@@ -172,9 +212,10 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
      * @return void
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      * @throws \JsonException
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\NotFound
@@ -205,6 +246,7 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\Error\NotFound
@@ -229,7 +271,7 @@ class AuthenticationServiceTest extends TestCase
         $this->userRepositoryMock->expects($this->once())->method('update')->with($this->userEntityMock);
 
         $this->claimTranslatorExtractorMock->expects($this->once())->method('extract')
-            ->with(['openid'], $this->isType('array'))
+            ->with(['openid'], $this->isArray())
             ->willReturn([]);
 
         $this->assertSame(
@@ -237,6 +279,7 @@ class AuthenticationServiceTest extends TestCase
             $this->userEntityMock,
         );
     }
+
 
     /**
      * @return array
@@ -307,9 +350,10 @@ class AuthenticationServiceTest extends TestCase
         $this->mock()->getAuthenticateUser($state);
     }
 
+
     /**
      * @return void
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      * @throws \JsonException
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\NotFound
@@ -326,6 +370,7 @@ class AuthenticationServiceTest extends TestCase
         $this->mock()->getAuthenticateUser($invalidState);
     }
 
+
     /**
      * @return void
      * @throws \JsonException
@@ -339,6 +384,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->mock()->authenticateForClient($this->clientEntityMock);
     }
+
 
     /**
      * @return void
@@ -367,6 +413,7 @@ class AuthenticationServiceTest extends TestCase
             ),
         );
     }
+
 
     /**
      * @return array
@@ -433,6 +480,7 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
      * When the user is not yet authenticated and a login_hint is present in the authorization request, it must be
      * propagated to the authentication source as the pre-filled username (the 'core:username' login parameter).
@@ -481,6 +529,7 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
      * The subject matches when it equals the resolved user identifier (the default `sub` produced by
      * IdTokenBuilder when no `sub` mapping is in effect).
@@ -495,6 +544,7 @@ class AuthenticationServiceTest extends TestCase
             $this->mock()->subjectMatchesAttributes(self::USERNAME, self::USER_ENTITY_ATTRIBUTES),
         );
     }
+
 
     /**
      * The subject also matches a mapped `sub` claim, so a hint issued when the `sub` mapping was applied is
@@ -511,6 +561,7 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
      * A subject that matches neither the user identifier nor a mapped `sub` claim identifies a different
      * End-User and must not match.
@@ -526,6 +577,7 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
      * When no user identifier can be resolved from the attributes, no subject can match.
      */
@@ -536,8 +588,9 @@ class AuthenticationServiceTest extends TestCase
         );
     }
 
+
     /**
-     * @throws NoState
+     * @throws \SimpleSAML\Error\NoState
      */
     public function testItThrowsOnMissingQueryParameterAuthparam(): void
     {
@@ -545,8 +598,9 @@ class AuthenticationServiceTest extends TestCase
         $this->mock()->manageState([]);
     }
 
+
     /**
-     * @throws NoState
+     * @throws \SimpleSAML\Error\NoState
      */
     public function testLoadStateFromProcessingChainRedirect(): void
     {
@@ -574,6 +628,7 @@ class AuthenticationServiceTest extends TestCase
 
         $this->assertEquals('456', $mock->getAuthSourceId());
     }
+
 
     /**
      * @return void
@@ -621,6 +676,7 @@ class AuthenticationServiceTest extends TestCase
         $this->assertArrayHasKey('Oidc', $state);
         $this->assertArrayHasKey('Attributes', $state);
     }
+
 
     /**
      * Per-client authproc filters (from the relying party metadata) must be
@@ -697,11 +753,12 @@ class AuthenticationServiceTest extends TestCase
 
     /**
      * @param   array                                            $state
-     * @param   AuthorizationRequest|OAuth2AuthorizationRequest  $authorizationRequest
+     * @param   \SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest|\League\OAuth2\Server\RequestTypes\AuthorizationRequest
+     *   $authorizationRequest
      * @param   string                                           $instanceOf
      *
      * @return void
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      */
     #[DataProvider('authorizationRequestInstanceOf')]
     public function testItGetsAuthorizationRequestFromState(
@@ -719,6 +776,7 @@ class AuthenticationServiceTest extends TestCase
             $authorizationRequest,
         );
     }
+
 
     /**
      * @return array
@@ -747,7 +805,7 @@ class AuthenticationServiceTest extends TestCase
      * @param string $exceptionMessage
      *
      * @return void
-     * @throws Exception
+     * @throws \SimpleSAML\Error\Exception
      */
     #[DataProvider('authorizationRequestValues')]
     public function testGetsAuthorizationRequestFromStateThrowsOnInvalid(array $state, string $exceptionMessage): void

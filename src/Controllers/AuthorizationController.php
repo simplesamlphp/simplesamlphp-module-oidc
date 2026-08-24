@@ -36,6 +36,7 @@ class AuthorizationController
     ) {
     }
 
+
     /**
      * @throws \Exception
      * @throws \SimpleSAML\Error\AuthSource
@@ -91,10 +92,11 @@ class AuthorizationController
         );
     }
 
+
     /**
-     * @param   Request  $request
+     * @param   \Symfony\Component\HttpFoundation\Request  $request
      *
-     * @return Response
+     * @return \Symfony\Component\HttpFoundation\Response
      * @throws \SimpleSAML\Error\AuthSource
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\Error
@@ -123,6 +125,7 @@ class AuthorizationController
             return $this->errorResponder->forException($exception);
         }
     }
+
 
     /**
      * Set the UI language for the current user agent based on the ui_locales authorization request parameter,
@@ -164,6 +167,7 @@ class AuthorizationController
         $this->sspBridge->locale()->language()->setLanguageCookie($language);
     }
 
+
     /**
      * Validate authorization request after the authn has been performed. For example, check if the
      * ACR claim has been requested and that authn performed satisfies it.
@@ -174,6 +178,7 @@ class AuthorizationController
     {
         $this->validateAcr($authorizationRequest);
     }
+
 
     /**
      * Validate the `id_token_hint` authorization request parameter (if any) against the authenticated End-User.
@@ -223,6 +228,7 @@ class AuthorizationController
         );
     }
 
+
     /**
      * Resolve the redirect URI to use for redirected error responses: the one validated for this request, or the
      * client's first registered redirect URI as a fallback.
@@ -238,6 +244,7 @@ class AuthorizationController
 
         return is_array($clientRedirectUri) ? ($clientRedirectUri[0] ?? null) : $clientRedirectUri;
     }
+
 
     /**
      * @throws \Exception

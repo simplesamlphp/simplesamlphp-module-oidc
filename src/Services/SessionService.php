@@ -26,15 +26,18 @@ class SessionService
     {
     }
 
+
     public function getCurrentSession(): Session
     {
         return $this->session;
     }
 
+
     public function getSessionById(string $id): ?Session
     {
         return Session::getSession($id);
     }
+
 
     /**
      * @throws \Exception
@@ -48,6 +51,7 @@ class SessionService
             Session::DATA_TIMEOUT_SESSION_END,
         );
     }
+
 
     public function getIsCookieBasedAuthn(): ?bool
     {
@@ -63,6 +67,7 @@ class SessionService
 
         return null;
     }
+
 
     /**
      * @throws \Exception
@@ -89,10 +94,12 @@ class SessionService
         );
     }
 
+
     public function getRelyingPartyAssociations(): array
     {
         return self::getRelyingPartyAssociationsForSession($this->session);
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
@@ -112,6 +119,7 @@ class SessionService
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -119,6 +127,7 @@ class SessionService
     {
         self::clearRelyingPartyAssociationsForSession($this->session);
     }
+
 
     /**
      * @throws \Exception
@@ -133,6 +142,7 @@ class SessionService
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -146,6 +156,7 @@ class SessionService
         );
     }
 
+
     public function getIsAuthnPerformedInPreviousRequest(): bool
     {
         return (bool) $this->session->getData(
@@ -154,6 +165,7 @@ class SessionService
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -161,6 +173,7 @@ class SessionService
     {
         $this->session->registerLogoutHandler($authSourceId, $className, $functionName);
     }
+
 
     /**
      * Set indication if logout was initiated using OIDC protocol.
@@ -175,6 +188,7 @@ class SessionService
             Session::DATA_TIMEOUT_SESSION_END,
         );
     }
+
 
     /**
      * Helper method to get indication if logout was initiated using OIDC protocol for given session.

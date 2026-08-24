@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -11,9 +12,11 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\SubjectRefHasher;
 
 #[CoversClass(SubjectRefHasher::class)]
+#[AllowMockObjectsWithoutExpectations]
 class SubjectRefHasherTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
 
     protected function setUp(): void
     {
@@ -21,10 +24,12 @@ class SubjectRefHasherTest extends TestCase
         $this->moduleConfigMock->method('getEncryptionKey')->willReturn('a-secret-salt');
     }
 
+
     protected function sut(?ModuleConfig $moduleConfig = null): SubjectRefHasher
     {
         return new SubjectRefHasher($moduleConfig ?? $this->moduleConfigMock);
     }
+
 
     public function testProducesAValueSizedForItsColumn(): void
     {
@@ -34,6 +39,7 @@ class SubjectRefHasherTest extends TestCase
         $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $hash);
     }
 
+
     public function testIsStableForTheSameIdentifier(): void
     {
         $this->assertSame(
@@ -42,6 +48,7 @@ class SubjectRefHasherTest extends TestCase
         );
     }
 
+
     public function testDistinguishesIdentifiers(): void
     {
         $this->assertNotSame(
@@ -49,6 +56,7 @@ class SubjectRefHasherTest extends TestCase
             $this->sut()->hash('teacher@example.org'),
         );
     }
+
 
     /**
      * The point of keying the hash is that an identifier with little entropy, such as an email address,
@@ -66,6 +74,7 @@ class SubjectRefHasherTest extends TestCase
         );
     }
 
+
     /**
      * A plain SHA-256 of the identifier is exactly what this must not be.
      */
@@ -76,6 +85,7 @@ class SubjectRefHasherTest extends TestCase
             $this->sut()->hash('student@example.org'),
         );
     }
+
 
     /**
      * Deriving the key from the module's encryption key means there is no separate secret to manage,

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
 
 #[CoversClass(CodeChallengeVerifiersRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CodeChallengeVerifiersRepositoryTest extends TestCase
 {
     protected function sut(): CodeChallengeVerifiersRepository
@@ -17,10 +19,12 @@ class CodeChallengeVerifiersRepositoryTest extends TestCase
         return new CodeChallengeVerifiersRepository();
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(CodeChallengeVerifiersRepository::class, $this->sut());
     }
+
 
     public function testCanGetCodeChallengeVerifier(): void
     {
@@ -38,6 +42,7 @@ class CodeChallengeVerifiersRepositoryTest extends TestCase
 
         $this->assertNotEmpty($this->sut()->getAll());
     }
+
 
     public function testReturnsNullForUnsuportedVerifier(): void
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -19,12 +20,14 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
  * ES256 entry pointing at EC key files that the guide creates only in an optional section.
  */
 #[CoversNothing]
+#[AllowMockObjectsWithoutExpectations]
 class DistributedConfigTest extends TestCase
 {
     /** @var array<string,mixed> */
     protected array $distributedConfig;
 
     protected string $installationGuide;
+
 
     protected function setUp(): void
     {
@@ -40,6 +43,7 @@ class DistributedConfigTest extends TestCase
             $repositoryRoot . '/docs/2-oidc-installation.md',
         );
     }
+
 
     /**
      * The protocol key pairs are resolved before any JWS can be signed, and all of them are, so an
@@ -103,6 +107,7 @@ class DistributedConfigTest extends TestCase
             }
         }
     }
+
 
     /**
      * @return array<string,array{string}>

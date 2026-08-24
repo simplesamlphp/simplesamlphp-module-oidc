@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
@@ -20,6 +21,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use TokenEntityTrait;
     use OidcAuthCodeTrait;
     use RevokeTokenTrait;
+
 
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
@@ -41,7 +43,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?string $issuerState = null,
     ) {
         if ($id === '') {
-            throw new \InvalidArgumentException('Authorization code identifier cannot be empty.');
+            throw new InvalidArgumentException('Authorization code identifier cannot be empty.');
         }
 
         $this->identifier = $id;
@@ -53,6 +55,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         $this->nonce = $nonce;
         $this->isRevoked = $isRevoked;
     }
+
 
     /**
      * @throws \JsonException
@@ -79,35 +82,42 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         ];
     }
 
+
     public function isVciPreAuthorized(): bool
     {
         return $this->flowTypeEnum === FlowTypeEnum::VciPreAuthorizedCode;
     }
+
 
     public function getTxCode(): ?string
     {
         return $this->txCode;
     }
 
+
     public function getFlowTypeEnum(): ?FlowTypeEnum
     {
         return $this->flowTypeEnum;
     }
+
 
     public function getAuthorizationDetails(): ?array
     {
         return $this->authorizationDetails;
     }
 
+
     public function getBoundClientId(): ?string
     {
         return $this->boundClientId;
     }
 
+
     public function getBoundRedirectUri(): ?string
     {
         return $this->boundRedirectUri;
     }
+
 
     public function getIssuerState(): ?string
     {
