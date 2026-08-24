@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -12,32 +13,57 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\ClientEntity
  */
+#[AllowMockObjectsWithoutExpectations]
 class ClientEntityTest extends TestCase
 {
     protected array $state = [];
+
     protected string $id = 'id';
+
     protected string $secret = 'secret';
+
     protected string $name = 'name';
+
     protected string $description = 'description';
+
     protected array $redirectUri = ['https://localhost/redirect'];
+
     protected array $scopes = [];
+
     protected bool $isEnabled = true;
+
     protected bool $isConfidential = false;
+
     protected ?string $authSource = 'auth_source';
+
     protected string $owner = 'user@test.com';
+
     protected array $postLogoutRedirectUri = [];
+
     protected ?string $backChannelLogoutUri = null;
+
     protected ?string $entityIdentifier = null;
+
     protected ?array $clientRegistrationTypes = null;
+
     protected ?array $federationJwks = null;
+
     protected ?array $jwks = null;
+
     protected ?string $jwksUri = null;
+
     protected ?string $signedJwksUri = null;
+
     protected RegistrationTypeEnum $registrationType = RegistrationTypeEnum::Manual;
+
     protected ?DateTimeImmutable $updatedAt = null;
+
     protected ?DateTimeImmutable $createdAt = null;
+
     protected ?DateTimeImmutable $expiresAt = null;
+
     protected bool $isGeneric = false;
+
 
     protected function setUp(): void
     {
@@ -61,6 +87,7 @@ class ClientEntityTest extends TestCase
             'is_generic' => false,
         ];
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -95,6 +122,7 @@ class ClientEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -111,6 +139,7 @@ class ClientEntityTest extends TestCase
             new ClientEntity('id', 'secret', 'name', 'description', ['redirectUri'], [], true),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -139,6 +168,7 @@ class ClientEntityTest extends TestCase
         $this->assertSame('https://localhost/back', $clientEntity->getBackChannelLogoutUri());
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -150,6 +180,7 @@ class ClientEntityTest extends TestCase
         $clientEntity->restoreSecret('new_secret');
         $this->assertSame($clientEntity->getSecret(), 'new_secret');
     }
+
 
     /**
      * @throws \JsonException
@@ -188,6 +219,7 @@ class ClientEntityTest extends TestCase
             ],
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -252,6 +284,7 @@ class ClientEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -296,6 +329,7 @@ class ClientEntityTest extends TestCase
         $this->assertSame($authProcFilters, $clientEntity->toArray()[ClientEntity::KEY_AUTH_PROC_FILTERS]);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -335,6 +369,7 @@ class ClientEntityTest extends TestCase
         $this->assertTrue($clientEntity->getAddClaimsToIdToken());
         $this->assertTrue($clientEntity->toArray()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
     }
+
 
     public function testEnforcementGettersReturnRawRegisteredValues(): void
     {

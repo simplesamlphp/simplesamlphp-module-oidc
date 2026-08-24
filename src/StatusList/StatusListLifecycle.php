@@ -92,6 +92,7 @@ class StatusListLifecycle
     /** Ceiling on how many batches of audit rows one run will remove. */
     protected const int MAX_AUDIT_BATCHES = 200;
 
+
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly StatusListRepository $statusListRepository,
@@ -102,6 +103,7 @@ class StatusListLifecycle
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * Runs every step, and lets each of them fail on its own.
@@ -161,6 +163,7 @@ class StatusListLifecycle
         );
     }
 
+
     /**
      * Runs one step, and turns anything it throws into something the caller can carry on past.
      *
@@ -179,6 +182,7 @@ class StatusListLifecycle
             return 0;
         }
     }
+
 
     /**
      * Forgets which credential held which index, once that credential has expired.
@@ -215,6 +219,7 @@ class StatusListLifecycle
 
         return $cleared;
     }
+
 
     /**
      * Stops lists being allocation targets when the configuration they were created under is no longer
@@ -288,6 +293,7 @@ class StatusListLifecycle
         return $deactivated;
     }
 
+
     /**
      * Says so when a pool has stopped using one of the two expiry lanes.
      *
@@ -331,6 +337,7 @@ class StatusListLifecycle
             );
         }
     }
+
 
     /**
      * Retires the lists which nothing can still be holding.
@@ -417,6 +424,7 @@ class StatusListLifecycle
         return $retired;
     }
 
+
     /**
      * Removes the entry rows of lists which have been retired.
      *
@@ -472,6 +480,7 @@ class StatusListLifecycle
 
         return $purged;
     }
+
 
     /**
      * Prunes the status audit trail to the configured retention.

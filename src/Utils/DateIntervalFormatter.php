@@ -42,6 +42,7 @@ class DateIntervalFormatter
         return $parts === [] ? '0 seconds' : implode(' ', $parts);
     }
 
+
     /**
      * Render the interval back to its ISO 8601 duration spec, that is, the form used in the module
      * configuration file, for example, 'PT10M'. Handy on overview screens, since it is the value an

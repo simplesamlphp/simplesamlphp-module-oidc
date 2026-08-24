@@ -36,6 +36,7 @@ class AuthorizationServerFactory
     ) {
     }
 
+
     public function build(): AuthorizationServer
     {
         $authorizationServer = new AuthorizationServer(

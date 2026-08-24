@@ -23,6 +23,7 @@ class StatusListRecord
 {
     use DatabaseRowValuesTrait;
 
+
     /**
      * @param string $id Opaque public identifier, being the last path segment of the list's URI.
      * @param string $uri The authoritative URI. Referenced Tokens carry this string and Status List
@@ -68,30 +69,36 @@ class StatusListRecord
     ) {
     }
 
+
     public function getId(): string
     {
         return $this->id;
     }
+
 
     public function getUri(): string
     {
         return $this->uri;
     }
 
+
     public function getPoolId(): string
     {
         return $this->poolId;
     }
+
 
     public function getPolicyFingerprint(): string
     {
         return $this->policyFingerprint;
     }
 
+
     public function getExpiryLane(): StatusListExpiryLaneEnum
     {
         return $this->expiryLane;
     }
+
 
     /**
      * Generation within this list's pool, policy and lane, which is the scope its uniqueness is
@@ -103,15 +110,18 @@ class StatusListRecord
         return $this->generation;
     }
 
+
     public function getBits(): int
     {
         return $this->bits;
     }
 
+
     public function getCapacity(): int
     {
         return $this->capacity;
     }
+
 
     /**
      * @return int[]
@@ -125,6 +135,7 @@ class StatusListRecord
         return array_map('intval', explode(',', $this->allowedStatuses));
     }
 
+
     /**
      * Whether this list may carry the given status.
      *
@@ -136,35 +147,42 @@ class StatusListRecord
         return in_array($status, $this->getAllowedStatusValues(), true);
     }
 
+
     public function getAllowedStatusesAsString(): string
     {
         return $this->allowedStatuses;
     }
+
 
     public function getTtlSeconds(): int
     {
         return $this->ttlSeconds;
     }
 
+
     public function getTokenValiditySeconds(): int
     {
         return $this->tokenValiditySeconds;
     }
+
 
     public function getRefreshIntervalSeconds(): int
     {
         return $this->refreshIntervalSeconds;
     }
 
+
     public function getSigningKeyId(): string
     {
         return $this->signingKeyId;
     }
 
+
     public function getKeyProfile(): StatusListKeyProfileEnum
     {
         return $this->keyProfile;
     }
+
 
     /**
      * Advisory count of allocated entries. Incrementing it is a separate statement from the allocation
@@ -175,50 +193,60 @@ class StatusListRecord
         return $this->allocatedCount;
     }
 
+
     public function isActive(): bool
     {
         return $this->isActive;
     }
+
 
     public function getDeactivatedAt(): ?DateTimeImmutable
     {
         return $this->deactivatedAt;
     }
 
+
     public function getRetiredAt(): ?DateTimeImmutable
     {
         return $this->retiredAt;
     }
+
 
     public function isRetired(): bool
     {
         return $this->retiredAt instanceof DateTimeImmutable;
     }
 
+
     public function getSignedToken(): ?string
     {
         return $this->signedToken;
     }
+
 
     public function getSignedTokenContentHash(): string
     {
         return $this->signedTokenContentHash;
     }
 
+
     public function getSignedTokenIssuedAt(): ?DateTimeImmutable
     {
         return $this->signedTokenIssuedAt;
     }
+
 
     public function getSignedTokenExpiresAt(): ?DateTimeImmutable
     {
         return $this->signedTokenExpiresAt;
     }
 
+
     public function getCreatedAt(): ?DateTimeImmutable
     {
         return $this->createdAt;
     }
+
 
     /**
      * The value a signer must still find on the row for its token to be publishable.
@@ -227,6 +255,7 @@ class StatusListRecord
     {
         return $this->invalidationCounter;
     }
+
 
     /**
      * Whether a published token exists which can be served as-is.
@@ -237,6 +266,7 @@ class StatusListRecord
         is_string($this->signedToken) &&
         $this->signedToken !== '';
     }
+
 
     /**
      * @param array<array-key,mixed> $row
@@ -277,6 +307,7 @@ class StatusListRecord
         );
     }
 
+
     /**
      * @param array<array-key,mixed> $row
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -289,6 +320,7 @@ class StatusListRecord
             sprintf('Status List row column "%s" holds an unknown key profile "%s".', $key, $value),
         );
     }
+
 
     /**
      * Raised rather than defaulted, unlike the two columns above which tolerate a missing value.

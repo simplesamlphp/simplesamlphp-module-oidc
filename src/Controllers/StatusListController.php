@@ -47,6 +47,7 @@ class StatusListController
     /** Seconds a client is asked to wait after a request this endpoint could not answer. */
     protected const int RETRY_AFTER_SECONDS = 30;
 
+
     public function __construct(
         protected readonly StatusListTokenProviderInterface $statusListTokenProvider,
         protected readonly HttpContentNegotiator $httpContentNegotiator,
@@ -56,6 +57,7 @@ class StatusListController
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @param string $statusListId URL path parameter injected by the router.
@@ -106,6 +108,7 @@ class StatusListController
 
         return $this->respondWith($request, $result);
     }
+
 
     /**
      * @throws \Exception
@@ -171,6 +174,7 @@ class StatusListController
         return $this->routes->newResponse($body, Response::HTTP_OK, $headers);
     }
 
+
     /**
      * Whether the copy the client already holds is the one which would be served.
      *
@@ -203,6 +207,7 @@ class StatusListController
 
         return false;
     }
+
 
     /**
      * Headers every response from here carries.

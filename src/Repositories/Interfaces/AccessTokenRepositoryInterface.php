@@ -15,6 +15,7 @@ interface AccessTokenRepositoryInterface extends OAuth2AccessTokenRepositoryInte
      */
     public function revokeByAuthCodeId(string $authCodeId): void;
 
+
     /**
      * Create a new access token
      *

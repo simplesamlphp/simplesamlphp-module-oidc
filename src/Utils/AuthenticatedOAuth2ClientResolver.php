@@ -19,10 +19,12 @@ use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Symfony\Component\HttpFoundation\Request;
+use Throwable;
 
 class AuthenticatedOAuth2ClientResolver
 {
     protected const string KEY_CLIENT_ASSERTION_JTI = 'client_assertion_jti';
+
 
     public function __construct(
         protected readonly ClientRepository $clientRepository,
@@ -36,6 +38,7 @@ class AuthenticatedOAuth2ClientResolver
         protected readonly Routes $routes,
     ) {
     }
+
 
     public function forAnySupportedMethod(
         Request|ServerRequestInterface $request,
@@ -53,7 +56,7 @@ class AuthenticatedOAuth2ClientResolver
             }
 
             return $resolved;
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->loggerService->error(
                 'Error while trying to resolve authenticated client: ' .
                     $exception->getMessage(),
@@ -62,13 +65,14 @@ class AuthenticatedOAuth2ClientResolver
         }
     }
 
+
     /**
      * If the client has explicitly registered a token_endpoint_auth_method, the method it actually authenticated
      * with must match it. Enforced only when explicitly registered, preserving behavior for manually-managed
      * clients that do not have it configured. Throwing here results in client authentication failing (the caller
      * treats a null resolution as invalid_client).
      *
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     protected function enforceRegisteredTokenEndpointAuthMethod(
         ResolvedClientAuthenticationMethod $resolved,
@@ -91,8 +95,9 @@ class AuthenticatedOAuth2ClientResolver
         }
     }
 
+
     /**
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function forPublicClient(
         ServerRequestInterface|Request $request,
@@ -134,8 +139,9 @@ class AuthenticatedOAuth2ClientResolver
         );
     }
 
+
     /**
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function forClientSecretBasic(
         Request|ServerRequestInterface $request,
@@ -220,10 +226,11 @@ class AuthenticatedOAuth2ClientResolver
         );
     }
 
+
     /**
      * For client_secret_post authentication method.
      *
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function forClientSecretPost(
         Request|ServerRequestInterface $request,
@@ -285,6 +292,7 @@ class AuthenticatedOAuth2ClientResolver
         );
     }
 
+
     /**
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \SimpleSAML\OpenID\Exceptions\ClientAssertionException
@@ -342,7 +350,7 @@ class AuthenticatedOAuth2ClientResolver
 
         try {
             $clientAssertion->verifyWithKeySet($jwks);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             throw new AuthorizationException(
                 'Client Assertion validation failed: ' . $exception->getMessage(),
             );
@@ -392,6 +400,7 @@ class AuthenticatedOAuth2ClientResolver
         );
     }
 
+
     public function findActiveClient(string $clientId): ?ClientEntityInterface
     {
         $client = $this->clientRepository->findById($clientId);
@@ -415,8 +424,9 @@ class AuthenticatedOAuth2ClientResolver
         return $client;
     }
 
+
     /**
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     protected function resolveClientOrFail(
         string $clientId,
@@ -434,8 +444,9 @@ class AuthenticatedOAuth2ClientResolver
         return $client;
     }
 
+
     /**
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function findActiveClientOrFail(string $clientId): ClientEntityInterface
     {
@@ -444,8 +455,9 @@ class AuthenticatedOAuth2ClientResolver
         );
     }
 
+
     /**
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
     public function validateClientSecret(ClientEntityInterface $client, string $clientSecret): void
     {

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
 use DateInterval;
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(CredentialStatusService::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CredentialStatusServiceTest extends TestCase
 {
     protected const string CREDENTIAL_ID = 'https://issuer.example.org/vc/abc';
@@ -32,11 +34,17 @@ class CredentialStatusServiceTest extends TestCase
 
     protected const int IDX = 42;
 
+
     protected MockObject $statusListEntryRepositoryMock;
+
     protected MockObject $statusUpdaterMock;
+
     protected MockObject $statusAuditRepositoryMock;
+
     protected MockObject $loggerServiceMock;
+
     protected Helpers $helpers;
+
 
     protected function setUp(): void
     {
@@ -48,6 +56,7 @@ class CredentialStatusServiceTest extends TestCase
         $this->helpers = new Helpers();
     }
 
+
     protected function sut(): CredentialStatusService
     {
         return new CredentialStatusService(
@@ -58,6 +67,7 @@ class CredentialStatusServiceTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     protected function entry(
         int $status = StatusTypeEnum::Valid->value,
@@ -73,6 +83,7 @@ class CredentialStatusServiceTest extends TestCase
 
         return $entry;
     }
+
 
     /**
      * @throws \Exception
@@ -96,6 +107,7 @@ class CredentialStatusServiceTest extends TestCase
         $this->assertSame(StatusTypeEnum::Invalid, $change->getStatus());
         $this->assertSame(StatusTypeEnum::Valid->value, $change->getPreviousStatus());
     }
+
 
     /**
      * Nothing here is atomic, so the ordering decides which way the two writes may disagree. Recording
@@ -129,6 +141,7 @@ class CredentialStatusServiceTest extends TestCase
         $this->assertSame(['audit', 'update'], $order);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -158,6 +171,7 @@ class CredentialStatusServiceTest extends TestCase
         );
     }
 
+
     /**
      * The credential identifier is a durable, externally held value; the trail stores only its hash so
      * that it does not outlive the linkage which is deliberately deleted at expiry.
@@ -175,6 +189,7 @@ class CredentialStatusServiceTest extends TestCase
 
         $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Invalid, StatusChangeSourceEnum::Api);
     }
+
 
     /**
      * A caller which never saw the answer to its request repeats it. That is a success, and it writes
@@ -201,6 +216,7 @@ class CredentialStatusServiceTest extends TestCase
         $this->assertSame(StatusTypeEnum::Invalid, $change->getStatus());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -212,6 +228,7 @@ class CredentialStatusServiceTest extends TestCase
             $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Invalid, StatusChangeSourceEnum::Api),
         );
     }
+
 
     /**
      * Every index of a list exists as a row from the moment the list is created, so an unallocated row
@@ -228,6 +245,7 @@ class CredentialStatusServiceTest extends TestCase
             $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Invalid, StatusChangeSourceEnum::Api),
         );
     }
+
 
     /**
      * An expired credential is already refused on its own claims, so withdrawing it changes nothing
@@ -249,6 +267,7 @@ class CredentialStatusServiceTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -263,6 +282,7 @@ class CredentialStatusServiceTest extends TestCase
             $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Invalid, StatusChangeSourceEnum::Api),
         );
     }
+
 
     /**
      * Raised, not swallowed: the caller has to be told the credential does not hold what it asked for.
@@ -279,6 +299,7 @@ class CredentialStatusServiceTest extends TestCase
 
         $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Invalid, StatusChangeSourceEnum::Api);
     }
+
 
     /**
      * Whether a list can carry a status is fixed when the list is created, so this is not a change
@@ -300,6 +321,7 @@ class CredentialStatusServiceTest extends TestCase
 
         $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Suspended, StatusChangeSourceEnum::Api);
     }
+
 
     /**
      * A change which is recorded and then lost leaves a row someone has to find. Naming it in the log
@@ -328,6 +350,7 @@ class CredentialStatusServiceTest extends TestCase
         $this->sut()->setStatus(self::CREDENTIAL_ID, StatusTypeEnum::Invalid, StatusChangeSourceEnum::Api);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -338,6 +361,7 @@ class CredentialStatusServiceTest extends TestCase
 
         $this->assertSame(StatusTypeEnum::Suspended->value, $this->sut()->getStatusValue(self::CREDENTIAL_ID));
     }
+
 
     /**
      * @throws \Exception

@@ -25,25 +25,30 @@ class StatusListTokenResult
     ) {
     }
 
+
     public function getToken(): string
     {
         return $this->token;
     }
+
 
     public function getTtlSeconds(): int
     {
         return $this->ttlSeconds;
     }
 
+
     public function getIssuedAt(): DateTimeImmutable
     {
         return $this->issuedAt;
     }
 
+
     public function getExpiresAt(): DateTimeImmutable
     {
         return $this->expiresAt;
     }
+
 
     /**
      * A strong validator over the exact bytes served.
@@ -65,6 +70,7 @@ class StatusListTokenResult
             $contentCoding === null ? '' : '-' . $contentCoding,
         );
     }
+
 
     /**
      * How long a cache may hold this response.

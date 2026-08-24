@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Bridges;
 
 use Defuse\Crypto\Crypto;
 use Defuse\Crypto\Key;
+use Exception;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 
@@ -16,14 +17,15 @@ class OAuth2Bridge
     ) {
     }
 
+
     /**
      * Bridge `encrypt` function, which can be used instead of
      * \League\OAuth2\Server\CryptTrait::encrypt()
      *
      * @param string $unencryptedData
-     * @param Key|string $encryptionKey
+     * @param \Defuse\Crypto\Key|string $encryptionKey
      * @return string
-     * @throws OidcException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function encrypt(
         string $unencryptedData,
@@ -35,19 +37,20 @@ class OAuth2Bridge
             return $encryptionKey instanceof Key ?
             Crypto::encrypt($unencryptedData, $encryptionKey) :
             Crypto::encryptWithPassword($unencryptedData, $encryptionKey);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new OidcException('Error encrypting data: ' . $e->getMessage(), (int)$e->getCode(), $e);
         }
     }
+
 
     /**
      * Bridge `decrypt` function, which can be used instead of
      * \League\OAuth2\Server\CryptTrait::decrypt()
      *
      * @param string $encryptedData
-     * @param Key|string $encryptionKey
+     * @param \Defuse\Crypto\Key|string $encryptionKey
      * @return string
-     * @throws OidcException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function decrypt(
         string $encryptedData,
@@ -59,7 +62,7 @@ class OAuth2Bridge
             return $encryptionKey instanceof Key ?
             Crypto::decrypt($encryptedData, $encryptionKey) :
             Crypto::decryptWithPassword($encryptedData, $encryptionKey);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw new OidcException('Error decrypting data: ' . $e->getMessage(), (int)$e->getCode(), $e);
         }
     }

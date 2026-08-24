@@ -19,11 +19,14 @@ use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class EntityStatementController
 {
     protected const string KEY_OP_ENTITY_CONFIGURATION_STATEMENT = 'op_entity_configuration_statement';
+
     protected const string KEY_RP_SUBORDINATE_ENTITY_STATEMENT = 'rp_subordinate_entity_statement';
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -42,6 +45,7 @@ class EntityStatementController
             throw OidcServerException::forbidden('federation capabilities not enabled');
         }
     }
+
 
     /**
      * Return the JWS with the OP configuration statement.
@@ -171,7 +175,7 @@ class EntityStatementController
                         ClaimsEnum::TrustMarkType->value => $trustMarkType,
                         ClaimsEnum::TrustMark->value => $trustMarkEntity->getToken(),
                     ];
-                } catch (\Throwable $exception) {
+                } catch (Throwable $exception) {
                     $this->loggerService->error(
                         'Error fetching Trust Mark: ' . $exception->getMessage(),
                         [
@@ -217,6 +221,7 @@ class EntityStatementController
 
         return $this->prepareEntityStatementResponse($entityConfigurationToken);
     }
+
 
     protected function prepareEntityStatementResponse(string $entityStatementToken): Response
     {

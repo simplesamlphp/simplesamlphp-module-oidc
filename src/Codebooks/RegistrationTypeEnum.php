@@ -12,6 +12,7 @@ enum RegistrationTypeEnum: string
     case FederatedAutomatic = 'federated_automatic';
     case Dynamic = 'dynamic';
 
+
     public function description(): string
     {
         return match ($this) {

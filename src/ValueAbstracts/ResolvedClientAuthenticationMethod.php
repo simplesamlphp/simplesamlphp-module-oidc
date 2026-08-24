@@ -15,10 +15,12 @@ class ResolvedClientAuthenticationMethod
     ) {
     }
 
+
     public function getClient(): ClientEntityInterface
     {
         return $this->client;
     }
+
 
     public function getClientAuthenticationMethod(): ClientAuthenticationMethodsEnum
     {

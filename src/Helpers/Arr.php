@@ -23,6 +23,7 @@ class Arr
         return null;
     }
 
+
     /**
      * @param array $values
      * @return string[]
@@ -32,11 +33,13 @@ class Arr
         return array_map(fn(mixed $value): string => (string)$value, $values);
     }
 
+
     public function isValueOneOf(mixed $value, array $set): bool
     {
         $value = is_array($value) ? $value : [$value];
         return !empty(array_intersect($value, $set));
     }
+
 
     public function isValueSubsetOf(mixed $value, array $superset): bool
     {
@@ -44,6 +47,7 @@ class Arr
 
         return empty(array_diff($value, $superset));
     }
+
 
     public function isValueSupersetOf(mixed $value, array $subset): bool
     {

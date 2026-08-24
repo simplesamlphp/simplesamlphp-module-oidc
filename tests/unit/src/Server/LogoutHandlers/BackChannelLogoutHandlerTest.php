@@ -8,6 +8,7 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use GuzzleHttp\RequestOptions;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
@@ -22,16 +23,19 @@ use SimpleSAML\OpenID\Network\DestinationPolicy;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler
  */
+#[AllowMockObjectsWithoutExpectations]
 class BackChannelLogoutHandlerTest extends TestCase
 {
     /**
      * @var mixed
      */
     private MockObject $logoutTokenBuilderMock;
+
     /**
      * @var mixed
      */
     private MockObject $loggerServiceMock;
+
     /**
      * @var mixed
      */
@@ -45,6 +49,7 @@ class BackChannelLogoutHandlerTest extends TestCase
     private DestinationPolicy $destinationPolicy;
 
     private array $sampleRelyingPartyAssociation = [];
+
 
     /**
      * @throws \Exception
@@ -61,6 +66,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         $this->sampleRelyingPartyAssociation[] = $this->getSampleRelyingPartyAssociation();
     }
 
+
     protected function mocked(): BackChannelLogoutHandler
     {
         return new BackChannelLogoutHandler(
@@ -70,6 +76,7 @@ class BackChannelLogoutHandlerTest extends TestCase
             $this->destinationPolicy,
         );
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -83,6 +90,7 @@ class BackChannelLogoutHandlerTest extends TestCase
 
         $this->mocked()->handle($this->sampleRelyingPartyAssociation);
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -102,6 +110,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         $this->mocked()->handle($this->sampleRelyingPartyAssociation, $handlerStack);
     }
 
+
     /**
      * TLS verification must be on unless a deployment explicitly opts out, since the Logout Token carries the
      * 'sub' / 'sid' claims. Earlier versions disabled it unconditionally.
@@ -116,6 +125,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         $this->assertSame(3, $options[RequestOptions::CONNECT_TIMEOUT]);
         $this->assertSame(3, $options[RequestOptions::TIMEOUT]);
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -135,6 +145,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         // Not overridden, so the handler default stands.
         $this->assertSame(3, $options[RequestOptions::CONNECT_TIMEOUT]);
     }
+
 
     /**
      * A logout URI is registered by the client, so this client fetches a destination the deployment did not
@@ -170,6 +181,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         $this->mocked()->handle([$association], HandlerStack::create($mockHandler));
     }
 
+
     /**
      * A deployment can configure its own handler through the client options. Attaching the guard must not
      * cost it that handler, which an earlier version did by assigning over it.
@@ -196,6 +208,7 @@ class BackChannelLogoutHandlerTest extends TestCase
 
         $this->assertTrue($reached, 'The configured handler was replaced rather than guarded.');
     }
+
 
     /**
      * A configured stack outlives the call that used it, so the guard has to be replaced rather than added
@@ -233,6 +246,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         $this->assertSame($afterFirst, $countGuards(), 'The stack gained a guard per call.');
     }
 
+
     /**
      * Run a single Back-Channel Logout request through a mock handler and return the effective Guzzle options,
      * which are the client config merged into the per-request options.
@@ -255,6 +269,7 @@ class BackChannelLogoutHandlerTest extends TestCase
 
         return $captured;
     }
+
 
     protected function getSampleRelyingPartyAssociation(
         ?string $clientId = null,

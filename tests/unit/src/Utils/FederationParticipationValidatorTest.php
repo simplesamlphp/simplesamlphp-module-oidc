@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use Exception;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -18,15 +20,23 @@ use SimpleSAML\OpenID\Federation\TrustChain;
 use SimpleSAML\OpenID\Federation\TrustMarkValidator;
 
 #[CoversClass(FederationParticipationValidator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class FederationParticipationValidatorTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $federationMock;
+
     protected MockObject $loggerMock;
+
     protected MockObject $trustMarkValidatorMock;
+
     protected MockObject $leafEntityConfiguration;
+
     protected MockObject $trustAnchorEntityConfiguration;
+
     protected MockObject $trustChainMock;
+
 
     protected function setUp(): void
     {
@@ -49,6 +59,7 @@ class FederationParticipationValidatorTest extends TestCase
             ->willReturn($this->trustAnchorEntityConfiguration);
     }
 
+
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?Federation $federation = null,
@@ -65,10 +76,12 @@ class FederationParticipationValidatorTest extends TestCase
         );
     }
 
+
     public function testCanConstruct(): void
     {
         $this->assertInstanceOf(FederationParticipationValidator::class, $this->sut());
     }
+
 
     public function testByTrustMarksFor(): void
     {
@@ -89,6 +102,7 @@ class FederationParticipationValidatorTest extends TestCase
         $this->sut()->byTrustMarksFor($this->trustChainMock);
     }
 
+
     public function testByTrustMarksForEmptyLimitsDoesNotRunValidations(): void
     {
         $this->moduleConfigMock->expects($this->once())
@@ -102,6 +116,7 @@ class FederationParticipationValidatorTest extends TestCase
         $this->sut()->byTrustMarksFor($this->trustChainMock);
     }
 
+
     public function testValidateForOneOfLimitDoesNotRunValidationOnEmptyLimit(): void
     {
         $this->trustMarkValidatorMock->expects($this->never())
@@ -114,12 +129,13 @@ class FederationParticipationValidatorTest extends TestCase
         );
     }
 
+
     public function testValidateForOneOfLimitThrowsIfNoneAreValid(): void
     {
         $this->trustMarkValidatorMock->expects($this->atLeastOnce())
             ->method('fromCacheOrDoForTrustMarkType')
             ->with('trustMarkType')
-            ->willThrowException(new \Exception('error'));
+            ->willThrowException(new Exception('error'));
 
         $this->expectException(TrustMarkException::class);
         $this->expectExceptionMessage('OneOf limit rule failed');
@@ -130,6 +146,7 @@ class FederationParticipationValidatorTest extends TestCase
             $this->trustAnchorEntityConfiguration,
         );
     }
+
 
     public function testValidateForAllOfLimitDoesNotRunValidationOnEmptyLimit(): void
     {
@@ -143,12 +160,13 @@ class FederationParticipationValidatorTest extends TestCase
         );
     }
 
+
     public function testValidateForAllOfLimitThrowsIfAnyIsInvalid(): void
     {
         $this->trustMarkValidatorMock->expects($this->atLeastOnce())
             ->method('fromCacheOrDoForTrustMarkType')
             ->with('trustMarkType')
-            ->willThrowException(new \Exception('error'));
+            ->willThrowException(new Exception('error'));
 
         $this->expectException(TrustMarkException::class);
         $this->expectExceptionMessage('AllOf limit rule failed');

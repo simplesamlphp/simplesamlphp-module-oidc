@@ -93,6 +93,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
 
     private ?ResponseModeInterface $responseMode = null;
 
+
     public static function fromOAuth2AuthorizationRequest(
         OAuth2AuthorizationRequest $oAuth2authorizationRequest,
     ): AuthorizationRequest {
@@ -120,6 +121,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $authorizationRequest;
     }
 
+
     /**
      * @return string|null
      */
@@ -128,10 +130,12 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->nonce;
     }
 
+
     public function setNonce(string $nonce): void
     {
         $this->nonce = $nonce;
     }
+
 
     /**
      * @return int|null
@@ -141,6 +145,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->authTime;
     }
 
+
     /**
      * @param int|null $authTime
      */
@@ -149,6 +154,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         $this->authTime = $authTime;
     }
 
+
     /**
      * @return array|null
      */
@@ -156,6 +162,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     {
         return $this->claims;
     }
+
 
     /**
      * @param array|null $claims
@@ -174,15 +181,18 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->addClaimsToIdToken;
     }
 
+
     public function setAddClaimsToIdToken(bool $addClaimsToIdToken): void
     {
         $this->addClaimsToIdToken = $addClaimsToIdToken;
     }
 
+
     public function setResponseType(string $responseType): void
     {
         $this->responseType = $responseType;
     }
+
 
     /**
      * @return string|null
@@ -192,15 +202,18 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->responseType;
     }
 
+
     public function setResponseMode(ResponseModeInterface $responseMode): void
     {
         $this->responseMode = $responseMode;
     }
 
+
     public function getResponseMode(): ?ResponseModeInterface
     {
         return $this->responseMode;
     }
+
 
     /**
      * Check if access token should be issued in authorization response (implicit flow, hybrid flow...).
@@ -215,75 +228,90 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return false;
     }
 
+
     public function setIsCookieBasedAuthn(?bool $isCookieBasedAuthn): void
     {
         $this->isCookieBasedAuthn = $isCookieBasedAuthn;
     }
+
 
     public function getIsCookieBasedAuthn(): ?bool
     {
         return $this->isCookieBasedAuthn;
     }
 
+
     public function setAuthSourceId(?string $authSourceId): void
     {
         $this->authSourceId = $authSourceId;
     }
+
 
     public function getAuthSourceId(): ?string
     {
         return $this->authSourceId;
     }
 
+
     public function getRequestedAcrValues(): ?array
     {
         return $this->requestedAcrValues;
     }
+
 
     public function setRequestedAcrValues(?array $requestedAcrValues): void
     {
         $this->requestedAcrValues = $requestedAcrValues;
     }
 
+
     public function getUiLocales(): ?string
     {
         return $this->uiLocales;
     }
+
 
     public function setUiLocales(?string $uiLocales): void
     {
         $this->uiLocales = $uiLocales;
     }
 
+
     public function getLoginHint(): ?string
     {
         return $this->loginHint;
     }
+
 
     public function setLoginHint(?string $loginHint): void
     {
         $this->loginHint = $loginHint;
     }
 
+
     public function getIdTokenHintSubject(): ?string
     {
         return $this->idTokenHintSubject;
     }
+
 
     public function setIdTokenHintSubject(?string $idTokenHintSubject): void
     {
         $this->idTokenHintSubject = $idTokenHintSubject;
     }
 
+
     public function getAcr(): ?string
     {
         return $this->acr;
     }
 
+
     public function setAcr(?string $acr): void
     {
         $this->acr = $acr;
     }
+
 
     /**
      * @return string|null
@@ -293,6 +321,7 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         return $this->sessionId;
     }
 
+
     /**
      * @param string|null $sessionId
      */
@@ -301,60 +330,72 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
         $this->sessionId = $sessionId;
     }
 
+
     public function isVciRequest(): bool
     {
         return $this->isVciRequest;
     }
+
 
     public function setIsVciRequest(bool $isVciRequest): void
     {
         $this->isVciRequest = $isVciRequest;
     }
 
+
     public function getIssuerState(): ?string
     {
         return $this->issuerState;
     }
+
 
     public function setIssuerState(?string $issuerState): void
     {
         $this->issuerState = $issuerState;
     }
 
+
     public function getFlowType(): ?FlowTypeEnum
     {
         return $this->flowType;
     }
+
 
     public function setFlowType(?FlowTypeEnum $flowType): void
     {
         $this->flowType = $flowType;
     }
 
+
     public function getAuthorizationDetails(): ?array
     {
         return $this->authorizationDetails;
     }
+
 
     public function setAuthorizationDetails(?array $authorizationDetails): void
     {
         $this->authorizationDetails = $authorizationDetails;
     }
 
+
     public function getBoundClientId(): ?string
     {
         return $this->boundClientId;
     }
+
 
     public function setBoundClientId(?string $boundClientId): void
     {
         $this->boundClientId = $boundClientId;
     }
 
+
     public function getBoundRedirectUri(): ?string
     {
         return $this->boundRedirectUri;
     }
+
 
     public function setBoundRedirectUri(?string $boundRedirectUri): void
     {

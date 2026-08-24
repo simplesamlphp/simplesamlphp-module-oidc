@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
@@ -25,30 +26,50 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\UserInfoController
  */
+#[AllowMockObjectsWithoutExpectations]
 class UserInfoControllerTest extends TestCase
 {
     protected MockObject $resourceServerMock;
+
     protected MockObject $accessTokenRepositoryMock;
+
     protected MockObject $userRepositoryMock;
+
     protected MockObject $allowedOriginRepositoryMock;
+
     protected MockObject $claimTranslatorExtractorMock;
+
     protected MockObject $serverRequestMock;
+
     protected MockObject $authorizationServerRequestMock;
+
     protected MockObject $accessTokenEntityMock;
+
     protected MockObject $userEntityMock;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $errorResponderMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $symfonyRequestMock;
+
     protected MockObject $symfonyResponseMock;
+
     protected MockObject $responseHeaderBagMock;
+
     protected MockObject $httpFoundationFactoryMock;
+
     protected MockObject $psrHttpFactoryMock;
+
 
     protected function setUp(): void
     {
@@ -76,8 +97,8 @@ class UserInfoControllerTest extends TestCase
             ) => new JsonResponse($data, $status, $headers, $json),
         );
 
-        $this->symfonyRequestMock = $this->createMock(\Symfony\Component\HttpFoundation\Request::class);
-        $this->symfonyResponseMock = $this->createMock(\Symfony\Component\HttpFoundation\Response::class);
+        $this->symfonyRequestMock = $this->createMock(Request::class);
+        $this->symfonyResponseMock = $this->createMock(Response::class);
         $this->responseHeaderBagMock = $this->createMock(ResponseHeaderBag::class);
         $this->symfonyResponseMock->headers = $this->responseHeaderBagMock;
 
@@ -89,6 +110,7 @@ class UserInfoControllerTest extends TestCase
         $this->psrHttpFactoryMock->method('createRequest')->willReturn($this->serverRequestMock);
         $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($this->psrHttpFactoryMock);
     }
+
 
     protected function mock(): UserInfoController
     {
@@ -104,6 +126,7 @@ class UserInfoControllerTest extends TestCase
         );
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -111,6 +134,7 @@ class UserInfoControllerTest extends TestCase
             $this->mock(),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -179,6 +203,7 @@ class UserInfoControllerTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -213,6 +238,7 @@ class UserInfoControllerTest extends TestCase
         $this->expectException(UserNotFound::class);
         $this->mock()->__invoke($this->serverRequestMock);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -258,6 +284,7 @@ class UserInfoControllerTest extends TestCase
         $this->mock()->__invoke($this->serverRequestMock);
     }
 
+
     public function testItHandlesCorsRequest(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
@@ -286,10 +313,12 @@ class UserInfoControllerTest extends TestCase
         $this->assertSame($this->symfonyResponseMock, $response);
     }
 
+
     public function testItUsesRequestTrait(): void
     {
         $this->assertContains(RequestTrait::class, class_uses(UserInfoController::class));
     }
+
 
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {

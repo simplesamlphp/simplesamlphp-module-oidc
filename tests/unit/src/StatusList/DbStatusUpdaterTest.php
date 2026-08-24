@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,16 +30,22 @@ use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
  * actually match.
  */
 #[CoversClass(DbStatusUpdater::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DbStatusUpdaterTest extends TestCase
 {
     protected const string LIST_ID = 'list-1';
 
     protected const int CAPACITY = 8;
 
+
     protected Database $database;
+
     protected StatusListRepository $statusListRepository;
+
     protected StatusListEntryRepository $statusListEntryRepository;
+
     protected MockObject $loggerServiceMock;
+
 
     /**
      * @throws \Exception
@@ -60,6 +67,7 @@ class DbStatusUpdaterTest extends TestCase
 
         (new DatabaseMigration())->migrate();
     }
+
 
     /**
      * @throws \Exception
@@ -89,6 +97,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
+
     protected function sut(): DbStatusUpdater
     {
         return new DbStatusUpdater(
@@ -97,6 +106,7 @@ class DbStatusUpdaterTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     /**
      * @throws \Exception
@@ -124,6 +134,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->statusListRepository->activate(self::LIST_ID);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -140,6 +151,7 @@ class DbStatusUpdaterTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -151,6 +163,7 @@ class DbStatusUpdaterTest extends TestCase
             ['token' => 'a.b.c', 'hash' => $contentHash, 'id' => self::LIST_ID],
         );
     }
+
 
     /**
      * @throws \Exception
@@ -168,6 +181,7 @@ class DbStatusUpdaterTest extends TestCase
         );
         $this->assertSame(StatusTypeEnum::Invalid->value, $this->sut()->getStatusValue(self::LIST_ID, 3));
     }
+
 
     /**
      * The published token has to stop counting as current the moment the content it was signed over
@@ -188,6 +202,7 @@ class DbStatusUpdaterTest extends TestCase
             $this->statusListRepository->findByIdOnPrimary(self::LIST_ID)?->getSignedTokenContentHash(),
         );
     }
+
 
     /**
      * Repeating a revocation is expected to be harmless, and must not cost a re-sign of the whole list.
@@ -210,6 +225,7 @@ class DbStatusUpdaterTest extends TestCase
         );
     }
 
+
     /**
      * An index which was never handed out does not describe any credential, so setting its status would
      * be making a statement about something which does not exist.
@@ -226,6 +242,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->sut()->setStatus(self::LIST_ID, 3, StatusTypeEnum::Invalid);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -235,6 +252,7 @@ class DbStatusUpdaterTest extends TestCase
 
         $this->assertNull($this->sut()->getStatusValue(self::LIST_ID, 3));
     }
+
 
     /**
      * @throws \Exception
@@ -248,6 +266,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->sut()->setStatus(self::LIST_ID, self::CAPACITY + 1, StatusTypeEnum::Invalid);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -258,6 +277,7 @@ class DbStatusUpdaterTest extends TestCase
 
         $this->sut()->setStatus('no-such-list', 0, StatusTypeEnum::Invalid);
     }
+
 
     /**
      * The number of bits per entry is fixed when a list is created and can not be retrofitted, so a
@@ -276,6 +296,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->sut()->setStatus(self::LIST_ID, 3, StatusTypeEnum::Suspended);
     }
 
+
     /**
      * A list records the statuses it was created allowing, so widening a pool later does not widen
      * lists which already exist.
@@ -293,6 +314,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->sut()->setStatus(self::LIST_ID, 3, StatusTypeEnum::Suspended);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -304,6 +326,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->assertTrue($this->sut()->setStatus(self::LIST_ID, 3, StatusTypeEnum::Suspended));
         $this->assertSame(StatusTypeEnum::Suspended->value, $this->sut()->getStatusValue(self::LIST_ID, 3));
     }
+
 
     /**
      * @throws \Exception
@@ -318,6 +341,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->assertTrue($this->sut()->setStatus(self::LIST_ID, 3, StatusTypeEnum::Valid));
         $this->assertSame(StatusTypeEnum::Valid->value, $this->sut()->getStatusValue(self::LIST_ID, 3));
     }
+
 
     /**
      * A change which lands between another caller's read and its write must stand, rather than being
@@ -342,6 +366,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->assertSame(StatusTypeEnum::Valid->value, $this->sut()->getStatusValue(self::LIST_ID, 3));
     }
 
+
     /**
      * Losing one round of the compare-and-set is not a failure: the retry reads what actually got
      * there and applies the change on top, so the caller still ends up with what it asked for.
@@ -360,6 +385,7 @@ class DbStatusUpdaterTest extends TestCase
             new Helpers(),
         ) extends StatusListEntryRepository {
             public int $updateAttempts = 0;
+
 
             public function updateStatus(
                 string $statusListId,
@@ -390,6 +416,7 @@ class DbStatusUpdaterTest extends TestCase
         $this->assertSame(2, $entryRepositoryStub->updateAttempts);
         $this->assertSame(StatusTypeEnum::Invalid->value, $this->sut()->getStatusValue(self::LIST_ID, 3));
     }
+
 
     /**
      * Losing every round has to be reported as a conflict rather than as the no-op that a false return

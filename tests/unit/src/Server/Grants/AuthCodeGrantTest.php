@@ -19,6 +19,7 @@ use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Nyholm\Psr7\Response;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -98,26 +99,44 @@ use Stringable;
 #[UsesClass(UserEntity::class)]
 #[UsesClass(Arr::class)]
 #[UsesClass(QueryResponseMode::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AuthCodeGrantTest extends TestCase
 {
     private const string AUTH_CODE_ID = 'auth-code-id';
+
     private const string CLIENT_ID = 'client-id';
+
     private const string USER_ID = 'user-id';
+
     private const string REDIRECT_URI = 'https://rp.example.org/callback';
+
     private const string STATE = 'opaque-state-value';
+
     private const string CODE_VERIFIER = 'ZG9uLXQtdXNlLXRoaXMtdmVyaWZpZXItaW4tcHJvZHVjdGlvbg';
 
+
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
+
     private AccessTokenRepositoryInterface&MockObject $accessTokenRepositoryMock;
+
     private RefreshTokenRepositoryInterface&MockObject $refreshTokenRepositoryMock;
+
     private RequestRulesManager&MockObject $requestRulesManagerMock;
+
     private RequestParamsResolver&MockObject $requestParamsResolverMock;
+
     private AccessTokenEntityFactory&MockObject $accessTokenEntityFactoryMock;
+
     private AuthCodeEntityFactory&MockObject $authCodeEntityFactoryMock;
+
     private RefreshTokenIssuer&MockObject $refreshTokenIssuerMock;
+
     private Helpers&MockObject $helpersMock;
+
     private Scope&MockObject $scopeHelperMock;
+
     private LoggerService&MockObject $loggerServiceMock;
+
     private ScopeRepositoryInterface&MockObject $scopeRepositoryMock;
 
     private Key $encryptionKey;
@@ -130,6 +149,7 @@ class AuthCodeGrantTest extends TestCase
 
     /** What the access token factory was last called with, for assertions on values with no other outlet. */
     private array $accessTokenFactoryArguments = [];
+
 
     protected function setUp(): void
     {
@@ -180,6 +200,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRejectsAuthorizationCodeItCannotDecrypt(): void
     {
         // A code encrypted under a different key stands in for any tampered or forged code. The grant must
@@ -192,6 +213,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRejectsAuthorizationCodePayloadWithoutIdentifier(): void
     {
         $this->authCodeRepositoryMock->expects($this->never())->method('findById');
@@ -202,12 +224,14 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRejectsAuthorizationCodeThatIsNotInStorage(): void
     {
         $this->authCodeRepositoryMock->method('findById')->willReturn(null);
 
         $this->assertRejects('invalid_grant', $this->request());
     }
+
 
     public function testRejectsUnexpectedAuthCodeRepositoryType(): void
     {
@@ -232,6 +256,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertRejects('invalid_request', $this->request());
     }
 
+
     public function testRejectsClientIdThatDoesNotMatchTheBoundOne(): void
     {
         $this->storedAuthCode(isGeneric: true);
@@ -240,6 +265,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertRejects('invalid_grant', $this->request());
     }
 
+
     public function testRequiresRedirectUriFromGenericClient(): void
     {
         $this->storedAuthCode(isGeneric: true);
@@ -247,6 +273,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->assertRejects('invalid_request', $this->request());
     }
+
 
     public function testRejectsRedirectUriThatDoesNotMatchTheBoundOne(): void
     {
@@ -265,6 +292,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertRejects('unauthorized_client', $this->request());
     }
 
+
     public function testAcceptsClientThatRegisteredNoGrantTypesAtAll(): void
     {
         // An empty list means nothing was registered, not "nothing is allowed" - manually managed and pre-DCR
@@ -274,6 +302,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
     }
+
 
     public function testRejectsTokenRequestWithNeitherClientAuthenticationNorPkce(): void
     {
@@ -296,6 +325,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertRejects('invalid_request', $this->request());
     }
 
+
     public function testRequiresCodeVerifierWhenAuthorizationRequestUsedCodeChallenge(): void
     {
         $this->storedAuthCode();
@@ -307,6 +337,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRejectsCodeVerifierThatFailsVerification(): void
     {
         $this->storedAuthCode();
@@ -317,6 +348,7 @@ class AuthCodeGrantTest extends TestCase
             $this->requestFor($this->payloadWithChallenge()),
         );
     }
+
 
     public function testAcceptsCodeVerifierThatVerifiesAgainstTheStoredChallenge(): void
     {
@@ -332,6 +364,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->assertSecretsWereNotLogged(self::CODE_VERIFIER);
     }
+
 
     public function testRejectsUnsupportedCodeChallengeMethod(): void
     {
@@ -356,6 +389,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRevokesRelatedTokensWhenAuthorizationCodeIsReplayed(): void
     {
         // RFC 6749 section 4.1.2: a reused code means the code may be in an attacker's hands, so everything
@@ -372,6 +406,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertRejects('invalid_grant', $this->request());
     }
 
+
     public function testRejectsAuthorizationCodeIssuedToAnotherClient(): void
     {
         $this->storedAuthCode();
@@ -381,6 +416,7 @@ class AuthCodeGrantTest extends TestCase
             $this->requestFor($this->payload(['client_id' => 'another-client'])),
         );
     }
+
 
     public function testRequiresRedirectUriWhenTheAuthorizationRequestHadOne(): void
     {
@@ -392,6 +428,7 @@ class AuthCodeGrantTest extends TestCase
             $this->request(['code' => $this->encryptPayload($this->payload())]),
         );
     }
+
 
     public function testRejectsRedirectUriThatDiffersFromTheAuthorizationRequest(): void
     {
@@ -430,6 +467,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertSame($responseType, $result);
     }
 
+
     public function testTakesTheClientFromTheStoredCodeRatherThanFromTheRequest(): void
     {
         // The client is authoritatively known from the stored code, so it is predefined as the ClientRule
@@ -455,6 +493,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRedeemsCodeForGenericClientBoundToItsClientIdAndRedirectUri(): void
     {
         // A generic (non-registered) client has no credential to authenticate with, so PKCE is what
@@ -472,6 +511,7 @@ class AuthCodeGrantTest extends TestCase
             new DateInterval('PT5M'),
         );
     }
+
 
     public function testCarriesAuthenticationContextFromTheAuthorizationCodeIntoTheResponse(): void
     {
@@ -498,6 +538,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testIssuesRefreshTokenOnlyWhenOfflineAccessWasGranted(): void
     {
         $this->storedAuthCode();
@@ -517,6 +558,7 @@ class AuthCodeGrantTest extends TestCase
         $this->sut()->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
     }
 
+
     public function testDoesNotIssueRefreshTokenWithoutOfflineAccess(): void
     {
         $this->storedAuthCode();
@@ -529,6 +571,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->sut()->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
     }
+
 
     public function testDoesNotLogAnyCredentialFromTheTokenRequest(): void
     {
@@ -584,6 +627,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertFalse($sut->canRespondToAuthorizationRequest($this->request([])));
     }
 
+
     public function testTreatsARequestAsOidcOnlyWhenItAsksForTheOpenidScope(): void
     {
         $sut = $this->sut();
@@ -605,10 +649,12 @@ class AuthCodeGrantTest extends TestCase
         $this->assertNotInstanceOf(AuthorizationRequest::class, $request);
     }
 
+
     public function testReturnsAnOidcRequestWhenTheOpenidScopeIsRequested(): void
     {
         $this->assertInstanceOf(AuthorizationRequest::class, $this->validatedAuthorizationRequest());
     }
+
 
     public function testReturnsAnOidcRequestForACredentialRequestWithoutTheOpenidScope(): void
     {
@@ -623,6 +669,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertSame(FlowTypeEnum::VciAuthorizationCode, $request->getFlowType());
     }
 
+
     public function testCarriesTheCodeChallengeOntoTheAuthorizationRequestOnlyWhenOneWasSent(): void
     {
         $withPkce = $this->validatedAuthorizationRequest(
@@ -636,6 +683,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->assertNull($this->validatedAuthorizationRequest()->getCodeChallenge());
     }
+
 
     public function testCarriesTheAuthenticationContextParametersOntoTheAuthorizationRequest(): void
     {
@@ -665,6 +713,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertSame('issuer-state-value', $request->getIssuerState());
     }
 
+
     public function testDoesNotLogTheLoginHintValue(): void
     {
         // login_hint is routinely an email address or a username, so only its presence may be recorded.
@@ -674,6 +723,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->assertSecretsWereNotLogged($loginHint);
     }
+
 
     public function testBindsTheUsedClientIdAndRedirectUriWhenTheClientIsGeneric(): void
     {
@@ -688,6 +738,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertSame(self::REDIRECT_URI, $request->getBoundRedirectUri());
     }
 
+
     public function testDoesNotBindClientIdentifiersForARegisteredClient(): void
     {
         $request = $this->validatedAuthorizationRequest();
@@ -695,6 +746,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertNull($request->getBoundClientId());
         $this->assertNull($request->getBoundRedirectUri());
     }
+
 
     public function testAddsCredentialConfigurationIdsFromAuthorizationDetailsToTheScopes(): void
     {
@@ -732,6 +784,7 @@ class AuthCodeGrantTest extends TestCase
         $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
     }
 
+
     public function testRedirectsWithAccessDeniedWhenTheUserDeclinedTheRequest(): void
     {
         $authorizationRequest = $this->approvedAuthorizationRequest();
@@ -747,6 +800,7 @@ class AuthCodeGrantTest extends TestCase
             $this->assertSame(self::REDIRECT_URI, $exception->getRedirectUri());
         }
     }
+
 
     public function testFallsBackToTheClientsRegisteredRedirectUriWhenTheRequestCarriesNone(): void
     {
@@ -764,6 +818,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertStringStartsWith(self::REDIRECT_URI . '?', $this->redirectUriOf($response));
     }
 
+
     public function testIssuesAnAuthorizationCodeAndRedirectsBackWithItAndTheState(): void
     {
         $authorizationRequest = $this->approvedAuthorizationRequest();
@@ -777,6 +832,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertNotSame('', $query['code']);
         $this->assertSame(self::STATE, $query['state'], 'The state must be echoed back untouched.');
     }
+
 
     public function testStampsTheIssuedCodeWithTheFlowItBelongsTo(): void
     {
@@ -796,6 +852,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     public function testRejectsAnUnexpectedAuthCodeRepositoryWhenIssuingACode(): void
     {
         $foreignRepository = $this->createMock(OAuth2AuthCodeRepositoryInterface::class);
@@ -804,6 +861,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->sut($foreignRepository)->completeOidcAuthorizationRequest($this->approvedAuthorizationRequest());
     }
+
 
     public function testDoesNotLogTheAuthorizationCodeItIssues(): void
     {
@@ -814,6 +872,7 @@ class AuthCodeGrantTest extends TestCase
 
         $this->assertSecretsWereNotLogged($query['code']);
     }
+
 
     public function testRoutesAnOidcAuthorizationRequestToTheOidcCompletionPath(): void
     {
@@ -826,6 +885,7 @@ class AuthCodeGrantTest extends TestCase
         $this->assertArrayHasKey('code', $query);
         $this->assertSame(self::STATE, $query['state']);
     }
+
 
     public function testUsesTheRegisteredRedirectUriWhenTheClientHasExactlyOne(): void
     {
@@ -843,6 +903,7 @@ class AuthCodeGrantTest extends TestCase
             $this->redirectUriOf($this->sut()->completeOidcAuthorizationRequest($authorizationRequest)),
         );
     }
+
 
     public function testRetriesWithAFreshIdentifierWhenTheGeneratedOneCollides(): void
     {
@@ -880,6 +941,7 @@ class AuthCodeGrantTest extends TestCase
             'A collision must be retried with a freshly generated identifier, not the one that collided.',
         );
     }
+
 
     /**
      * The two halves of the grant have to agree on the shape of the encrypted payload.
@@ -963,6 +1025,7 @@ class AuthCodeGrantTest extends TestCase
         return $grant;
     }
 
+
     /**
      * Assert that redeeming the code fails with a given OAuth error type.
      *
@@ -991,6 +1054,7 @@ class AuthCodeGrantTest extends TestCase
         $this->fail(sprintf('Expected the token request to be rejected with "%s".', $expectedErrorType));
     }
 
+
     /**
      * @param array<string,mixed> $parsedBody
      */
@@ -1009,6 +1073,7 @@ class AuthCodeGrantTest extends TestCase
 
         return $request;
     }
+
 
     /**
      * A complete token request for the given authorization code payload.
@@ -1031,6 +1096,7 @@ class AuthCodeGrantTest extends TestCase
         ));
     }
 
+
     /**
      * The decrypted contents of an authorization code, as the authorization request half writes them.
      *
@@ -1052,6 +1118,7 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
     /**
      * @return array<string,mixed>
      */
@@ -1067,6 +1134,7 @@ class AuthCodeGrantTest extends TestCase
             'code_challenge_method' => $method,
         ]);
     }
+
 
     /**
      * @param array<string,mixed> $payload
@@ -1086,6 +1154,7 @@ class AuthCodeGrantTest extends TestCase
 
         return $encrypt(json_encode($payload, JSON_THROW_ON_ERROR));
     }
+
 
     /**
      * Put an authorization code in storage and make the rules answer for the client it was issued to.
@@ -1125,6 +1194,7 @@ class AuthCodeGrantTest extends TestCase
         return $authCode;
     }
 
+
     /**
      * What the generic-client branch reads straight off the request rather than through the rules.
      */
@@ -1144,6 +1214,7 @@ class AuthCodeGrantTest extends TestCase
             );
     }
 
+
     /**
      * Make the resolver hand back the request body, the way the real one does.
      *
@@ -1158,6 +1229,7 @@ class AuthCodeGrantTest extends TestCase
                 static fn(ServerRequestInterface $request): array => (array)$request->getParsedBody(),
             );
     }
+
 
     private function rulesReturn(
         ?string $codeVerifier = null,
@@ -1178,6 +1250,7 @@ class AuthCodeGrantTest extends TestCase
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
         $this->requestRulesManagerMock->method('check')->willReturn($resultBag);
     }
+
 
     /**
      * Drive validateAuthorizationRequestWithRequestRules() with a full set of rule results.
@@ -1245,6 +1318,7 @@ class AuthCodeGrantTest extends TestCase
         return $this->sut()->validateAuthorizationRequestWithRequestRules($this->request([]), $incoming);
     }
 
+
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      */
@@ -1255,6 +1329,7 @@ class AuthCodeGrantTest extends TestCase
 
         return $request;
     }
+
 
     /**
      * An authorization request in the state the authorization screen leaves it in: a user is attached and
@@ -1273,6 +1348,7 @@ class AuthCodeGrantTest extends TestCase
         return $request;
     }
 
+
     private function clientMock(bool $isGeneric = false, ?array $grantTypes = null): ClientEntity&MockObject
     {
         $client = $this->createMock(ClientEntity::class);
@@ -1282,6 +1358,7 @@ class AuthCodeGrantTest extends TestCase
 
         return $client;
     }
+
 
     private function authCodeEntity(?ClientEntity $client = null, bool $isRevoked = false): AuthCodeEntity
     {
@@ -1297,6 +1374,7 @@ class AuthCodeGrantTest extends TestCase
             boundRedirectUri: self::REDIRECT_URI,
         );
     }
+
 
     /**
      * Complete the request and report what the auth code factory was called with.
@@ -1324,6 +1402,7 @@ class AuthCodeGrantTest extends TestCase
         return $captured;
     }
 
+
     private function expectAuthCodeToBeIssued(?ClientEntity $client = null): AuthCodeEntity
     {
         $authCode = $this->authCodeEntity($client);
@@ -1336,6 +1415,7 @@ class AuthCodeGrantTest extends TestCase
         return $authCode;
     }
 
+
     /**
      * The base64url encoded SHA-256 of the shared verifier, per RFC 7636 section 4.2.
      */
@@ -1344,10 +1424,12 @@ class AuthCodeGrantTest extends TestCase
         return strtr(rtrim(base64_encode(hash('sha256', self::CODE_VERIFIER, true)), '='), '+/', '-_');
     }
 
+
     private function redirectUriOf(AbstractResponseType $response): string
     {
         return $response->generateHttpResponse(new Response())->getHeaderLine('location');
     }
+
 
     /**
      * The query parameters the client is redirected back with.
@@ -1361,6 +1443,7 @@ class AuthCodeGrantTest extends TestCase
         /** @var array<string,string> $query */
         return $query;
     }
+
 
     private function expectAccessTokenToBeIssued(): AccessTokenEntity&MockObject
     {
@@ -1379,8 +1462,9 @@ class AuthCodeGrantTest extends TestCase
         return $accessToken;
     }
 
+
     /**
-     * @return ResponseTypeInterface&MockObject
+     * @return \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface&\PHPUnit\Framework\MockObject\MockObject
      */
     private function responseType(): MockObject
     {
@@ -1393,6 +1477,7 @@ class AuthCodeGrantTest extends TestCase
         ]);
     }
 
+
     private function captureLogs(string $level): void
     {
         $this->loggerServiceMock->method($level)->willReturnCallback(
@@ -1401,6 +1486,7 @@ class AuthCodeGrantTest extends TestCase
             },
         );
     }
+
 
     private function assertSecretsWereNotLogged(string ...$secrets): void
     {

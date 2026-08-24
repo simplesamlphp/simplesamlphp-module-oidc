@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -27,14 +28,17 @@ use RecursiveIteratorIterator;
  * keeping on each line but the last the space which joins it to the next.
  */
 #[CoversNothing]
+#[AllowMockObjectsWithoutExpectations]
 class TranslationCatalogCoverageTest extends TestCase
 {
     protected static string $projectRoot;
+
 
     public static function setUpBeforeClass(): void
     {
         self::$projectRoot = dirname(__DIR__, 3);
     }
+
 
     /**
      * Every string the code marks for translation must be in every catalog.
@@ -59,6 +63,7 @@ class TranslationCatalogCoverageTest extends TestCase
             );
         }
     }
+
 
     /**
      * A translatable string must not carry leading or trailing whitespace.
@@ -85,6 +90,7 @@ class TranslationCatalogCoverageTest extends TestCase
         );
     }
 
+
     /**
      * `Translate::noop()` exists to put a literal in front of the extractor. An argument it can not
      * resolve is a string which can never reach a catalog.
@@ -103,6 +109,7 @@ class TranslationCatalogCoverageTest extends TestCase
 
         $this->assertSame([], array_values(array_unique($unresolvable)));
     }
+
 
     /**
      * @return string[]
@@ -133,6 +140,7 @@ class TranslationCatalogCoverageTest extends TestCase
         return $strings;
     }
 
+
     /**
      * @return string[]
      */
@@ -143,6 +151,7 @@ class TranslationCatalogCoverageTest extends TestCase
 
         return $paths;
     }
+
 
     /**
      * Every PHP file which can mark a string for translation.
@@ -156,6 +165,7 @@ class TranslationCatalogCoverageTest extends TestCase
     {
         return array_merge($this->filesUnder('src', 'php'), $this->filesUnder('hooks', 'php'));
     }
+
 
     /**
      * @return string[]
@@ -178,6 +188,7 @@ class TranslationCatalogCoverageTest extends TestCase
 
         return $found;
     }
+
 
     /**
      * Every `Translate::noop()` argument in a PHP file, as PHP itself would resolve it. Concatenated
@@ -243,6 +254,7 @@ class TranslationCatalogCoverageTest extends TestCase
         return $arguments;
     }
 
+
     /**
      * The three ways a Twig template in this module marks a string for translation.
      *
@@ -273,6 +285,7 @@ class TranslationCatalogCoverageTest extends TestCase
 
         return array_merge($strings, $this->parenthesisedTransStrings($contents));
     }
+
 
     /**
      * Literals inside a parenthesised expression which is then piped to `trans`.
@@ -327,6 +340,7 @@ class TranslationCatalogCoverageTest extends TestCase
 
         return $strings;
     }
+
 
     /**
      * Catalog msgids, joining the continuation lines of a wrapped entry back together.

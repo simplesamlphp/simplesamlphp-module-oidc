@@ -8,5 +8,6 @@ interface SessionIdResponseTypeInterface
 {
     public function getSessionId(): ?string;
 
+
     public function setSessionId(?string $sessionId): void;
 }

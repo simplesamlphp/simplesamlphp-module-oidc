@@ -47,6 +47,7 @@ class TokenResponse extends BearerTokenResponse implements
 
     protected ?string $sessionId = null;
 
+
     public function __construct(
         private readonly IdentityProviderInterface $identityProvider,
         protected IdTokenBuilder $idTokenBuilder,
@@ -55,6 +56,7 @@ class TokenResponse extends BearerTokenResponse implements
     ) {
         $this->privateKey = $privateKey;
     }
+
 
     /**
      * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken
@@ -90,6 +92,7 @@ class TokenResponse extends BearerTokenResponse implements
 
         return array_filter($extraParams);
     }
+
 
     protected function prepareIdTokenExtraParam(AccessTokenEntity $accessToken): array
     {
@@ -128,6 +131,7 @@ class TokenResponse extends BearerTokenResponse implements
         ];
     }
 
+
     protected function prepareVciAuthorizationDetailsExtraParam(AccessTokenEntity $accessToken): array
     {
         $normalizedAuthorizationDetails = [];
@@ -164,6 +168,7 @@ class TokenResponse extends BearerTokenResponse implements
         return ['authorization_details' => $normalizedAuthorizationDetails];
     }
 
+
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      *
@@ -181,6 +186,7 @@ class TokenResponse extends BearerTokenResponse implements
         return false;
     }
 
+
     /**
      * @param string|null $nonce
      */
@@ -188,6 +194,7 @@ class TokenResponse extends BearerTokenResponse implements
     {
         $this->nonce = $nonce;
     }
+
 
     /**
      * @return string|null
@@ -197,6 +204,7 @@ class TokenResponse extends BearerTokenResponse implements
         return $this->nonce;
     }
 
+
     /**
      * @param int|null $authTime
      */
@@ -204,6 +212,7 @@ class TokenResponse extends BearerTokenResponse implements
     {
         $this->authTime = $authTime;
     }
+
 
     /**
      * @return int|null
@@ -213,20 +222,24 @@ class TokenResponse extends BearerTokenResponse implements
         return $this->authTime;
     }
 
+
     public function setAcr(?string $acr): void
     {
         $this->acr = $acr;
     }
+
 
     public function getAcr(): ?string
     {
         return $this->acr;
     }
 
+
     public function getSessionId(): ?string
     {
         return $this->sessionId;
     }
+
 
     public function setSessionId(?string $sessionId): void
     {

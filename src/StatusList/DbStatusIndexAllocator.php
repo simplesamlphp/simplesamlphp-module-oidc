@@ -82,6 +82,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
      */
     protected const string PREPARING_LIST_STALE_AFTER = 'PT2M';
 
+
     public function __construct(
         protected readonly StatusListRepository $statusListRepository,
         protected readonly StatusListEntryRepository $statusListEntryRepository,
@@ -92,6 +93,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -187,6 +189,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         );
     }
 
+
     /**
      * A list of this pool and lane which is accepting allocations, creating one if there is none.
      *
@@ -229,6 +232,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
@@ -268,6 +272,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
 
         return null;
     }
+
 
     /**
      * Waits, for a bounded time, on a list another request is still seeding.
@@ -328,6 +333,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         return null;
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      * @throws \Exception
@@ -344,6 +350,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             $this->staleBefore(),
         ) !== [];
     }
+
 
     /**
      * Whether the list this request has just created turned out to be redundant.
@@ -388,6 +395,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         ) !== [];
     }
 
+
     /**
      * The point past which a list which is still not open counts as abandoned rather than in progress.
      *
@@ -398,6 +406,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         return $this->helpers->dateTime()->getUtc()
             ->sub(new DateInterval(self::PREPARING_LIST_STALE_AFTER));
     }
+
 
     /**
      * Whether a list is below the point at which a successor should be started.
@@ -412,6 +421,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             (float)$statusList->getCapacity() * self::ROTATION_LOAD_FACTOR,
         );
     }
+
 
     /**
      * Creates a list, seeds every index, and opens it for allocation.
@@ -549,6 +559,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
         return $statusList;
     }
 
+
     /**
      * Recovers from an insert which did not succeed.
      *
@@ -608,6 +619,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
             $cause,
         );
     }
+
 
     /**
      * Tries random indices in one list until one is free or the budget runs out.

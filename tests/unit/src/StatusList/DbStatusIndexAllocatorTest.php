@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
+use DateTimeImmutable;
+use Exception;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -32,6 +35,7 @@ use SimpleSAML\OpenID\TokenStatusList;
  * would leave only the parts of the allocator which were never in doubt.
  */
 #[CoversClass(DbStatusIndexAllocator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DbStatusIndexAllocatorTest extends TestCase
 {
     protected const string POOL_ID = 'test-pool';
@@ -41,13 +45,21 @@ class DbStatusIndexAllocatorTest extends TestCase
     /** Small enough that a list can be filled by hand, and a multiple of 8 as a capacity must be. */
     protected const int CAPACITY = 8;
 
+
     protected Database $database;
+
     protected StatusListRepository $statusListRepository;
+
     protected StatusListEntryRepository $statusListEntryRepository;
+
     protected MockObject $keyResolverMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerServiceMock;
+
     protected string $signingKeyId = 'signing-key-1';
+
 
     /**
      * @throws \Exception
@@ -69,6 +81,7 @@ class DbStatusIndexAllocatorTest extends TestCase
 
         (new DatabaseMigration())->migrate();
     }
+
 
     /**
      * @throws \Exception
@@ -112,6 +125,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
+
     protected function sut(): DbStatusIndexAllocator
     {
         return new DbStatusIndexAllocator(
@@ -124,6 +138,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -139,6 +154,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             StatusListKeyProfileEnum::DidJwk,
         );
     }
+
 
     /**
      * Allocates a credential which never expires, so the lists these tests work with are in the
@@ -157,6 +173,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -169,9 +186,10 @@ class DbStatusIndexAllocatorTest extends TestCase
             $credentialId,
             self::CREDENTIAL_CONFIGURATION_ID,
             'subject-ref-hash',
-            new \DateTimeImmutable($expiresAt),
+            new DateTimeImmutable($expiresAt),
         );
     }
+
 
     /**
      * The point of the whole arrangement: the two kinds of credential never share a list, so a list of
@@ -196,6 +214,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
     }
 
+
     /**
      * Two credentials of the same kind still share, or the lane would have bought a split herd for
      * nothing.
@@ -209,6 +228,7 @@ class DbStatusIndexAllocatorTest extends TestCase
 
         $this->assertSame($first->getStatusListId(), $second->getStatusListId());
     }
+
 
     /**
      * An open list in the other lane must never be selected. If it were, every probe against it would be
@@ -230,6 +250,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertTrue($this->statusListRepository->findByIdOnPrimary($otherLaneListId)?->isActive());
         $this->assertNull($this->statusListRepository->findByIdOnPrimary($otherLaneListId)?->getDeactivatedAt());
     }
+
 
     /**
      * A list being seeded in the other lane is not something this request may stand down for: it could
@@ -267,6 +288,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertTrue($statusList?->isActive());
     }
 
+
     /**
      * Generations are counted within a pool, policy and lane, so the two lanes do not push each other's
      * numbering along and cannot collide on the unique constraint. A collision across lanes would be
@@ -289,6 +311,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
     }
 
+
     /**
      * @return array<array-key,mixed>
      */
@@ -298,6 +321,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             'SELECT * FROM ' . $this->database->applyPrefix('oidc_status_list') . ' ORDER BY generation',
         )->fetchAll();
     }
+
 
     /**
      * @throws \Exception
@@ -327,6 +351,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertSame(self::CAPACITY, (int)$seeded[0]['total']);
     }
 
+
     /**
      * The reference handed back is what goes into the credential, so it has to be the URI which was
      * stored, byte for byte, rather than one rebuilt later from the current base URL.
@@ -344,6 +369,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $allocation->getIdx());
         $this->assertLessThan(self::CAPACITY, $allocation->getIdx());
     }
+
 
     /**
      * Claiming the index and recording what claimed it are one statement, so there is never a moment
@@ -375,6 +401,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertNull($entry->getExpiresAt());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -393,6 +420,7 @@ class DbStatusIndexAllocatorTest extends TestCase
 
         $this->assertCount(4, $seen);
     }
+
 
     /**
      * A claim on an index someone else already took simply affects no rows. Nothing has to classify a
@@ -424,6 +452,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertSame('https://op.example.org/vc/first', $entry?->getCredentialId());
     }
 
+
     /**
      * A list which stopped accepting allocations must not take any more, even for an index which is
      * still free, otherwise a credential could land in a list already on its way to retirement.
@@ -452,6 +481,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertFalse($wasClaimed);
     }
 
+
     /**
      * Deactivating is what settles which of several workers goes on to create the successor.
      *
@@ -464,6 +494,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertTrue($this->statusListRepository->deactivate($allocation->getStatusListId()));
         $this->assertFalse($this->statusListRepository->deactivate($allocation->getStatusListId()));
     }
+
 
     /**
      * Running out of picks must never surface as a failure to issue a credential. The list is closed, a
@@ -502,6 +533,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertFalse($this->statusListRepository->findByIdOnPrimary($firstListId)?->isActive());
     }
 
+
     /**
      * The advisory counter is what triggers rotating early, before picks start colliding.
      *
@@ -520,6 +552,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertNotSame($listIds[3], $listIds[4]);
         $this->assertCount(2, $this->statusListRows());
     }
+
 
     /**
      * During a key rotation the issuer signs credentials with the current key. A list bound to the
@@ -544,6 +577,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         // ineligible for new allocations, not retired.
         $this->assertTrue($this->statusListRepository->findByIdOnPrimary($first->getStatusListId())?->isActive());
     }
+
 
     /**
      * Changing a pool setting must likewise not leave lists created under the old policy eligible.
@@ -574,6 +608,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertSame(2, $this->statusListRepository->findByIdOnPrimary($second->getStatusListId())?->getBits());
     }
 
+
     /**
      * Successive lists in a pool take successive generations, which is what the unique constraint uses
      * to let exactly one of several workers create the successor.
@@ -585,7 +620,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $allocation = $this->allocate('https://op.example.org/vc/first');
         $existing = $this->statusListRepository->findByIdOnPrimary($allocation->getStatusListId());
 
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
 
         $this->statusListRepository->create(
             'some-other-id',
@@ -604,6 +639,7 @@ class DbStatusIndexAllocatorTest extends TestCase
             StatusListKeyProfileEnum::DidJwk,
         );
     }
+
 
     /**
      * A list which was closed is not picked again; the next allocation starts the next generation.
@@ -625,6 +661,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
         $this->assertCount(2, $this->statusListRows());
     }
+
 
     /**
      * Losing the race to create a successor is recoverable without working out why the insert failed.
@@ -650,6 +687,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public bool $pretendNoListIsOpen = true;
 
+
             public function findActiveForPolicy(
                 string $poolId,
                 string $policyFingerprint,
@@ -665,6 +703,7 @@ class DbStatusIndexAllocatorTest extends TestCase
 
                 return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
             }
+
 
             public function create(
                 string $id,
@@ -682,7 +721,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 string $signingKeyId,
                 StatusListKeyProfileEnum $keyProfile,
             ): void {
-                throw new \Exception('Database error: duplicate generation.');
+                throw new Exception('Database error: duplicate generation.');
             }
         };
 
@@ -706,6 +745,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertSame($winningListId, $allocation->getStatusListId());
         $this->assertCount(1, $this->statusListRows());
     }
+
 
     /**
      * A request arriving while another is still seeding a list must join that list rather than start a
@@ -744,6 +784,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public int $activeLookups = 0;
 
+
             public function findActiveForPolicy(
                 string $poolId,
                 string $policyFingerprint,
@@ -781,6 +822,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $repositoryStub->activeLookups, 'The wait path was not taken.');
         $this->assertCount(1, $this->statusListRows(), 'A second list should not have been started.');
     }
+
 
     /**
      * A list left unopened by a request which died mid-seed must not stall every later request. Past
@@ -827,6 +869,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
     }
 
+
     /**
      * The unique constraint on (pool_id, generation) only settles a race between requests which picked
      * the same generation. Two requests reading the highest generation a moment apart pick different
@@ -866,11 +909,12 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public int $activeLookups = 0;
 
+
             public function findBeingPreparedForPolicy(
                 string $poolId,
                 string $policyFingerprint,
                 StatusListExpiryLaneEnum $expiryLane,
-                \DateTimeImmutable $createdAfter,
+                DateTimeImmutable $createdAfter,
                 ?int $belowGeneration = null,
             ): array {
                 // Hide the in-progress list from the pre-creation check only, so this request goes
@@ -888,6 +932,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                     $belowGeneration,
                 );
             }
+
 
             public function findActiveForPolicy(
                 string $poolId,
@@ -927,6 +972,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertCount(1, $this->statusListRows());
     }
 
+
     /**
      * Standing down must never leave the redundant list behind, and it must only ever remove one which
      * was never opened, so that a list a credential could point at is untouchable.
@@ -963,6 +1009,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertTrue($this->statusListRepository->deleteUnopened('never-opened'));
         $this->assertNull($this->statusListRepository->findByIdOnPrimary('never-opened'));
     }
+
 
     /**
      * A request which died after creating a list but before opening it must not take the pool down
@@ -1005,6 +1052,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertLessThan(8.0, $elapsed);
     }
 
+
     /**
      * A list which has reached the point where a successor is started must be closed, not merely
      * skipped. Left open it would come back in every candidate query for ever, and retirement waits on
@@ -1040,6 +1088,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
     }
 
+
     /**
      * The allocation counter is advisory and may undercount, so failing to bump it must not undo an
      * index which is already durably claimed. Throwing here would consume the slot and then fail the
@@ -1057,7 +1106,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public function incrementAllocatedCount(string $id): void
             {
-                throw new \Exception('Database error: deadlock found.');
+                throw new Exception('Database error: deadlock found.');
             }
         };
 
@@ -1085,6 +1134,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertTrue($entry?->isAllocated());
         $this->assertSame('https://op.example.org/vc/counter', $entry?->getCredentialId());
     }
+
 
     /**
      * The most common way to lose the race is on a cold start, where the winner is still seeding at the
@@ -1125,11 +1175,12 @@ class DbStatusIndexAllocatorTest extends TestCase
         ) extends StatusListRepository {
             public int $activeLookups = 0;
 
+
             public function findBeingPreparedForPolicy(
                 string $poolId,
                 string $policyFingerprint,
                 StatusListExpiryLaneEnum $expiryLane,
-                \DateTimeImmutable $createdAfter,
+                DateTimeImmutable $createdAfter,
                 ?int $belowGeneration = null,
             ): array {
                 // Hidden from the check before creating, so this request goes ahead and tries to insert
@@ -1147,6 +1198,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 );
             }
 
+
             public function findActiveForPolicy(
                 string $poolId,
                 string $policyFingerprint,
@@ -1161,6 +1213,7 @@ class DbStatusIndexAllocatorTest extends TestCase
 
                 return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
             }
+
 
             public function create(
                 string $id,
@@ -1178,7 +1231,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 string $signingKeyId,
                 StatusListKeyProfileEnum $keyProfile,
             ): void {
-                throw new \Exception('Database error: duplicate generation.');
+                throw new Exception('Database error: duplicate generation.');
             }
         };
 
@@ -1201,6 +1254,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertSame('winner', $allocation->getStatusListId());
         $this->assertCount(1, $this->statusListRows(), 'The pool should have converged on one list.');
     }
+
 
     /**
      * When the insert fails and there is genuinely no other list, there is nothing to fall back to.
@@ -1231,7 +1285,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 string $signingKeyId,
                 StatusListKeyProfileEnum $keyProfile,
             ): void {
-                throw new \Exception('Database error: disk full.');
+                throw new Exception('Database error: disk full.');
             }
         };
 
@@ -1254,6 +1308,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1267,6 +1322,7 @@ class DbStatusIndexAllocatorTest extends TestCase
         );
         $this->assertSame(1, $this->statusListEntryRepository->countAllocated($allocation->getStatusListId()));
     }
+
 
     /**
      * Only a failure to obtain any list at all is an error.

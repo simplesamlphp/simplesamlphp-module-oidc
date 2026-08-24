@@ -22,9 +22,10 @@ class StatusListEntryRecord
 {
     use DatabaseRowValuesTrait;
 
+
     /**
      * @param int $status Raw status value, which may be one this library does not name.
-     * @param ?DateTimeImmutable $expiresAt When the credential occupying this index expires, or null
+     * @param ?\DateTimeImmutable $expiresAt When the credential occupying this index expires, or null
      * if it never does. A list holding a non-expiring entry can never be retired.
      * @param ?string $subjectRef Keyed hash of the user identifier, never the identifier itself.
      */
@@ -43,25 +44,30 @@ class StatusListEntryRecord
     ) {
     }
 
+
     public function getStatusListId(): string
     {
         return $this->statusListId;
     }
+
 
     public function getIdx(): int
     {
         return $this->idx;
     }
 
+
     public function isAllocated(): bool
     {
         return $this->allocated;
     }
 
+
     public function getStatus(): int
     {
         return $this->status;
     }
+
 
     /**
      * The Status Type for this entry, or null when the stored value is application specific or not yet
@@ -73,45 +79,54 @@ class StatusListEntryRecord
         return StatusTypeEnum::tryFrom($this->status);
     }
 
+
     public function getExpiresAt(): ?DateTimeImmutable
     {
         return $this->expiresAt;
     }
+
 
     public function isNonExpiring(): bool
     {
         return !$this->expiresAt instanceof DateTimeImmutable;
     }
 
+
     public function getCredentialId(): ?string
     {
         return $this->credentialId;
     }
+
 
     public function getCredentialIdHash(): ?string
     {
         return $this->credentialIdHash;
     }
 
+
     public function getCredentialConfigurationId(): ?string
     {
         return $this->credentialConfigurationId;
     }
+
 
     public function getSubjectRef(): ?string
     {
         return $this->subjectRef;
     }
 
+
     public function getIssuedAt(): ?DateTimeImmutable
     {
         return $this->issuedAt;
     }
 
+
     public function getUpdatedAt(): ?DateTimeImmutable
     {
         return $this->updatedAt;
     }
+
 
     /**
      * @param array<array-key,mixed> $row

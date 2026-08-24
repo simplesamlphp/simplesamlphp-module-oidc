@@ -72,8 +72,7 @@ jobs:
       - name: Merge coverage data
         if: ${{ matrix.php-versions == '8.5' }}
         run: |
-          ./vendor/bin/phpunit-merger log build/logs/partial_junit/ build/logs/junit.xml
-          ./vendor/bin/phpunit-merger coverage build/logs/partial_clover/ build/logs/clover.xml
+          ./vendor/bin/phpcov merge --clover build/logs/clover.xml build/logs/partial_clover/
 
       - name: Save coverage data
         if: ${{ matrix.php-versions == '8.5' }}
@@ -201,6 +200,10 @@ jobs:
       - name: PHP Code Sniffer
         if: always()
         run: php vendor/bin/phpcs
+
+      - name: Rector
+        if: always()
+        run: php vendor/bin/rector --dry-run
 
       - name: Psalm
         if: always()

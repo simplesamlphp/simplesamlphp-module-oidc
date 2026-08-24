@@ -21,6 +21,7 @@ class ClaimTranslatorExtractorFactory
     ) {
     }
 
+
     /**
      * @throws \Exception
      */
@@ -66,6 +67,7 @@ class ClaimTranslatorExtractorFactory
         );
     }
 
+
     /**
      * Apply a prefix to translator table keys (which serve as claim names).
      *
@@ -91,6 +93,7 @@ class ClaimTranslatorExtractorFactory
         return $translatorTable;
     }
 
+
     /**
      * @param array $claims Claim names for which to apply prefix
      * @param string $prefix Prefix to apply to claim names.
@@ -105,6 +108,7 @@ class ClaimTranslatorExtractorFactory
         return $claims;
     }
 
+
     /**
      * Check if the scope has a claim name prefix set
      */
@@ -114,6 +118,7 @@ class ClaimTranslatorExtractorFactory
         is_string($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
         !empty($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]);
     }
+
 
     /**
      * Check if the scope allows claims to have multiple values.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +24,7 @@ use SimpleSAML\OpenID\TokenStatusList\Factories\StatusReferenceFactory;
 use SimpleSAML\OpenID\TokenStatusList\StatusReference;
 
 #[CoversClass(CredentialStatusIssuer::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CredentialStatusIssuerTest extends TestCase
 {
     protected const string CONFIGURATION_ID = 'TestCredential';
@@ -33,11 +35,17 @@ class CredentialStatusIssuerTest extends TestCase
 
     protected const string LIST_URI = 'https://issuer.example.org/module.php/oidc/statuslist/list-1';
 
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $statusIndexAllocatorMock;
+
     protected MockObject $subjectRefHasherMock;
+
     protected MockObject $loggerServiceMock;
+
     protected TokenStatusList $tokenStatusList;
+
 
     protected function setUp(): void
     {
@@ -52,6 +60,7 @@ class CredentialStatusIssuerTest extends TestCase
             ->willReturn(new StatusReferenceFactory(new OpenIdHelpers()));
     }
 
+
     protected function sut(): CredentialStatusIssuer
     {
         return new CredentialStatusIssuer(
@@ -62,6 +71,7 @@ class CredentialStatusIssuerTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\OpenID\Exceptions\StatusListException
@@ -74,6 +84,7 @@ class CredentialStatusIssuerTest extends TestCase
         $this->statusIndexAllocatorMock->method('allocateFor')
             ->willReturn(new StatusAllocation('list-1', new StatusReference(self::LIST_URI, $idx)));
     }
+
 
     /**
      * @throws \Exception
@@ -97,6 +108,7 @@ class CredentialStatusIssuerTest extends TestCase
         );
     }
 
+
     /**
      * A configuration which belongs to no pool was never set up to be revocable, so its credentials
      * are issued exactly as they were before.
@@ -112,6 +124,7 @@ class CredentialStatusIssuerTest extends TestCase
             $this->sut()->issueFor(self::CONFIGURATION_ID, self::CREDENTIAL_ID, self::USER_IDENTIFIER),
         );
     }
+
 
     /**
      * Swallowing this would produce a credential which can never be withdrawn, with nothing on it to
@@ -130,6 +143,7 @@ class CredentialStatusIssuerTest extends TestCase
 
         $this->sut()->issueFor(self::CONFIGURATION_ID, self::CREDENTIAL_ID, self::USER_IDENTIFIER);
     }
+
 
     /**
      * The user identifier itself never reaches storage: what is recorded is a keyed hash of it.

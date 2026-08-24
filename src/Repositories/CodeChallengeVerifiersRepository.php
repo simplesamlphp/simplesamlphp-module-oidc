@@ -18,6 +18,7 @@ class CodeChallengeVerifiersRepository
      */
     protected array $codeChallengeVerifiers = [];
 
+
     public function __construct()
     {
         if (in_array('sha256', hash_algos(), true)) {
@@ -29,6 +30,7 @@ class CodeChallengeVerifiersRepository
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
     }
 
+
     /**
      * @return \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface[]
      */
@@ -36,6 +38,7 @@ class CodeChallengeVerifiersRepository
     {
         return $this->codeChallengeVerifiers;
     }
+
 
     /**
      * @return \League\OAuth2\Server\CodeChallengeVerifiers\CodeChallengeVerifierInterface|null
@@ -45,6 +48,7 @@ class CodeChallengeVerifiersRepository
     {
         return $this->codeChallengeVerifiers[$method] ?? null;
     }
+
 
     public function has(string $method): bool
     {

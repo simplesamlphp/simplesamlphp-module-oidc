@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -16,19 +17,31 @@ use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\AuthCodeEntity
  */
+#[AllowMockObjectsWithoutExpectations]
 class AuthCodeEntityTest extends TestCase
 {
     protected MockObject $clientEntityMock;
+
     protected array $state;
+
     protected string $id;
+
     protected Stub $scopeEntityOpenIdStub;
+
     protected array $scopes;
+
     protected string $userIdentifier;
+
     protected bool $isRevoked;
+
     protected string $redirectUri;
+
     protected string $nonce;
+
     protected DateTimeImmutable $expiryDateTime;
+
     protected ?array $authorizationDetails;
+
 
     /**
      * @throws \Exception
@@ -53,6 +66,7 @@ class AuthCodeEntityTest extends TestCase
         $this->authorizationDetails = null;
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -72,6 +86,7 @@ class AuthCodeEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -83,6 +98,7 @@ class AuthCodeEntityTest extends TestCase
             $this->mock(),
         );
     }
+
 
     /**
      * @throws \JsonException
@@ -111,6 +127,7 @@ class AuthCodeEntityTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -122,6 +139,7 @@ class AuthCodeEntityTest extends TestCase
         $authCodeEntity->setNonce('new_nonce');
         $this->assertSame('new_nonce', $authCodeEntity->getNonce());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

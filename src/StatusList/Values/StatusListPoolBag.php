@@ -24,6 +24,7 @@ class StatusListPoolBag
     /** @var array<string,string> Credential configuration ID to the ID of the pool it allocates from. */
     protected array $poolIdsByCredentialConfigurationId = [];
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
@@ -33,6 +34,7 @@ class StatusListPoolBag
             $this->add($pool);
         }
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -67,6 +69,7 @@ class StatusListPoolBag
         $this->pools[$pool->getId()] = $pool;
     }
 
+
     /**
      * @return array<string,\SimpleSAML\Module\oidc\StatusList\Values\StatusListPool>
      */
@@ -75,15 +78,18 @@ class StatusListPoolBag
         return $this->pools;
     }
 
+
     public function getById(string $poolId): ?StatusListPool
     {
         return $this->pools[$poolId] ?? null;
     }
 
+
     public function isEmpty(): bool
     {
         return $this->pools === [];
     }
+
 
     /**
      * The pool a credential configuration allocates from, or null if it is not configured to use
@@ -96,6 +102,7 @@ class StatusListPoolBag
         return $poolId === null ? null : $this->getById($poolId);
     }
 
+
     /**
      * @return string[]
      */
@@ -103,6 +110,7 @@ class StatusListPoolBag
     {
         return array_keys($this->poolIdsByCredentialConfigurationId);
     }
+
 
     /**
      * @param array<array-key,mixed> $config Pool identifier to that pool's settings.

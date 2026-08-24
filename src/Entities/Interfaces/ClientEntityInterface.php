@@ -12,132 +12,195 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 {
     public function toArray(): array;
 
+
     public function getSecret(): string;
+
 
     public function restoreSecret(string $secret): self;
 
+
     public function getDescription(): string;
 
+
     public function getAuthSourceId(): ?string;
+
 
     /**
      * @return string[]
      */
     public function getScopes(): array;
 
+
     public function isEnabled(): bool;
 
+
     public function getOwner(): ?string;
+
 
     /**
      * @return string[]
      */
     public function getPostLogoutRedirectUri(): array;
 
+
     /**
      * @param string[] $postLogoutRedirectUri
      */
     public function setPostLogoutRedirectUri(array $postLogoutRedirectUri): void;
+
 
     /**
      * @return string|null
      */
     public function getBackChannelLogoutUri(): ?string;
 
+
     /**
      * @param string|null $backChannelLogoutUri
      */
     public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void;
 
+
     public function getEntityIdentifier(): ?string;
+
 
     /**
      * @return string[]
      */
     public function getRedirectUris(): array;
 
+
     /**
      * @return string[]
      */
     public function getClientRegistrationTypes(): array;
+
 
     /**
      * @return array[]|null
      */
     public function getFederationJwks(): ?array;
 
+
     /**
      * @return array[]|null
      */
     public function getJwks(): ?array;
 
+
     public function getJwksUri(): ?string;
+
+
     public function getSignedJwksUri(): ?string;
+
+
     public function getRegistrationType(): RegistrationTypeEnum;
+
+
     public function getUpdatedAt(): ?DateTimeImmutable;
+
+
     public function getCreatedAt(): ?DateTimeImmutable;
+
+
     public function getExpiresAt(): ?DateTimeImmutable;
+
+
     public function isExpired(): bool;
+
+
     public function isGeneric(): bool;
 
+
     public function getExtraMetadata(): array;
+
+
     public function getRegistrationAccessTokenHash(): ?string;
+
+
     public function setRegistrationAccessTokenHash(?string $registrationAccessTokenHash): void;
+
+
     public function getIdTokenSignedResponseAlg(): ?string;
+
+
     public function getAllowedResponseModes(): array;
+
+
     public function getRequirePushedAuthorizationRequests(): bool;
+
+
     public function getRequireSignedRequestObject(): bool;
+
+
     /**
      * @return string[]
      */
     public function getRequestUris(): array;
+
 
     /**
      * @return string[]
      */
     public function getGrantTypes(): array;
 
+
     /**
      * @return string[]
      */
     public function getResponseTypes(): array;
 
+
     public function getTokenEndpointAuthMethod(): ?string;
+
 
     public function getDefaultMaxAge(): ?int;
 
+
     public function getRequireAuthTime(): bool;
+
 
     /**
      * @return string[]
      */
     public function getDefaultAcrValues(): array;
 
+
     public function getInitiateLoginUri(): ?string;
+
 
     public function getSoftwareId(): ?string;
 
+
     public function getSoftwareVersion(): ?string;
+
 
     public function getLogoUri(): ?string;
 
+
     public function getClientUri(): ?string;
+
 
     public function getPolicyUri(): ?string;
 
+
     public function getTosUri(): ?string;
 
+
     public function getApplicationType(): ?string;
+
 
     /**
      * @return string[]
      */
     public function getContacts(): array;
 
+
     /**
      * @return array
      */
     public function getAuthProcFilters(): array;
+
 
     /**
      * Whether the user's (scope-derived) claims should be released in the ID Token issued to this client.

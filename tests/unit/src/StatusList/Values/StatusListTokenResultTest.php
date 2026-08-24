@@ -6,11 +6,13 @@ namespace SimpleSAML\Test\Module\oidc\unit\StatusList\Values;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult;
 
 #[CoversClass(StatusListTokenResult::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListTokenResultTest extends TestCase
 {
     protected function sut(
@@ -27,10 +29,12 @@ class StatusListTokenResultTest extends TestCase
         );
     }
 
+
     protected function moment(string $moment): DateTimeImmutable
     {
         return new DateTimeImmutable($moment, new DateTimeZone('UTC'));
     }
+
 
     public function testCarriesWhatItWasGiven(): void
     {
@@ -42,6 +46,7 @@ class StatusListTokenResultTest extends TestCase
         $this->assertSame('2026-08-08 12:00:00', $result->getExpiresAt()->format('Y-m-d H:i:s'));
     }
 
+
     public function testTheEntityTagIsQuotedAndDerivedFromTheToken(): void
     {
         $this->assertMatchesRegularExpression('/^"[0-9a-f]{64}"$/', $this->sut()->getEntityTag());
@@ -49,6 +54,7 @@ class StatusListTokenResultTest extends TestCase
         $this->assertSame($this->sut()->getEntityTag(), $this->sut()->getEntityTag());
         $this->assertNotSame($this->sut()->getEntityTag(), $this->sut('other.token.here')->getEntityTag());
     }
+
 
     /**
      * An encoded body and an unencoded one are different representations, so a shared cache holding both
@@ -60,6 +66,7 @@ class StatusListTokenResultTest extends TestCase
         $this->assertStringEndsWith('-gzip"', $this->sut()->getEntityTag('gzip'));
     }
 
+
     /**
      * The `ttl` is what the specification offers a Relying Party, so it is the ceiling while the token
      * has longer to live than that.
@@ -68,6 +75,7 @@ class StatusListTokenResultTest extends TestCase
     {
         $this->assertSame(43200, $this->sut()->getMaxAgeSeconds($this->moment('2026-08-01 12:00:00')));
     }
+
 
     /**
      * Close to expiry the token's own remaining life is shorter than the `ttl`, and a cached copy must
@@ -80,6 +88,7 @@ class StatusListTokenResultTest extends TestCase
             $this->sut()->getMaxAgeSeconds($this->moment('2026-08-08 11:00:00')),
         );
     }
+
 
     public function testAnAlreadyExpiredTokenIsNotCacheableAtAll(): void
     {

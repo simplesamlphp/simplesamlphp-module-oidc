@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\GeneralOverviewBuilder;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Module;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -28,7 +29,7 @@ trait GeneralOverviewTestTrait
         bool $isCronModuleEnabled = true,
         mixed $allowedCronTags = ['daily', 'hourly', 'frequent'],
     ): GeneralOverviewBuilder {
-        $sspBridgeModuleMock = $this->createMock(SspBridge\Module::class);
+        $sspBridgeModuleMock = $this->createMock(Module::class);
         $sspBridgeModuleMock->method('isModuleEnabled')->willReturn($isCronModuleEnabled);
         $sspBridgeModuleMock->method('getOptionalConfig')->willReturn(
             Configuration::loadFromArray(['allowed_tags' => $allowedCronTags]),

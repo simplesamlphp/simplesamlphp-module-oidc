@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use DateInterval;
 use DateTimeImmutable;
+use Exception;
 use PDOStatement;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -23,23 +26,34 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\UserRepository
  */
+#[AllowMockObjectsWithoutExpectations]
 class UserRepositoryTest extends TestCase
 {
     protected static UserRepository $repository;
+
     protected Stub $helpersStub;
+
     protected MockObject $userEntityFactoryMock;
+
     protected MockObject $userEntityMock;
+
     protected MockObject $moduleConfigMock;
+
     protected ?MockObject $protocolCacheMock;
+
     protected MockObject $databaseMock;
+
     protected MockObject $pdoStatementMock;
+
     protected Database $database;
+
     protected array $userEntityState = [
         'id' => 'uniqueid',
         'claims' => '[]',
         'updated_at' => '2024-11-04 11:07:26',
         'created_at' => '2024-11-04 11:07:26',
     ];
+
 
     /**
      * @throws \Exception
@@ -68,6 +82,7 @@ class UserRepositoryTest extends TestCase
         $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
     }
 
+
     protected function mock(
         ?ModuleConfig $moduleConfig = null,
         ?Database $database = null,
@@ -90,10 +105,12 @@ class UserRepositoryTest extends TestCase
         );
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_user', $this->mock()->getTableName());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -110,9 +127,7 @@ class UserRepositoryTest extends TestCase
 
         $this->userEntityFactoryMock->expects($this->once())
             ->method('fromState')
-            ->with($this->callback(function (array $state) {
-                return $state['id'] === 'uniqueid';
-            }))
+            ->with($this->callback(fn(array $state) => $state['id'] === 'uniqueid'))
         ->willReturn($userEntity);
 
         $user = $repository->getUserEntityByIdentifier('uniqueid');
@@ -120,6 +135,7 @@ class UserRepositoryTest extends TestCase
         $this->assertNotNull($user);
         $this->assertSame($user->getIdentifier(), 'uniqueid');
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -130,6 +146,7 @@ class UserRepositoryTest extends TestCase
 
         $this->assertNull($user);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -147,6 +164,7 @@ class UserRepositoryTest extends TestCase
         $this->assertNotSame($user, $user2);
     }
 
+
     public function testCanDelete(): void
     {
         $repository = $this->mock();
@@ -156,6 +174,7 @@ class UserRepositoryTest extends TestCase
         $repository->delete($this->userEntityMock);
         $this->assertNull($repository->getUserEntityByIdentifier('uniqueid'));
     }
+
 
     public function testCanGetWhenUserEntityIsCached(): void
     {
@@ -167,9 +186,7 @@ class UserRepositoryTest extends TestCase
 
         $this->userEntityFactoryMock->expects($this->once())
             ->method('fromState')
-            ->with($this->callback(function (array $state) {
-                return $state['id'] === 'uniqueid';
-            }))
+            ->with($this->callback(fn(array $state) => $state['id'] === 'uniqueid'))
             ->willReturn($this->userEntityMock);
 
         $repository = $this->mock(
@@ -182,6 +199,7 @@ class UserRepositoryTest extends TestCase
             $repository->getUserEntityByIdentifier('uniqueid'),
         );
     }
+
 
     public function testCanGetWhenUserEntityIsNotCached(): void
     {
@@ -205,9 +223,7 @@ class UserRepositoryTest extends TestCase
 
         $this->userEntityFactoryMock->expects($this->once())
             ->method('fromState')
-            ->with($this->callback(function (array $state) {
-                return $state['id'] === 'uniqueid';
-            }))
+            ->with($this->callback(fn(array $state) => $state['id'] === 'uniqueid'))
             ->willReturn($this->userEntityMock);
 
         $repository = $this->mock(
@@ -221,10 +237,11 @@ class UserRepositoryTest extends TestCase
         );
     }
 
+
     public function testWillAddToDatabaseAndCache(): void
     {
         $this->moduleConfigMock->method('getProtocolUserEntityCacheDuration')
-            ->willReturn(new \DateInterval('PT1H'));
+            ->willReturn(new DateInterval('PT1H'));
 
         $this->userEntityMock->expects($this->exactly(2))
             ->method('getState')
@@ -237,7 +254,7 @@ class UserRepositoryTest extends TestCase
         $this->databaseMock->expects($this->once())
             ->method('write')
             ->with(
-                $this->isType('string'),
+                $this->isString(),
                 $this->userEntityState,
             );
 
@@ -247,10 +264,11 @@ class UserRepositoryTest extends TestCase
         )->add($this->userEntityMock);
     }
 
+
     public function testWillUpdateDatabaseAndCache(): void
     {
         $this->moduleConfigMock->method('getProtocolUserEntityCacheDuration')
-            ->willReturn(new \DateInterval('PT1H'));
+            ->willReturn(new DateInterval('PT1H'));
 
         $this->userEntityMock->expects($this->exactly(2))
             ->method('getState')
@@ -263,7 +281,7 @@ class UserRepositoryTest extends TestCase
         $this->databaseMock->expects($this->once())
             ->method('write')
             ->with(
-                $this->isType('string'),
+                $this->isString(),
                 $this->userEntityState,
             );
 
@@ -272,6 +290,7 @@ class UserRepositoryTest extends TestCase
             protocolCache: $this->protocolCacheMock,
         )->update($this->userEntityMock);
     }
+
 
     public function testWillDeleteFromDatabaseAndCache(): void
     {
@@ -287,9 +306,7 @@ class UserRepositoryTest extends TestCase
             ->method('write')
             ->with(
                 $this->stringContains('DELETE'),
-                $this->callback(function (array $params) {
-                    return $params['id'] === 'uniqueid';
-                }),
+                $this->callback(fn(array $params) => $params['id'] === 'uniqueid'),
             );
 
         $this->mock(
@@ -298,9 +315,10 @@ class UserRepositoryTest extends TestCase
         )->delete($this->userEntityMock);
     }
 
+
     public function testGetUserEntityByUserCredentialsThrows(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->expectExceptionMessage('Not supported');
 
         $this->mock()->getUserEntityByUserCredentials(

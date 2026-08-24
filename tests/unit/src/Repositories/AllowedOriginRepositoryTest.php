@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -16,20 +17,23 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository
  */
+#[AllowMockObjectsWithoutExpectations]
 class AllowedOriginRepositoryTest extends TestCase
 {
-    final public const CLIENT_ID = 'some_client_id';
+    final public const string CLIENT_ID = 'some_client_id';
 
-    protected MockObject $moduleConfigMock;
-    protected MockObject $protocolCacheMock;
-
-
-    final public const ORIGINS = [
+    final public const array ORIGINS = [
         'https://example.org',
         'https://sample.com',
     ];
 
+
+    protected MockObject $moduleConfigMock;
+
+    protected MockObject $protocolCacheMock;
+
     private AllowedOriginRepository $repository;
+
 
     /**
      * @throws \Exception
@@ -49,6 +53,7 @@ class AllowedOriginRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
@@ -63,15 +68,18 @@ class AllowedOriginRepositoryTest extends TestCase
         );
     }
 
+
     public function tearDown(): void
     {
         $this->repository->delete(self::CLIENT_ID);
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_allowed_origin', $this->repository->getTableName());
     }
+
 
     public function testSetGetHasDelete(): void
     {
@@ -88,6 +96,7 @@ class AllowedOriginRepositoryTest extends TestCase
         $this->assertFalse($this->repository->has(self::ORIGINS[0]));
         $this->assertFalse($this->repository->has(self::ORIGINS[1]));
     }
+
 
     public function testHasCanReturnFromCache(): void
     {

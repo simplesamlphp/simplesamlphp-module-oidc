@@ -13,6 +13,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\Jws\ParsedJws;
+use Throwable;
 
 use function apache_request_headers;
 use function count;
@@ -30,6 +32,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * {@inheritdoc}
@@ -77,7 +80,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
 
         try {
             $token = $this->ensureValidAccessToken($jwt);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             throw OidcServerException::accessDenied($exception->getMessage(), null, $exception);
         }
 
@@ -93,12 +96,13 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             ->withAttribute('oauth_scopes', $token->getPayloadClaim('scopes'));
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
-    public function ensureValidAccessToken(string $accessTokenJwt): Jws\ParsedJws
+    public function ensureValidAccessToken(string $accessTokenJwt): ParsedJws
     {
         // Attempt to parse the JWT
         $token = $this->jws->parsedJwsFactory()->fromToken($accessTokenJwt);
@@ -131,10 +135,12 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         return $token;
     }
 
+
     protected function getTokenFromAuthorizationBearer(string $authorizationHeader): string
     {
         return trim((string) preg_replace('/^\s*Bearer\s/', '', $authorizationHeader));
     }
+
 
     /**
      * Convert single record arrays into strings to ensure backwards compatibility between v4 and v3.x of lcobucci/jwt

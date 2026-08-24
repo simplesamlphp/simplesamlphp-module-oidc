@@ -41,13 +41,16 @@ class SubjectRefHasher
     /** Length of the derived key, matching the output size of the hash it keys. */
     protected const int DERIVED_KEY_BYTES = 32;
 
+
     /** Derived once per request, since every allocation in a batch issuance needs it. */
     protected ?string $derivedKey = null;
+
 
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
     ) {
     }
+
 
     /**
      * @return string 64 lowercase hex characters, sized for the CHAR(64) column it is stored in.
@@ -57,6 +60,7 @@ class SubjectRefHasher
     {
         return hash_hmac(self::HASH_ALGORITHM, $userIdentifier, $this->deriveKey());
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError

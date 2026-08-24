@@ -52,8 +52,10 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 {
     use IssueAccessTokenTrait;
 
-    /** @var HttpMethodsEnum[]  */
+
+    /** @var \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[]  */
     protected array $allowedAuthorizationHttpMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
+
 
     public function __construct(
         protected IdTokenBuilder $idTokenBuilder,
@@ -69,6 +71,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $this->accessTokenRepository = $accessTokenRepository;
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
     }
+
 
     /**
      * {@inheritdoc}
@@ -95,6 +98,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
     }
 
+
     /**
      * {@inheritdoc}
      * @param \League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface $authorizationRequest
@@ -116,6 +120,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         );
         throw new LogicException('Unexpected OAuth2AuthorizationRequest type.');
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -215,6 +220,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         return $authorizationRequest;
     }
+
 
     /**
      * @throws \Exception
@@ -325,6 +331,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         return $response;
     }
+
 
     private function getRedirectUrl(AuthorizationRequest $authorizationRequest): string
     {

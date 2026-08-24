@@ -27,6 +27,7 @@ use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\TxCode;
+use Throwable;
 
 class CredentialOfferUriFactory
 {
@@ -47,6 +48,7 @@ class CredentialOfferUriFactory
     ) {
     }
 
+
     /**
      * @param string[] $credentialConfigurationIds
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
@@ -62,7 +64,7 @@ class CredentialOfferUriFactory
                 $issuerState = $this->issuerStateEntityFactory->buildNew();
                 $this->issuerStateRepository->persist($issuerState);
                 break;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 if ($issuerStateGenerationAttempts === 0) {
                     $this->loggerService->error(
                         'All attempts to generate Issuer State failed: ' . $e->getMessage(),
@@ -92,6 +94,7 @@ class CredentialOfferUriFactory
 
         return $this->buildUri($credentialOffer->jsonSerialize());
     }
+
 
     /**
      * @param string[] $credentialConfigurationIds
@@ -141,7 +144,7 @@ class CredentialOfferUriFactory
             if ($userId === null) {
                 throw new RuntimeException('User identifier attribute value is not available.');
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             $this->loggerService->warning('Could not extract user identifier from credential-offer attributes.');
         }
 
@@ -184,11 +187,11 @@ class CredentialOfferUriFactory
                     userIdentifier: $userId,
                     redirectUri: 'openid-credential-offer://',
                     flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
-                    txCode: $txCode instanceof VerifiableCredentials\TxCode ? $txCode->getCodeAsString() : null,
+                    txCode: $txCode instanceof TxCode ? $txCode->getCodeAsString() : null,
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
                 break;
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 if ($authCodeIdGenerationAttempts === 0) {
                     $this->loggerService->error(
                         'All attempts to generate Authorization Code failed: ' . $e->getMessage(),
@@ -213,7 +216,7 @@ class CredentialOfferUriFactory
                         ClaimsEnum::PreAuthorizedCode->value => $authCode->getIdentifier(),
                         ...(array_filter(
                             [
-                                ClaimsEnum::TxCode->value => $txCode instanceof VerifiableCredentials\TxCode ?
+                                ClaimsEnum::TxCode->value => $txCode instanceof TxCode ?
                                     $txCode->jsonSerialize() :
                                     null,
                             ],
@@ -223,12 +226,13 @@ class CredentialOfferUriFactory
             ],
         );
 
-        if ($txCode instanceof VerifiableCredentials\TxCode && $userEmail !== null) {
+        if ($txCode instanceof TxCode && $userEmail !== null) {
             $this->sendTxCodeByEmail($txCode, $userEmail);
         }
 
         return $this->buildUri($credentialOffer->jsonSerialize());
     }
+
 
     /**
      * Build the offer URI a wallet is sent to, carrying the offer either by value or by reference.
@@ -257,9 +261,10 @@ class CredentialOfferUriFactory
         );
     }
 
+
     /**
      * @param mixed[] $userAttributes
-     * @throws RuntimeException
+     * @throws \RuntimeException
      */
     public function getUserEmail(string $userEmailAttributeName, array $userAttributes): string
     {
@@ -280,6 +285,7 @@ class CredentialOfferUriFactory
         return $userEmail;
     }
 
+
     public function buildTxCode(
         string $description,
         int|string $txCode = null,
@@ -291,6 +297,7 @@ class CredentialOfferUriFactory
             $description,
         );
     }
+
 
     public function sendTxCodeByEmail(TxCode $txCode, string $email, string $subject = null): void
     {

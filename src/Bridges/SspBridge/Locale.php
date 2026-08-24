@@ -10,6 +10,7 @@ class Locale
 {
     protected static ?Language $language = null;
 
+
     public function language(): Language
     {
         return self::$language ??= new Language();

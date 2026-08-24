@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Api;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,20 +30,27 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(VciCredentialStatusApiController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class VciCredentialStatusApiControllerTest extends TestCase
 {
     protected const string CREDENTIAL_ID = 'https://issuer.example.org/vc/abc';
 
     protected const string ACTOR = 'HR system';
 
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $authorizationMock;
+
     protected MockObject $credentialStatusServiceMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerServiceMock;
 
     /** @var array<string,mixed> Body of the JSON response the controller produced. */
     protected array $responseData = [];
+
 
     protected function setUp(): void
     {
@@ -80,6 +88,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -93,6 +102,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     /**
      * @param array<string,mixed> $body
@@ -111,12 +121,14 @@ class VciCredentialStatusApiControllerTest extends TestCase
         return $request;
     }
 
+
     protected function change(bool $isChanged = true, StatusTypeEnum $status = StatusTypeEnum::Invalid): void
     {
         $this->credentialStatusServiceMock->method('setStatus')->willReturn(
             new CredentialStatusChange('list-1', 42, StatusTypeEnum::Valid->value, $status, $isChanged),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -131,6 +143,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         $this->assertSame('invalid', $this->responseData['status'] ?? null);
         $this->assertTrue($this->responseData['changed'] ?? null);
     }
+
 
     /**
      * A caller retrying a request it never saw the answer to needs to be told the credential is
@@ -147,6 +160,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
         $this->assertFalse($this->responseData['changed'] ?? null);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -165,6 +179,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
 
         $this->sut()->credentialStatus($this->request());
     }
+
 
     /**
      * The endpoint's own authorization path, which unlike the rest of this API accepts nothing but a
@@ -188,6 +203,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         $this->sut()->credentialStatus($this->request());
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -206,6 +222,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         );
     }
 
+
     /**
      * One never issued here, one issued without a status claim and one which has expired are all
      * answered the same way, so that a caller can not learn which identifiers exist.
@@ -221,6 +238,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             $this->sut()->credentialStatus($this->request())->getStatusCode(),
         );
     }
+
 
     /**
      * The number of bits per entry is fixed when a list is created, so this can never succeed and
@@ -241,6 +259,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -254,6 +273,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             $this->sut()->credentialStatus($this->request())->getStatusCode(),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -270,6 +290,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         $this->assertStringNotContainsString('database', (string)$response->getContent());
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -282,6 +303,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             $this->sut()->credentialStatus($this->request(['status' => 'invalid']))->getStatusCode(),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -297,6 +319,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             ))->getStatusCode(),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -331,6 +354,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         }
     }
 
+
     /**
      * A good token which does not cover this action. Answering 401 would tell the caller its token is
      * bad and invite it to rotate one which is working perfectly well; the fix is a scope only an
@@ -356,6 +380,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         );
     }
 
+
     /**
      * Without the challenge a client is left to guess that this endpoint wants a bearer token.
      *
@@ -376,6 +401,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             $response->headers->get(VciCredentialStatusApiController::HEADER_WWW_AUTHENTICATE),
         );
     }
+
 
     /**
      * RFC 6750 keeps `invalid_token` for a token which actually arrived. A client told its token was
@@ -399,6 +425,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         );
     }
 
+
     public function testIsNotServedWhileTheEndpointIsDisabled(): void
     {
         $moduleConfig = $this->createMock(ModuleConfig::class);
@@ -412,6 +439,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
         $this->sut()->credentialStatus($this->request());
     }
 
+
     public function testIsNotServedWhileTheApiIsDisabled(): void
     {
         $moduleConfig = $this->createMock(ModuleConfig::class);
@@ -423,6 +451,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
 
         $this->sut();
     }
+
 
     /**
      * Turning issuance off must stop new credentials being issued, not strand the ones already in
@@ -445,6 +474,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
             $this->sut()->credentialStatus($this->request())->getStatusCode(),
         );
     }
+
 
     /**
      * The request is what is broken, not the server, and a 500 says the opposite.

@@ -36,6 +36,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_status_list_entry';
 
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -45,10 +46,12 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * The form a credential identifier is looked up by.
@@ -62,6 +65,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
     {
         return hash('sha256', $credentialId);
     }
+
 
     /**
      * Creates every index of a newly created list, unallocated and Valid.
@@ -104,6 +108,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
             );
         }
     }
+
 
     /**
      * Claims one index for a credential, if it is still free and its list still accepts allocations of
@@ -189,6 +194,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         return is_int($affected) && $affected > 0;
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
@@ -201,6 +207,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
             ),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -217,6 +224,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
             ),
         );
     }
+
 
     /**
      * Moves an allocated entry from one status to another.
@@ -255,6 +263,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 
         return is_int($affected) && $affected > 0;
     }
+
 
     /**
      * Index to status for every entry which is not Valid, which is all a Status List needs in order to
@@ -297,6 +306,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         return $statuses;
     }
 
+
     public function countAllocated(string $statusListId): int
     {
         $rows = $this->readPrimary(
@@ -313,6 +323,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 
         return is_numeric($total) ? (int)$total : 0;
     }
+
 
     /**
      * A page of issued credentials, newest first, for the administration screens.
@@ -399,6 +410,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         ];
     }
 
+
     /**
      * How many Status Lists hold a credential which never expires, and can therefore never be retired.
      *
@@ -424,6 +436,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 
         return is_numeric($total) ? (int)$total : 0;
     }
+
 
     /**
      * How many Status Lists hold an entry their expiry lane says they cannot.
@@ -473,6 +486,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 
         return is_numeric($total) ? (int)$total : 0;
     }
+
 
     /**
      * Deletes the linkage of credentials which have expired, keeping the index and its status.
@@ -589,6 +603,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         return $cleared;
     }
 
+
     /**
      * Removes a bounded run of entries belonging to a list which has been retired.
      *
@@ -645,6 +660,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         return is_int($affected) ? $affected : 0;
     }
 
+
     /**
      * @param array<string,mixed> $params
      */
@@ -661,6 +677,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         return is_numeric($total) ? (int)$total : 0;
     }
 
+
     /**
      * @throws \Exception
      */
@@ -674,6 +691,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         );
     }
 
+
     /**
      * @param array<array-key,mixed> $rows
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -686,6 +704,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
         return is_array($row) ? StatusListEntryRecord::fromRow($row) : null;
     }
 
+
     /**
      * @param array<string,mixed> $params
      * @return array<array-key,mixed>
@@ -694,6 +713,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
     {
         return $this->database->readPrimary($statement, $params)->fetchAll();
     }
+
 
     /**
      * Timestamps are stored without a zone and read back as UTC, so a moment is converted to UTC on the

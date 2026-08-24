@@ -6,10 +6,12 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use ReflectionMethod;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
@@ -20,14 +22,21 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 
 #[CoversClass(RefreshTokenGrant::class)]
+#[AllowMockObjectsWithoutExpectations]
 class RefreshTokenGrantTest extends TestCase
 {
     protected MockObject $refreshTokenRepositoryMock;
+
     protected MockObject $accessTokenEntityFactoryMock;
+
     protected MockObject $refreshTokenIssuerMock;
+
     protected MockObject $clientResolverMock;
+
     protected MockObject $serverRequestMock;
+
     protected MockObject $loggerServiceMock;
+
 
     protected function setUp(): void
     {
@@ -38,6 +47,7 @@ class RefreshTokenGrantTest extends TestCase
         $this->serverRequestMock = $this->createMock(ServerRequestInterface::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
+
 
     protected function sut(): RefreshTokenGrant
     {
@@ -50,18 +60,20 @@ class RefreshTokenGrantTest extends TestCase
         );
     }
 
+
     /**
      * @throws \ReflectionException
      */
     protected function callValidateClient(RefreshTokenGrant $grant): ClientEntity
     {
-        $method = new \ReflectionMethod(RefreshTokenGrant::class, 'validateClient');
+        $method = new ReflectionMethod(RefreshTokenGrant::class, 'validateClient');
 
-        /** @var ClientEntity $client */
+        /** @var \SimpleSAML\Module\oidc\Entities\ClientEntity $client */
         $client = $method->invoke($grant, $this->serverRequestMock);
 
         return $client;
     }
+
 
     /**
      * The refresh grant must authenticate the client via the resolver (which supports private_key_jwt,
@@ -83,6 +95,7 @@ class RefreshTokenGrantTest extends TestCase
 
         $this->assertSame($clientMock, $this->callValidateClient($this->sut()));
     }
+
 
     /**
      * When the client cannot be authenticated the grant must reject the request with an invalid_client error,

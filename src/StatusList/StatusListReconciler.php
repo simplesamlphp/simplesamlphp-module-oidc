@@ -47,6 +47,7 @@ class StatusListReconciler
      */
     protected const int MAX_BATCHES = 1000;
 
+
     public function __construct(
         protected readonly StatusListRepository $statusListRepository,
         protected readonly StatusListEntryRepository $statusListEntryRepository,
@@ -54,6 +55,7 @@ class StatusListReconciler
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @return int How many published tokens were found not to describe their list, and invalidated.
@@ -136,6 +138,7 @@ class StatusListReconciler
 
         return $invalidated;
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -17,10 +18,13 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 #[CoversClass(StatusListKeyResolver::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListKeyResolverTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $signatureKeyPairBagMock;
+
 
     protected function setUp(): void
     {
@@ -30,10 +34,12 @@ class StatusListKeyResolverTest extends TestCase
             ->willReturn($this->signatureKeyPairBagMock);
     }
 
+
     protected function sut(): StatusListKeyResolver
     {
         return new StatusListKeyResolver($this->moduleConfigMock);
     }
+
 
     protected function buildSignatureKeyPair(string $keyId): MockObject
     {
@@ -46,6 +52,7 @@ class StatusListKeyResolverTest extends TestCase
 
         return $signatureKeyPairMock;
     }
+
 
     /**
      * A new list has to be bound to the same key credentials are being signed with, otherwise a
@@ -60,6 +67,7 @@ class StatusListKeyResolverTest extends TestCase
         $this->assertSame($activeSignatureKeyPair, $this->sut()->getCurrent());
         $this->assertSame('vci-01', $this->sut()->getCurrentKeyId());
     }
+
 
     /**
      * Reported as a Status List failure rather than as whatever the configuration layer threw, since
@@ -76,6 +84,7 @@ class StatusListKeyResolverTest extends TestCase
         $this->sut()->getCurrent();
     }
 
+
     /**
      * An existing list is re-signed from the key it was created with, which may no longer be the one
      * signing now. Resolving by key ID is what lets a list outlive a key rollover.
@@ -89,6 +98,7 @@ class StatusListKeyResolverTest extends TestCase
 
         $this->assertSame($retiredSignatureKeyPair, $this->sut()->getByKeyId('vci-retired'));
     }
+
 
     /**
      * Falling back to the current key here would produce a token signed with a key the credential's

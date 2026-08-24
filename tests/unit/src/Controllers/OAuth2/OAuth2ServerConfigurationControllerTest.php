@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\OAuth2;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
@@ -20,17 +21,22 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController
  */
+#[AllowMockObjectsWithoutExpectations]
 class OAuth2ServerConfigurationControllerTest extends TestCase
 {
-    final public const OIDC_OP_METADATA = [
+    final public const array OIDC_OP_METADATA = [
         'issuer' => 'http://localhost',
         'authorization_endpoint' => 'http://localhost/authorization',
         'token_endpoint' => 'http://localhost/token',
     ];
 
+
     protected MockObject $opMetadataServiceMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $moduleConfigMock;
+
 
     protected function setUp(): void
     {
@@ -40,6 +46,7 @@ class OAuth2ServerConfigurationControllerTest extends TestCase
 
         $this->opMetadataServiceMock->method('getMetadata')->willReturn(self::OIDC_OP_METADATA);
     }
+
 
     protected function mock(
         ?OpMetadataService $opMetadataService = null,
@@ -53,6 +60,7 @@ class OAuth2ServerConfigurationControllerTest extends TestCase
         );
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -60,6 +68,7 @@ class OAuth2ServerConfigurationControllerTest extends TestCase
             $this->mock(),
         );
     }
+
 
     public function testItReturnsConfigurationWithoutIntrospectionIfApiDisabled(): void
     {
@@ -75,6 +84,7 @@ class OAuth2ServerConfigurationControllerTest extends TestCase
         $this->assertSame($jsonResponseMock, $this->mock()->__invoke());
     }
 
+
     public function testItReturnsConfigurationWithoutIntrospectionIfIntrospectionDisabled(): void
     {
         $this->moduleConfigMock->method('getApiEnabled')->willReturn(true);
@@ -88,6 +98,7 @@ class OAuth2ServerConfigurationControllerTest extends TestCase
 
         $this->assertSame($jsonResponseMock, $this->mock()->__invoke());
     }
+
 
     public function testItReturnsConfigurationWithIntrospectionEndpointEnabled(): void
     {

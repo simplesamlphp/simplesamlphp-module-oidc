@@ -13,6 +13,7 @@ class JwksResolver
     {
     }
 
+
     /**
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */

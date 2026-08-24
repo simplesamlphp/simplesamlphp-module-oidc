@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
 use DateInterval;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 
 #[CoversClass(DateIntervalFormatter::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DateIntervalFormatterTest extends TestCase
 {
     protected function sut(): DateIntervalFormatter
@@ -18,10 +20,12 @@ class DateIntervalFormatterTest extends TestCase
         return new DateIntervalFormatter();
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(DateIntervalFormatter::class, $this->sut());
     }
+
 
     public static function humanReadableProvider(): array
     {
@@ -39,11 +43,13 @@ class DateIntervalFormatterTest extends TestCase
         ];
     }
 
+
     #[DataProvider('humanReadableProvider')]
     public function testCanRenderHumanReadable(string $durationSpec, string $expected): void
     {
         $this->assertSame($expected, $this->sut()->toHumanReadable(new DateInterval($durationSpec)));
     }
+
 
     public static function durationSpecProvider(): array
     {
@@ -58,6 +64,7 @@ class DateIntervalFormatterTest extends TestCase
             'not normalized' => ['PT48H'],
         ];
     }
+
 
     #[DataProvider('durationSpecProvider')]
     public function testCanRenderBackToDurationSpec(string $durationSpec): void

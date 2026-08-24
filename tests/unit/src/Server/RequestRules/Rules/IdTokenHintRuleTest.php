@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use Exception;
 use League\OAuth2\Server\CryptKey;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -29,28 +31,43 @@ use Throwable;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class IdTokenHintRuleTest extends TestCase
 {
     protected Stub $requestStub;
+
     protected Stub $resultBagStub;
+
     protected Stub $moduleConfigStub;
 
     protected static string $certFolder;
+
     protected static string $privateKeyPath;
+
     protected static string $publicKeyPath;
+
     protected static CryptKey $privateKey;
+
     protected static CryptKey $publicKey;
 
     protected static string $issuer = 'https://example.org';
 
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected MockObject $jwksMock;
+
     protected MockObject $coreMock;
+
     protected MockObject $idTokenFactoryMock;
+
     protected MockObject $idTokenMock;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \ReflectionException
@@ -78,6 +95,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -101,10 +119,12 @@ class IdTokenHintRuleTest extends TestCase
         );
     }
 
+
     public function testConstruct(): void
     {
         $this->assertInstanceOf(IdTokenHintRule::class, $this->sut());
     }
+
 
     /**
      * @throws \Throwable
@@ -123,6 +143,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+
     /**
      * A hint that can not be parsed/validated (malformed JWS, missing/invalid required claims, or an expired
      * token) must be translated into a protocol-level invalid_request error, not surface as a raw exception.
@@ -134,7 +155,7 @@ class IdTokenHintRuleTest extends TestCase
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('malformed');
         $this->idTokenFactoryMock->method('fromToken')
             ->with('malformed')
-            ->willThrowException(new \Exception('parse-failure'));
+            ->willThrowException(new Exception('parse-failure'));
 
         $this->expectException(OidcServerException::class);
         $this->sut()->checkRule(
@@ -146,6 +167,7 @@ class IdTokenHintRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -155,7 +177,7 @@ class IdTokenHintRuleTest extends TestCase
             ->willReturn('invalid-it-token');
         $this->idTokenMock->method('getIssuer')->willReturn(self::$issuer);
         $this->idTokenMock->method('verifyWithKeySet')
-            ->willThrowException(new \Exception('invalid-signature'));
+            ->willThrowException(new Exception('invalid-signature'));
         $this->idTokenFactoryMock->method('fromToken')
             ->with('invalid-it-token')
             ->willReturn($this->idTokenMock);
@@ -168,6 +190,7 @@ class IdTokenHintRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     /**
      * @throws \ReflectionException
@@ -193,6 +216,7 @@ class IdTokenHintRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \ReflectionException
      * @throws \Throwable
@@ -216,6 +240,7 @@ class IdTokenHintRuleTest extends TestCase
 
         $this->assertInstanceOf(IdTokenHint::class, $result->getValue());
     }
+
 
     /**
      * In the authorization flow (ClientRule present), a hint whose audience does not include the requesting client

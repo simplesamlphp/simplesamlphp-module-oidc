@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers;
 
+use JsonException;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
@@ -22,6 +23,7 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * OpenID Connect Dynamic Client Registration 1.0 endpoint.
@@ -36,6 +38,7 @@ class RegistrationController
 {
     private const string HASH_ALGORITHM = 'sha256';
 
+
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly ClientMetadataValidator $clientMetadataValidator,
@@ -47,6 +50,7 @@ class RegistrationController
         private readonly LoggerService $logger,
     ) {
     }
+
 
     /**
      * Entry point wired in routes.php. Dispatches POST (create) at the
@@ -82,7 +86,7 @@ class RegistrationController
                 'RegistrationController: error processing registration request: ' . $exception->getMessage(),
             );
             return $this->errorResponder->forExceptionJson($exception);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logger->error(
                 'RegistrationController: error processing registration request: ' . $exception->getMessage(),
             );
@@ -92,6 +96,7 @@ class RegistrationController
             );
         }
     }
+
 
     /**
      * Handle a Client Registration Request (Section 3.1).
@@ -123,6 +128,7 @@ class RegistrationController
         );
     }
 
+
     /**
      * Handle a Client Read Request (Section 4.2) at the Client Configuration
      * Endpoint.
@@ -145,6 +151,7 @@ class RegistrationController
             Response::HTTP_OK,
         );
     }
+
 
     /**
      * Handle a Client Update Request (RFC 7592, Section 2.2) at the Client
@@ -196,6 +203,7 @@ class RegistrationController
         );
     }
 
+
     /**
      * Handle a Client Delete Request (RFC 7592, Section 2.3) at the Client
      * Configuration Endpoint.
@@ -210,6 +218,7 @@ class RegistrationController
 
         return $this->routes->newResponse('', Response::HTTP_NO_CONTENT);
     }
+
 
     /**
      * Authenticate a Client Configuration Endpoint request (read / update /
@@ -245,6 +254,7 @@ class RegistrationController
         return $client;
     }
 
+
     /**
      * Enforce the configured access-control mode for the registration endpoint.
      *
@@ -272,6 +282,7 @@ class RegistrationController
         throw OidcServerException::accessDenied('The provided Initial Access Token is not valid.');
     }
 
+
     /**
      * Parse and JSON-decode the request body into a metadata array.
      *
@@ -295,7 +306,7 @@ class RegistrationController
         try {
             /** @var mixed $decoded */
             $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException) {
+        } catch (JsonException) {
             throw OidcServerException::invalidClientMetadata('The request body must be a valid JSON object.');
         }
 
@@ -305,6 +316,7 @@ class RegistrationController
 
         return $decoded;
     }
+
 
     /**
      * Build the Client Information Response (Section 3.2 / 4.3) from the
@@ -369,6 +381,7 @@ class RegistrationController
         return $response;
     }
 
+
     /**
      * Mint a fresh Registration Access Token, store only its hash on the client, and return the plaintext (returned
      * once in the Client Information Response). Used at registration and rotated on each read/update.
@@ -381,10 +394,12 @@ class RegistrationController
         return $registrationAccessToken;
     }
 
+
     protected function hashToken(string $token): string
     {
         return hash(self::HASH_ALGORITHM, $token);
     }
+
 
     protected function jsonResponse(array $body, int $status): Response
     {

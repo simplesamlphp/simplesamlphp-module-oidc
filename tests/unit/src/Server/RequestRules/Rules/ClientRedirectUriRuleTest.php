@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -33,16 +34,24 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 #[CoversClass(ClientRedirectUriRule::class)]
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientRedirectUriRuleTest extends TestCase
 {
     private const string REGISTERED_URI = 'https://rp.example.org/callback';
+
     private const string OTHER_URI = 'https://attacker.example.org/callback';
 
+
     private RequestParamsResolver&MockObject $requestParamsResolverMock;
+
     private ModuleConfig&MockObject $moduleConfigMock;
+
     private ServerRequestInterface&MockObject $requestMock;
+
     private LoggerService&MockObject $loggerServiceMock;
+
     private ResponseModeInterface&MockObject $responseModeMock;
+
 
     protected function setUp(): void
     {
@@ -58,12 +67,14 @@ class ClientRedirectUriRuleTest extends TestCase
         $this->moduleConfigMock->method('getVciAllowNonRegisteredClients')->willReturn(false);
     }
 
+
     public function testRequiresTheClientToHaveBeenResolvedFirst(): void
     {
         $this->expectException(LogicException::class);
 
         $this->check(new ResultBag());
     }
+
 
     public function testRefusesToCheckAgainstSomethingThatIsNotAClient(): void
     {
@@ -76,6 +87,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $this->check($resultBag);
     }
+
 
     public function testRejectsARequestWithoutARedirectUri(): void
     {
@@ -91,6 +103,7 @@ class ClientRedirectUriRuleTest extends TestCase
         }
     }
 
+
     public function testAcceptsTheRedirectUriRegisteredAsAString(): void
     {
         $this->resolverReturns(self::REGISTERED_URI);
@@ -101,6 +114,7 @@ class ClientRedirectUriRuleTest extends TestCase
         );
     }
 
+
     public function testRejectsARedirectUriThatDiffersFromTheOneRegisteredAsAString(): void
     {
         $this->resolverReturns(self::OTHER_URI);
@@ -110,6 +124,7 @@ class ClientRedirectUriRuleTest extends TestCase
         $this->check($this->resultBagFor($this->client(self::REGISTERED_URI)));
     }
 
+
     public function testAcceptsARedirectUriPresentInTheRegisteredList(): void
     {
         $this->resolverReturns(self::REGISTERED_URI);
@@ -118,6 +133,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $this->assertSame(self::REGISTERED_URI, $this->check($this->resultBagFor($client))?->getValue());
     }
+
 
     public function testRejectsARedirectUriAbsentFromTheRegisteredList(): void
     {
@@ -130,6 +146,7 @@ class ClientRedirectUriRuleTest extends TestCase
             $this->assertSame('invalid_request', $exception->getErrorType());
         }
     }
+
 
     public function testMatchesTheRegisteredListExactlyRatherThanByPrefix(): void
     {
@@ -155,6 +172,7 @@ class ClientRedirectUriRuleTest extends TestCase
         );
     }
 
+
     public function testRefusesAnUnregisteredWalletWhoseRedirectUriMatchesNoAllowedPrefix(): void
     {
         // The prefix list is the whole of the permission: a URI outside it is refused even though every
@@ -165,6 +183,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $this->check($this->resultBagFor($this->client([self::REGISTERED_URI])));
     }
+
 
     public function testDoesNotOfferThePrefixEscapeWhenTheRequestIsNotACredentialRequest(): void
     {
@@ -192,6 +211,7 @@ class ClientRedirectUriRuleTest extends TestCase
         );
     }
 
+
     public function testDoesNotOfferThePrefixEscapeWhenUnregisteredClientsAreNotAllowed(): void
     {
         $requestParamsResolver = $this->createMock(RequestParamsResolver::class);
@@ -215,10 +235,12 @@ class ClientRedirectUriRuleTest extends TestCase
         );
     }
 
+
     private function resolverReturns(?string $redirectUri): void
     {
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn($redirectUri);
     }
+
 
     /**
      * Replaces the resolver and config wholesale, so the redirect URI has to be restated here: a mock
@@ -239,6 +261,7 @@ class ClientRedirectUriRuleTest extends TestCase
             ->willReturn($allowedPrefixes);
     }
 
+
     private function client(array|string $registeredRedirectUri): ClientEntityInterface&MockObject
     {
         $client = $this->createMock(ClientEntityInterface::class);
@@ -248,6 +271,7 @@ class ClientRedirectUriRuleTest extends TestCase
         return $client;
     }
 
+
     private function resultBagFor(ClientEntityInterface $client): ResultBag
     {
         $resultBag = new ResultBag();
@@ -255,6 +279,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         return $resultBag;
     }
+
 
     private function check(ResultBag $resultBag): ?Result
     {

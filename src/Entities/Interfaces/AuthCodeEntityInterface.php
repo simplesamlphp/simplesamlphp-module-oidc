@@ -13,5 +13,6 @@ interface AuthCodeEntityInterface extends OAuth2AuthCodeEntityInterface, TokenRe
      */
     public function getNonce(): ?string;
 
+
     public function setNonce(string $nonce): void;
 }

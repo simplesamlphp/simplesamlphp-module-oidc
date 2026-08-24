@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Registration;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -14,6 +15,7 @@ use SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 
 #[CoversClass(ClientMetadataValidator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientMetadataValidatorTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
@@ -24,6 +26,7 @@ class ClientMetadataValidatorTest extends TestCase
      * that a refusal becomes an invalid_client_metadata error naming the offending claim.
      */
     protected MockObject $destinationPolicyMock;
+
 
     protected function setUp(): void
     {
@@ -45,10 +48,12 @@ class ClientMetadataValidatorTest extends TestCase
         $this->destinationPolicyMock->method('isUriAllowed')->willReturn(true);
     }
 
+
     protected function sut(): ClientMetadataValidator
     {
         return new ClientMetadataValidator($this->moduleConfigMock, $this->destinationPolicyMock);
     }
+
 
     /**
      * Assert that validating the given metadata is rejected with the expected OAuth error code and a hint
@@ -69,6 +74,7 @@ class ClientMetadataValidatorTest extends TestCase
         }
     }
 
+
     public function testValidMetadataPasses(): void
     {
         $metadata = [
@@ -85,6 +91,7 @@ class ClientMetadataValidatorTest extends TestCase
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 
+
     public function testNativeRedirectUriIsAllowed(): void
     {
         $metadata = ['redirect_uris' => ['com.example.app:/callback']];
@@ -92,20 +99,24 @@ class ClientMetadataValidatorTest extends TestCase
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 
+
     public function testMissingRedirectUrisIsRejected(): void
     {
         $this->assertRejected(['client_name' => 'Example'], 'invalid_redirect_uri', 'redirect_uris is required');
     }
+
 
     public function testEmptyRedirectUrisIsRejected(): void
     {
         $this->assertRejected(['redirect_uris' => []], 'invalid_redirect_uri', 'redirect_uris is required');
     }
 
+
     public function testRedirectUriWithoutSchemeIsRejected(): void
     {
         $this->assertRejected(['redirect_uris' => ['not-a-uri']], 'invalid_redirect_uri', 'invalid');
     }
+
 
     public function testInvalidLogoUriIsRejected(): void
     {
@@ -116,6 +127,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testContactsMustBeArray(): void
     {
         $this->assertRejected(
@@ -125,6 +137,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testInvalidApplicationTypeIsRejected(): void
     {
         $this->assertRejected(
@@ -133,6 +146,7 @@ class ClientMetadataValidatorTest extends TestCase
             'application_type',
         );
     }
+
 
     public function testValidRequestUrisPass(): void
     {
@@ -148,6 +162,7 @@ class ClientMetadataValidatorTest extends TestCase
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 
+
     public function testRequestUrisMustBeArray(): void
     {
         $this->assertRejected(
@@ -156,6 +171,7 @@ class ClientMetadataValidatorTest extends TestCase
             'request_uris must be an array',
         );
     }
+
 
     public function testNonHttpsRequestUriIsRejected(): void
     {
@@ -166,12 +182,14 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testSubjectTypePublicIsAccepted(): void
     {
         $metadata = ['redirect_uris' => ['https://client.example.org/cb'], 'subject_type' => 'public'];
 
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
+
 
     public function testPairwiseSubjectTypeIsRejected(): void
     {
@@ -182,9 +200,8 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider unsupportedFeatureMetadataProvider
-     */
+
+    #[DataProvider('unsupportedFeatureMetadataProvider')]
     public function testUnsupportedFeatureMetadataIsRejected(string $field, mixed $value): void
     {
         $this->assertRejected(
@@ -193,6 +210,7 @@ class ClientMetadataValidatorTest extends TestCase
             'Unsupported metadata',
         );
     }
+
 
     public static function unsupportedFeatureMetadataProvider(): array
     {
@@ -206,6 +224,7 @@ class ClientMetadataValidatorTest extends TestCase
             'frontchannel_logout_session_required' => ['frontchannel_logout_session_required', true],
         ];
     }
+
 
     public function testValidAdditionalMetadataPasses(): void
     {
@@ -222,6 +241,7 @@ class ClientMetadataValidatorTest extends TestCase
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 
+
     public function testNegativeDefaultMaxAgeIsRejected(): void
     {
         $this->assertRejected(
@@ -230,6 +250,7 @@ class ClientMetadataValidatorTest extends TestCase
             'default_max_age',
         );
     }
+
 
     public function testNonBooleanRequireAuthTimeIsRejected(): void
     {
@@ -240,6 +261,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testNonArrayDefaultAcrValuesIsRejected(): void
     {
         $this->assertRejected(
@@ -248,6 +270,7 @@ class ClientMetadataValidatorTest extends TestCase
             'default_acr_values',
         );
     }
+
 
     public function testUnsupportedGrantTypeIsRejected(): void
     {
@@ -261,6 +284,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testUnsupportedResponseTypeIsRejected(): void
     {
         $this->assertRejected(
@@ -273,6 +297,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testUnsupportedTokenEndpointAuthMethodIsRejected(): void
     {
         $this->assertRejected(
@@ -284,6 +309,7 @@ class ClientMetadataValidatorTest extends TestCase
             'token_endpoint_auth_method',
         );
     }
+
 
     public function testSupportedGrantResponseAndAuthMethodArePassedThrough(): void
     {
@@ -298,6 +324,7 @@ class ClientMetadataValidatorTest extends TestCase
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 
+
     public function testUnsupportedDefaultAcrValueIsRejected(): void
     {
         $this->assertRejected(
@@ -310,6 +337,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testRedirectUriWithEmptyFragmentIsRejected(): void
     {
         // A trailing '#' is an (empty) fragment component, which OIDC Core 3.1.2.1 forbids.
@@ -320,6 +348,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testRedirectUriWithEncodedHashIsAllowed(): void
     {
         // A percent-encoded '%23' in the path is a literal '#', not a fragment delimiter.
@@ -327,6 +356,7 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
+
 
     public function testNativeClientRejectsRemoteHttpRedirectUri(): void
     {
@@ -339,6 +369,7 @@ class ClientMetadataValidatorTest extends TestCase
             'native client',
         );
     }
+
 
     public function testNativeClientAllowsCustomSchemeAndLoopbackRedirectUris(): void
     {
@@ -355,6 +386,7 @@ class ClientMetadataValidatorTest extends TestCase
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
 
+
     public function testWebImplicitClientRejectsNonHttpsRedirectUri(): void
     {
         $this->assertRejected(
@@ -366,6 +398,7 @@ class ClientMetadataValidatorTest extends TestCase
             'web client using the implicit grant',
         );
     }
+
 
     public function testWebImplicitClientRejectsLocalhostRedirectUri(): void
     {
@@ -379,6 +412,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testWebCodeClientIsNotConstrainedByImplicitRule(): void
     {
         // Default (web) client not using implicit: an http://localhost redirect stays allowed.
@@ -389,6 +423,7 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
+
 
     public function testNonHttpsInitiateLoginUriIsRejected(): void
     {
@@ -402,6 +437,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public function testImpersonationProtectionRejectsMismatchedHost(): void
     {
         $this->assertRejected(
@@ -410,6 +446,7 @@ class ClientMetadataValidatorTest extends TestCase
             'impersonation protection',
         );
     }
+
 
     public function testImpersonationProtectionAllowsClientUriOnDifferentHost(): void
     {
@@ -421,6 +458,7 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
+
 
     public function testImpersonationProtectionCanBeDisabled(): void
     {
@@ -444,6 +482,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     public static function refusedDestinationProvider(): array
     {
         return [
@@ -452,6 +491,7 @@ class ClientMetadataValidatorTest extends TestCase
             'backchannel_logout_uri' => ['backchannel_logout_uri', 'https://client.example.org/bclo'],
         ];
     }
+
 
     #[DataProvider('refusedDestinationProvider')]
     public function testRefusesAUriNamingADestinationThePolicyForbids(string $claim, string $uri): void
@@ -470,6 +510,7 @@ class ClientMetadataValidatorTest extends TestCase
             isCallerAuthenticated: true,
         );
     }
+
 
     /**
      * request_uris is a list, so a single bad entry among good ones has to be caught rather than only the
@@ -498,6 +539,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     /**
      * The destination checks resolve names, and a resolver is bounded by nothing here, so they are not
      * work an unauthenticated caller may order. An open registration is still protected: the refusal
@@ -516,6 +558,7 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame($metadata, $this->sut()->validate($metadata));
     }
+
 
     /**
      * Each distinct destination costs a synchronous DNS lookup, so an unbounded request_uris list is work
@@ -542,6 +585,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     /**
      * A list repeating one destination is one destination, and must not be charged as many.
      */
@@ -566,6 +610,7 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame($metadata, $this->sut()->validate($metadata, isCallerAuthenticated: true));
     }
+
 
     /**
      * The policy refuses a URI carrying credentials on the URI itself, not on where it points, so such a
@@ -593,6 +638,7 @@ class ClientMetadataValidatorTest extends TestCase
         );
     }
 
+
     /**
      * The origin is what identifies a destination, so a different scheme or port is a different one even
      * on the same host. Folding those together would let an http URI ride in on an https one.
@@ -613,6 +659,7 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame($metadata, $this->sut()->validate($metadata, isCallerAuthenticated: true));
     }
+
 
     /**
      * The policy decides destinations, not the shape of the metadata, so a claim the OP never fetches from

@@ -12,9 +12,10 @@ use SimpleSAML\Auth\State;
 class StateService
 {
     /**
-     * @var State
+     * @var \SimpleSAML\Auth\State
      */
-    private State $authState;
+    private readonly State $authState;
+
 
     /**
      *
@@ -24,13 +25,15 @@ class StateService
         $this->authState = new State();
     }
 
+
     /**
-     * @return State
+     * @return \SimpleSAML\Auth\State
      */
     public function getAuthState(): State
     {
         return $this->authState;
     }
+
 
     /**
      * @param   string  $id

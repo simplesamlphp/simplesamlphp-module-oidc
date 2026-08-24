@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\Repositories;
 
+use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -30,35 +32,54 @@ use SimpleSAML\OpenID\Jws;
 use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
 
 #[CoversClass(AccessTokenRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AccessTokenRepositoryTest extends TestCase
 {
-    protected array $state;
-    protected array $scopes;
-    protected string $expiresAt;
+    final public const bool IS_REVOKED = false;
 
-    final public const IS_REVOKED = false;
-    final public const AUTH_CODE_ID = 'authCode123';
-    final public const REQUESTED_CLAIMS = ['key' => 'value'];
-    final public const CLIENT_ID = 'access_token_client_id';
-    final public const USER_ID = 'access_token_user_id';
-    final public const ACCESS_TOKEN_ID = 'access_token_id';
+    final public const string AUTH_CODE_ID = 'authCode123';
+
+    final public const array REQUESTED_CLAIMS = ['key' => 'value'];
+
+    final public const string CLIENT_ID = 'access_token_client_id';
+
+    final public const string USER_ID = 'access_token_user_id';
+
+    final public const string ACCESS_TOKEN_ID = 'access_token_id';
+
+
+    public static array $pgConfig;
+
+    public static array $mysqlConfig;
+
+    public static array $sqliteConfig;
+
+    protected array $state;
+
+    protected array $scopes;
+
+    protected string $expiresAt;
 
     protected AccessTokenRepository $accessTokenRepository;
 
-    public static array $pgConfig;
-    public static array $mysqlConfig;
-    public static array $sqliteConfig;
-
     protected AbstractDatabaseRepository $mock;
+
     protected ScopeEntity $scopeEntityOpenId;
+
     protected ScopeEntity $scopeEntityProfile;
 
     protected MockObject $accessTokenEntityFactoryMock;
+
     protected MockObject $accessTokenEntityMock;
+
     protected array $accessTokenState;
+
     protected AccessTokenEntityFactory $accessTokenEntityFactory;
+
     protected MockObject $jwsMock;
+
     protected MockObject $moduleConfigMock;
+
 
     /**
      * @throws \Exception
@@ -70,6 +91,7 @@ class AccessTokenRepositoryTest extends TestCase
         self::$mysqlConfig = DatabaseContainers::mysql();
         self::$sqliteConfig = DatabaseContainers::sqlite();
     }
+
 
     /**
      * @return void
@@ -83,7 +105,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->scopeEntityProfile = $this->createStub(ScopeEntity::class);
         $this->scopeEntityProfile->method('getIdentifier')->willReturn('profile');
         $this->scopeEntityProfile->method('jsonSerialize')->willReturn('profile');
-        $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile,];
+        $this->scopes = [$this->scopeEntityOpenId, $this->scopeEntityProfile];
 
         $this->accessTokenState = [
             'id' => self::ACCESS_TOKEN_ID,
@@ -115,6 +137,7 @@ class AccessTokenRepositoryTest extends TestCase
         );
     }
 
+
     public function useDatabase($config): void
     {
         $configuration = Configuration::loadFromArray($config, '', 'simplesaml');
@@ -129,6 +152,7 @@ class AccessTokenRepositoryTest extends TestCase
             {
                 return $this->database->applyPrefix('oidc_access_token');
             }
+
 
             public function getDatabase(): Database
             {
@@ -163,7 +187,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->mock->getDatabase()->write('DELETE from ' . $clientRepositoryMock->getTableName());
         $clientRepositoryMock->add($client);
 
-        $createUpdatedAt = new \DateTimeImmutable();
+        $createUpdatedAt = new DateTimeImmutable();
         $helpers = new Helpers();
         $user = new UserEntity(self::USER_ID, $createUpdatedAt, $createUpdatedAt, []);
         $userRepositoryMock = new UserRepository(
@@ -177,10 +201,12 @@ class AccessTokenRepositoryTest extends TestCase
         $userRepositoryMock->add($user);
     }
 
+
     public static function databaseToTest(): array
     {
         return DatabaseContainers::all();
     }
+
 
     /**
      * @throws \JsonException
@@ -188,7 +214,6 @@ class AccessTokenRepositoryTest extends TestCase
      * @throws \SimpleSAML\Error\Error
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-
     #[DataProvider('databaseToTest')]
     public function testRevokeByAuthCodeId(string $database): void
     {
@@ -208,13 +233,14 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+
     /**
      * @param   string       $id
      * @param   bool         $enabled
      * @param   bool         $confidential
      * @param   string|null  $owner
      *
-     * @return ClientEntityInterface
+     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface
      */
     public static function clientRepositoryGetClient(
         string $id,

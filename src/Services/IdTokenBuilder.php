@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
-use Base64Url\Base64Url;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use RuntimeException;
@@ -27,6 +26,7 @@ class IdTokenBuilder
         protected readonly ModuleConfig $moduleConfig,
     ) {
     }
+
 
     /**
      * @psalm-suppress MixedAssignment
@@ -132,6 +132,7 @@ class IdTokenBuilder
         );
     }
 
+
     /**
      * @param string $jwsAlgorithm JWS Algorithm designation (like RS256,
      * RS384...).
@@ -161,7 +162,7 @@ class IdTokenBuilder
 
         $accessTokenString = $accessToken->toString();
 
-        return Base64Url::encode(
+        return $this->core->helpers()->base64Url()->encode(
             substr(
                 hash(
                     $hashAlgorithm,

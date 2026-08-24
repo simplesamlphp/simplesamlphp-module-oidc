@@ -16,10 +16,11 @@ class CoreFactory
     ) {
     }
 
+
     /**
      * Builds a new Core instance.
      *
-     * @return Core
+     * @return \SimpleSAML\OpenID\Core
      */
     public function build(): Core
     {

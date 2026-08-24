@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateInterval;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -22,12 +23,17 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[CoversClass(PushedAuthorizationRequestRepository::class)]
 #[UsesClass(PushedAuthorizationRequestEntity::class)]
 #[UsesClass(PushedAuthorizationRequestEntityFactory::class)]
+#[AllowMockObjectsWithoutExpectations]
 class PushedAuthorizationRequestRepositoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected Helpers $helpers;
+
     protected PushedAuthorizationRequestEntityFactory $entityFactory;
+
     protected PushedAuthorizationRequestRepository $repository;
+
 
     /**
      * @throws \Exception
@@ -46,6 +52,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
     }
+
 
     protected function setUp(): void
     {
@@ -66,10 +73,12 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         );
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_par', $this->repository->getTableName());
     }
+
 
     public function testCanPersistAndFind(): void
     {
@@ -91,12 +100,14 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         $this->assertFalse($foundEntity->isConsumed());
     }
 
+
     public function testFindReturnsNullForUnknownRequestUri(): void
     {
         $this->assertNull(
             $this->repository->find(PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'unknown'),
         );
     }
+
 
     public function testFindValidReturnsEntityForValidRequestUri(): void
     {
@@ -108,6 +119,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
             $this->repository->findValid($entity->getRequestUri()),
         );
     }
+
 
     public function testFindValidReturnsNullForExpiredRequestUri(): void
     {
@@ -121,6 +133,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         $this->assertNull($this->repository->findValid($entity->getRequestUri()));
     }
 
+
     public function testFindValidReturnsNullForConsumedRequestUri(): void
     {
         $entity = $this->entityFactory->fromData('client123', []);
@@ -130,6 +143,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
 
         $this->assertNull($this->repository->findValid($entity->getRequestUri()));
     }
+
 
     public function testConsumeReturnsTrueOnlyOnce(): void
     {
@@ -141,12 +155,14 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         $this->assertFalse($this->repository->consume($entity->getRequestUri()));
     }
 
+
     public function testConsumeReturnsFalseForUnknownRequestUri(): void
     {
         $this->assertFalse(
             $this->repository->consume(PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'unknown'),
         );
     }
+
 
     public function testCanRemoveExpired(): void
     {
@@ -168,6 +184,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         );
     }
 
+
     protected function repositoryWithCache(MockObject $protocolCacheMock): PushedAuthorizationRequestRepository
     {
         return new PushedAuthorizationRequestRepository(
@@ -178,6 +195,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
             $this->helpers,
         );
     }
+
 
     public function testPersistStoresEntityInCache(): void
     {
@@ -194,6 +212,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         $this->repositoryWithCache($protocolCacheMock)->persist($entity);
     }
 
+
     public function testFindCanReturnEntityFromCache(): void
     {
         // Note: this entity is intentionally not persisted to database, so a successful find proves the
@@ -209,6 +228,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
         $this->assertSame($entity->getRequestUri(), $foundEntity->getRequestUri());
         $this->assertSame(['response_type' => 'code'], $foundEntity->getParameters());
     }
+
 
     public function testFindCachesEntityResolvedFromDatabase(): void
     {
@@ -229,6 +249,7 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
             $this->repositoryWithCache($protocolCacheMock)->find($entity->getRequestUri()),
         );
     }
+
 
     public function testConsumeInvalidatesCache(): void
     {

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -23,15 +24,23 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\AccessTokenController
  */
+#[AllowMockObjectsWithoutExpectations]
 class AccessTokenControllerTest extends TestCase
 {
     protected MockObject $authorizationServerMock;
+
     protected MockObject $allowedOriginRepository;
+
     protected MockObject $serverRequestMock;
+
     protected MockObject $responseMock;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $errorResponderMock;
+
     protected MockObject $requestFactoryMock;
+
     protected MockObject $responseFactoryMock;
 
     protected MockObject $symfonyRequestMock;
@@ -69,6 +78,7 @@ class AccessTokenControllerTest extends TestCase
         $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
     }
 
+
     protected function mock(): AccessTokenController
     {
         return new AccessTokenController(
@@ -79,6 +89,7 @@ class AccessTokenControllerTest extends TestCase
         );
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -86,6 +97,7 @@ class AccessTokenControllerTest extends TestCase
             $this->mock(),
         );
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -104,6 +116,7 @@ class AccessTokenControllerTest extends TestCase
         );
     }
 
+
     public function testItHandlesCorsRequest(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
@@ -120,6 +133,7 @@ class AccessTokenControllerTest extends TestCase
         $this->mock()->__invoke($this->serverRequestMock);
     }
 
+
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {
         $this->authorizationServerMock
@@ -133,6 +147,7 @@ class AccessTokenControllerTest extends TestCase
 
         $this->mock()->token($this->symfonyRequestMock);
     }
+
 
     public function testItUsesRequestTrait(): void
     {

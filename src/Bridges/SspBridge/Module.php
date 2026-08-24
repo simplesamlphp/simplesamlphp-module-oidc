@@ -12,15 +12,18 @@ class Module
 {
     protected static ?SspModule\oidc\Bridges\SspBridge\Module\Admin $admin = null;
 
+
     public function admin(): Admin
     {
         return self::$admin ??= new Admin();
     }
 
+
     public function getModuleUrl(string $resource, array $parameters = []): string
     {
         return SspModule::getModuleURL($resource, $parameters);
     }
+
 
     /**
      * @throws \Exception
@@ -29,6 +32,7 @@ class Module
     {
         return SspModule::isModuleEnabled($moduleName);
     }
+
 
     /**
      * Configuration of a module, read from its file in the SimpleSAMLphp configuration directory.

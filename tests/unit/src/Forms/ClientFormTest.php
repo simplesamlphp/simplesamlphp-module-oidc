@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Forms;
 
 use DateTimeImmutable;
+use Nette\InvalidArgumentException;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -13,6 +15,8 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Auth;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Auth\Source;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
@@ -24,6 +28,7 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 #[CoversClass(ClientForm::class)]
 #[UsesClass(Helpers::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientFormTest extends TestCase
 {
     protected MockObject $csrfProtectionMock;
@@ -31,12 +36,17 @@ class ClientFormTest extends TestCase
     protected MockObject $moduleConfigMock;
 
     protected MockObject $serverRequestMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $sspBridgeAuthMock;
+
     protected MockObject $sspBridgeAuthSourceMock;
+
     protected Helpers $helpers;
 
     protected array $clientDataSample;
+
 
     /**
      * @throws \Exception
@@ -63,10 +73,10 @@ class ClientFormTest extends TestCase
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
         $this->helpers = new Helpers();
 
-        $this->sspBridgeAuthMock = $this->createMock(SspBridge\Auth::class);
+        $this->sspBridgeAuthMock = $this->createMock(Auth::class);
         $this->sspBridgeMock->method('auth')->willReturn($this->sspBridgeAuthMock);
 
-        $this->sspBridgeAuthSourceMock = $this->createMock(SspBridge\Auth\Source::class);
+        $this->sspBridgeAuthSourceMock = $this->createMock(Source::class);
         $this->sspBridgeAuthMock->method('source')->willReturn($this->sspBridgeAuthSourceMock);
 
         $this->clientDataSample = [
@@ -101,6 +111,7 @@ class ClientFormTest extends TestCase
         ];
     }
 
+
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?CsrfProtection $csrfProtection = null,
@@ -119,6 +130,7 @@ class ClientFormTest extends TestCase
             $helpers,
         );
     }
+
 
     public static function validateOriginProvider(): array
     {
@@ -172,6 +184,7 @@ class ClientFormTest extends TestCase
         $this->assertEquals(!$isValid, $clientForm->hasErrors(), $url);
     }
 
+
     public function testSetDefaultsLeavesValidAuthSourceValue(): void
     {
         $this->sspBridgeAuthSourceMock->method('getSources')->willReturn(['default-sp']);
@@ -181,12 +194,14 @@ class ClientFormTest extends TestCase
         $this->assertSame('default-sp', $sut->getValues()['auth_source']);
     }
 
+
     public function testSetDefaultsUnsetsAuthSourceIfNotValid(): void
     {
         $sut = $this->sut()->setDefaults($this->clientDataSample);
 
         $this->assertNull($sut->getValues()['auth_source']);
     }
+
 
     public static function redirectUriProvider(): array
     {
@@ -229,6 +244,7 @@ class ClientFormTest extends TestCase
         ];
     }
 
+
     #[DataProvider('redirectUriProvider')]
     public function testCanValidateRedirectUri(string $url, bool $isValid): void
     {
@@ -239,6 +255,7 @@ class ClientFormTest extends TestCase
         $this->assertEquals(!$isValid, $sut->hasErrors(), $url);
     }
 
+
     public function testIdTokenSignedResponseAlgSelectIsLimitedToSupportedAlgs(): void
     {
         $sut = $this->sut();
@@ -248,9 +265,10 @@ class ClientFormTest extends TestCase
         $this->assertSame('ES256', $sut->getValues()[ClaimsEnum::IdTokenSignedResponseAlg->value]);
 
         // An unsupported algorithm is rejected by the select (out of allowed set).
-        $this->expectException(\Nette\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->sut()->setValues([ClaimsEnum::IdTokenSignedResponseAlg->value => 'HS256']);
     }
+
 
     public function testGrantTypesResponseTypesAndAuthMethodRoundTrip(): void
     {
@@ -267,6 +285,7 @@ class ClientFormTest extends TestCase
         $this->assertSame('private_key_jwt', $values[ClaimsEnum::TokenEndpointAuthMethod->value]);
     }
 
+
     public function testEmptyTokenEndpointAuthMethodNormalizesToNull(): void
     {
         $values = $this->sut()->getValues();
@@ -275,6 +294,7 @@ class ClientFormTest extends TestCase
         $this->assertSame([], $values[ClaimsEnum::GrantTypes->value]);
         $this->assertSame([], $values[ClaimsEnum::ResponseTypes->value]);
     }
+
 
     public function testDefaultAcrValuesAreConstrainedToSupported(): void
     {
@@ -294,6 +314,7 @@ class ClientFormTest extends TestCase
         $this->assertTrue($sut->hasConfiguredAcrValues());
     }
 
+
     public function testGrantTypesAreNormalizedToResponseTypeCorrespondence(): void
     {
         // Selecting an implicit response type must pull in the implicit grant type on save, even if the admin
@@ -309,6 +330,7 @@ class ClientFormTest extends TestCase
         $this->assertSame(['authorization_code', 'implicit'], $values[ClaimsEnum::GrantTypes->value]);
         $this->assertSame(['code', 'id_token'], $values[ClaimsEnum::ResponseTypes->value]);
     }
+
 
     public function testClientTypeFollowsTokenEndpointAuthMethod(): void
     {
@@ -326,6 +348,7 @@ class ClientFormTest extends TestCase
         ]))->getValues();
         $this->assertTrue($values['is_confidential']);
     }
+
 
     public function testNativeApplicationTypeMakesClientPublicWhenNoAuthMethod(): void
     {
@@ -346,6 +369,7 @@ class ClientFormTest extends TestCase
         $this->assertTrue($values['is_confidential']);
     }
 
+
     public function testClientTypeStandsWhenAuthMethodUnset(): void
     {
         // When no auth method is selected, the explicit confidential/public choice is preserved.
@@ -355,6 +379,7 @@ class ClientFormTest extends TestCase
         ]))->getValues();
         $this->assertTrue($values['is_confidential']);
     }
+
 
     public function testInformationalMetadataRoundTrip(): void
     {
@@ -377,6 +402,7 @@ class ClientFormTest extends TestCase
         $this->assertSame(['admin@example.org', 'ops@example.org'], $values[ClaimsEnum::Contacts->value]);
     }
 
+
     public function testEmptyInformationalMetadataNormalizesToNullOrEmpty(): void
     {
         $values = $this->sut()->getValues();
@@ -385,6 +411,7 @@ class ClientFormTest extends TestCase
         $this->assertNull($values[ClaimsEnum::ApplicationType->value]);
         $this->assertSame([], $values[ClaimsEnum::Contacts->value]);
     }
+
 
     public function testAcceptsValidAuthProcFilters(): void
     {
@@ -402,6 +429,7 @@ class ClientFormTest extends TestCase
         );
     }
 
+
     public function testCastsNumericAuthProcFilterPrioritiesToInt(): void
     {
         $clientForm = $this->sut();
@@ -417,6 +445,7 @@ class ClientFormTest extends TestCase
         $this->assertIsInt(array_key_first($filters));
     }
 
+
     public function testRejectsAuthProcFiltersWithInvalidJson(): void
     {
         $clientForm = $this->sut();
@@ -427,6 +456,7 @@ class ClientFormTest extends TestCase
         $this->assertTrue($clientForm->hasErrors());
     }
 
+
     public function testRejectsAuthProcFilterWithoutClass(): void
     {
         $clientForm = $this->sut();
@@ -435,6 +465,7 @@ class ClientFormTest extends TestCase
 
         $this->assertTrue($clientForm->hasErrors());
     }
+
 
     public function testSetDefaultsAndGetValuesRoundTripAuthProcFilters(): void
     {
@@ -454,10 +485,12 @@ class ClientFormTest extends TestCase
         );
     }
 
+
     public function testAddClaimsToIdTokenDefaultsToFalse(): void
     {
         $this->assertFalse($this->sut()->getValues()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
     }
+
 
     public function testSetDefaultsAndGetValuesRoundTripAddClaimsToIdToken(): void
     {

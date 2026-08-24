@@ -17,10 +17,12 @@ use SimpleSAML\OpenID\Exceptions\TrustChainException;
 use SimpleSAML\OpenID\Federation;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class FederationTestController
 {
     protected readonly Federation $federationWithArrayLogger;
+
 
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -53,6 +55,7 @@ class FederationTestController
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -67,7 +70,7 @@ class FederationTestController
 
         try {
             $trustAnchorIds = $this->moduleConfig->getFederationTrustAnchorIds();
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->arrayLogger->error('Module config error: ' . $exception->getMessage());
             $trustAnchorIds = [];
         }
@@ -93,7 +96,7 @@ class FederationTestController
                         try {
                             $metadataEntries[$entityTypeEnum->value] =
                             $trustChain->getResolvedMetadata($entityTypeEnum);
-                        } catch (\Throwable $exception) {
+                        } catch (Throwable $exception) {
                             $this->arrayLogger->error(
                                 'Metadata resolving error: ' . $exception->getMessage(),
                                 compact('index', 'entityTypeEnum'),
@@ -125,6 +128,7 @@ class FederationTestController
         );
     }
 
+
     public function trustMarkValidation(Request $request): Response
     {
         $trustMarkType = null;
@@ -155,7 +159,7 @@ class FederationTestController
                         $trustChain->getResolvedLeaf(),
                         $trustChain->getResolvedTrustAnchor(),
                     );
-                } catch (\Throwable $exception) {
+                } catch (Throwable $exception) {
                     $this->arrayLogger->error('Trust Mark validation error: ' . $exception->getMessage());
                 }
             } catch (TrustChainException $exception) {
@@ -270,7 +274,7 @@ class FederationTestController
                         'payload' => $payload,
                     ];
                 }
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 $this->arrayLogger->error(sprintf(
                     'Error during entity discovery under Trust Anchor %s. Error was %s',
                     $trustAnchorId,
@@ -283,7 +287,7 @@ class FederationTestController
 
         try {
             $trustAnchorIds = $this->moduleConfig->getFederationTrustAnchorIds();
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->arrayLogger->error('Module config error: ' . $exception->getMessage());
             $trustAnchorIds = [];
         }

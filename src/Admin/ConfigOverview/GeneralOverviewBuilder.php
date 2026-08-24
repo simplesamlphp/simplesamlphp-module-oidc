@@ -63,8 +63,11 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
      * screen resolves the value exactly as the client registry does.
      */
     protected const int MIN_ITEMS_PER_PAGE = 1;
+
     protected const int MAX_ITEMS_PER_PAGE = 100;
+
     protected const int DEFAULT_ITEMS_PER_PAGE = 20;
+
 
     public function __construct(
         ModuleConfig $moduleConfig,
@@ -75,6 +78,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[]
@@ -87,6 +91,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
         ];
     }
 
+
     protected function buildAdministrationUiSection(): Section
     {
         return new Section(
@@ -97,6 +102,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     protected function buildStorageCleanupSection(): Section
     {
         return new Section(
@@ -105,6 +111,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
             $this->buildCronTagRow(),
         );
     }
+
 
     /**
      * Row describing who, besides a SimpleSAMLphp administrator, may use the client registry.
@@ -146,6 +153,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * Describe every configured permission, and whether it can grant anything.
      *
@@ -181,6 +189,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
         return $list;
     }
 
+
     /**
      * Entitlements a user could present to be granted a permission.
      *
@@ -203,6 +212,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
         /** @var string[] $entitlements */
         return $entitlements;
     }
+
 
     protected function buildItemsPerPageRow(): Row
     {
@@ -237,6 +247,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
             },
         );
     }
+
 
     protected function buildCronTagRow(): Row
     {
@@ -280,6 +291,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
             },
         );
     }
+
 
     /**
      * Warning for a cron tag which can never reach this module, or null when it can.
@@ -335,6 +347,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
         return null;
     }
 
+
     /**
      * The cron module has no usable list of tags it may run, so it refuses every one of them.
      */
@@ -345,6 +358,7 @@ class GeneralOverviewBuilder extends AbstractOverviewBuilder
             'refuses every tag, and expired and invalid entries are never removed from storage.',
         );
     }
+
 
     protected function reportUnreadableCronState(Throwable $exception): void
     {

@@ -6,12 +6,15 @@ namespace SimpleSAML\Test\Module\oidc\unit;
 
 use DateInterval;
 use Defuse\Crypto\Key;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
@@ -31,12 +34,16 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 #[CoversClass(ModuleConfig::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ModuleConfigTest extends TestCase
 {
     protected string $fileName;
+
     protected array $overrides;
+
     protected MockObject $sspConfigMock;
 
     protected array $moduleConfig = [
@@ -44,7 +51,7 @@ class ModuleConfigTest extends TestCase
 
         ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => [
             [
-                ModuleConfig::KEY_ALGORITHM => \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum::RS256,
+                ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
                 ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_connect_rsa_01.key',
                 ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_connect_rsa_01.pub',
             ],
@@ -77,16 +84,22 @@ class ModuleConfigTest extends TestCase
             'abc123',
         ],
 
-        ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\ArrayAdapter::class,
+        ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => ArrayAdapter::class,
         ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS => [],
         ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION => null,
         ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION => null,
     ];
+
     private MockObject $sspBridgeMock;
+
     private MockObject $sspBridgeUtilsMock;
+
     private MockObject $sspBridgeUtilsHttpMock;
+
     private MockObject $sspBridgeUtilsConfigMock;
+
     private MockObject $valueAbstractMock;
+
 
     protected function setUp(): void
     {
@@ -96,7 +109,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sspBridgeMock = $this->createMock(SspBridge::class);
 
-        $this->sspBridgeUtilsMock = $this->createMock(SspBridge\Utils::class);
+        $this->sspBridgeUtilsMock = $this->createMock(Utils::class);
 
         $this->sspBridgeUtilsConfigMock = $this->createMock(Config::class);
         $this->sspBridgeUtilsConfigMock->method('getCertPath')
@@ -112,6 +125,7 @@ class ModuleConfigTest extends TestCase
 
         $this->valueAbstractMock = $this->createMock(ValueAbstracts::class);
     }
+
 
     protected function sut(
         ?string $fileName = null,
@@ -135,6 +149,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testCanGetCommonOptions(): void
     {
         $this->assertSame(ModuleConfig::MODULE_NAME, $this->sut()->moduleName());
@@ -152,10 +167,12 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testCanGetProtocolSignatureKeyPairs(): void
     {
         $this->assertNotEmpty($this->sut()->getProtocolSignatureKeyPairs());
     }
+
 
     public function testGetProtocolSignatureKeyPairsThrowsOnInvalidConfigValue(): void
     {
@@ -166,6 +183,7 @@ class ModuleConfigTest extends TestCase
             overrides: [ModuleConfig::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS => []],
         )->getProtocolSignatureKeyPairs();
     }
+
 
     public function testCanGetProtocolSignatureKeyPairConfigBag(): void
     {
@@ -181,6 +199,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testCanGetProtocolSignatureKeyPairgBag(): void
     {
         $sut = $this->sut();
@@ -195,25 +214,30 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testCanGetSspConfig(): void
     {
         $this->assertInstanceOf(Configuration::class, $this->sut()->sspConfig());
     }
+
 
     public function testCanGetOpenIdScopes(): void
     {
         $this->assertNotEmpty($this->sut()->getScopes());
     }
 
+
     public function testCanGetAuthProcFilters(): void
     {
         $this->assertIsArray($this->sut()->getAuthProcFilters());
     }
 
+
     public function testCanGetIssuer(): void
     {
         $this->assertNotEmpty($this->sut()->getIssuer());
     }
+
 
     public function testGetsCurrentHostIfIssuerNotSetInConfig(): void
     {
@@ -223,6 +247,7 @@ class ModuleConfigTest extends TestCase
         $this->sut()->getIssuer();
     }
 
+
     public function testThrowsOnEmptyIssuer(): void
     {
         $this->overrides[ModuleConfig::OPTION_ISSUER] = '';
@@ -231,6 +256,7 @@ class ModuleConfigTest extends TestCase
         $this->sut()->getIssuer();
     }
 
+
     public function testCanGetForcedAcrValueForCookieAuthentication(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION] = '1a';
@@ -238,17 +264,20 @@ class ModuleConfigTest extends TestCase
         $this->assertEquals('1a', $this->sut()->getForcedAcrValueForCookieAuthentication());
     }
 
+
     public function testCanGetUserIdentifierAttribute(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE] = 'sample';
         $this->assertEquals('sample', $this->sut()->getUserIdentifierAttribute());
     }
 
+
     public function testCanGetUserIdentifierAttributesFromString(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE] = 'sample';
         $this->assertEquals(['sample'], $this->sut()->getUserIdentifierAttributes());
     }
+
 
     public function testCanGetUserIdentifierAttributesFromArray(): void
     {
@@ -257,6 +286,7 @@ class ModuleConfigTest extends TestCase
         // The deprecated single accessor returns the primary (first) candidate.
         $this->assertEquals('ePPN', $this->sut()->getUserIdentifierAttribute());
     }
+
 
     public function testCanGetCommonFederationOptions(): void
     {
@@ -283,6 +313,7 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getTimestampValidationLeeway());
     }
 
+
     /**
      * The defaults deliberately mirror the `openid` library's own, so that the module does not silently
      * diverge from the limits upstream calibrated.
@@ -298,6 +329,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(102400, $sut->getFederationMaxFetchSizeBytes());
         $this->assertSame([], $sut->getFederationHttpClientOptions());
     }
+
 
     public function testCanOverrideFederationTraversalLimits(): void
     {
@@ -318,6 +350,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(4096, $sut->getFederationMaxFetchSizeBytes());
     }
 
+
     /**
      * Federation HTTP client options are read independently of the protocol-layer ones, so that disabling TLS
      * verification for one can never leak into the other.
@@ -334,12 +367,14 @@ class ModuleConfigTest extends TestCase
         $this->assertSame([], $sut->getProtocolHttpClientOptions());
     }
 
+
     public function testCanGetFederationSignatureKeyPairBag(): void
     {
         $sut = $this->sut();
         $this->assertInstanceOf(SignatureKeyPairBag::class, $sut->getFederationSignatureKeyPairBag());
         $this->assertInstanceOf(SignatureKeyPairBag::class, $sut->getFederationSignatureKeyPairBag());
     }
+
 
     public function testGetFederationSignatureKeyPairBagThrowsOnInvalidConfigValue(): void
     {
@@ -350,6 +385,7 @@ class ModuleConfigTest extends TestCase
             overrides: [ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS => []],
         )->getFederationSignatureKeyPairBag();
     }
+
 
     /**
      * The whole of the Verifiable Credential Issuance rollover model: additional pairs are published
@@ -371,6 +407,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(SignatureAlgorithmEnum::ES256, $activeSignatureKeyPair->getSignatureAlgorithm());
     }
 
+
     public function testGetActiveVciSignatureKeyPairThrowsWhenNoKeyPairCouldBeBuilt(): void
     {
         $sut = $this->sutWithVciSignatureKeyPairBag(new SignatureKeyPairBag());
@@ -379,6 +416,7 @@ class ModuleConfigTest extends TestCase
 
         $sut->getActiveVciSignatureKeyPair();
     }
+
 
     /**
      * A ModuleConfig whose VCI option resolves to the given bag, so that a test can decide what the
@@ -406,6 +444,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     protected function buildSignatureKeyPair(string $keyId, SignatureAlgorithmEnum $algorithm): SignatureKeyPair
     {
         $keyPairMock = $this->createMock(KeyPair::class);
@@ -418,6 +457,7 @@ class ModuleConfigTest extends TestCase
         return $signatureKeyPairMock;
     }
 
+
     public function testKeywordsCanBeNull(): void
     {
         $this->assertNull(
@@ -428,6 +468,7 @@ class ModuleConfigTest extends TestCase
             )->getKeywords(),
         );
     }
+
 
     public function testGetFederationTrustAnchorsThrowsOnEmptyIfFederationEnabled(): void
     {
@@ -443,12 +484,12 @@ class ModuleConfigTest extends TestCase
     }
 
 
-
     public function testCanGetTrustAnchorJwksJson(): void
     {
         $this->assertNotEmpty($this->sut()->getTrustAnchorJwksJson('https://ta.example.org/'));
         $this->assertEmpty($this->sut()->getTrustAnchorJwksJson('invalid'));
     }
+
 
     public function testGetTrustAnchorJwksJsonThrowsOnInvalidData(): void
     {
@@ -462,6 +503,7 @@ class ModuleConfigTest extends TestCase
         )->getTrustAnchorJwksJson('ta');
     }
 
+
     public function testThrowsIfTryingToOverrideProtectedScopes(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [
@@ -474,6 +516,7 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
+
     public function testThrowsIfCustomScopeDoesNotHaveDescription(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [
@@ -484,6 +527,7 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
+
     public function testThrowsIfAcrIsNotString(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_ACR_VALUES_SUPPORTED] = [123];
@@ -492,12 +536,14 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
+
     public function testThrowsIfAuthSourceNotString(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP] = [123 => []];
         $this->expectException(ConfigurationError::class);
         $this->sut();
     }
+
 
     public function testThrowsIfAuthSourceToAcrMapAcrNotArray(): void
     {
@@ -506,6 +552,7 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
+
     public function testThrowsIfAuthSourceToAcrMapAcrNotString(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP] = ['abc' => [123]];
@@ -513,12 +560,14 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
+
     public function testThrowsIfAuthSourceToAcrMapAcrNotAllowed(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP] = ['abc' => ['acr']];
         $this->expectException(ConfigurationError::class);
         $this->sut();
     }
+
 
     public function testThrowsIForcedAcrValueForCookieAuthenticationNotAllowed(): void
     {
@@ -528,6 +577,7 @@ class ModuleConfigTest extends TestCase
         $this->sut();
     }
 
+
     public function testCanGetEncryptionKey(): void
     {
         $this->sspBridgeUtilsConfigMock->expects($this->once())->method('getSecretSalt')
@@ -535,6 +585,7 @@ class ModuleConfigTest extends TestCase
 
         $this->assertSame('secretSalt', $this->sut()->getEncryptionKey());
     }
+
 
     public function testCanGetEncryptionKeyAsDefuseKey(): void
     {
@@ -549,6 +600,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame($key->saveToAsciiSafeString(), $encryptionKey->saveToAsciiSafeString());
     }
 
+
     public function testGetEncryptionKeyThrowsForInvalidDefuseKey(): void
     {
         $this->overrides[ModuleConfig::OPTION_ENCRYPTION_KEY] = 'not-a-valid-ascii-safe-key';
@@ -558,6 +610,7 @@ class ModuleConfigTest extends TestCase
         $this->sut()->getEncryptionKey();
     }
 
+
     public function testCanGetProtocolCacheConfiguration(): void
     {
         $this->assertNotEmpty($this->sut()->getProtocolCacheAdapterClass());
@@ -566,6 +619,7 @@ class ModuleConfigTest extends TestCase
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getProtocolUserEntityCacheDuration());
         $this->assertInstanceOf(DateInterval::class, $this->sut()->getProtocolClientEntityCacheDuration());
     }
+
 
     public function testCanGetRequestUriParameterSupported(): void
     {
@@ -579,11 +633,13 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testGetFederationRequestUriAllowedPrefixesDeniesByDefault(): void
     {
         // Option absent -> deny all federation-candidate fetches (empty allowlist).
         $this->assertSame([], $this->sut()->getFederationRequestUriAllowedPrefixes());
     }
+
 
     public function testGetFederationRequestUriAllowedPrefixesCanAllowAny(): void
     {
@@ -594,6 +650,7 @@ class ModuleConfigTest extends TestCase
             )->getFederationRequestUriAllowedPrefixes(),
         );
     }
+
 
     public function testGetFederationRequestUriAllowedPrefixesReturnsConfiguredPrefixes(): void
     {
@@ -609,6 +666,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(['https://rp.example.org/'], $sut->getFederationRequestUriAllowedPrefixes());
     }
 
+
     public function testCanGetProtocolDiscoveryShowClaimsSupported(): void
     {
         $this->assertFalse($this->sut()->getProtocolDiscoveryShowClaimsSupported());
@@ -618,6 +676,7 @@ class ModuleConfigTest extends TestCase
             )->getProtocolDiscoveryShowClaimsSupported(),
         );
     }
+
 
     public function testCanGetFederationDynamicTrustMarks(): void
     {
@@ -637,6 +696,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testCanGetFederationParticipationLimitByTrustMarks(): void
     {
         $this->assertArrayHasKey(
@@ -645,6 +705,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testCanGetTrustMarksNeededForFederationParticipationFor(): void
     {
         $neededTrustMarks = $this->sut()->getTrustMarksNeededForFederationParticipationFor('https://ta.example.org/');
@@ -652,6 +713,7 @@ class ModuleConfigTest extends TestCase
         $this->assertArrayHasKey('one_of', $neededTrustMarks);
         $this->assertTrue(in_array('trust-mark-type', $neededTrustMarks['one_of']));
     }
+
 
     public function testGetTrustMarksNeededForFederationParticipationForThrowsOnInvalidConfigValue(): void
     {
@@ -668,12 +730,14 @@ class ModuleConfigTest extends TestCase
         $sut->getTrustMarksNeededForFederationParticipationFor('https://ta.example.org/');
     }
 
+
     public function testCanGetIsFederationParticipationLimitedByTrustMarksFor(): void
     {
         $this->assertTrue(
             $this->sut()->isFederationParticipationLimitedByTrustMarksFor('https://ta.example.org/'),
         );
     }
+
 
     public function testCanGetFederationTrustMarkStatusEndpointUsagePolicy(): void
     {
@@ -696,6 +760,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidValue(): void
     {
         $this->expectException(ConfigurationError::class);
@@ -703,6 +768,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut()->getValidatedSignatureKeyPairArray('invalid');
     }
+
 
     public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidSignature(): void
     {
@@ -715,6 +781,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
+
 
     public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidPrivateKey(): void
     {
@@ -729,6 +796,7 @@ class ModuleConfigTest extends TestCase
         $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
 
+
     public function testGetValidatedSignatureKeyPairArrayThrowsOnNonExistingPrivateKey(): void
     {
         $value = [
@@ -741,6 +809,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
+
 
     public function testGetValidatedSignatureKeyPairArrayThrowsOnInvalidPublicKey(): void
     {
@@ -756,6 +825,7 @@ class ModuleConfigTest extends TestCase
         $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
 
+
     public function testGetValidatedSignatureKeyPairArrayThrowsOnNonExistingPublicKey(): void
     {
         $value = [
@@ -769,6 +839,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
+
 
     public function testGetValidatedSignatureKeyPairArrayThrowsOnEmptyPasswordString(): void
     {
@@ -784,6 +855,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut()->getValidatedSignatureKeyPairArray($value);
     }
+
 
     public function testGetValidatedSignatureKeyPairArrayThrowsOnEmptyKeyIdString(): void
     {
@@ -815,6 +887,7 @@ class ModuleConfigTest extends TestCase
         $this->assertFalse($this->sut()->getVciStatusListEnabled());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -826,6 +899,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     /**
      * SimpleSAMLphp is a development dependency here, so nothing stops this module being installed into
      * a host which lacks the primary read. Deciding whether a credential has been revoked off a lagging
@@ -835,13 +909,14 @@ class ModuleConfigTest extends TestCase
     public function testPrimaryDatabaseReadCapabilityIsDetectedRatherThanAssumed(): void
     {
         $this->assertSame(
-            method_exists(\SimpleSAML\Database::class, ModuleConfig::SSP_PRIMARY_READ_METHOD),
+            method_exists(Database::class, ModuleConfig::SSP_PRIMARY_READ_METHOD),
             ModuleConfig::hasPrimaryDatabaseReadCapability(),
         );
 
         // The installed SimpleSAMLphp must provide it, otherwise the capability could never be enabled.
         $this->assertTrue(ModuleConfig::hasPrimaryDatabaseReadCapability());
     }
+
 
     /**
      * @throws \Exception
@@ -853,6 +928,7 @@ class ModuleConfigTest extends TestCase
             $this->sut()->getVciStatusListKeyProfile(),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -873,6 +949,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -883,6 +960,7 @@ class ModuleConfigTest extends TestCase
         $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x509'])
             ->getVciStatusListKeyProfile();
     }
+
 
     /**
      * A typo here would otherwise be silent: the pool would never be allocated from, and the
@@ -904,6 +982,7 @@ class ModuleConfigTest extends TestCase
         ])->getVciStatusListPoolBag();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -917,6 +996,7 @@ class ModuleConfigTest extends TestCase
         // claim, and so can not be revoked.
         $this->assertNull($sut->getVciStatusListPoolFor('SomethingElse'));
     }
+
 
     /**
      * With the capability off, nothing allocates, so no credential configuration resolves to a pool
@@ -934,6 +1014,7 @@ class ModuleConfigTest extends TestCase
         // even while it is inert.
         $this->assertSame('default', $sut->getVciStatusListPoolBag()->getById('default')?->getId());
     }
+
 
     /**
      * @return array<string,mixed>
@@ -956,6 +1037,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     /**
      * A pool whose credential configurations all lack a lifetime allocates only into the non-expiring
      * lane, so any list it has in the other one is no longer an allocation target and has to be
@@ -976,6 +1058,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -990,6 +1073,7 @@ class ModuleConfigTest extends TestCase
         $this->assertNotNull($pool);
         $this->assertSame([StatusListExpiryLaneEnum::Expiring], $sut->getVciStatusListCurrentLanesFor($pool));
     }
+
 
     /**
      * A mixed pool keeps a list in each lane, and both are current. Reporting only one would have the
@@ -1029,6 +1113,7 @@ class ModuleConfigTest extends TestCase
         $this->assertContains(StatusListExpiryLaneEnum::NonExpiring, $lanes);
     }
 
+
     /**
      * Not expiring is what this module has always done, and an expiry changes what already issued
      * credentials mean, so it stays something an operator asks for.
@@ -1043,6 +1128,7 @@ class ModuleConfigTest extends TestCase
         $this->assertNull($sut->getVciCredentialTtlFor('TestCredential'));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1054,6 +1140,7 @@ class ModuleConfigTest extends TestCase
         // Configurations which are not listed keep issuing credentials which never expire.
         $this->assertNull($sut->getVciCredentialTtlFor('SomethingElse'));
     }
+
 
     /**
      * As with the pools, a typo would otherwise be silent: credentials which were meant to expire
@@ -1075,6 +1162,7 @@ class ModuleConfigTest extends TestCase
         ))->getVciCredentialTtls();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1084,6 +1172,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut(overrides: $this->withCredentialTtl('thirty days'))->getVciCredentialTtls();
     }
+
 
     /**
      * A zero lifetime would issue credentials which have already expired, which is never what was
@@ -1097,6 +1186,7 @@ class ModuleConfigTest extends TestCase
 
         $this->sut(overrides: $this->withCredentialTtl('PT0S'))->getVciCredentialTtls();
     }
+
 
     /**
      * The shape this option has always had, which has to go on working.
@@ -1113,6 +1203,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame([ApiScopesEnum::VciAll], $sut->getApiTokenScopes('a-token'));
         $this->assertNull($sut->getApiTokenName('a-token'));
     }
+
 
     /**
      * A bare list is read by value rather than by key, so one which happens to carry an entry under
@@ -1144,6 +1235,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1164,6 +1256,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame([ApiScopesEnum::VciCredentialStatus], $sut->getApiTokenScopes('a-token'));
         $this->assertSame('HR system', $sut->getApiTokenName('a-token'));
     }
+
 
     /**
      * A token someone had already annotated with a name, listing its scopes positionally, authorized
@@ -1191,6 +1284,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame('legacy label', $sut->getApiTokenName('a-token'));
     }
 
+
     /**
      * A name on its own authorizes nothing. Reading the settings shape as though the whole array were
      * a list of scopes would hand the token a scope named after its own name.
@@ -1211,6 +1305,7 @@ class ModuleConfigTest extends TestCase
         $this->assertNull($sut->getApiTokenScopes('a-token'));
         $this->assertSame('HR system', $sut->getApiTokenName('a-token'));
     }
+
 
     /**
      * The name goes into a fixed width column in the audit trail. Left unchecked, an over-long one
@@ -1241,6 +1336,7 @@ class ModuleConfigTest extends TestCase
         $sut->getApiTokenName('a-token');
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1260,6 +1356,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame($name, $sut->getApiTokenName('a-token'));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1274,6 +1371,7 @@ class ModuleConfigTest extends TestCase
         $this->assertNull($sut->getApiTokenName('some-other-token'));
     }
 
+
     /**
      * Nobody is a resource server until a deployment says so, since being one means being told about
      * other clients' tokens.
@@ -1284,6 +1382,7 @@ class ModuleConfigTest extends TestCase
     {
         $this->assertSame([], $this->sut()->getApiOAuth2TokenIntrospectionResourceServerClientIds());
     }
+
 
     /**
      * @throws \Exception
@@ -1305,6 +1404,7 @@ class ModuleConfigTest extends TestCase
             $sut->getApiOAuth2TokenIntrospectionResourceServerClientIds(),
         );
     }
+
 
     /**
      * An entry which is not a client identifier can not name a client, and an empty one would sit in
@@ -1330,6 +1430,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(['resource-server'], $sut->getApiOAuth2TokenIntrospectionResourceServerClientIds());
     }
 
+
     /**
      * @return array<string,mixed>
      */
@@ -1344,6 +1445,7 @@ class ModuleConfigTest extends TestCase
         );
     }
 
+
     /**
      * @return array<string,mixed>
      */
@@ -1352,6 +1454,7 @@ class ModuleConfigTest extends TestCase
         return array_merge($this->overrides, [$option => $value]);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1359,6 +1462,7 @@ class ModuleConfigTest extends TestCase
     {
         $this->assertSame(30, $this->sut()->getVciStatusListRetirementGrace()->d);
     }
+
 
     /**
      * @throws \Exception
@@ -1372,6 +1476,7 @@ class ModuleConfigTest extends TestCase
 
         $this->assertSame(90, $sut->getVciStatusListRetirementGrace()->d);
     }
+
 
     /**
      * The first of the two waits has to outlast an issuance which was already under way when the list
@@ -1390,6 +1495,7 @@ class ModuleConfigTest extends TestCase
         ))->getVciStatusListRetirementGrace();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1404,6 +1510,7 @@ class ModuleConfigTest extends TestCase
         ))->getVciStatusListRetirementGrace();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1417,6 +1524,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(1, $sut->getVciStatusListRetirementGrace()->h);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1429,6 +1537,7 @@ class ModuleConfigTest extends TestCase
             'thirty days',
         ))->getVciStatusListRetirementGrace();
     }
+
 
     /**
      * The configuration file is PHP, so a duration can arrive as an object rather than a string. That
@@ -1451,6 +1560,7 @@ class ModuleConfigTest extends TestCase
         ))->getVciStatusListRetirementGrace();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1464,6 +1574,7 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(14, $sut->getVciStatusListRetirementGrace()->d);
     }
 
+
     /**
      * How long a record of who revoked what needs keeping follows from the deployment's own
      * obligations, so nothing is discarded unless an operator says how long is long enough.
@@ -1474,6 +1585,7 @@ class ModuleConfigTest extends TestCase
     {
         $this->assertNull($this->sut()->getVciStatusListAuditRetention());
     }
+
 
     /**
      * @throws \Exception
@@ -1487,6 +1599,7 @@ class ModuleConfigTest extends TestCase
 
         $this->assertSame(1, $sut->getVciStatusListAuditRetention()?->y);
     }
+
 
     /**
      * A retention of no time would delete every row the moment it was written, which is a way of asking
@@ -1504,6 +1617,7 @@ class ModuleConfigTest extends TestCase
         ))->getVciStatusListAuditRetention();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -1516,6 +1630,7 @@ class ModuleConfigTest extends TestCase
             365,
         ))->getVciStatusListAuditRetention();
     }
+
 
     /**
      * @throws \Exception

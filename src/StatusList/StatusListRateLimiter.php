@@ -31,6 +31,7 @@ class StatusListRateLimiter
     /** Public so that a caller refusing a request can tell the client when the window turns over. */
     final public const int WINDOW_SECONDS = 60;
 
+
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly ?ProtocolCache $protocolCache,
@@ -38,6 +39,7 @@ class StatusListRateLimiter
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @param ?string $clientIdentifier Whatever the request appears to come from, or null when that

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use Exception;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -20,6 +21,7 @@ class NonceService
         protected readonly Helpers $helpers,
     ) {
     }
+
 
     /**
      * @throws \Exception
@@ -52,6 +54,7 @@ class NonceService
         )->getToken();
     }
 
+
     public function validateNonce(string $nonce): bool
     {
         try {
@@ -78,11 +81,12 @@ class NonceService
 
             $this->loggerService->debug('Nonce validation succeeded.');
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->loggerService->warning('Nonce validation failed: ' . $e->getMessage());
             return false;
         }
     }
+
 
     /**
      * The key a nonce says it was signed with.

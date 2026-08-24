@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -12,11 +13,15 @@ use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
 #[CoversClass(Scope::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ScopeTest extends TestCase
 {
     protected Stub $scopeEntityOpenIdStub;
+
     protected Stub $scopeEntityProfileStub;
+
     protected array $scopeEntitiesArray;
+
 
     /**
      * @throws \Exception
@@ -33,10 +38,12 @@ class ScopeTest extends TestCase
         ];
     }
 
+
     protected function sut(): Scope
     {
         return new Scope();
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -47,6 +54,7 @@ class ScopeTest extends TestCase
         $this->assertTrue($this->sut()->exists($this->scopeEntitiesArray, 'profile'));
         $this->assertFalse($this->sut()->exists($this->scopeEntitiesArray, 'invalid'));
     }
+
 
     public function testThrowsForInvalidScopeEntity(): void
     {

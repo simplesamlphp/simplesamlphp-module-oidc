@@ -18,6 +18,7 @@ class StatusListReconciliationCandidate
 {
     use DatabaseRowValuesTrait;
 
+
     public function __construct(
         protected readonly string $id,
         protected readonly int $bits,
@@ -27,30 +28,36 @@ class StatusListReconciliationCandidate
     ) {
     }
 
+
     public function getId(): string
     {
         return $this->id;
     }
+
 
     public function getBits(): int
     {
         return $this->bits;
     }
 
+
     public function getCapacity(): int
     {
         return $this->capacity;
     }
+
 
     public function getSignedTokenContentHash(): string
     {
         return $this->signedTokenContentHash;
     }
 
+
     public function getInvalidationCounter(): int
     {
         return $this->invalidationCounter;
     }
+
 
     /**
      * @param array<array-key,mixed> $row

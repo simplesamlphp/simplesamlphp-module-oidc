@@ -39,6 +39,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         return GrantTypesEnum::PreAuthorizedCode->value;
     }
 
+
     /**
      * Reimplemented to disable authz requests (code is pre-authorized).
      *
@@ -50,6 +51,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         return false;
     }
 
+
     /**
      * Check if the authorization request is OIDC candidate (can respond with ID token).
      */
@@ -58,6 +60,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
     ): bool {
         return false;
     }
+
 
     /**
      * @inheritDoc
@@ -69,6 +72,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
     ): ResponseTypeInterface {
         throw OidcServerException::serverError('Not implemented');
     }
+
 
     /**
      * This is reimplementation of OAuth2 completeAuthorizationRequest method with addition of nonce handling.
@@ -83,6 +87,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         throw OidcServerException::serverError('Not implemented');
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -96,6 +101,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
     ): AuthCodeEntityInterface {
         throw OidcServerException::serverError('Not implemented');
     }
+
 
     /**
      * Reimplementation for Pre-authorized Code.
@@ -222,6 +228,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         return $responseType;
     }
 
+
     /**
      * Reimplementation because of private parent access
      *
@@ -258,6 +265,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $this->loggerService->debug('PreAuthCodeGrant::validateAuthorizationCode passed.');
     }
 
+
     /**
      * @inheritDoc
      * @throws \Throwable
@@ -268,6 +276,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
     ): OAuth2AuthorizationRequestInterface {
         throw OidcServerException::serverError('Not implemented');
     }
+
 
     /**
      * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken

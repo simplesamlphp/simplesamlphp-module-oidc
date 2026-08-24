@@ -13,6 +13,7 @@ class ConfigurationDiscoveryController
     {
     }
 
+
     public function __invoke(): JsonResponse
     {
         return new JsonResponse(

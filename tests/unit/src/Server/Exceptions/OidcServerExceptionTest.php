@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Exceptions;
 
 use Exception;
 use Nyholm\Psr7\Response;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -26,10 +27,11 @@ use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 #[CoversClass(OidcServerException::class)]
 #[UsesClass(QueryResponseMode::class)]
 #[UsesClass(FragmentResponseMode::class)]
+#[AllowMockObjectsWithoutExpectations]
 class OidcServerExceptionTest extends TestCase
 {
     /**
-     * @param callable():OidcServerException $factory
+     * @param callable():\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException $factory
      */
     #[DataProvider('errorProvider')]
     public function testProducesTheSpecifiedErrorCodeAndStatus(
@@ -45,8 +47,9 @@ class OidcServerExceptionTest extends TestCase
         $this->assertNotSame('', $exception->getPayload()['error_description']);
     }
 
+
     /**
-     * @return array<string,array{0:callable():OidcServerException,1:string,2:int}>
+     * @return array<string,array{0:callable():\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException,1:string,2:int}>
      */
     public static function errorProvider(): array
     {
@@ -116,12 +119,14 @@ class OidcServerExceptionTest extends TestCase
         ];
     }
 
+
     public function testNamesTheOffendingParameterInAnInvalidRequest(): void
     {
         $description = OidcServerException::invalidRequest('redirect_uri')->getPayload()['error_description'];
 
         $this->assertStringContainsString('redirect_uri', $description);
     }
+
 
     public function testHintsDifferentlyDependingOnWhetherAScopeWasNamed(): void
     {
@@ -134,6 +139,7 @@ class OidcServerExceptionTest extends TestCase
         $this->assertStringContainsString('default scope', $missing);
     }
 
+
     public function testAppendsTheHintToTheErrorDescription(): void
     {
         // The hint is what tells an integrator which of several ways the request was wrong.
@@ -145,6 +151,7 @@ class OidcServerExceptionTest extends TestCase
         $this->assertStringContainsString('RFC-7636', $description);
     }
 
+
     public function testCarriesTheStateBackToTheClientWhenOneWasGiven(): void
     {
         // Without the state echoed back, a client cannot match the error to the request it sent.
@@ -153,6 +160,7 @@ class OidcServerExceptionTest extends TestCase
 
         $this->assertArrayNotHasKey('state', OidcServerException::accessDenied()->getPayload());
     }
+
 
     public function testStateCanBeSetAndClearedAfterTheFact(): void
     {
@@ -164,6 +172,7 @@ class OidcServerExceptionTest extends TestCase
         $exception->setState(null);
         $this->assertArrayNotHasKey('state', $exception->getPayload());
     }
+
 
     public function testReportsWhetherItHasARedirectUri(): void
     {
@@ -178,12 +187,14 @@ class OidcServerExceptionTest extends TestCase
         $this->assertFalse($withRedirect->hasRedirect());
     }
 
+
     public function testKeepsTheOriginalExceptionAsThePrevious(): void
     {
         $cause = new Exception('the underlying failure');
 
         $this->assertSame($cause, OidcServerException::forbidden(null, $cause)->getPrevious());
     }
+
 
     public function testRendersAnErrorWithNoRedirectUriAsAJsonBody(): void
     {
@@ -197,6 +208,7 @@ class OidcServerExceptionTest extends TestCase
         $this->assertIsArray($body);
         $this->assertSame('invalid_request', $body['error']);
     }
+
 
     public function testRendersAnErrorWithARedirectUriAsARedirectCarryingTheErrorInTheQuery(): void
     {
@@ -213,6 +225,7 @@ class OidcServerExceptionTest extends TestCase
         $this->assertSame('the-state', $query['state']);
     }
 
+
     public function testPutsTheErrorInTheFragmentWhenTheCallerAsksForIt(): void
     {
         // The implicit and hybrid flows return the response in the fragment, so their errors go there too,
@@ -228,6 +241,7 @@ class OidcServerExceptionTest extends TestCase
 
         $this->assertSame('access_denied', $fragment['error']);
     }
+
 
     public function testAnExplicitResponseModeWinsOverTheFragmentFlag(): void
     {

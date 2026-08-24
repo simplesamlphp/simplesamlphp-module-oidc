@@ -23,6 +23,7 @@ class ScopeRepository implements ScopeRepositoryInterface
     ) {
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \Exception
@@ -51,6 +52,7 @@ class ScopeRepository implements ScopeRepositoryInterface
             $claims,
         );
     }
+
 
     /**
      * {@inheritdoc}

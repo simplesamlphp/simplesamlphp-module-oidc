@@ -34,6 +34,7 @@ class AuthCodeGrantFactory
     ) {
     }
 
+
     /**
      * @throws \Exception
      */

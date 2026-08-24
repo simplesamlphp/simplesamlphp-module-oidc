@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Bridges;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -16,13 +17,19 @@ use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 
 #[CoversClass(PsrHttpBridge::class)]
+#[AllowMockObjectsWithoutExpectations]
 class PsrHttpBridgeTest extends TestCase
 {
     protected MockObject $httpFoundationFactoryMock;
+
     protected MockObject $serverRequestFactoryMock;
+
     protected MockObject $responseFactoryMock;
+
     protected MockObject $streamFactoryMock;
+
     protected MockObject $uploadedFileFactoryMock;
+
 
     protected function setUp(): void
     {
@@ -32,6 +39,7 @@ class PsrHttpBridgeTest extends TestCase
         $this->streamFactoryMock = $this->createMock(StreamFactoryInterface::class);
         $this->uploadedFileFactoryMock = $this->createMock(UploadedFileFactoryInterface::class);
     }
+
 
     protected function sut(
         ?HttpFoundationFactory $httpFoundationFactory = null,
@@ -55,10 +63,12 @@ class PsrHttpBridgeTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(PsrHttpBridge::class, $this->sut());
     }
+
 
     public function testCanGetProperties(): void
     {

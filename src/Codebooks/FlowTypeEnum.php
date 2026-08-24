@@ -14,6 +14,7 @@ enum FlowTypeEnum: string
     case VciAuthorizationCode = 'vci_authorization_code';
     case VciPreAuthorizedCode = 'vci_pre_authorized_code';
 
+
     public function isOidcFlow(): bool
     {
         return match ($this) {
@@ -21,6 +22,7 @@ enum FlowTypeEnum: string
             default => false,
         };
     }
+
 
     public function isVciFlow(): bool
     {

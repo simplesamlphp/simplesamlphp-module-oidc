@@ -66,6 +66,7 @@ class CredentialStatusController
     /** Width of the column an actor reference is stored in. */
     protected const int ACTOR_REF_MAX_LENGTH = 191;
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
@@ -86,6 +87,7 @@ class CredentialStatusController
     ) {
         $this->authorization->requireAdmin(true);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -133,6 +135,7 @@ class CredentialStatusController
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Error\Exception
      */
@@ -174,6 +177,7 @@ class CredentialStatusController
 
         return $this->redirectToListing($request, $this->applyStatus($credentialId, $status));
     }
+
 
     /**
      * @return string What to tell the administrator, which is the only answer this surface gives: the
@@ -229,6 +233,7 @@ class CredentialStatusController
         Translate::noop('The credential already had that status, so nothing was changed.');
     }
 
+
     /**
      * Who to record as having asked for a change.
      *
@@ -264,6 +269,7 @@ class CredentialStatusController
 
         return self::ACTOR_REF_ADMIN;
     }
+
 
     /**
      * Which statuses each listed credential can actually be moved to, keyed by the list it sits in.
@@ -305,6 +311,7 @@ class CredentialStatusController
 
         return $allowed;
     }
+
 
     /**
      * Back to the listing the change was made from, on the page and search it was made from.

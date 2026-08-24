@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -28,18 +30,29 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class ResponseModeRuleTest extends TestCase
 {
     protected Stub $requestStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected ResultBag $resultBag;
+
     protected Stub $loggerServiceStub;
+
     protected Stub $responseModeStub;
+
     protected Stub $clientStub;
+
     protected Stub $queryResponseModeStub;
+
     protected Stub $fragmentResponseModeStub;
+
     protected Stub $formPostResponseModeStub;
+
     protected Stub $moduleConfigStub;
 
     protected array $requestParams = [
@@ -47,6 +60,7 @@ class ResponseModeRuleTest extends TestCase
         'response_type' => 'code',
         'response_mode' => 'query',
     ];
+
 
     protected function setUp(): void
     {
@@ -72,6 +86,7 @@ class ResponseModeRuleTest extends TestCase
         $this->resultBag->add(new Result(StateRule::class, 'state123'));
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -90,6 +105,7 @@ class ResponseModeRuleTest extends TestCase
         );
     }
 
+
     public function testThrowsWhenClientIdMissing(): void
     {
         $params = $this->requestParams;
@@ -106,6 +122,7 @@ class ResponseModeRuleTest extends TestCase
         );
     }
 
+
     public function testReturnsQueryResponseModeWhenExplicitlyRequested(): void
     {
         $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($this->requestParams);
@@ -121,6 +138,7 @@ class ResponseModeRuleTest extends TestCase
         $this->assertNotNull($result);
         $this->assertSame($this->queryResponseModeStub, $result->getValue());
     }
+
 
     public function testReturnsFragmentResponseModeWhenExplicitlyRequested(): void
     {
@@ -140,6 +158,7 @@ class ResponseModeRuleTest extends TestCase
         $this->assertSame($this->fragmentResponseModeStub, $result->getValue());
     }
 
+
     public function testReturnsFormPostResponseModeWhenExplicitlyRequested(): void
     {
         $params = $this->requestParams;
@@ -157,6 +176,7 @@ class ResponseModeRuleTest extends TestCase
         $this->assertNotNull($result);
         $this->assertSame($this->formPostResponseModeStub, $result->getValue());
     }
+
 
     public function testDefaultsToQueryWhenResponseModeNotSetAndResponseTypeIsCode(): void
     {
@@ -177,9 +197,8 @@ class ResponseModeRuleTest extends TestCase
         $this->assertSame($this->queryResponseModeStub, $result->getValue());
     }
 
-    /**
-     * @dataProvider tokenResponseTypeProvider
-     */
+
+    #[DataProvider('tokenResponseTypeProvider')]
     public function testDefaultsToFragmentWhenResponseModeNotSetAndResponseTypeContainsToken(
         string $responseType,
     ): void {
@@ -200,6 +219,7 @@ class ResponseModeRuleTest extends TestCase
         $this->assertSame($this->fragmentResponseModeStub, $result->getValue());
     }
 
+
     public static function tokenResponseTypeProvider(): array
     {
         return [
@@ -209,6 +229,7 @@ class ResponseModeRuleTest extends TestCase
             'code id_token token' => ['code id_token token'],
         ];
     }
+
 
     public function testDefaultsToQueryWhenResponseModeAndResponseTypeNotSet(): void
     {
@@ -227,6 +248,7 @@ class ResponseModeRuleTest extends TestCase
         $this->assertSame($this->queryResponseModeStub, $result->getValue());
     }
 
+
     public function testThrowsOnInvalidResponseMode(): void
     {
         $params = $this->requestParams;
@@ -242,6 +264,7 @@ class ResponseModeRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testThrowsWhenResponseModeNotAllowedByClient(): void
     {
@@ -267,6 +290,7 @@ class ResponseModeRuleTest extends TestCase
         );
     }
 
+
     public function testThrowsWhenClientRuleResultMissing(): void
     {
         $resultBag = new ResultBag();
@@ -283,6 +307,7 @@ class ResponseModeRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testThrowsWhenRedirectUriResultMissing(): void
     {
@@ -302,6 +327,7 @@ class ResponseModeRuleTest extends TestCase
         );
     }
 
+
     public function testThrowsWhenStateResultMissing(): void
     {
         $resultBag = new ResultBag();
@@ -320,6 +346,7 @@ class ResponseModeRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testResultKeyMatchesRuleClass(): void
     {

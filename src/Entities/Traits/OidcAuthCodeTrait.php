@@ -10,10 +10,12 @@ trait OidcAuthCodeTrait
 {
     use AuthCodeTrait;
 
+
     /**
      * @var null|string
      */
     protected ?string $nonce = null;
+
 
     /**
      * @inheritDoc
@@ -22,6 +24,7 @@ trait OidcAuthCodeTrait
     {
         return $this->nonce;
     }
+
 
     public function setNonce(string $nonce): void
     {

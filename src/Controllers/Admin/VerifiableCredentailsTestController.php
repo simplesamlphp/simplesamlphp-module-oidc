@@ -37,6 +37,7 @@ class VerifiableCredentailsTestController
         $this->authorization->requireAdmin(true);
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException

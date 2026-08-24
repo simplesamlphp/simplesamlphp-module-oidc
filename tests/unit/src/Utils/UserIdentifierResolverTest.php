@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Utils\UserIdentifierResolver
  */
+#[AllowMockObjectsWithoutExpectations]
 class UserIdentifierResolverTest extends TestCase
 {
     protected function sut(): UserIdentifierResolver
     {
         return new UserIdentifierResolver();
     }
+
 
     public function testResolvesSingleCandidate(): void
     {
@@ -24,6 +27,7 @@ class UserIdentifierResolverTest extends TestCase
             $this->sut()->resolve(['uid'], ['uid' => ['user-1']]),
         );
     }
+
 
     public function testRespectsCandidatePriority(): void
     {
@@ -38,6 +42,7 @@ class UserIdentifierResolverTest extends TestCase
         );
     }
 
+
     public function testFallsBackToLaterCandidateWhenEarlierMissing(): void
     {
         $this->assertSame(
@@ -45,6 +50,7 @@ class UserIdentifierResolverTest extends TestCase
             $this->sut()->resolve(['eduPersonPrincipalName', 'uid'], ['uid' => ['fallback']]),
         );
     }
+
 
     public function testSkipsCandidatesWithEmptyValue(): void
     {
@@ -59,6 +65,7 @@ class UserIdentifierResolverTest extends TestCase
         );
     }
 
+
     public function testReturnsNullWhenNoCandidateMatches(): void
     {
         $this->assertNull(
@@ -66,12 +73,14 @@ class UserIdentifierResolverTest extends TestCase
         );
     }
 
+
     public function testReturnsNullForNonArrayOrEmptyAttributeValues(): void
     {
         $this->assertNull(
             $this->sut()->resolve(['uid'], ['uid' => []]),
         );
     }
+
 
     public function testUsesFirstValueOfMultiValuedAttribute(): void
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
+use DateTimeImmutable;
 use Exception;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
@@ -32,6 +33,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 {
     use IssueAccessTokenTrait;
 
+
     public function __construct(
         RefreshTokenRepositoryInterface $refreshTokenRepository,
         AccessTokenEntityFactory $accessTokenEntityFactory,
@@ -42,6 +44,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         parent::__construct($refreshTokenRepository);
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
     }
+
 
     /**
      * Authenticate the client at the refresh token endpoint without requiring a `client_id` request
@@ -72,6 +75,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
         return $resolvedClientAuthenticationMethod->getClient();
     }
+
 
     /**
      * @throws \JsonException
@@ -157,7 +161,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         // If the current time is still the same second as the original issuance, we sleep
         // for 1 second to guarantee the new ID Token gets a different, updated `iat`.
         if (isset($refreshTokenData['expire_time'])) {
-            $reference = new \DateTimeImmutable();
+            $reference = new DateTimeImmutable();
             $endTime = $reference->add($this->refreshTokenTTL);
             $ttlSeconds = $endTime->getTimestamp() - $reference->getTimestamp();
             $oldIssueTime = ((int)$refreshTokenData['expire_time']) - $ttlSeconds;
@@ -169,6 +173,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
         return $refreshTokenData;
     }
+
 
     protected function issueRefreshToken(
         OAuth2AccessTokenEntityInterface $accessToken,

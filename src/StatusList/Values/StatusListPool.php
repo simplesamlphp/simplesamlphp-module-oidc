@@ -82,6 +82,7 @@ class StatusListPool
      */
     protected const int CAPACITY_MULTIPLE = 8;
 
+
     /**
      * @param string $id Pool identifier, being the key it is configured under.
      * @param string[] $credentialConfigurationIds Credential configurations which allocate from this pool.
@@ -102,6 +103,7 @@ class StatusListPool
     ) {
         $this->validate();
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -215,6 +217,7 @@ class StatusListPool
         }
     }
 
+
     /**
      * How many seconds a duration is worth, measured from a fixed point rather than from now.
      *
@@ -231,10 +234,12 @@ class StatusListPool
         return (new DateTimeImmutable('@0'))->add($interval)->getTimestamp();
     }
 
+
     public function getId(): string
     {
         return $this->id;
     }
+
 
     /**
      * @return string[]
@@ -244,20 +249,24 @@ class StatusListPool
         return $this->credentialConfigurationIds;
     }
 
+
     public function hasCredentialConfigurationId(string $credentialConfigurationId): bool
     {
         return in_array($credentialConfigurationId, $this->credentialConfigurationIds, true);
     }
+
 
     public function getBits(): int
     {
         return $this->bits;
     }
 
+
     public function getCapacity(): int
     {
         return $this->capacity;
     }
+
 
     /**
      * @return \SimpleSAML\OpenID\Codebooks\StatusTypeEnum[]
@@ -267,10 +276,12 @@ class StatusListPool
         return $this->allowedStatuses;
     }
 
+
     public function isStatusAllowed(StatusTypeEnum $status): bool
     {
         return in_array($status, $this->allowedStatuses, true);
     }
+
 
     /**
      * The allowed statuses in the form persisted on the Status List row, being their values in
@@ -288,40 +299,48 @@ class StatusListPool
         return implode(',', $values);
     }
 
+
     public function getTtl(): DateInterval
     {
         return $this->ttl;
     }
+
 
     public function getTtlInSeconds(): int
     {
         return self::toSeconds($this->ttl);
     }
 
+
     public function getTokenValidity(): DateInterval
     {
         return $this->tokenValidity;
     }
+
 
     public function getTokenValidityInSeconds(): int
     {
         return self::toSeconds($this->tokenValidity);
     }
 
+
     public function getRefreshInterval(): DateInterval
     {
         return $this->refreshInterval;
     }
+
 
     public function getRefreshIntervalInSeconds(): int
     {
         return self::toSeconds($this->refreshInterval);
     }
 
+
     public function getKeyProfile(): StatusListKeyProfileEnum
     {
         return $this->keyProfile;
     }
+
 
     /**
      * Hash of the immutable part of this pool's policy, which allocation filters candidate lists on.
@@ -357,6 +376,7 @@ class StatusListPool
         );
     }
 
+
     /**
      * Builds a pool from its configured settings, applying the defaults for everything left out.
      *
@@ -380,6 +400,7 @@ class StatusListPool
             self::resolveKeyProfile($id, $config, $defaultKeyProfile),
         );
     }
+
 
     /**
      * @param array<array-key,mixed> $config
@@ -418,6 +439,7 @@ class StatusListPool
         return array_values(array_unique($ids));
     }
 
+
     /**
      * @param array<array-key,mixed> $config
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -444,6 +466,7 @@ class StatusListPool
 
         return $value;
     }
+
 
     /**
      * @param array<array-key,mixed> $config
@@ -482,6 +505,7 @@ class StatusListPool
             );
         }
     }
+
 
     /**
      * @param array<array-key,mixed> $config
@@ -534,6 +558,7 @@ class StatusListPool
 
         return $statuses;
     }
+
 
     /**
      * @param array<array-key,mixed> $config

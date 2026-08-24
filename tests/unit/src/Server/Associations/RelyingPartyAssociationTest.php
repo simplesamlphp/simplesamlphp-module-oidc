@@ -4,18 +4,24 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Associations;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation
  */
+#[AllowMockObjectsWithoutExpectations]
 class RelyingPartyAssociationTest extends TestCase
 {
     protected string $clientId = 'client123';
+
     protected string $userId = 'user123';
+
     protected string $sessionId = 'session123';
+
     protected string $backChannelLogoutUri = 'https//example.org/logout';
+
 
     public function testConstruct(): void
     {

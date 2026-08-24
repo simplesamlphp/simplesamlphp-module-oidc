@@ -15,17 +15,25 @@ use SimpleSAML\Module\oidc\Helpers\Str;
 class Helpers
 {
     protected static ?Http $http = null;
+
     protected static ?Client $client = null;
+
     protected static ?DateTime $dateTIme = null;
+
     protected static ?Str $str = null;
+
     protected static ?Arr $arr = null;
+
     protected static ?Random $random = null;
+
     protected static ?Scope $scope = null;
+
 
     public function http(): Http
     {
         return static::$http ??= new Http();
     }
+
 
     public function client(): Client
     {
@@ -34,25 +42,30 @@ class Helpers
         );
     }
 
+
     public function dateTime(): DateTime
     {
         return static::$dateTIme ??= new DateTime();
     }
+
 
     public function str(): Str
     {
         return static::$str ??= new Str();
     }
 
+
     public function arr(): Arr
     {
         return static::$arr ??= new Arr();
     }
 
+
     public function random(): Random
     {
         return static::$random ??= new Random();
     }
+
 
     public function scope(): Scope
     {

@@ -11,6 +11,7 @@ interface AuthTimeResponseTypeInterface
      */
     public function setAuthTime(?int $authTime): void;
 
+
     /**
      * @return int|null
      */

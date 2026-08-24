@@ -21,6 +21,7 @@ class OAuth2ServerConfigurationController
     ) {
     }
 
+
     public function __invoke(): JsonResponse
     {
         // We'll reuse OIDC configuration.

@@ -25,6 +25,7 @@ abstract class AbstractDatabaseRepository
      */
     protected const int MAX_BOUND_VARIABLES = 999;
 
+
     /**
      * ClientRepository constructor.
      * @throws \Exception
@@ -36,12 +37,14 @@ abstract class AbstractDatabaseRepository
     ) {
     }
 
+
     public function getCacheKey(string $identifier): string
     {
         return is_string($tableName = $this->getTableName()) ?
         $tableName . '_' . $identifier :
         $identifier;
     }
+
 
     /**
      * How many rows a batched statement can name before it has to be split.
@@ -60,6 +63,7 @@ abstract class AbstractDatabaseRepository
     {
         return max(1, intdiv(self::MAX_BOUND_VARIABLES - $fixed, $perRow));
     }
+
 
     abstract public function getTableName(): ?string;
 }

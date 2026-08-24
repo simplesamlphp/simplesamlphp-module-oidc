@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Traits;
 use Exception;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -19,14 +20,21 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait
  */
+#[AllowMockObjectsWithoutExpectations]
 class RequestTraitTest extends TestCase
 {
     protected $mock;
+
     protected MockObject $serverRequestMock;
+
     protected MockObject $allowedOriginRepositoryMock;
+
     protected ReflectionMethod $handleCors;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $responseMock;
+
     protected MockObject $responseFactoryMock;
 
 
@@ -46,11 +54,13 @@ class RequestTraitTest extends TestCase
         ) {
             use RequestTrait;
 
+
             public function __construct(
                 public AllowedOriginRepository $allowedOriginRepository,
                 public PsrHttpBridge $psrHttpBridge,
             ) {
             }
+
 
             public function handleCorsWrapper(ServerRequest $request): Response
             {
@@ -60,6 +70,7 @@ class RequestTraitTest extends TestCase
 
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -71,6 +82,7 @@ class RequestTraitTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->mock->handleCorsWrapper($this->serverRequestMock);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -85,6 +97,7 @@ class RequestTraitTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->mock->handleCorsWrapper($this->serverRequestMock);
     }
+
 
     public function testItHandlesCorsRequest(): void
     {

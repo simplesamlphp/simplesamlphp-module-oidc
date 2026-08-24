@@ -20,6 +20,7 @@ class UiLocalesResolver
     ) {
     }
 
+
     /**
      * Get the most preferred requested language which is available in
      * SimpleSAMLphp (per the language.available config option), or null if
@@ -56,6 +57,7 @@ class UiLocalesResolver
         return null;
     }
 
+
     /**
      * Get languages available in SimpleSAMLphp, represented as BCP47 language tags (SSP uses underscore as
      * region separator in some codes, like pt_BR, while BCP47 uses hyphen). Can be used to advertise
@@ -71,6 +73,7 @@ class UiLocalesResolver
         );
     }
 
+
     /**
      * Get languages available in SimpleSAMLphp (configured in language.available and usable for UI
      * rendering), as computed by SimpleSAMLphp itself
@@ -84,6 +87,7 @@ class UiLocalesResolver
     {
         return $this->sspBridge->locale()->language()->getAvailableLanguages($this->sspConfiguration);
     }
+
 
     protected function normalize(string $languageTag): string
     {

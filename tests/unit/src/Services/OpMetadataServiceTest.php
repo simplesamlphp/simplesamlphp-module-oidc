@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -22,16 +23,25 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 /**
  * @covers \SimpleSAML\Module\oidc\Services\OpMetadataService
  */
+#[AllowMockObjectsWithoutExpectations]
 class OpMetadataServiceTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $claimTranslatorExtractorMock;
+
     protected MockObject $signatureAlgorithmBag;
+
     protected MockObject $supportedAlgorithmsMock;
+
     protected MockObject $signatureKeyPairBagMock;
+
     protected MockObject $signatureKeyPairMock;
+
     protected MockObject $uiLocalesResolverMock;
+
 
     /**
      * @throws \Exception
@@ -100,6 +110,7 @@ class OpMetadataServiceTest extends TestCase
         $this->uiLocalesResolverMock->method('getSupportedUiLocales')->willReturn(['en', 'pt-BR']);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -109,10 +120,10 @@ class OpMetadataServiceTest extends TestCase
         ?Routes $routes = null,
         ?UiLocalesResolver $uiLocalesResolver = null,
     ): OpMetadataService {
-        $moduleConfig = $moduleConfig ?? $this->moduleConfigMock;
-        $claimTranslatorExtractor = $claimTranslatorExtractor ?? $this->claimTranslatorExtractorMock;
-        $routes = $routes ?? $this->routesMock;
-        $uiLocalesResolver = $uiLocalesResolver ?? $this->uiLocalesResolverMock;
+        $moduleConfig ??= $this->moduleConfigMock;
+        $claimTranslatorExtractor ??= $this->claimTranslatorExtractorMock;
+        $routes ??= $this->routesMock;
+        $uiLocalesResolver ??= $this->uiLocalesResolverMock;
 
         return new OpMetadataService(
             $moduleConfig,
@@ -121,6 +132,7 @@ class OpMetadataServiceTest extends TestCase
             $uiLocalesResolver,
         );
     }
+
 
     /**
      * @throws \Exception
@@ -132,6 +144,7 @@ class OpMetadataServiceTest extends TestCase
             $this->sut(),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -178,6 +191,7 @@ class OpMetadataServiceTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -192,6 +206,7 @@ class OpMetadataServiceTest extends TestCase
         );
     }
 
+
     public function testAdvertisesRegistrationEndpointWhenDcrEnabled(): void
     {
         $this->moduleConfigMock->method('getDcrEnabled')->willReturn(true);
@@ -204,6 +219,7 @@ class OpMetadataServiceTest extends TestCase
         );
     }
 
+
     public function testDoesNotAdvertiseRegistrationEndpointWhenDcrDisabled(): void
     {
         $this->moduleConfigMock->method('getDcrEnabled')->willReturn(false);
@@ -213,6 +229,7 @@ class OpMetadataServiceTest extends TestCase
             $this->sut()->getMetadata(),
         );
     }
+
 
     public function testCanShowClaimsSupportedClaim(): void
     {

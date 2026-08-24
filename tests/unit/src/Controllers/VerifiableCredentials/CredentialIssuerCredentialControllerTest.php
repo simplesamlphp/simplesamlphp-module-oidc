@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -54,6 +55,7 @@ use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
+#[AllowMockObjectsWithoutExpectations]
 class CredentialIssuerCredentialControllerTest extends TestCase
 {
     protected const string CONFIGURATION_ID = 'test_id';
@@ -62,20 +64,35 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected const string STATUS_LIST_URI = 'https://issuer.com/module.php/oidc/statuslist/list-1';
 
+
     protected MockObject $resourceServerMock;
+
     protected MockObject $accessTokenRepositoryMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $verifiableCredentialsMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $userRepositoryMock;
+
     protected MockObject $didMock;
+
     protected MockObject $issuerStateRepositoryMock;
+
     protected MockObject $nonceServiceMock;
+
     protected MockObject $vciContextResolverMock;
+
     protected MockObject $credentialStatusIssuerMock;
+
     protected Helpers $helpers;
 
     /** @var array<array<string,mixed>> Payloads handed to whichever credential factory was used. */
@@ -85,7 +102,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected array $signedWith = [];
 
     protected MockObject $vciSignatureKeyPairMock;
+
     protected MockObject $vciPrivateKeyMock;
+
 
     public function setUp(): void
     {
@@ -119,6 +138,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->prepareCredentialFactories();
     }
 
+
     protected function prepareRequestPipeline(): void
     {
         $psrRequestMock = $this->createMock(ServerRequestInterface::class);
@@ -139,12 +159,14 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->accessTokenRepositoryMock->method('findById')->with('token_id')->willReturn($accessToken);
     }
 
+
     protected function prepareUser(): void
     {
         $userEntity = $this->createMock(UserEntity::class);
         $userEntity->method('getClaims')->willReturn([]);
         $this->userRepositoryMock->method('getUserEntityByIdentifier')->willReturn($userEntity);
     }
+
 
     protected function prepareSigningKey(): void
     {
@@ -171,6 +193,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->verifiableCredentialsMock->method('helpers')->willReturn($vcHelpersMock);
         $vcHelpersMock->method('arr')->willReturn($this->createMock(VcArr::class));
     }
+
 
     /**
      * Every credential factory records the payload it was asked to sign, which is where the claims
@@ -218,6 +241,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->verifiableCredentialsMock->method('vcSdJwtFactory')->willReturn($vcSdJwtFactoryMock);
     }
 
+
     /**
      * @param string[] $proofJwts
      */
@@ -254,6 +278,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->sut()->credential($request);
     }
 
+
     protected function sut(): CredentialIssuerCredentialController
     {
         return new CredentialIssuerCredentialController(
@@ -275,6 +300,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         );
     }
 
+
     /**
      * @throws \SimpleSAML\OpenID\Exceptions\StatusListException
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
@@ -283,6 +309,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         return new StatusClaim(new StatusReference(self::STATUS_LIST_URI, $idx));
     }
+
 
     /**
      * The other half of what issuer metadata promises. The credential configuration advertises the
@@ -303,6 +330,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         }
     }
 
+
     public function testCredentialWithMultipleProofs(): void
     {
         $this->routesMock->expects($this->once())
@@ -314,6 +342,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->issue(proofJwts: ['jwt1', 'jwt2']);
     }
+
 
     /**
      * The identifier is the key revocation is later requested by, so anyone able to guess one could ask
@@ -336,6 +365,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             );
         }
     }
+
 
     /**
      * A request carrying several proofs is issued several credentials, and each one has to be
@@ -370,6 +400,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         );
     }
 
+
     public function testMergesTheStatusClaimIntoTheCredential(): void
     {
         $this->credentialStatusIssuerMock->method('issueFor')->willReturn($this->statusClaim(7));
@@ -387,6 +418,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         );
     }
 
+
     /**
      * The Status List specification places the claim at the top level of a JOSE Referenced Token, not
      * inside the credential body of the W3C formats.
@@ -403,6 +435,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             (array)($this->signedPayloads[0][ClaimsEnum::Vc->value] ?? []),
         );
     }
+
 
     public function testCarriesTheStatusClaimInEverySupportedFormat(): void
     {
@@ -426,6 +459,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         }
     }
 
+
     /**
      * A configuration which belongs to no pool was never meant to be revocable, and its credentials are
      * issued exactly as before.
@@ -441,6 +475,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->assertArrayNotHasKey(ClaimsEnum::Status->value, $this->signedPayloads[0]);
     }
+
 
     /**
      * Issuing anyway would hand out a credential which can never be withdrawn, with nothing on it to
@@ -462,6 +497,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->assertSame([], $this->signedPayloads);
     }
 
+
     /**
      * No lifetime is configured by default, and adding one changes what already issued credentials
      * mean, so nothing expires unless an operator asks for it.
@@ -478,6 +514,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             (array)($this->signedPayloads[0][ClaimsEnum::Vc->value] ?? []),
         );
     }
+
 
     public function testAppliesTheConfiguredCredentialLifetime(): void
     {
@@ -508,6 +545,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         );
     }
 
+
     /**
      * The Verifiable Credentials Data Model 2.0 names the end of validity `validUntil`, alongside the
      * `validFrom` this format already emits.
@@ -523,6 +561,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->assertArrayHasKey(ClaimsEnum::ValidUntil->value, $payload);
         $this->assertArrayHasKey(ClaimsEnum::Exp->value, $payload);
     }
+
 
     public function testTheStatusListEntryIsAllocatedWithTheCredentialLifetime(): void
     {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -27,20 +28,33 @@ use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 
 #[CoversClass(RequestObjectRule::class)]
+#[AllowMockObjectsWithoutExpectations]
 class RequestObjectRuleTest extends TestCase
 {
     protected MockObject $clientStub;
+
     protected Stub $resultBagStub;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $requestObjectMock;
+
     protected MockObject $jarRequestObjectMock;
+
     protected MockObject $requestObjectBagMock;
+
     protected Stub $requestStub;
+
     protected Stub $loggerServiceStub;
+
     protected MockObject $jwksResolverMock;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
     protected Stub $moduleConfigStub;
+
 
     protected function setUp(): void
     {
@@ -65,6 +79,7 @@ class RequestObjectRuleTest extends TestCase
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -84,6 +99,7 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+
     protected function prepareOidcRequest(): void
     {
         // A `request` param signals a Request Object is present (by value).
@@ -97,6 +113,7 @@ class RequestObjectRuleTest extends TestCase
         $this->requestParamsResolverMock->method('getRequestObjectBag')
             ->willReturn($this->requestObjectBagMock);
     }
+
 
     protected function prepareOAuth2Request(?JarRequestObject $jarRequestObject = null): void
     {
@@ -112,10 +129,12 @@ class RequestObjectRuleTest extends TestCase
             ->willReturn($this->requestObjectBagMock);
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(RequestObjectRule::class, $this->sut());
     }
+
 
     public function testRequestParamCanBeAbsent(): void
     {
@@ -128,6 +147,7 @@ class RequestObjectRuleTest extends TestCase
         );
         $this->assertNull($result);
     }
+
 
     public function testThrowsWhenRequestObjectSourceIsPresentButBagCannotBeResolved(): void
     {
@@ -144,6 +164,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testUnprotectedRequestParamCanBeUsedForOidcRequest(): void
     {
@@ -162,6 +183,7 @@ class RequestObjectRuleTest extends TestCase
         $this->assertNotEmpty($result->getValue());
     }
 
+
     public function testMissingClientJwksThrows(): void
     {
         $this->prepareOidcRequest();
@@ -178,6 +200,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testThrowsForInvalidRequestObject(): void
     {
@@ -198,6 +221,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testReturnsValidRequestObject(): void
     {
@@ -223,6 +247,7 @@ class RequestObjectRuleTest extends TestCase
         $this->assertNotEmpty($result->getValue());
     }
 
+
     public function testThrowsWhenGlobalRequireSignedRequestObjectIsEnabled(): void
     {
         $this->prepareOidcRequest();
@@ -240,6 +265,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testThrowsWhenClientRequireSignedRequestObjectIsEnabled(): void
     {
@@ -260,6 +286,7 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+
     public function testAcceptsOidcRequestWhenAudienceIncludesIssuer(): void
     {
         $this->prepareOidcRequest();
@@ -278,6 +305,7 @@ class RequestObjectRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
     }
 
+
     public function testThrowsForOidcRequestWhenAudienceDoesNotIncludeIssuer(): void
     {
         $this->prepareOidcRequest();
@@ -295,6 +323,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testThrowsForOAuth2RequestWhenAudienceDoesNotIncludeIssuer(): void
     {
@@ -317,6 +346,7 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+
     public function testAcceptsOidcRequestWhenIssuerMatchesClient(): void
     {
         $this->prepareOidcRequest();
@@ -334,6 +364,7 @@ class RequestObjectRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
     }
 
+
     public function testThrowsForOidcRequestWhenIssuerDoesNotMatchClient(): void
     {
         $this->prepareOidcRequest();
@@ -350,6 +381,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testThrowsForOAuth2RequestWhenIssuerDoesNotMatchClient(): void
     {
@@ -371,6 +403,7 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+
     public function testThrowsForOAuth2RequestWithNonJarRequestObject(): void
     {
         // For example, an unsigned Request Object is not a valid JAR Request Object.
@@ -387,6 +420,7 @@ class RequestObjectRuleTest extends TestCase
         );
     }
 
+
     public function testThrowsForOAuth2RequestWithMismatchedClientIdClaim(): void
     {
         $this->jarRequestObjectMock->method('getClientId')->willReturn('otherClient');
@@ -402,6 +436,7 @@ class RequestObjectRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     public function testReturnsValidJarRequestObjectForOAuth2Request(): void
     {

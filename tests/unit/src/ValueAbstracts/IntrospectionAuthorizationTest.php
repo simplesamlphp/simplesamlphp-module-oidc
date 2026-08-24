@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\ValueAbstracts;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
 
 #[CoversClass(IntrospectionAuthorization::class)]
+#[AllowMockObjectsWithoutExpectations]
 class IntrospectionAuthorizationTest extends TestCase
 {
     public function testCanCreateInstance(): void
@@ -20,6 +22,7 @@ class IntrospectionAuthorizationTest extends TestCase
         );
     }
 
+
     public function testCallerTrustedWithAnyTokenIsNotLimitedToAClient(): void
     {
         $sut = IntrospectionAuthorization::forAnyToken();
@@ -30,6 +33,7 @@ class IntrospectionAuthorizationTest extends TestCase
         $this->assertTrue($sut->mayIntrospectTokenOf(null));
     }
 
+
     public function testClientMayOnlyIntrospectItsOwnTokens(): void
     {
         $sut = IntrospectionAuthorization::forTokensOfClient('client-id');
@@ -39,10 +43,12 @@ class IntrospectionAuthorizationTest extends TestCase
         $this->assertFalse($sut->mayIntrospectTokenOf('some-other-client-id'));
     }
 
+
     public function testClientMayNotIntrospectTokenWithoutEstablishedOwner(): void
     {
         $this->assertFalse(IntrospectionAuthorization::forTokensOfClient('client-id')->mayIntrospectTokenOf(null));
     }
+
 
     /**
      * Identifiers are compared as they are: a client which registered under a differently cased identifier

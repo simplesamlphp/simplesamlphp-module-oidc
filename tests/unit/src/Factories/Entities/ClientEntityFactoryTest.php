@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories\Entities;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -23,14 +24,18 @@ use SimpleSAML\Utils\Random;
 
 #[CoversClass(ClientEntityFactory::class)]
 #[UsesClass(ClientEntity::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientEntityFactoryTest extends TestCase
 {
     protected MockObject $sspBridgeMock;
+
     protected MockObject $moduleConfigMock;
 
     /** Backing value for ModuleConfig::getDcrRegisteredClientsEnabled() in tests (real default is true). */
     protected bool $dcrRegisteredClientsEnabled = true;
+
     protected Helpers $helpers;
+
 
     /**
      * @throws \Exception
@@ -62,6 +67,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')->willReturn($signatureKeyPairBagMock);
     }
 
+
     protected function sut(): ClientEntityFactory
     {
         return new ClientEntityFactory(
@@ -71,10 +77,12 @@ class ClientEntityFactoryTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(ClientEntityFactory::class, $this->sut());
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -92,6 +100,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertSame('ES256', $client->getIdTokenSignedResponseAlg());
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -115,6 +124,7 @@ class ClientEntityFactoryTest extends TestCase
         }
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -129,6 +139,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertNull($client->getIdTokenSignedResponseAlg());
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -139,6 +150,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->sut()->fromRegistrationData([], RegistrationTypeEnum::FederatedAutomatic);
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -155,6 +167,7 @@ class ClientEntityFactoryTest extends TestCase
         // Newly registered clients carry no Registration Access Token hash until the controller assigns one.
         $this->assertNull($client->getRegistrationAccessTokenHash());
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -177,6 +190,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame(['admin@example.org'], $extraMetadata[ClaimsEnum::Contacts->value]);
         $this->assertSame('web', $extraMetadata[ClaimsEnum::ApplicationType->value]);
     }
+
 
     /**
      * Admin-only client properties (e.g. authproc filters) must NEVER be honored
@@ -202,6 +216,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertSame([], $client->getAuthProcFilters());
     }
+
 
     /**
      * An administrator-set authproc filter on an existing client must be
@@ -237,6 +252,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame($adminSetFilters, $client->getAuthProcFilters());
     }
 
+
     /**
      * The administrator-only "release user claims in ID Token" property must NEVER be honored when supplied
      * through client registration metadata; an untrusted client must not be able to force its own claims into
@@ -258,6 +274,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertFalse($client->getAddClaimsToIdToken());
     }
+
 
     /**
      * An administrator-set "release user claims in ID Token" value on an existing client must be preserved
@@ -285,6 +302,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertTrue($client->getAddClaimsToIdToken());
     }
+
 
     /**
      * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values) and informational
@@ -316,6 +334,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame('2.0', $client->getSoftwareVersion());
     }
 
+
     /**
      * request_uris from a registration request are persisted (into extra metadata) so they can be
      * exact-matched when a Request Object is later passed by reference (request_uri). The fragment, which OIDC
@@ -337,6 +356,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame(['https://example.org/request-object#aHash'], $client->getRequestUris());
     }
 
+
     /**
      * A Dynamic registration that omits grant_types / response_types / token_endpoint_auth_method gets the
      * OIDC DCR 1.0 defaults persisted, so they can be returned in the registration response and enforced.
@@ -355,6 +375,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame(['code'], $client->getResponseTypes());
         $this->assertSame('client_secret_basic', $client->getTokenEndpointAuthMethod());
     }
+
 
     /**
      * Explicit grant_types / response_types / token_endpoint_auth_method on a Dynamic registration are persisted
@@ -380,6 +401,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame('private_key_jwt', $client->getTokenEndpointAuthMethod());
     }
 
+
     /**
      * The OIDC DCR response_type <-> grant_type correspondence is normalized: grant types required by the
      * registered response_types are added to grant_types, even when the client omitted grant_types (so it falls
@@ -404,6 +426,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame(['code', 'id_token'], $client->getResponseTypes());
     }
 
+
     /**
      * The client type (confidential/public) follows token_endpoint_auth_method: `none` yields a public client.
      *
@@ -424,6 +447,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame('none', $client->getTokenEndpointAuthMethod());
     }
 
+
     /**
      * application_type `native` (with no auth method provided) yields a public client.
      *
@@ -443,6 +467,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertFalse($client->isConfidential());
         $this->assertSame('none', $client->getTokenEndpointAuthMethod());
     }
+
 
     /**
      * The client type is re-derived on an RFC 7592 update too: changing token_endpoint_auth_method from `none` to a
@@ -476,6 +501,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame('client_secret_basic', $updatedClient->getTokenEndpointAuthMethod());
     }
 
+
     /**
      * A new Dynamic client is created enabled by default (auto-enable).
      *
@@ -493,6 +519,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertTrue($client->isEnabled());
     }
+
 
     /**
      * When configured for review, a new Dynamic client is created disabled.
@@ -512,6 +539,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertFalse($client->isEnabled());
     }
 
+
     /**
      * The review setting applies to Dynamic registrations only: OpenID Federation automatic registrations are
      * always created enabled (they are vouched for by their trust chain).
@@ -530,6 +558,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertTrue($client->isEnabled());
     }
+
 
     /**
      * The review gate only applies to the initial registration: an update preserves the existing enabled state
@@ -557,6 +586,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertTrue($updatedClient->isEnabled());
     }
+
 
     /**
      * RFC 7592 update is a full replace: client-settable metadata omitted from the update request is reset to its
@@ -603,6 +633,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame($original->getSecret(), $updated->getSecret());
     }
 
+
     /**
      * Admin-only metadata (e.g. authproc, which a registering client can never set) survives an RFC 7592 update,
      * even though the update otherwise replaces client-settable metadata.
@@ -636,6 +667,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertSame($authProcFilters, $updated->getAuthProcFilters());
     }
 
+
     /**
      * Federation automatic registrations are not forced to the Dynamic defaults: nothing is persisted for these
      * three fields unless the federation metadata provides them.
@@ -655,6 +687,7 @@ class ClientEntityFactoryTest extends TestCase
         $this->assertArrayNotHasKey(ClaimsEnum::ResponseTypes->value, $extraMetadata);
         $this->assertArrayNotHasKey(ClaimsEnum::TokenEndpointAuthMethod->value, $extraMetadata);
     }
+
 
     /**
      * A Dynamic registration that omits `scope` is assigned the configured DCR default scope set.
@@ -678,6 +711,7 @@ class ClientEntityFactoryTest extends TestCase
         );
     }
 
+
     /**
      * The DCR default scope set must NOT be applied to OpenID Federation automatic registrations; a federated
      * client that omits `scope` keeps the conservative `openid`-only default.
@@ -696,6 +730,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertSame(['openid'], array_values($client->getScopes()));
     }
+
 
     /**
      * An explicit but unsupported `scope` is NOT treated as "not specified": the unsupported values are dropped and
@@ -718,6 +753,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertSame(['openid'], array_values($client->getScopes()));
     }
+
 
     /**
      * An explicit, supported `scope` on a Dynamic registration is honored as-is and is not overridden by the DCR

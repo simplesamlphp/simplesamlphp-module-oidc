@@ -19,7 +19,8 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult;
 interface StatusListTokenProviderInterface
 {
     /**
-     * @return ?StatusListTokenResult Null when there is no such list, or it has been retired.
+     * @return ?\SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult Null when there is no such list, or
+     *   it has been retired.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException When a token is needed but can not
      * be produced -- the signing key is gone, signing failed, or concurrent changes kept superseding it.
      */

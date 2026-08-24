@@ -4,7 +4,7 @@
  * This file contains modified code from the 'steverhoades/oauth2-openid-connect-server' library
  * (https://github.com/steverhoades/oauth2-openid-connect-server), with original author, copyright notice and licence:
  * @author Steve Rhoades <sedonami@gmail.com>
- * @copyright (c) 2018 Steve Rhoades <sedonami@gmail.com>
+ * @copyright (\c) 2018 Steve Rhoades <sedonami@gmail.com>
  * @license http://opensource.org/licenses/MIT MIT
  */
 
@@ -69,7 +69,7 @@ class ClaimTranslatorExtractor
     ];
 
 
-    /** @var array<string, ClaimSetEntityInterface> */
+    /** @var array<string, \SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface> */
     protected array $claimSets = [];
 
     /** @var string[] */
@@ -221,6 +221,7 @@ class ClaimTranslatorExtractor
         }
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -239,6 +240,7 @@ class ClaimTranslatorExtractor
         return $this;
     }
 
+
     public function getClaimSet(string $scope): ?ClaimSetEntityInterface
     {
         if (!$this->hasClaimSet($scope)) {
@@ -248,10 +250,12 @@ class ClaimTranslatorExtractor
         return $this->claimSets[$scope];
     }
 
+
     public function hasClaimSet(string $scope): bool
     {
         return array_key_exists($scope, $this->claimSets);
     }
+
 
     /**
      * Get the effective SAML attribute to OIDC claim translation table, that is, the default table
@@ -265,6 +269,7 @@ class ClaimTranslatorExtractor
     {
         return $this->translationTable;
     }
+
 
     private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
     {
@@ -304,6 +309,7 @@ class ClaimTranslatorExtractor
         return $claims;
     }
 
+
     private function convertType(string $type, mixed $attributes): mixed
     {
         if (is_array($attributes)) {
@@ -335,6 +341,7 @@ class ClaimTranslatorExtractor
         }
         return $attributes;
     }
+
 
     /**
      * @param array<array-key, string|\League\OAuth2\Server\Entities\ScopeEntityInterface> $scopes
@@ -374,6 +381,7 @@ class ClaimTranslatorExtractor
         return $claimData;
     }
 
+
     public function extractAdditionalIdTokenClaims(?array $claimsRequest, array $claims): array
     {
         /** @var array $idTokenClaims */
@@ -381,12 +389,14 @@ class ClaimTranslatorExtractor
         return $this->extractAdditionalClaims($idTokenClaims, $claims);
     }
 
+
     public function extractAdditionalUserInfoClaims(?array $claimsRequest, array $claims): array
     {
         /** @var array $userInfoClaims */
         $userInfoClaims = $claimsRequest['userinfo'] ?? [];
         return $this->extractAdditionalClaims($userInfoClaims, $claims);
     }
+
 
     /**
      * Add any individually requested claims
@@ -411,6 +421,7 @@ class ClaimTranslatorExtractor
         return $additionalClaims;
     }
 
+
     private function validateSubjectClaim(array $claims): void
     {
         if (
@@ -420,6 +431,7 @@ class ClaimTranslatorExtractor
             throw new RuntimeException("The 'sub' claim must be a non-empty string");
         }
     }
+
 
     /**
      * Get supported claims for this OP. This will return all the claims for which the "SAML attribute to OIDC claim

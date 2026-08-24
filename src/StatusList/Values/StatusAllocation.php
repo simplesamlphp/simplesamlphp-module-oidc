@@ -23,10 +23,12 @@ class StatusAllocation
     ) {
     }
 
+
     public function getStatusListId(): string
     {
         return $this->statusListId;
     }
+
 
     /**
      * The reference as the credential carries it, for the `status` claim.
@@ -36,10 +38,12 @@ class StatusAllocation
         return $this->statusReference;
     }
 
+
     public function getUri(): string
     {
         return $this->statusReference->getUri();
     }
+
 
     public function getIdx(): int
     {

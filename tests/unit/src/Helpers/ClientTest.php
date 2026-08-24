@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,12 +16,17 @@ use SimpleSAML\Module\oidc\Helpers\Http;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 
 #[CoversClass(Client::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientTest extends TestCase
 {
     protected MockObject $httpMock;
+
     protected MockObject $requestMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $clientEntityMock;
+
 
     protected function sut(
         ?Http $http = null,
@@ -30,6 +36,7 @@ class ClientTest extends TestCase
         return new Client($http);
     }
 
+
     protected function setUp(): void
     {
         $this->httpMock = $this->createMock(Http::class);
@@ -37,6 +44,7 @@ class ClientTest extends TestCase
         $this->clientRepositoryMock = $this->createMock(ClientRepository::class);
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
     }
+
 
     public function testCanGetFromRequest(): void
     {
@@ -53,6 +61,7 @@ class ClientTest extends TestCase
         );
     }
 
+
     public function testGetFromRequestThrowsIfNoClientId(): void
     {
         $this->expectException(OidcException::class);
@@ -60,6 +69,7 @@ class ClientTest extends TestCase
 
         $this->sut()->getFromRequest($this->requestMock, $this->clientRepositoryMock);
     }
+
 
     public function testGetFromRequestThrowsIfClientNotFound(): void
     {

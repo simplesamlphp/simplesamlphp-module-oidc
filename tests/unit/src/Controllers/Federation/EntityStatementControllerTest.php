@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Federation;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -19,17 +20,27 @@ use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
 
 #[CoversClass(EntityStatementController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class EntityStatementControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $jwksMock;
+
     protected MockObject $opMetadataServiceMock;
+
     protected MockObject $helpersMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $federationMock;
+
     protected MockObject $jwkMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $federationCacheMock;
+
 
     protected function setUp(): void
     {
@@ -42,6 +53,7 @@ class EntityStatementControllerTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->federationCacheMock = $this->createMock(FederationCache::class);
     }
+
 
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
@@ -74,11 +86,13 @@ class EntityStatementControllerTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->moduleConfigMock->expects($this->once())->method('getFederationEnabled')->willReturn(true);
         $this->assertInstanceOf(EntityStatementController::class, $this->sut());
     }
+
 
     public function testThrowsIfFederationNotEnabled(): void
     {
@@ -88,6 +102,7 @@ class EntityStatementControllerTest extends TestCase
 
         $this->sut();
     }
+
 
     public function testCanGetConfigurationStatement(): void
     {

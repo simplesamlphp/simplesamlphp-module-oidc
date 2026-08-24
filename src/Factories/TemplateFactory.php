@@ -17,9 +17,13 @@ use SimpleSAML\XHTML\Template;
 class TemplateFactory
 {
     protected bool $showMenu = true;
+
     protected bool $includeDefaultMenuItems = true;
+
     protected bool $showModuleName = true;
+
     protected bool $showSubPageTitle = true;
+
 
     public function __construct(
         protected readonly Configuration $sspConfiguration,
@@ -30,6 +34,7 @@ class TemplateFactory
         protected readonly Routes $routes,
     ) {
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -92,6 +97,7 @@ class TemplateFactory
 
         return $template;
     }
+
 
     protected function includeDefaultMenuItems(): void
     {
@@ -173,17 +179,20 @@ class TemplateFactory
         );
     }
 
+
     public function setShowMenu(bool $showMenu): TemplateFactory
     {
         $this->showMenu = $showMenu;
         return $this;
     }
 
+
     public function setIncludeDefaultMenuItems(bool $includeDefaultMenuItems): TemplateFactory
     {
         $this->includeDefaultMenuItems = $includeDefaultMenuItems;
         return $this;
     }
+
 
     public function setActiveHrefPath(?string $activeHrefPath): TemplateFactory
     {
@@ -193,16 +202,19 @@ class TemplateFactory
         return $this;
     }
 
+
     public function getActiveHrefPath(): ?string
     {
         return $this->oidcMenu->getActiveHrefPath();
     }
+
 
     public function setShowModuleName(bool $showModuleName): ?TemplateFactory
     {
         $this->showModuleName = $showModuleName;
         return $this;
     }
+
 
     public function setShowSubPageTitle(bool $showSubPageTitle): TemplateFactory
     {

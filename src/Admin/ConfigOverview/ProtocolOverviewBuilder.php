@@ -33,9 +33,13 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      * Custom scope config keys, mirroring ClaimTranslatorExtractorFactory.
      */
     protected const string SCOPE_KEY_DESCRIPTION = 'description';
+
     protected const string SCOPE_KEY_CLAIMS = 'claims';
+
     protected const string SCOPE_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
+
     protected const string SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
+
 
     public function __construct(
         ModuleConfig $moduleConfig,
@@ -46,6 +50,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[]
@@ -68,6 +73,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             $this->buildApiSection(),
         ];
     }
+
 
     /**
      * @throws \Exception
@@ -96,6 +102,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     protected function buildEndpointsSection(): Section
     {
@@ -142,6 +149,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
 
         return new Section(Translate::noop('Endpoints'), 'endpoints', ...$rows);
     }
+
 
     /**
      * @throws \Exception
@@ -190,6 +198,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -224,6 +233,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -264,6 +274,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -303,6 +314,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -359,6 +371,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -457,6 +470,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -562,6 +576,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -625,6 +640,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -662,6 +678,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ...$this->buildDestinationPolicyRows(),
         );
     }
+
 
     /**
      * Where this OP is willing to send outbound requests.
@@ -786,6 +803,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         ];
     }
 
+
     /**
      * @throws \Exception
      */
@@ -859,6 +877,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return new Section(Translate::noop('API'), 'api', ...$rows);
     }
 
+
     /**
      * Human readable description of the Dynamic Client Registration access-control mode.
      */
@@ -869,6 +888,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             DcrRegistrationAuthEnum::InitialAccessToken => Translate::noop('Initial Access Token required'),
         };
     }
+
 
     /**
      * Render the configured authproc filters as a list, tolerating both the array form (with a
@@ -904,6 +924,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
 
         return $filters;
     }
+
 
     /**
      * Prepare scope definitions for display, including where each scope comes from and the options

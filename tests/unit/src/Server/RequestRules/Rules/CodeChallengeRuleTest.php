@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -25,21 +26,33 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class CodeChallengeRuleTest extends TestCase
 {
     protected CodeChallengeRule $rule;
+
     protected Stub $requestStub;
+
     protected Stub $resultBagStub;
+
     protected Result $redirectUriResult;
+
     protected Result $stateResult;
 
     protected string $codeChallenge = '123123123123123123123123123123123123123123123123123123123123';
+
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Stub $clientStub;
+
     protected Result $clientIdResult;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -58,6 +71,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -71,6 +85,7 @@ class CodeChallengeRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -81,6 +96,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -93,6 +109,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->expectException(LogicException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -113,6 +130,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -123,6 +141,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -144,6 +163,7 @@ class CodeChallengeRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame($this->codeChallenge, $result->getValue());
     }
+
 
     protected function prepareValidResultBag(): ResultBag
     {

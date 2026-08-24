@@ -28,6 +28,7 @@ class ExpiredEntriesCleaner
     ) {
     }
 
+
     public function clean(): void
     {
         $this->accessTokenRepository->removeExpired();

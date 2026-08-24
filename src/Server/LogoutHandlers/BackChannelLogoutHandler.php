@@ -56,6 +56,7 @@ class BackChannelLogoutHandler
         'multiplex',
     ];
 
+
     public function __construct(
         protected LogoutTokenBuilder $logoutTokenBuilder = new LogoutTokenBuilder(),
         protected LoggerService $loggerService = new LoggerService(),
@@ -63,6 +64,7 @@ class BackChannelLogoutHandler
         protected ?DestinationPolicy $destinationPolicy = null,
     ) {
     }
+
 
     /**
      * A logout URI is registered by the client, so it names a destination the deployment did not choose,
@@ -80,6 +82,7 @@ class BackChannelLogoutHandler
             $this->loggerService,
         ))->build();
     }
+
 
     /**
      * Attach the destination guard to the client, and return the client that carries it.
@@ -146,6 +149,7 @@ class BackChannelLogoutHandler
         return $client;
     }
 
+
     /**
      * Whether Guzzle's own handler for this system is a cURL one, which is what decides whether an address
      * can be pinned. Asked of Guzzle rather than inferred from the extension being loaded, since the cURL
@@ -168,6 +172,7 @@ class BackChannelLogoutHandler
             return false;
         }
     }
+
 
     /**
      * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]
@@ -225,6 +230,7 @@ class BackChannelLogoutHandler
             $this->loggerService->error('Back-channel Logout promise error: ' . $exception->getMessage());
         }
     }
+
 
     /**
      * @param \SimpleSAML\Module\oidc\Server\Associations\Interfaces\RelyingPartyAssociationInterface[]

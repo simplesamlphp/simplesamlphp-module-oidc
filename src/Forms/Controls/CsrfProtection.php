@@ -48,6 +48,7 @@ class CsrfProtection extends BaseCsrfProtection
             ->addRule(self::PROTECTION, $errorMessage);
     }
 
+
     /**
      * @throws \Exception
      */

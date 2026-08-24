@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
+use Exception;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
@@ -17,8 +18,9 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Federation;
+use SimpleSAML\OpenID\Federation\TrustMark;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class ConfigController
 {
@@ -42,6 +44,7 @@ class ConfigController
         $this->authorization->requireAdmin(true);
     }
 
+
     public function migrations(): Response
     {
         return $this->templateFactory->build(
@@ -52,6 +55,7 @@ class ConfigController
             RoutesEnum::AdminMigrations->value,
         );
     }
+
 
     public function runMigrations(): Response
     {
@@ -68,6 +72,7 @@ class ConfigController
         return $this->routes->newRedirectResponseToModuleUrl(RoutesEnum::AdminMigrations->value);
     }
 
+
     public function generalSettings(): Response
     {
         return $this->templateFactory->build(
@@ -79,6 +84,7 @@ class ConfigController
             RoutesEnum::AdminConfigGeneral->value,
         );
     }
+
 
     /**
      * @throws \Exception
@@ -95,13 +101,14 @@ class ConfigController
         );
     }
 
+
     public function federationSettings(): Response
     {
         $trustMarks = [];
 
         try {
             $federation = $this->federationFactory->build();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // This screen still has plenty to report without a Federation, and the configuration that
             // prevented one from being built is itself among what it reports: the option at fault gets a
             // warning on its own row below, from a builder that logs the detail rather than rendering it.
@@ -128,9 +135,7 @@ class ConfigController
 
         if (is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens())) {
             $trustMarks = array_map(
-                function (string $token) use ($federation): Federation\TrustMark {
-                    return $federation->trustMarkFactory()->fromToken($token);
-                },
+                fn(string $token): TrustMark => $federation->trustMarkFactory()->fromToken($token),
                 $trustMarkTokens,
             );
         }
@@ -150,7 +155,7 @@ class ConfigController
                         $this->moduleConfig->getIssuer(),
                         $trustMarkIssuerConfigurationStatement,
                     );
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     // Added as two messages rather than one concatenated string. The template
                     // translates each message whole, so a sentence with identifiers and an exception
                     // spliced into it can never match its catalog entry -- it would be marked for
@@ -176,6 +181,7 @@ class ConfigController
             RoutesEnum::AdminConfigFederation->value,
         );
     }
+
 
     /**
      * @throws \Exception

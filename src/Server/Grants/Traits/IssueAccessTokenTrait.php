@@ -24,6 +24,7 @@ trait IssueAccessTokenTrait
 {
     protected AccessTokenEntityFactory $accessTokenEntityFactory;
 
+
     /**
      * Issue an access token.
      *
@@ -82,6 +83,7 @@ trait IssueAccessTokenTrait
 
         throw OidcServerException::serverError('Unable to issue Access Token.');
     }
+
 
     /**
      * Generate a new unique identifier.

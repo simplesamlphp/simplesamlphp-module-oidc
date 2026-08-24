@@ -26,6 +26,7 @@ class RequestRulesManager
     /** @var array $data Which will be available during each check */
     protected array $data = [];
 
+
     /**
      * RequestRulesManager constructor.
      * @param \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface[] $rules
@@ -39,17 +40,20 @@ class RequestRulesManager
         $this->resultBag = new ResultBag();
     }
 
+
     public function add(RequestRuleInterface $rule): void
     {
         $this->rules[$rule->getKey()] = $rule;
     }
 
+
     /**
      * @param class-string[] $ruleKeysToExecute
-    * @param ResponseModeInterface $responseMode Response mode which will be
-    * used in rules execution, as some rules might need to adjust their
-    * behaviour based on response mode used in request.
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode Response mode which
+     *   will be used in rules execution, as some rules might need to adjust their behaviour based on response mode used
+     *   in request.
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP
+     *   methods used for request
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function check(
@@ -80,6 +84,7 @@ class RequestRulesManager
         return $this->resultBag;
     }
 
+
     /**
      * Predefine (add) the existing result, so it can be used by other checkers during check.
      */
@@ -88,6 +93,7 @@ class RequestRulesManager
         $this->resultBag->add($result);
     }
 
+
     /**
      * Predefine existing ResultBag so that it can be used by other checkers during check.
      */
@@ -95,6 +101,7 @@ class RequestRulesManager
     {
         $this->resultBag = $resultBag;
     }
+
 
     /**
      * Set data which will be available in each check, using key value pair

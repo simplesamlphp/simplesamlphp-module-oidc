@@ -12,14 +12,15 @@ class VciContextResolver
 {
     /**
      * VciContextResolver constructor.
-     * @param ModuleConfig $moduleConfig
-     * @param Routes $routes
+     * @param \SimpleSAML\Module\oidc\ModuleConfig $moduleConfig
+     * @param \SimpleSAML\Module\oidc\Utils\Routes $routes
      */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Routes $routes,
     ) {
     }
+
 
     /**
      * Resolve the @context array for a given credential configuration.

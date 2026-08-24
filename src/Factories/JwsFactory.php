@@ -16,6 +16,7 @@ class JwsFactory
     ) {
     }
 
+
     public function build(): Jws
     {
         return new Jws(

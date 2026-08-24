@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 class VciCredentialOfferApiController
 {
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -39,8 +39,9 @@ class VciCredentialOfferApiController
         }
     }
 
+
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function credentialOffer(Request $request): Response
     {

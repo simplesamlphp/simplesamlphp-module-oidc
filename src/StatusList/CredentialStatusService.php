@@ -40,12 +40,13 @@ class CredentialStatusService
     ) {
     }
 
+
     /**
      * @param string $credentialId The identifier the credential carries as its `jti`.
      * @param ?string $actorRef Who asked, as a name rather than a secret. Null for an unattended
      * change, which is what a scheduled task is.
-     * @return ?CredentialStatusChange Null when no credential of that identifier can be acted on,
-     * which covers one that was never issued here and one which has expired alike.
+     * @return ?\SimpleSAML\Module\oidc\StatusList\Values\CredentialStatusChange Null when no credential of that
+     *   identifier can be acted on, which covers one that was never issued here and one which has expired alike.
      * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException When the list this
      * credential sits in can not represent the requested status. Permanent, not worth retrying.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusConflictException When concurrent changes kept
@@ -152,6 +153,7 @@ class CredentialStatusService
         );
     }
 
+
     /**
      * The status a credential currently holds, or null when there is none to report.
      *
@@ -166,6 +168,7 @@ class CredentialStatusService
 
         return $this->isActionable($entry) ? $entry?->getStatus() : null;
     }
+
 
     /**
      * Whether a status change against this entry would mean anything.

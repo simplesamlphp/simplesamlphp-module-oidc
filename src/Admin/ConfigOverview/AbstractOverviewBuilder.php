@@ -57,6 +57,7 @@ abstract class AbstractOverviewBuilder
         'version',
     ];
 
+
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly Routes $routes,
@@ -64,6 +65,7 @@ abstract class AbstractOverviewBuilder
         protected readonly LoggerService $logger,
     ) {
     }
+
 
     protected function buildDurationRow(
         string $label,
@@ -82,6 +84,7 @@ abstract class AbstractOverviewBuilder
             $note,
         );
     }
+
 
     /**
      * @param array<string,mixed> $options
@@ -109,6 +112,7 @@ abstract class AbstractOverviewBuilder
         );
     }
 
+
     /**
      * Replace every HTTP client option value which is not explicitly allowlisted, so that a
      * credential carried in these options can not reach the screen.
@@ -131,6 +135,7 @@ abstract class AbstractOverviewBuilder
         return $redacted;
     }
 
+
     /**
      * Row reporting how many secret values are configured, without disclosing any of them.
      */
@@ -150,6 +155,7 @@ abstract class AbstractOverviewBuilder
             $warning,
         );
     }
+
 
     /**
      * Row showing this entity's issuer, which both screens display.
@@ -187,6 +193,7 @@ abstract class AbstractOverviewBuilder
         );
     }
 
+
     /**
      * Row for an optional single-value entity metadata parameter.
      */
@@ -206,6 +213,7 @@ abstract class AbstractOverviewBuilder
         );
     }
 
+
     /**
      * Row for an optional URI, rendered as a link when set.
      */
@@ -223,6 +231,7 @@ abstract class AbstractOverviewBuilder
             $note,
         );
     }
+
 
     /**
      * Build a row defensively.
@@ -250,6 +259,7 @@ abstract class AbstractOverviewBuilder
             );
         }
     }
+
 
     /**
      * Report a config option which could not be resolved, and return a row warning for it.
@@ -280,10 +290,12 @@ abstract class AbstractOverviewBuilder
         );
     }
 
+
     protected function yesNo(bool $value): string
     {
         return $value ? Translate::noop('Yes') : Translate::noop('No');
     }
+
 
     protected function formatBytes(int $bytes): string
     {
@@ -297,6 +309,7 @@ abstract class AbstractOverviewBuilder
 
         return sprintf('%d B', $bytes);
     }
+
 
     /**
      * Render a number with at most one decimal place, dropping a trailing '.0'.

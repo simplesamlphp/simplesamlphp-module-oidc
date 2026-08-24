@@ -51,6 +51,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
      */
     protected const int MAX_PUBLISH_ATTEMPTS = 3;
 
+
     public function __construct(
         protected readonly StatusListRepository $statusListRepository,
         protected readonly StatusListEntryRepository $statusListEntryRepository,
@@ -63,6 +64,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -90,10 +92,12 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         return $this->publish($statusList->getId());
     }
 
+
     /**
      * Builds, signs and publishes a token, or adopts one another request published in the meantime.
      *
-     * @return ?StatusListTokenResult Null when the list turned out to be gone or retired.
+     * @return ?\SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult Null when the list turned out to be
+     *   gone or retired.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
     protected function publish(string $statusListId): ?StatusListTokenResult
@@ -204,6 +208,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         );
     }
 
+
     /**
      * The published token, if there is one and it is still worth serving.
      *
@@ -238,6 +243,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
 
         return new StatusListTokenResult($token, $statusList->getTtlSeconds(), $issuedAt, $expiresAt);
     }
+
 
     /**
      * Builds the list from its entries and signs it.
@@ -293,6 +299,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         }
     }
 
+
     /**
      * How the token says who signed it and with which key.
      *
@@ -332,6 +339,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
             'keyId' => $didJwk . '#0',
         ];
     }
+
 
     /**
      * How close to expiry a published token is replaced rather than served.

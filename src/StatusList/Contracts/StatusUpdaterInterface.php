@@ -28,6 +28,7 @@ interface StatusUpdaterInterface
      */
     public function setStatus(string $statusListId, int $idx, StatusTypeEnum $status): bool;
 
+
     /**
      * Check that a list could hold this status, without changing anything.
      *
@@ -42,6 +43,7 @@ interface StatusUpdaterInterface
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException When the list does not exist.
      */
     public function enforceCanRepresent(string $statusListId, StatusTypeEnum $status): void;
+
 
     /**
      * The status currently recorded, or null when the entry does not exist or was never allocated.

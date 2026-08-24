@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
 use PDOStatement;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(StatusListEntryRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListEntryRepositoryTest extends TestCase
 {
     protected const string LIST_ID = 'a-status-list-id';
@@ -40,11 +42,17 @@ class StatusListEntryRepositoryTest extends TestCase
      */
     protected const int MAX_BOUND_VARIABLES = 999;
 
+
     protected MockObject $moduleConfigMock;
+
     protected Helpers $helpers;
+
     protected StatusListEntryRepository $repository;
+
     protected StatusListRepository $statusListRepository;
+
     protected int $itemsPerPage = 20;
+
 
     /**
      * @throws \Exception
@@ -66,6 +74,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
         (new DatabaseMigration())->migrate();
     }
+
 
     /**
      * @throws \Exception
@@ -101,10 +110,12 @@ class StatusListEntryRepositoryTest extends TestCase
         Database::getInstance()->write(sprintf('DELETE FROM %s', $this->statusListRepository->getTableName()));
     }
 
+
     protected function setItemsPerPage(int $itemsPerPage): void
     {
         $this->itemsPerPage = $itemsPerPage;
     }
+
 
     /**
      * The lane defaults to the non-expiring one because allocate() below defaults to no expiry, and
@@ -140,6 +151,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->statusListRepository->activate($id);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -163,6 +175,7 @@ class StatusListEntryRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @param \SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord[] $entries
      * @return string[]
@@ -174,6 +187,7 @@ class StatusListEntryRepositoryTest extends TestCase
             $entries,
         );
     }
+
 
     /**
      * Every index exists as a row from the moment a list is created, so a listing which did not filter
@@ -192,6 +206,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(['urn:vc:one'], $this->credentialIdsOf($page['items']));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -206,6 +221,7 @@ class StatusListEntryRepositoryTest extends TestCase
             $this->credentialIdsOf($this->repository->findAllocatedPaginated()['items']),
         );
     }
+
 
     /**
      * A batch issuance stamps the same moment on every credential in it. An order which left those
@@ -236,6 +252,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(['urn:vc:0', 'urn:vc:1', 'urn:vc:2', 'urn:vc:3', 'urn:vc:4'], $seen);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -256,6 +273,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertCount(2, $page['items']);
     }
 
+
     /**
      * A page number out of range is a bookmark or a typo, not something to answer with an empty table.
      *
@@ -270,6 +288,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(1, $this->repository->findAllocatedPaginated(99)['currentPage']);
         $this->assertSame(1, $this->repository->findAllocatedPaginated(-5)['currentPage']);
     }
+
 
     /**
      * @throws \Exception
@@ -289,6 +308,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(1, $page['total']);
         $this->assertSame(['urn:vc:two'], $this->credentialIdsOf($page['items']));
     }
+
 
     /**
      * Every credential issued to one person, which is what a lost device or a leaver comes down to.
@@ -310,6 +330,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(2, $page['total']);
         $this->assertSame(['urn:vc:one', 'urn:vc:two'], $found);
     }
+
 
     /**
      * One box, both stored forms of what was typed, either matching being a hit.
@@ -340,6 +361,7 @@ class StatusListEntryRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -357,6 +379,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(0, $page['total']);
         $this->assertSame([], $page['items']);
     }
+
 
     /**
      * An unallocated row has no expiry either, and counting those would report every list a deployment
@@ -382,6 +405,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(1, $this->repository->countNeverRetiringLists());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -396,6 +420,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(2, $this->repository->countNeverRetiringLists());
     }
+
 
     /**
      * @return array<string,mixed>
@@ -417,6 +442,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
         return $rows[0];
     }
+
 
     /**
      * The four linkage columns are one fact, so they go together. Keeping any of them would leave a row
@@ -444,6 +470,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertNull($entry['credential_configuration_id']);
         $this->assertNull($entry['subject_ref']);
     }
+
 
     /**
      * What is kept is what the published token is built from, and what stops the index being handed out
@@ -474,6 +501,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertNotEmpty($entry['allocated']);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -491,6 +519,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(0, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10));
         $this->assertSame('urn:vc:live', $this->readEntry(0)['credential_id']);
     }
+
 
     /**
      * The guard which makes the expiry lane an invariant rather than a convention. The lane it compares
@@ -521,6 +550,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertNull($this->readEntry(0)['credential_id']);
     }
 
+
     /**
      * The other direction, which harms nothing on its own -- a non-expiring list is never retired
      * whatever it holds -- but is the same defect seen from the other side, and is what the mismatch
@@ -547,6 +577,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertEmpty($this->readEntry(0)['allocated']);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -560,6 +591,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(0, $this->repository->countLaneMismatches());
     }
+
 
     /**
      * Written past the guard on purpose, since nothing in the module can produce this state any more.
@@ -587,6 +619,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(2, $this->repository->countLaneMismatches());
     }
 
+
     /**
      * Sets an entry's expiry directly, bypassing the lane guard in allocate(), so that a state the
      * module refuses to create can be put in front of the monitor which looks for it.
@@ -608,6 +641,7 @@ class StatusListEntryRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * A credential without an expiry is one which can be presented at any point in the future, so the
      * linkage which makes it revocable has to outlive every cut-off.
@@ -622,6 +656,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(0, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2099-01-01 00:00:00'), 10));
         $this->assertSame('urn:vc:permanent', $this->readEntry(0)['credential_id']);
     }
+
 
     /**
      * @throws \Exception
@@ -647,6 +682,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(1, $this->repository->clearExpiredLinkage($now, 2));
         $this->assertSame(0, $this->repository->clearExpiredLinkage($now, 2));
     }
+
 
     /**
      * An allocated row whose credential has expired names no credential any more, so there is nothing an
@@ -674,6 +710,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(['urn:vc:live'], $this->credentialIdsOf($page['items']));
     }
 
+
     protected function countEntriesOf(string $statusListId): int
     {
         $rows = Database::getInstance()->readPrimary(
@@ -686,6 +723,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
         return (int)$rows[0]['entry_total'];
     }
+
 
     /**
      * @throws \Exception
@@ -703,6 +741,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(0, $this->countEntriesOf(self::LIST_ID));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -716,6 +755,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(0, $this->countEntriesOf(self::LIST_ID));
         $this->assertSame(self::CAPACITY, $this->countEntriesOf(self::OTHER_LIST_ID));
     }
+
 
     /**
      * A repository whose statements are collected instead of run.
@@ -761,6 +801,7 @@ class StatusListEntryRepositoryTest extends TestCase
         return new StatusListEntryRepository($this->moduleConfigMock, $databaseMock, null, $this->helpers);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -789,6 +830,7 @@ class StatusListEntryRepositoryTest extends TestCase
         // whole run is compared rather than counted.
         $this->assertSame(range(0, 1199), $seeded);
     }
+
 
     /**
      * @throws \Exception

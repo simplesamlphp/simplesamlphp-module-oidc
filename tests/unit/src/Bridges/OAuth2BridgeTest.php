@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Bridges;
 
 use Defuse\Crypto\Key;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -15,9 +16,11 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 
 #[CoversClass(OAuth2Bridge::class)]
 #[UsesClass(OidcException::class)]
+#[AllowMockObjectsWithoutExpectations]
 class OAuth2BridgeTest extends TestCase
 {
     private ModuleConfig&MockObject $moduleConfig;
+
     private OAuth2Bridge $bridge;
 
 
@@ -42,6 +45,7 @@ class OAuth2BridgeTest extends TestCase
         $this->assertEquals($unencrypted, $decrypted);
     }
 
+
     public function testEncryptDecryptWithExplicitKey(): void
     {
         $key = Key::createNewRandomKey();
@@ -54,6 +58,7 @@ class OAuth2BridgeTest extends TestCase
         $decrypted = $this->bridge->decrypt($encrypted, $key);
         $this->assertEquals($unencrypted, $decrypted);
     }
+
 
     public function testEncryptDecryptWithExplicitPassword(): void
     {

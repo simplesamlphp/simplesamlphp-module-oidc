@@ -9,16 +9,24 @@ use Psr\Log\InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use SimpleSAML\Module\oidc\Helpers;
+use Stringable;
 
 class ArrayLogger implements LoggerInterface
 {
     public const int WEIGHT_EMERGENCY = 8;
+
     public const int WEIGH_ALERT = 7;
+
     public const int WEIGHT_CRITICAL = 6;
+
     public const int WEIGHT_ERROR = 5;
+
     public const int WEIGHT_WARNING = 4;
+
     public const int WEIGHT_NOTICE = 3;
+
     public const int WEIGHT_INFO = 2;
+
     public const int WEIGHT_DEBUG = 1;
 
 
@@ -35,24 +43,27 @@ class ArrayLogger implements LoggerInterface
         $this->setWeight($weight);
     }
 
+
     public function setWeight(int $weight): void
     {
         $this->weight = max(self::WEIGHT_DEBUG, min($weight, self::WEIGHT_EMERGENCY));
     }
 
+
     /**
      * @inheritDoc
      */
-    public function emergency(\Stringable|string $message, array $context = []): void
+    public function emergency(Stringable|string $message, array $context = []): void
     {
         // Always log emergency.
         $this->entries[] = $this->prepareEntry(LogLevel::EMERGENCY, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function alert(\Stringable|string $message, array $context = []): void
+    public function alert(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGH_ALERT) {
             return;
@@ -60,10 +71,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::ALERT, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function critical(\Stringable|string $message, array $context = []): void
+    public function critical(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGHT_CRITICAL) {
             return;
@@ -71,10 +83,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::CRITICAL, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function error(\Stringable|string $message, array $context = []): void
+    public function error(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGHT_ERROR) {
             return;
@@ -82,10 +95,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::ERROR, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function warning(\Stringable|string $message, array $context = []): void
+    public function warning(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGHT_WARNING) {
             return;
@@ -93,10 +107,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::WARNING, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function notice(\Stringable|string $message, array $context = []): void
+    public function notice(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGHT_NOTICE) {
             return;
@@ -104,10 +119,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::NOTICE, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function info(\Stringable|string $message, array $context = []): void
+    public function info(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGHT_INFO) {
             return;
@@ -115,10 +131,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::INFO, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function debug(\Stringable|string $message, array $context = []): void
+    public function debug(Stringable|string $message, array $context = []): void
     {
         if ($this->weight > self::WEIGHT_DEBUG) {
             return;
@@ -126,10 +143,11 @@ class ArrayLogger implements LoggerInterface
         $this->entries[] = $this->prepareEntry(LogLevel::DEBUG, $message, $context);
     }
 
+
     /**
      * @inheritDoc
      */
-    public function log($level, \Stringable|string $message, array $context = []): void
+    public function log($level, Stringable|string $message, array $context = []): void
     {
         match ($level) {
             LogLevel::EMERGENCY => $this->emergency($message, $context),
@@ -144,12 +162,14 @@ class ArrayLogger implements LoggerInterface
         };
     }
 
+
     public function getEntries(): array
     {
         return $this->entries;
     }
 
-    protected function prepareEntry(string $logLevel, \Stringable|string $message, array $context = []): string
+
+    protected function prepareEntry(string $logLevel, Stringable|string $message, array $context = []): string
     {
         return sprintf(
             '%s %s %s %s',

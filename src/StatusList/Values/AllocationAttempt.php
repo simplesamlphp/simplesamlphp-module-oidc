@@ -24,6 +24,7 @@ class AllocationAttempt
 {
     protected bool $hasWaitedInVain = false;
 
+
     /**
      * Whether this request has already waited on another request's list without one appearing.
      */
@@ -31,6 +32,7 @@ class AllocationAttempt
     {
         return $this->hasWaitedInVain;
     }
+
 
     public function recordWaitedInVain(): void
     {

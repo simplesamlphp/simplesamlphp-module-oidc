@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -27,22 +28,37 @@ use SimpleSAML\OpenID\Federation;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class ClientRuleTest extends TestCase
 {
     protected Stub $clientEntityStub;
+
     protected Stub $clientRepositoryStub;
+
     protected Stub $requestStub;
+
     protected Stub $resultBagStub;
+
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Stub $moduleConfigStub;
+
     protected Stub $federationStub;
+
     protected Stub $federationCacheStub;
+
     protected Stub $clientEntityFactoryStub;
+
     protected Stub $helpersStub;
+
     protected Stub $jwksResolverStub;
+
     protected Stub $federationParticipationValidatorStub;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -65,6 +81,7 @@ class ClientRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(): ClientRule
     {
         return new ClientRule(
@@ -81,10 +98,12 @@ class ClientRuleTest extends TestCase
         );
     }
 
+
     public function testConstruct(): void
     {
         $this->assertInstanceOf(ClientRule::class, $this->sut());
     }
+
 
     public function testCheckRuleEmptyClientIdThrows(): void
     {
@@ -99,6 +118,7 @@ class ClientRuleTest extends TestCase
         );
     }
 
+
     public function testCheckRuleInvalidClientThrows(): void
     {
         $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn('123');
@@ -112,6 +132,7 @@ class ClientRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

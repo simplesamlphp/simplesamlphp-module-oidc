@@ -35,10 +35,12 @@ class LogoutRequest
     ) {
     }
 
+
     public function getIdTokenHint(): ?IdToken
     {
         return $this->idTokenHint;
     }
+
 
     public function setIdTokenHint(?IdToken $idTokenHint): LogoutRequest
     {
@@ -46,10 +48,12 @@ class LogoutRequest
         return $this;
     }
 
+
     public function getPostLogoutRedirectUri(): ?string
     {
         return $this->postLogoutRedirectUri;
     }
+
 
     public function setPostLogoutRedirectUri(?string $postLogoutRedirectUri): LogoutRequest
     {
@@ -57,10 +61,12 @@ class LogoutRequest
         return $this;
     }
 
+
     public function getState(): ?string
     {
         return $this->state;
     }
+
 
     public function setState(?string $state): LogoutRequest
     {
@@ -68,10 +74,12 @@ class LogoutRequest
         return $this;
     }
 
+
     public function getUiLocales(): ?string
     {
         return $this->uiLocales;
     }
+
 
     public function setUiLocales(?string $uiLocales): LogoutRequest
     {

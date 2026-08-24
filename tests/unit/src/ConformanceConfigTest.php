@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
  * one full Docker stack later. That is what happened when the back-channel logout host was left out.
  */
 #[CoversNothing]
+#[AllowMockObjectsWithoutExpectations]
 class ConformanceConfigTest extends TestCase
 {
     /**
@@ -33,10 +35,12 @@ class ConformanceConfigTest extends TestCase
         'jwks',
     ];
 
+
     /** @var array<string,mixed> */
     protected array $conformanceConfig;
 
     protected string $seedData;
+
 
     protected function setUp(): void
     {
@@ -50,6 +54,7 @@ class ConformanceConfigTest extends TestCase
 
         $this->seedData = (string)file_get_contents($repositoryRoot . '/docker/conformance.sql');
     }
+
 
     public function testSeededOutboundDestinationsAreAllowed(): void
     {
@@ -82,6 +87,7 @@ class ConformanceConfigTest extends TestCase
         }
     }
 
+
     /**
      * @return list<string>
      */
@@ -92,6 +98,7 @@ class ConformanceConfigTest extends TestCase
 
         return array_map($this->normalizeHost(...), $allowedHosts);
     }
+
 
     /**
      * The hosts of the URIs seeded clients cause the OP to make an outbound request to.
@@ -127,6 +134,7 @@ class ConformanceConfigTest extends TestCase
         return array_values(array_unique($hosts));
     }
 
+
     protected function isOutboundUri(string $uri): bool
     {
         $path = parse_url($uri, PHP_URL_PATH);
@@ -143,6 +151,7 @@ class ConformanceConfigTest extends TestCase
 
         return false;
     }
+
 
     /**
      * Matches how the destination policy compares a host: case and a trailing root label carry no meaning.

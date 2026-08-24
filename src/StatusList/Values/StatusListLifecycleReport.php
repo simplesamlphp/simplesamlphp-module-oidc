@@ -33,30 +33,36 @@ class StatusListLifecycleReport
     ) {
     }
 
+
     public function getClearedLinkages(): int
     {
         return $this->clearedLinkages;
     }
+
 
     public function getDeactivatedStatusLists(): int
     {
         return $this->deactivatedStatusLists;
     }
 
+
     public function getRetiredStatusLists(): int
     {
         return $this->retiredStatusLists;
     }
+
 
     public function getPurgedEntries(): int
     {
         return $this->purgedEntries;
     }
 
+
     public function getPrunedAuditRows(): int
     {
         return $this->prunedAuditRows;
     }
+
 
     /**
      * @return string[]
@@ -65,6 +71,7 @@ class StatusListLifecycleReport
     {
         return $this->failures;
     }
+
 
     /**
      * Whether the run changed anything at all, so that a cron which has nothing to do stays quiet.

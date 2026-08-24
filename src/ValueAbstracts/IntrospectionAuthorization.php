@@ -22,6 +22,7 @@ class IntrospectionAuthorization
     ) {
     }
 
+
     /**
      * A caller trusted with every token this OP has issued: a logged in administrator, an API token
      * holding an introspection scope, or a client the deployment has named as a resource server.
@@ -30,6 +31,7 @@ class IntrospectionAuthorization
     {
         return new self(null);
     }
+
 
     /**
      * A client which authenticated as itself, and may therefore only see what was issued to it. That
@@ -40,6 +42,7 @@ class IntrospectionAuthorization
     {
         return new self($clientId);
     }
+
 
     /**
      * @param ?string $clientId The client a token was issued to, or null when that could not be established.
@@ -54,6 +57,7 @@ class IntrospectionAuthorization
         // against, and this caller has not been trusted with anyone else's tokens.
         return $clientId !== null && $clientId === $this->clientId;
     }
+
 
     /**
      * The client this caller is limited to, or null when it is limited to none.

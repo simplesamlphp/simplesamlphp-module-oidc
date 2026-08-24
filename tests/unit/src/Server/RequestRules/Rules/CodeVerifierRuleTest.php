@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -33,18 +34,25 @@ use Stringable;
 #[CoversClass(CodeVerifierRule::class)]
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CodeVerifierRuleTest extends TestCase
 {
     private const string VALID_VERIFIER = 'M25iVXpKU3puUjFaYWg3T1NDTDQtcW1ROUY5YXlwalNoc0hhakxpZlRJUQ';
+
     private const string CLIENT_ID = 'client-id';
 
+
     private RequestParamsResolver&MockObject $requestParamsResolverMock;
+
     private ServerRequestInterface&MockObject $requestMock;
+
     private LoggerService&MockObject $loggerServiceMock;
+
     private ResponseModeInterface&MockObject $responseModeMock;
 
     /** @var array<int,array{message:string,context:array}> */
     private array $logRecords = [];
+
 
     protected function setUp(): void
     {
@@ -62,6 +70,7 @@ class CodeVerifierRuleTest extends TestCase
         }
     }
 
+
     public function testRequiresTheClientToHaveBeenResolvedFirst(): void
     {
         // Whether a verifier may be omitted depends on the client, so running this rule without one is a
@@ -70,6 +79,7 @@ class CodeVerifierRuleTest extends TestCase
 
         $this->check(new ResultBag());
     }
+
 
     public function testRejectsAPublicClientThatSendsNoCodeVerifier(): void
     {
@@ -84,6 +94,7 @@ class CodeVerifierRuleTest extends TestCase
         }
     }
 
+
     public function testAllowsAConfidentialClientToOmitTheCodeVerifier(): void
     {
         // A confidential client authenticates with its credentials, so PKCE is optional for it.
@@ -94,6 +105,7 @@ class CodeVerifierRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertNull($result->getValue());
     }
+
 
     #[DataProvider('malformedVerifierProvider')]
     public function testRejectsACodeVerifierThatDoesNotFollowRfc7636(string $verifier, string $why): void
@@ -107,6 +119,7 @@ class CodeVerifierRuleTest extends TestCase
             $this->assertSame('invalid_request', $exception->getErrorType());
         }
     }
+
 
     /**
      * @return array<string,array{0:string,1:string}>
@@ -125,6 +138,7 @@ class CodeVerifierRuleTest extends TestCase
         ];
     }
 
+
     #[DataProvider('validVerifierProvider')]
     public function testAcceptsACodeVerifierWithinTheAllowedBounds(string $verifier): void
     {
@@ -132,6 +146,7 @@ class CodeVerifierRuleTest extends TestCase
 
         $this->assertSame($verifier, $this->check($this->resultBagFor($this->client()))?->getValue());
     }
+
 
     /**
      * @return array<string,array{0:string}>
@@ -145,6 +160,7 @@ class CodeVerifierRuleTest extends TestCase
             'a realistic verifier' => [self::VALID_VERIFIER],
         ];
     }
+
 
     public function testDoesNotLogTheCodeVerifierItWasGiven(): void
     {
@@ -163,11 +179,13 @@ class CodeVerifierRuleTest extends TestCase
         );
     }
 
+
     private function resolverReturns(?string $codeVerifier): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
             ->willReturn($codeVerifier);
     }
+
 
     private function client(bool $isConfidential = true): ClientEntityInterface&MockObject
     {
@@ -178,6 +196,7 @@ class CodeVerifierRuleTest extends TestCase
         return $client;
     }
 
+
     private function resultBagFor(ClientEntityInterface $client): ResultBag
     {
         $resultBag = new ResultBag();
@@ -185,6 +204,7 @@ class CodeVerifierRuleTest extends TestCase
 
         return $resultBag;
     }
+
 
     private function check(ResultBag $resultBag): ?Result
     {

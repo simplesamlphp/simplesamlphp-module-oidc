@@ -19,6 +19,7 @@ class AccessTokenController
 {
     use RequestTrait;
 
+
     public function __construct(
         private readonly AuthorizationServer $authorizationServer,
         private readonly AllowedOriginRepository $allowedOriginRepository,
@@ -26,6 +27,7 @@ class AccessTokenController
         private readonly ErrorResponder $errorResponder,
     ) {
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -42,6 +44,7 @@ class AccessTokenController
             $this->psrHttpBridge->getResponseFactory()->createResponse(),
         );
     }
+
 
     public function token(Request $request): Response
     {

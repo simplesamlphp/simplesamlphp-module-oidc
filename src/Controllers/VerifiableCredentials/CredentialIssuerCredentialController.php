@@ -6,6 +6,8 @@ namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
 use DateInterval;
 use DateTimeImmutable;
+use DateTimeInterface;
+use Exception;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -54,6 +56,7 @@ class CredentialIssuerCredentialController
      */
     protected const int CREDENTIAL_ID_RANDOM_BYTES = 32;
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -80,12 +83,13 @@ class CredentialIssuerCredentialController
         }
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \ReflectionException
-     * @throws OpenIdException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      */
     public function credential(Request $request): Response
     {
@@ -534,7 +538,7 @@ class CredentialIssuerCredentialController
                             ['kid' => $proof->getKeyId(), 'jwk' => $proof->getJsonWebKey()],
                         );
                     }
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $message = 'Error processing proof JWT: ' . $e->getMessage();
                     $this->loggerService->error($message);
                     return $this->routes->newJsonErrorResponse(
@@ -782,7 +786,7 @@ class CredentialIssuerCredentialController
                         ],
                         //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
                         ClaimsEnum::Issuer->value => $issuerDid,
-                        ClaimsEnum::Issuance_Date->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                        ClaimsEnum::Issuance_Date->value => $issuedAt->format(DateTimeInterface::RFC3339),
                         ClaimsEnum::Id->value => $vcId,
                         ClaimsEnum::Credential_Subject->value =>
                         $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
@@ -792,7 +796,7 @@ class CredentialIssuerCredentialController
                 // issuance date, which this format already states as both `iat` and `issuanceDate`.
                 if ($expiresAt instanceof DateTimeImmutable) {
                     $verifiableCredentialBody[ClaimsEnum::Expiration_Date->value] =
-                    $expiresAt->format(\DateTimeInterface::RFC3339);
+                    $expiresAt->format(DateTimeInterface::RFC3339);
                 }
 
                 $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
@@ -864,7 +868,7 @@ class CredentialIssuerCredentialController
                             $resolvedCredentialIdentifier,
                         ],
                         ClaimsEnum::Issuer->value => $issuerDid,
-                        ClaimsEnum::ValidFrom->value => $issuedAt->format(\DateTimeInterface::RFC3339),
+                        ClaimsEnum::ValidFrom->value => $issuedAt->format(DateTimeInterface::RFC3339),
                         ClaimsEnum::Credential_Subject->value =>
                         $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
                         ClaimsEnum::Iss->value => $issuerDid,
@@ -879,7 +883,7 @@ class CredentialIssuerCredentialController
                 // The Verifiable Credentials Data Model 2.0 names the end of a credential's validity
                 // `validUntil`, alongside the `validFrom` above, so this format states it both ways.
                 if ($expiresAt instanceof DateTimeImmutable) {
-                    $sdJwtPayload[ClaimsEnum::ValidUntil->value] = $expiresAt->format(\DateTimeInterface::RFC3339);
+                    $sdJwtPayload[ClaimsEnum::ValidUntil->value] = $expiresAt->format(DateTimeInterface::RFC3339);
                 }
 
                 if ($proof instanceof OpenId4VciProof && is_string($proofKeyId = $proof->getKeyId())) {
@@ -926,6 +930,7 @@ class CredentialIssuerCredentialController
             ],
         );
     }
+
 
     /**
      * Helper method to set a claim value at a path. Supports creating nested arrays dynamically.

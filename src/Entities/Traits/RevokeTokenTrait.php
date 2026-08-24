@@ -8,10 +8,12 @@ trait RevokeTokenTrait
 {
     protected bool $isRevoked = false;
 
+
     public function isRevoked(): bool
     {
         return $this->isRevoked;
     }
+
 
     /**
      * Revoke token.
