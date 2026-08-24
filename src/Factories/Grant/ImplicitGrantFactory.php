@@ -26,6 +26,7 @@ class ImplicitGrantFactory
     ) {
     }
 
+
     public function build(): ImplicitGrant
     {
         return new ImplicitGrant(

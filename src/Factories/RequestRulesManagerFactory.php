@@ -78,13 +78,14 @@ class RequestRulesManagerFactory
         private readonly Core $core,
         private readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
-        private readonly ?FederationCache $federationCache = null,
-        private readonly ?ProtocolCache $protocolCache = null,
         private readonly QueryResponseMode $queryResponseMode,
         private readonly FragmentResponseMode $fragmentResponseMode,
         private readonly FormPostResponseMode $formPostResponseMode,
+        private readonly ?FederationCache $federationCache = null,
+        private readonly ?ProtocolCache $protocolCache = null,
     ) {
     }
+
 
     /**
      * @param \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface[]|null $rules
@@ -92,9 +93,10 @@ class RequestRulesManagerFactory
      */
     public function build(?array $rules = null): RequestRulesManager
     {
-        $rules = $rules ?? $this->getDefaultRules();
+        $rules ??= $this->getDefaultRules();
         return new RequestRulesManager($rules, $this->logger);
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface[]

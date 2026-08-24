@@ -4,29 +4,37 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils\Debug;
 
+use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\InvalidArgumentException;
 use Psr\Log\LogLevel;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Utils\Debug\ArrayLogger;
 
 #[CoversClass(ArrayLogger::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ArrayLoggerTest extends TestCase
 {
     protected MockObject $helpersMock;
+
     protected MockObject $dateTimeMock;
+
     protected int $weight;
+
 
     protected function setUp(): void
     {
         $this->helpersMock = $this->createMock(Helpers::class);
-        $this->dateTimeMock = $this->createMock(Helpers\DateTime::class);
+        $this->dateTimeMock = $this->createMock(DateTime::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeMock);
-        $this->dateTimeMock->method('getUtc')->willReturn(new \DateTimeImmutable());
+        $this->dateTimeMock->method('getUtc')->willReturn(new DateTimeImmutable());
         $this->weight = ArrayLogger::WEIGHT_DEBUG;
     }
+
 
     protected function sut(
         ?Helpers $helpers = null,
@@ -38,10 +46,12 @@ class ArrayLoggerTest extends TestCase
         return new ArrayLogger($helpers, $weight);
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(ArrayLogger::class, $this->sut());
     }
+
 
     public function testCanLogEntriesBasedOnWeight(): void
     {
@@ -61,6 +71,7 @@ class ArrayLoggerTest extends TestCase
         $this->assertCount(9, $sut->getEntries());
     }
 
+
     public function testWontLogLessThanEmergency(): void
     {
         $sut = $this->sut(weight: ArrayLogger::WEIGHT_EMERGENCY);
@@ -78,6 +89,7 @@ class ArrayLoggerTest extends TestCase
         $sut->emergency('emergency message');
         $this->assertNotEmpty($sut->getEntries());
     }
+
 
     public function testThrowsOnInvalidLogLevel(): void
     {

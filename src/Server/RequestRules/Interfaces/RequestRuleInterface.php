@@ -26,14 +26,17 @@ interface RequestRuleInterface
      */
     public function getKey(): string;
 
+
     /**
      * Check specific rule.
      *
      * @param \SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface $currentResultBag
      *   ResultBag with all results of the checks performed to current check
      * @param array $data Data which will be available during check.
-     * @param ResponseModeInterface $responseMode Response mode to use for error responses
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP methods used for request
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode Response mode to
+     *   use for error responses
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods Indicate allowed HTTP
+     *   methods used for request
      *
      * @return \SimpleSAML\Module\oidc\Server\RequestRules\Result<mixed>|null Result of the specific check
      *   (the concrete value type T is bound per rule and surfaced via the ResultBag accessors)

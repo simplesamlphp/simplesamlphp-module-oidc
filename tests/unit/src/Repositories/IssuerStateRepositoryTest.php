@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateInterval;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -21,12 +22,17 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 #[CoversClass(IssuerStateRepository::class)]
 #[UsesClass(IssuerStateEntity::class)]
 #[UsesClass(IssuerStateEntityFactory::class)]
+#[AllowMockObjectsWithoutExpectations]
 class IssuerStateRepositoryTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected Helpers $helpers;
+
     protected IssuerStateEntityFactory $entityFactory;
+
     protected IssuerStateRepository $repository;
+
 
     /**
      * @throws \Exception
@@ -45,6 +51,7 @@ class IssuerStateRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
     }
+
 
     protected function setUp(): void
     {
@@ -65,10 +72,12 @@ class IssuerStateRepositoryTest extends TestCase
         );
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_vci_issuer_state', $this->repository->getTableName());
     }
+
 
     public function testGetCacheKeyIsTablePrefixed(): void
     {
@@ -77,6 +86,7 @@ class IssuerStateRepositoryTest extends TestCase
             $this->repository->getCacheKey('sample'),
         );
     }
+
 
     public function testCanPersistAndFind(): void
     {
@@ -95,10 +105,12 @@ class IssuerStateRepositoryTest extends TestCase
         $this->assertFalse($foundEntity->isRevoked());
     }
 
+
     public function testFindReturnsNullForUnknownValue(): void
     {
         $this->assertNull($this->repository->find('unknown-issuer-state-value'));
     }
+
 
     public function testFindValidReturnsEntityForValidValue(): void
     {
@@ -110,6 +122,7 @@ class IssuerStateRepositoryTest extends TestCase
             $this->repository->findValid($entity->getValue()),
         );
     }
+
 
     public function testFindValidReturnsNullForExpiredValue(): void
     {
@@ -125,6 +138,7 @@ class IssuerStateRepositoryTest extends TestCase
         $this->assertNull($this->repository->findValid($entity->getValue()));
     }
 
+
     public function testCanRevoke(): void
     {
         $entity = $this->entityFactory->buildNew();
@@ -137,6 +151,7 @@ class IssuerStateRepositoryTest extends TestCase
         $this->assertTrue($foundEntity->isRevoked());
         $this->assertNull($this->repository->findValid($entity->getValue()));
     }
+
 
     public function testCanRemoveInvalid(): void
     {

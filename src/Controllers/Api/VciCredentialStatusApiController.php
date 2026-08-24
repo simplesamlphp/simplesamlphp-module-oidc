@@ -53,6 +53,7 @@ class VciCredentialStatusApiController
 
     final public const string HEADER_WWW_AUTHENTICATE = 'WWW-Authenticate';
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -68,6 +69,7 @@ class VciCredentialStatusApiController
             throw OidcServerException::forbidden('API capabilities not enabled.');
         }
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -225,6 +227,7 @@ class VciCredentialStatusApiController
         ]);
     }
 
+
     /**
      * The status names this endpoint accepts, which are the Status Type names in lower case.
      *
@@ -241,6 +244,7 @@ class VciCredentialStatusApiController
 
         return null;
     }
+
 
     /**
      * @return string[]

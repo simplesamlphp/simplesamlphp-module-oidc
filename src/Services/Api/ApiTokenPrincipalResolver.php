@@ -49,13 +49,16 @@ class ApiTokenPrincipalResolver
     /** Marks a fingerprint as such, so it is never mistaken for a name someone chose. */
     protected const string FINGERPRINT_PREFIX = 'token:';
 
+
     protected ?string $derivedKey = null;
+
 
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @return string Never the token, and never empty.
@@ -89,6 +92,7 @@ class ApiTokenPrincipalResolver
         return $name ?? $this->fingerprint($token);
     }
 
+
     /**
      * Whether a name has any configured API token buried in it.
      *
@@ -106,6 +110,7 @@ class ApiTokenPrincipalResolver
         return false;
     }
 
+
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
      */
@@ -117,6 +122,7 @@ class ApiTokenPrincipalResolver
             self::FINGERPRINT_LENGTH,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError

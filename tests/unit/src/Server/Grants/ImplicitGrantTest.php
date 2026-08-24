@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 
+use DateInterval;
+use Exception;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -26,27 +29,42 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Core\IdToken;
 
 #[CoversClass(ImplicitGrant::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ImplicitGrantTest extends TestCase
 {
     protected MockObject $idTokenBuilderMock;
-    protected \DateInterval $accessTokenTtl1h;
+
+    protected DateInterval $accessTokenTtl1h;
+
     protected MockObject $accessTokenRepositoryMock;
+
     protected MockObject $requestRulesManagerMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $accessTokenEntityFactoryMock;
+
     protected MockObject $scopeRepositoryMock;
+
     protected MockObject $serverRequestMock;
+
     protected MockObject $authorizationRequestMock;
+
     protected MockObject $userEntityMock;
+
     protected MockObject $scopeEntityMock;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $resultBagMock;
+
     protected MockObject $loggerServiceMock;
+
 
     protected function setUp(): void
     {
         $this->idTokenBuilderMock = $this->createMock(IdTokenBuilder::class);
-        $this->accessTokenTtl1h = new \DateInterval('PT1H');
+        $this->accessTokenTtl1h = new DateInterval('PT1H');
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
@@ -62,9 +80,10 @@ class ImplicitGrantTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
+
     protected function sut(
         ?IdTokenBuilder $idTokenBuilder = null,
-        ?\DateInterval $accessTokenTtl = null,
+        ?DateInterval $accessTokenTtl = null,
         ?AccessTokenRepositoryInterface $accessTokenRepository = null,
         ?RequestRulesManager $requestRulesManager = null,
         ?RequestParamsResolver $requestParamsResolver = null,
@@ -97,10 +116,12 @@ class ImplicitGrantTest extends TestCase
         return $implicitGrant;
     }
 
+
     public function testCanConstruct(): void
     {
         $this->assertInstanceOf(ImplicitGrant::class, $this->sut());
     }
+
 
     public function testCanRespondToAuthorizationRequestForIdTokenTokenResponseType(): void
     {
@@ -111,6 +132,7 @@ class ImplicitGrantTest extends TestCase
         $this->assertTrue($this->sut()->canRespondToAuthorizationRequest($this->serverRequestMock));
     }
 
+
     public function testCanRespondToAuthorizationRequestForIdTokenResponseType(): void
     {
         $this->requestParamsResolverMock->expects($this->once())
@@ -119,6 +141,7 @@ class ImplicitGrantTest extends TestCase
 
         $this->assertTrue($this->sut()->canRespondToAuthorizationRequest($this->serverRequestMock));
     }
+
 
     public function testCanRespondToAuthorizationRequestReturnsFalseIfNoClientId(): void
     {
@@ -129,6 +152,7 @@ class ImplicitGrantTest extends TestCase
         $this->assertFalse($this->sut()->canRespondToAuthorizationRequest($this->serverRequestMock));
     }
 
+
     public function testCanRespondToAuthorizationRequestReturnsFalseForHybridFlow(): void
     {
         $this->requestParamsResolverMock->expects($this->once())
@@ -138,15 +162,17 @@ class ImplicitGrantTest extends TestCase
         $this->assertFalse($this->sut()->canRespondToAuthorizationRequest($this->serverRequestMock));
     }
 
+
     public function testCompleteAuthorizationRequestThrowsForNonOidcRequests(): void
     {
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->expectExceptionMessage('Unexpected');
 
         $this->sut()->completeAuthorizationRequest($this->createMock(
             \League\OAuth2\Server\RequestTypes\AuthorizationRequest::class,
         ));
     }
+
 
     public function testCanCompleteAuthorizationRequest(): void
     {
@@ -168,6 +194,7 @@ class ImplicitGrantTest extends TestCase
             $this->sut()->completeAuthorizationRequest($this->authorizationRequestMock),
         );
     }
+
 
     /**
      * The grant forwards the "add claims to ID Token" decision (made by AddClaimsToIdTokenRule and carried on the
@@ -203,6 +230,7 @@ class ImplicitGrantTest extends TestCase
         $this->sut()->completeAuthorizationRequest($this->authorizationRequestMock);
     }
 
+
     /**
      * When the decision is false, the user's claims are not released in the ID Token (they remain available at
      * the UserInfo endpoint via the issued access token).
@@ -235,6 +263,7 @@ class ImplicitGrantTest extends TestCase
 
         $this->sut()->completeAuthorizationRequest($this->authorizationRequestMock);
     }
+
 
     public function testCanValidateAuthorizationRequestWithRequestRules(): void
     {

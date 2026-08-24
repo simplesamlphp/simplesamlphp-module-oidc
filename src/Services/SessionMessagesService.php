@@ -12,6 +12,7 @@ class SessionMessagesService
     {
     }
 
+
     /**
      * @throws \Exception
      */
@@ -19,6 +20,7 @@ class SessionMessagesService
     {
         $this->session->setData('message', uniqid(), $value);
     }
+
 
     /**
      * @return array

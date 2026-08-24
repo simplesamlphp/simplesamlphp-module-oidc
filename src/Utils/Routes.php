@@ -20,6 +20,7 @@ class Routes
     ) {
     }
 
+
     public function getModuleUrl(string $resource = '', array $parameters = []): string
     {
         $resource = $this->moduleConfig->moduleName() . '/' . $resource;
@@ -44,6 +45,7 @@ class Routes
         );
     }
 
+
     public function newResponse(
         ?string $content = '',
         int $status = 200,
@@ -51,6 +53,7 @@ class Routes
     ): Response {
         return new Response($content, $status, $headers);
     }
+
 
     public function newJsonResponse(
         array|null $data = null,
@@ -60,6 +63,7 @@ class Routes
     ): JsonResponse {
         return new JsonResponse($data, $status, $headers, $json);
     }
+
 
     public function newJsonErrorResponse(
         string $error,
@@ -83,20 +87,24 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminConfigGeneral->value, $parameters);
     }
 
+
     public function urlAdminConfigProtocol(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminConfigProtocol->value, $parameters);
     }
+
 
     public function urlAdminConfigFederation(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminConfigFederation->value, $parameters);
     }
 
+
     public function urlAdminMigrations(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminMigrations->value, $parameters);
     }
+
 
     public function urlAdminMigrationsRun(array $parameters = []): string
     {
@@ -110,11 +118,13 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminClients->value, $parameters);
     }
 
+
     public function urlAdminClientsShow(string $clientId, array $parameters = []): string
     {
         $parameters[ParametersEnum::ClientId->value] = $clientId;
         return $this->getModuleUrl(RoutesEnum::AdminClientsShow->value, $parameters);
     }
+
 
     public function urlAdminClientsEdit(string $clientId, array $parameters = []): string
     {
@@ -122,16 +132,19 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminClientsEdit->value, $parameters);
     }
 
+
     public function urlAdminClientsAdd(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminClientsAdd->value, $parameters);
     }
+
 
     public function urlAdminClientsResetSecret(string $clientId, array $parameters = []): string
     {
         $parameters[ParametersEnum::ClientId->value] = $clientId;
         return $this->getModuleUrl(RoutesEnum::AdminClientsResetSecret->value, $parameters);
     }
+
 
     public function urlAdminClientsDelete(string $clientId, array $parameters = []): string
     {
@@ -146,6 +159,7 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminCredentialStatus->value, $parameters);
     }
 
+
     public function urlAdminCredentialStatusChange(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminCredentialStatusChange->value, $parameters);
@@ -158,15 +172,18 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::AdminTestTrustChainResolution->value, $parameters);
     }
 
+
     public function urlAdminTestTrustMarkValidation(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminTestTrustMarkValidation->value, $parameters);
     }
 
+
     public function urlAdminTestFederationDiscovery(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::AdminTestFederationDiscovery->value, $parameters);
     }
+
 
     public function urlAdminTestVerifiableCredentialIssuance(array $parameters = []): string
     {
@@ -191,30 +208,36 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::Configuration->value, $parameters);
     }
 
+
     public function urlAuthorization(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::Authorization->value, $parameters);
     }
+
 
     public function urlToken(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::Token->value, $parameters);
     }
 
+
     public function urlUserInfo(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::UserInfo->value, $parameters);
     }
+
 
     public function urlJwks(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::Jwks->value, $parameters);
     }
 
+
     public function urlEndSession(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::EndSession->value, $parameters);
     }
+
 
     /**
      * Dynamic Client Registration endpoint. Only served (and only advertised in OP metadata) when
@@ -234,6 +257,7 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::FederationConfiguration->value, $parameters);
     }
 
+
     public function urlPushedAuthorizationRequest(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value, $parameters);
@@ -248,15 +272,18 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::CredentialIssuerConfiguration->value, $parameters);
     }
 
+
     public function urlCredentialIssuerCredential(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::CredentialIssuerCredential->value, $parameters);
     }
 
+
     public function urlCredentialIssuerNonce(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::CredentialIssuerNonce->value, $parameters);
     }
+
 
     public function urlCredentialJsonLdContext(string $credentialConfigurationId, array $parameters = []): string
     {
@@ -311,10 +338,12 @@ class Routes
         return $this->getModuleUrl(RoutesEnum::ApiVciCredentialOffer->value, $parameters);
     }
 
+
     public function urlApiVciCredentialStatus(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::ApiVciCredentialStatus->value, $parameters);
     }
+
 
     public function urlApiOAuth2TokenIntrospection(array $parameters = []): string
     {

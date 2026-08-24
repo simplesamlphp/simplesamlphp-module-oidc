@@ -15,6 +15,7 @@ class CryptKeyFactory
     ) {
     }
 
+
     /**
      * @throws \Exception
      */
@@ -32,6 +33,7 @@ class CryptKeyFactory
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -42,6 +44,7 @@ class CryptKeyFactory
         return new CryptKey($publicKeyFilename, null, false);
     }
 
+
     /**
      * @return array{
      *      algorithm: \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum,
@@ -50,7 +53,7 @@ class CryptKeyFactory
      *      private_key_password: ?non-empty-string,
      *      key_id: ?non-empty-string
      *  }
-     * @throws ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError
      *
      */
     protected function getDefaultProtocolSignatureKeyPairConfig(): array

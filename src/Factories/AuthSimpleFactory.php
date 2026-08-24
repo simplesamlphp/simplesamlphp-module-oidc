@@ -16,6 +16,7 @@ class AuthSimpleFactory
     ) {
     }
 
+
     /**
      * @codeCoverageIgnore
      * @throws \Exception
@@ -27,14 +28,16 @@ class AuthSimpleFactory
         return new Simple($authSourceId);
     }
 
+
     /**
-     * @return Simple The default authsource
+     * @return \SimpleSAML\Auth\Simple The default authsource
      * @throws \Exception
      */
     public function getDefaultAuthSource(): Simple
     {
         return new Simple($this->moduleConfig->getDefaultAuthSourceId());
     }
+
 
     /**
      * Get auth source defined on the client. If not set on the client, get the default auth source defined in config.
@@ -51,6 +54,7 @@ class AuthSimpleFactory
 
         return $defaultAuthSourceId;
     }
+
 
     public function forAuthSourceId(string $authSourceId): Simple
     {

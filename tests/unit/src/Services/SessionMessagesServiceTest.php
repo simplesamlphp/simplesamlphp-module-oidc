@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
@@ -12,9 +13,11 @@ use SimpleSAML\Session;
 /**
  * @covers \SimpleSAML\Module\oidc\Services\SessionMessagesService
  */
+#[AllowMockObjectsWithoutExpectations]
 class SessionMessagesServiceTest extends TestCase
 {
     protected MockObject $sessionMock;
+
 
     /**
      * @throws \Exception
@@ -24,10 +27,12 @@ class SessionMessagesServiceTest extends TestCase
         $this->sessionMock = $this->createMock(Session::class);
     }
 
+
     public function prepareMockedInstance(): SessionMessagesService
     {
         return new SessionMessagesService($this->sessionMock);
     }
+
 
     public function testItIsInitializable(): void
     {
@@ -36,6 +41,7 @@ class SessionMessagesServiceTest extends TestCase
             $this->prepareMockedInstance(),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -48,6 +54,7 @@ class SessionMessagesServiceTest extends TestCase
 
         $this->prepareMockedInstance()->addMessage('value');
     }
+
 
     public function testItGetsMessages(): void
     {

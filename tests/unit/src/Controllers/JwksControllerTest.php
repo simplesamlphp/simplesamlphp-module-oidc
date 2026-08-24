@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
@@ -17,13 +18,19 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\JwksController
  */
+#[AllowMockObjectsWithoutExpectations]
 class JwksControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $jwks;
+
     protected MockObject $routesMock;
+
     protected MockObject $jwksDecoratorFactoryMock;
+
     protected MockObject $jwksDecoratorMock;
+
 
     /**
      * @throws \Exception
@@ -49,6 +56,7 @@ class JwksControllerTest extends TestCase
         $this->jwks->method('jwksDecoratorFactory')->willReturn($this->jwksDecoratorFactoryMock);
     }
 
+
     protected function mock(
         ?ModuleConfig $moduleConfig = null,
         ?Jwks $jwks = null,
@@ -65,6 +73,7 @@ class JwksControllerTest extends TestCase
         );
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -72,6 +81,7 @@ class JwksControllerTest extends TestCase
             $this->mock(),
         );
     }
+
 
     public function testItReturnsJsonKeys(): void
     {
@@ -93,6 +103,7 @@ class JwksControllerTest extends TestCase
             json_decode((string) $this->mock()->__invoke()->getContent(), true),
         );
     }
+
 
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {

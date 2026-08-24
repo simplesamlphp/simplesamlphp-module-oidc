@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -25,16 +26,25 @@ use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class ClientAuthenticationRuleTest extends TestCase
 {
     protected ResultBag $resultBag;
+
     protected Stub $clientStub;
+
     protected Stub $requestStub;
+
     protected Stub $loggerServiceStub;
+
     protected MockObject $requestParamsResolverMock;
+
     protected Helpers $helpers;
+
     protected MockObject $authenticatedOAuth2ClientResolverMock;
+
     protected Stub $responseModeStub;
+
 
     protected function setUp(): void
     {
@@ -47,6 +57,7 @@ class ClientAuthenticationRuleTest extends TestCase
         $this->authenticatedOAuth2ClientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
+
 
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
@@ -63,6 +74,7 @@ class ClientAuthenticationRuleTest extends TestCase
             $authenticatedOAuth2ClientResolver,
         );
     }
+
 
     /**
      * A client already resolved by an upstream rule (ClientRule) is used as the pre-fetched client, without
@@ -102,6 +114,7 @@ class ClientAuthenticationRuleTest extends TestCase
         $this->assertSame($resolved, $result->getValue());
     }
 
+
     /**
      * When no upstream client is available but a client_id param is present, it is used to pre-fetch the client.
      *
@@ -138,6 +151,7 @@ class ClientAuthenticationRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame($resolved, $result->getValue());
     }
+
 
     /**
      * The core of the fix: with no upstream client and no client_id parameter (e.g. private_key_jwt, where the
@@ -178,6 +192,7 @@ class ClientAuthenticationRuleTest extends TestCase
         $this->assertSame($resolved, $result->getValue());
     }
 
+
     /**
      * If the resolver can not authenticate the client by any supported method, the request is denied.
      *
@@ -201,6 +216,7 @@ class ClientAuthenticationRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     /**
      * A confidential client must not authenticate using the 'none' method.

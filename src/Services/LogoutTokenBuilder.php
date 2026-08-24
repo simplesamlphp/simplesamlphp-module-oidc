@@ -17,6 +17,7 @@ class LogoutTokenBuilder
 {
     protected Core $core;
 
+
     public function __construct(
         protected ModuleConfig $moduleConfig = new ModuleConfig(),
         protected LoggerService $loggerService = new LoggerService(),
@@ -27,6 +28,7 @@ class LogoutTokenBuilder
             $this->loggerService,
         ))->build();
     }
+
 
     /**
      * @throws \Exception

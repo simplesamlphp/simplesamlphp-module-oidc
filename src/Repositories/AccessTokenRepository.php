@@ -37,10 +37,12 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * {@inheritdoc}
@@ -74,6 +76,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $requestedClaims,
         );
     }
+
 
     /**
      * {@inheritdoc}
@@ -134,6 +137,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         );
     }
 
+
     /**
      * Find Access Token by id.
      * @throws \Exception
@@ -175,6 +179,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         return $accessTokenEntity;
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \JsonException
@@ -192,6 +197,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $this->update($accessToken);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -208,6 +214,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         }
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -222,6 +229,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
         return $accessToken->isRevoked();
     }
+
 
     /**
      * Removes expired access tokens.
@@ -246,6 +254,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             ],
         );
     }
+
 
     /**
      * @throws \JsonException
@@ -274,6 +283,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $this->getCacheKey($accessTokenEntity->getIdentifier()),
         );
     }
+
 
     protected function preparePdoState(array $state): array
     {

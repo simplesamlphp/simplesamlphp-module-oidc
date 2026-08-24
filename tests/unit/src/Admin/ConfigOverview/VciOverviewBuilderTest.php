@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -15,10 +16,12 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 
 #[CoversClass(VciOverviewBuilder::class)]
 #[CoversClass(AbstractOverviewBuilder::class)]
+#[AllowMockObjectsWithoutExpectations]
 class VciOverviewBuilderTest extends TestCase
 {
     use OverviewTestTrait;
     use VciOverviewTestTrait;
+
 
     /**
      * A minimal but realistic credential configuration, shaped like the one in the config template.
@@ -42,10 +45,12 @@ class VciOverviewBuilderTest extends TestCase
         ];
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(VciOverviewBuilder::class, $this->buildVciOverviewBuilder());
     }
+
 
     public function testCanBuildSections(): void
     {
@@ -61,6 +66,7 @@ class VciOverviewBuilderTest extends TestCase
         }
     }
 
+
     public function testSectionAnchorsAreUnique(): void
     {
         $anchors = array_map(
@@ -71,12 +77,14 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame($anchors, array_unique($anchors));
     }
 
+
     public function testEveryRowHasALabel(): void
     {
         foreach ($this->flattenRows($this->buildVciOverviewBuilder()->build()) as $row) {
             $this->assertNotEmpty($row->getLabel());
         }
     }
+
 
     public function testNotesWhenVciIsDisabled(): void
     {
@@ -99,6 +107,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNull($enabledRow->getNote());
     }
 
+
     /**
      * The experimental status is stated in the documentation and in the distributed configuration, but
      * neither is necessarily where the person who switched this on is looking. Once credentials are
@@ -119,6 +128,7 @@ class VciOverviewBuilderTest extends TestCase
         // No specification version is claimed anywhere any more, so none may reappear here either.
         $this->assertStringNotContainsString('draft', strtolower($warning));
     }
+
 
     public function testBuildsCredentialConfigurationDetail(): void
     {
@@ -176,6 +186,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNull($configuration['jsonLdContextUrl']);
     }
 
+
     /**
      * CredentialIssuerCredentialController skips a mapping whose path is not among the declared
      * claim paths, so the screen must not present it as effective.
@@ -210,6 +221,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('never reaches the credential', (string)$row->getWarning());
     }
 
+
     public function testDoesNotWarnWhenEveryMappingIsEffective(): void
     {
         $row = $this->findRowForOption(
@@ -228,6 +240,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     /**
      * Issuance reads only key()/current() of a map entry, so any further pair is ignored. Listing
@@ -265,6 +278,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('only the first pair', (string)$row->getWarning());
     }
 
+
     public function testSkipsMappingEntriesWithNonStringAttributeName(): void
     {
         $row = $this->findRowForOption(
@@ -287,6 +301,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame([], $configurations[0]['attributeMappings']);
     }
 
+
     /**
      * getVciCredentialJsonLdContext() throws for a non-array value, and it sits outside the
      * credential configuration guard.
@@ -305,6 +320,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
         $this->assertNull($row->getNote());
     }
+
 
     /**
      * CredentialIssuerCredentialController can only issue jwt_vc_json, dc+sd-jwt and vc+sd-jwt, and
@@ -332,6 +348,7 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertStringContainsString('unsupported format', (string)$row->getWarning());
     }
+
 
     /**
      * Issuance filters a mapping path down to its string segments and writes at what remains, so the
@@ -374,6 +391,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertTrue($mapping['isEffective']);
     }
 
+
     /**
      * array_filter() preserves keys, so a non-string segment before the end leaves a gap in them and
      * the in_array() comparison against the declared paths fails. Issuance rejects such a mapping, so
@@ -412,6 +430,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame('notDeclared', $mapping['ineffectiveReason']);
     }
 
+
     /**
      * A declared path is handed to issuance unchanged, so it is shown as configured even when a
      * segment could never form part of a usable path.
@@ -440,6 +459,7 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertSame(['credentialSubject.0.mail'], $configurations[0]['claimPaths']);
     }
+
 
     /**
      * For jwt_vc_json the controller writes at the configured path but serializes only the
@@ -487,6 +507,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame('droppedForFormat', $mappingsByAttribute['secondaryMail']['ineffectiveReason']);
     }
 
+
     /**
      * The SD-JWT formats do not have that restriction: dc+sd-jwt uses the path as-is.
      */
@@ -519,6 +540,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame('mail', $configurations[0]['attributeMappings'][0]['path']);
         $this->assertNull($row->getWarning());
     }
+
 
     /**
      * vc+sd-jwt does root a disclosure under 'credentialSubject' when the parent path does not
@@ -567,6 +589,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertTrue($mappingsByAttribute['givenName']['isEffective']);
     }
 
+
     public function testLinksJsonLdContextWhenConfigured(): void
     {
         $row = $this->findRowForOption(
@@ -589,6 +612,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($configurations[0]['jsonLdContextUrl']);
     }
 
+
     /**
      * A non-array credential configuration makes getVciCredentialConfiguration() throw, which must
      * be reported in place rather than take the screen down.
@@ -609,6 +633,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNull($row->getNote());
     }
 
+
     public function testDoesNotExposeMalformedCredentialConfigurationDetail(): void
     {
         $sections = $this->buildVciOverviewBuilder([
@@ -618,6 +643,7 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertStringNotContainsString('super-secret-looking-value', $this->renderableContent($sections));
     }
+
 
     public function testWarnsWhenNonRegisteredClientsHaveNoAllowedPrefixes(): void
     {
@@ -633,6 +659,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertStringContainsString('will be rejected', (string)$row->getWarning());
     }
+
 
     /**
      * ClientRedirectUriRule casts each configured prefix with (string), so a null becomes an empty
@@ -659,6 +686,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('redirected anywhere', (string)$row->getWarning());
     }
 
+
     /**
      * The runtime does not skip a nested array: casting it yields the literal 'Array', so a redirect
      * URI starting with that text would be accepted. Dropping it here would hide that.
@@ -681,6 +709,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('not a string', (string)$row->getWarning());
     }
 
+
     public function testDoesNotWarnAboutPrefixesWhenNonRegisteredClientsAreDisallowed(): void
     {
         $row = $this->findRowForOption(
@@ -694,6 +723,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     public function testNotesIssuerStateTtlFallback(): void
     {
@@ -714,6 +744,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame('30 minutes (PT30M)', $configuredRow->getValue());
     }
 
+
     public function testNotesNonceTtlFallback(): void
     {
         $row = $this->findRowForOption(
@@ -725,6 +756,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame('5 minutes (PT5M)', $row->getValue());
         $this->assertStringContainsString('falls back to 5 minutes', (string)$row->getNote());
     }
+
 
     /**
      * The credential offer endpoint is gated by the module API master switch, which lives on the
@@ -743,6 +775,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertStringContainsString('module API itself is disabled', (string)$row->getWarning());
     }
+
 
     /**
      * VciCredentialOfferApiController rejects every request unless VCI is enabled, so the endpoint
@@ -774,6 +807,7 @@ class VciOverviewBuilderTest extends TestCase
         );
     }
 
+
     /**
      * Both CredentialIssuerCredentialController and NonceController throw a forbidden response from
      * their constructor while VCI is off, so neither endpoint may be presented as usable.
@@ -803,6 +837,7 @@ class VciOverviewBuilderTest extends TestCase
         }
     }
 
+
     /**
      * A malformed api_enabled belongs to the protocol screen; it must not be reported as a failure
      * of the credential offer endpoint option, whose own value is still readable.
@@ -823,6 +858,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringNotContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
     }
 
+
     public function testDoesNotWarnWhenApiAndOfferEndpointAgree(): void
     {
         $row = $this->findRowForOption(
@@ -836,6 +872,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     public function testShowsEmailAttributeConfiguration(): void
     {
@@ -857,6 +894,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($mapRow);
         $this->assertSame(['example-userpass' => ['emailAddress']], $mapRow->getValue());
     }
+
 
     /**
      * A malformed JSON-LD or attribute-map option must be reported on its own row, without emptying
@@ -883,6 +921,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($jsonLdRow->getWarning());
     }
 
+
     public function testIsolatesAttributeMapFailureFromCredentialConfigurations(): void
     {
         $sections = $this->buildVciOverviewBuilder([
@@ -905,6 +944,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($mapRow);
         $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$mapRow->getWarning());
     }
+
 
     /**
      * getUsersEmailAttributeNameForAuthSourceId() only honours a string and otherwise falls back to
@@ -946,6 +986,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNull($row->getNote());
     }
 
+
     public static function malformedOptionProvider(): array
     {
         return [
@@ -980,6 +1021,7 @@ class VciOverviewBuilderTest extends TestCase
         ];
     }
 
+
     /**
      * A non-array entry is treated as absent by the runtime, so counting it as a configured document
      * would advertise one whose endpoint returns 404.
@@ -1000,6 +1042,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame('1', $row->getValue());
     }
+
 
     public function testReportsSignatureKeyPairErrorInPlace(): void
     {

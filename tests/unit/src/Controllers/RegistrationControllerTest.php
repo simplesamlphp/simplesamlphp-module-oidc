@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -34,17 +35,27 @@ use Symfony\Component\HttpFoundation\Response;
 #[UsesClass(OidcServerException::class)]
 #[UsesClass(ErrorResponder::class)]
 #[UsesClass(Helpers::class)]
+#[AllowMockObjectsWithoutExpectations]
 class RegistrationControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $clientEntityFactoryMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerMock;
+
     protected MockObject $clientMock;
+
     protected ClientMetadataValidator $clientMetadataValidator;
+
     protected ErrorResponder $errorResponder;
+
     protected Helpers $helpers;
+
 
     protected function setUp(): void
     {
@@ -93,6 +104,7 @@ class RegistrationControllerTest extends TestCase
         $this->clientMock->method('getExtraMetadata')->willReturn([]);
     }
 
+
     protected function sut(): RegistrationController
     {
         return new RegistrationController(
@@ -107,6 +119,7 @@ class RegistrationControllerTest extends TestCase
         );
     }
 
+
     protected function postRequest(string $json): Request
     {
         return Request::create(
@@ -120,6 +133,7 @@ class RegistrationControllerTest extends TestCase
         );
     }
 
+
     /**
      * @return array
      */
@@ -130,6 +144,7 @@ class RegistrationControllerTest extends TestCase
 
         return $decoded;
     }
+
 
     public function testCreateReturns201WithClientIdAndRegistrationAccessToken(): void
     {
@@ -150,6 +165,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame(0, $body['client_secret_expires_at']);
     }
 
+
     public function testDisabledFeatureReturns404(): void
     {
         $moduleConfigMock = $this->createMock(ModuleConfig::class);
@@ -163,6 +179,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame(404, $response->getStatusCode());
     }
 
+
     public function testMissingRedirectUrisReturns400InvalidRedirectUri(): void
     {
         $response = $this->sut()->registration($this->postRequest('{"client_name":"Example"}'));
@@ -171,6 +188,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame('invalid_redirect_uri', $this->decode($response)['error']);
     }
 
+
     public function testInvalidJsonReturns400InvalidClientMetadata(): void
     {
         $response = $this->sut()->registration($this->postRequest('not-json'));
@@ -178,6 +196,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame('invalid_client_metadata', $this->decode($response)['error']);
     }
+
 
     public function testWrongContentTypeReturns400InvalidRequest(): void
     {
@@ -196,6 +215,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame('invalid_request', $this->decode($response)['error']);
     }
+
 
     public function testJsonContentTypeWithCharsetParameterIsAccepted(): void
     {
@@ -216,6 +236,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertSame(201, $response->getStatusCode());
     }
 
+
     public function testInitialAccessTokenModeRejectsMissingToken(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
@@ -230,6 +251,7 @@ class RegistrationControllerTest extends TestCase
 
         $this->assertSame(401, $response->getStatusCode());
     }
+
 
     public function testReadReturns200ForValidToken(): void
     {
@@ -254,6 +276,7 @@ class RegistrationControllerTest extends TestCase
         $this->assertArrayHasKey('registration_client_uri', $body);
     }
 
+
     public function testReadReturns401ForInvalidToken(): void
     {
         $this->clientMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Dynamic);
@@ -267,6 +290,7 @@ class RegistrationControllerTest extends TestCase
 
         $this->assertSame(401, $response->getStatusCode());
     }
+
 
     public function testReadReturns401ForUnknownClient(): void
     {

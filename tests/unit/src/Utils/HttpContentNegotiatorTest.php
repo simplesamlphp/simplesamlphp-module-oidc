@@ -4,20 +4,24 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\HttpContentNegotiator;
 
 #[CoversClass(HttpContentNegotiator::class)]
+#[AllowMockObjectsWithoutExpectations]
 class HttpContentNegotiatorTest extends TestCase
 {
     protected const string MEDIA_TYPE = 'application/statuslist+jwt';
+
 
     protected function sut(): HttpContentNegotiator
     {
         return new HttpContentNegotiator();
     }
+
 
     /**
      * @return array<string,array{?string,bool}>
@@ -43,11 +47,13 @@ class HttpContentNegotiatorTest extends TestCase
         ];
     }
 
+
     #[DataProvider('acceptHeaders')]
     public function testAcceptsMediaType(?string $accept, bool $expected): void
     {
         $this->assertSame($expected, $this->sut()->acceptsMediaType($accept, self::MEDIA_TYPE));
     }
+
 
     /**
      * The specific range wins over the general one whichever way round the weights fall, which is what
@@ -69,6 +75,7 @@ class HttpContentNegotiatorTest extends TestCase
         );
     }
 
+
     /**
      * Everything past the weight is accept-ext rather than a second weight.
      */
@@ -79,11 +86,13 @@ class HttpContentNegotiatorTest extends TestCase
         );
     }
 
+
     public function testNoAcceptEncodingMeansNoEncoding(): void
     {
         $this->assertNull($this->sut()->preferredContentCoding(null, 'gzip'));
         $this->assertNull($this->sut()->preferredContentCoding('', 'gzip'));
     }
+
 
     public function testChoosesAnOfferedCoding(): void
     {
@@ -91,15 +100,18 @@ class HttpContentNegotiatorTest extends TestCase
         $this->assertSame('gzip', $this->sut()->preferredContentCoding('GZIP', 'gzip'));
     }
 
+
     public function testDeclinesACodingWhichIsNotOffered(): void
     {
         $this->assertNull($this->sut()->preferredContentCoding('br, zstd', 'gzip'));
     }
 
+
     public function testHonoursAWildcard(): void
     {
         $this->assertSame('gzip', $this->sut()->preferredContentCoding('*', 'gzip'));
     }
+
 
     /**
      * A weight of zero is a refusal, and an explicit refusal beats a permissive wildcard.
@@ -110,6 +122,7 @@ class HttpContentNegotiatorTest extends TestCase
         $this->assertNull($this->sut()->preferredContentCoding('*, gzip;q=0', 'gzip'));
     }
 
+
     public function testPrefersTheHigherWeightedOfSeveralOfferedCodings(): void
     {
         $this->assertSame(
@@ -117,6 +130,7 @@ class HttpContentNegotiatorTest extends TestCase
             $this->sut()->preferredContentCoding('gzip;q=0.2, deflate;q=0.9', 'gzip', 'deflate'),
         );
     }
+
 
     /**
      * Where the client has no preference between two codings, the order they are offered in decides.

@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Result
  */
+#[AllowMockObjectsWithoutExpectations]
 class ResultTest extends TestCase
 {
     protected string $key = 'some-key';
+
     protected string $value = 'some-value';
+
 
     public function testConstruct(): Result
     {
@@ -22,23 +27,21 @@ class ResultTest extends TestCase
         return $result;
     }
 
+
     public function testConstructWithoutValue(): void
     {
         $this->assertInstanceOf(Result::class, new Result($this->key));
     }
 
-    /**
-     * @depends testConstruct
-     */
+
+    #[Depends('testConstruct')]
     public function testGetKey(Result $result): void
     {
         $this->assertSame($this->key, $result->getKey());
     }
 
-    /**
-     * @depends testConstruct
-     *
-     */
+
+    #[Depends('testConstruct')]
     public function testGetValue(Result $result): void
     {
         $this->assertSame($this->value, $result->getValue());

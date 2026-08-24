@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use DateInterval;
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -36,10 +37,12 @@ use Stringable;
 
 #[CoversClass(CredentialOfferUriFactory::class)]
 #[UsesClass(AuthCodeEntity::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CredentialOfferUriFactoryTest extends TestCase
 {
     /** @var array<int, array{message: string, context: array}> */
     private array $logRecords = [];
+
 
     public function testFallbackUserIdentifierDoesNotLogAttributesOrExceptionDetails(): void
     {
@@ -99,6 +102,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->assertStringNotContainsString($sensitiveExceptionValue, $logs);
     }
 
+
     public function testByValueOfferSurvivesQueryParsing(): void
     {
         // Appended raw, the '&' would split the offer into a second query parameter and the '#' would
@@ -118,6 +122,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->assertSame($issuer, $offer['credential_issuer']);
     }
 
+
     public function testByReferenceOfferSurvivesQueryParsing(): void
     {
         // An offer passed by reference is a URL which may carry a query string of its own.
@@ -136,6 +141,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->assertSame($offerUri, $parameters['credential_offer_uri']);
     }
 
+
     public function testBuildTxCodeGeneratesFourDigitNumericCode(): void
     {
         $txCode = $this->factory(
@@ -145,6 +151,7 @@ class CredentialOfferUriFactoryTest extends TestCase
 
         $this->assertMatchesRegularExpression('/^[0-9]{4}$/', $txCode->getCodeAsString());
     }
+
 
     private function factory(
         LoggerService $logger,
@@ -188,6 +195,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         );
     }
 
+
     /**
      * Parse the query of an offer URI back into parameters. parse_url() rejects the
      * openid-credential-offer:// scheme outright, so the prefix is stripped by hand.
@@ -204,6 +212,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         /** @var array<string, string> $parameters */
         return $parameters;
     }
+
 
     private function captureLogs(LoggerService&MockObject $logger, string $level): void
     {

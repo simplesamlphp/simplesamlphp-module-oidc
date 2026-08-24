@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
@@ -36,6 +38,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(CredentialStatusController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CredentialStatusControllerTest extends TestCase
 {
     protected const string CREDENTIAL_ID = 'https://op.example.org/vc/abc';
@@ -46,19 +49,33 @@ class CredentialStatusControllerTest extends TestCase
 
     protected const string LIST_ID = 'a-status-list-id';
 
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $templateFactoryMock;
+
     protected MockObject $authorizationMock;
+
     protected MockObject $statusListEntryRepositoryMock;
+
     protected MockObject $statusListRepositoryMock;
+
     protected MockObject $credentialStatusServiceMock;
+
     protected MockObject $subjectRefHasherMock;
+
     protected MockObject $formFactoryMock;
+
     protected MockObject $formMock;
+
     protected MockObject $sessionMessagesServiceMock;
+
     protected MockObject $authSimpleFactoryMock;
+
     protected MockObject $authSimpleMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerMock;
 
     /** @var array<string,mixed> Data the controller handed to the template. */
@@ -66,6 +83,7 @@ class CredentialStatusControllerTest extends TestCase
 
     /** @var string[] Messages the controller left for the administrator. */
     protected array $messages = [];
+
 
     protected function setUp(): void
     {
@@ -131,6 +149,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->loggerMock = $this->createMock(LoggerService::class);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
@@ -153,10 +172,12 @@ class CredentialStatusControllerTest extends TestCase
         );
     }
 
+
     protected function userIdentifierResolver(): UserIdentifierResolver
     {
         return new UserIdentifierResolver();
     }
+
 
     protected function entry(string $statusListId = self::LIST_ID, int $status = 0): StatusListEntryRecord
     {
@@ -175,6 +196,7 @@ class CredentialStatusControllerTest extends TestCase
         );
     }
 
+
     protected function statusListRecord(int ...$allowedStatuses): MockObject
     {
         $statusList = $this->createMock(StatusListRecord::class);
@@ -184,6 +206,7 @@ class CredentialStatusControllerTest extends TestCase
 
         return $statusList;
     }
+
 
     /**
      * Enforced where a method added later is covered by existing rather than by being remembered.
@@ -196,6 +219,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->assertInstanceOf(CredentialStatusController::class, $this->sut());
     }
+
 
     /**
      * @throws \Throwable
@@ -222,6 +246,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertSame('', $this->templateData['query']);
     }
 
+
     /**
      * An administrator has either a credential identifier or the identifier of the person it was
      * issued to, and cannot be expected to tell the interface which of the two they typed.
@@ -242,6 +267,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertSame('someone@example.org', $this->templateData['query']);
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -257,6 +283,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->sut()->index(new Request());
     }
+
 
     /**
      * How many bits an entry occupies is fixed when its list is created, so offering a status the list
@@ -282,6 +309,7 @@ class CredentialStatusControllerTest extends TestCase
         );
     }
 
+
     /**
      * Between showing an administrator no way to withdraw a credential and showing one which reports
      * why it did not work, the second is the one which can be acted on.
@@ -304,6 +332,7 @@ class CredentialStatusControllerTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -325,6 +354,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->sut()->index(new Request());
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -338,6 +368,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertInstanceOf(RedirectResponse::class, $this->sut()->change(new Request()));
         $this->assertSame(['The credential status has been changed.'], $this->messages);
     }
+
 
     /**
      * Repeating a request is how somebody who never saw an answer recovers, so it is reported as
@@ -365,6 +396,7 @@ class CredentialStatusControllerTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -376,6 +408,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->assertStringContainsString('No credential', $this->messages[0]);
     }
+
 
     /**
      * @throws \Throwable
@@ -390,6 +423,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertStringContainsString('without room for that status', $this->messages[0]);
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -402,6 +436,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->assertStringContainsString('changed by something else at the same time', $this->messages[0]);
     }
+
 
     /**
      * @throws \Throwable
@@ -416,6 +451,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertSame(['The credential status could not be changed.'], $this->messages);
         $this->assertStringNotContainsString('on fire', $this->messages[0]);
     }
+
 
     /**
      * A stale or missing CSRF token lands here, and nothing is asked of the service.
@@ -436,6 +472,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->assertSame(['The credential status change was not accepted. Please try again.'], $this->messages);
     }
+
 
     /**
      * @throws \Throwable
@@ -458,6 +495,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->assertSame(['The credential status change was not accepted. Please try again.'], $this->messages);
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -478,6 +516,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->assertSame(['The credential status change was not accepted. Please try again.'], $this->messages);
     }
+
 
     /**
      * SimpleSAMLphp's administrator authentication is a shared password in most deployments, which
@@ -502,6 +541,7 @@ class CredentialStatusControllerTest extends TestCase
         $this->sut()->change(new Request());
     }
 
+
     /**
      * A credential must not stay in a wallet because the administrator behind the request could not
      * be named.
@@ -512,7 +552,7 @@ class CredentialStatusControllerTest extends TestCase
     {
         $this->authSimpleFactoryMock = $this->createMock(AuthSimpleFactory::class);
         $this->authSimpleFactoryMock->method('forAuthSourceId')
-            ->willThrowException(new \RuntimeException('No such authentication source.'));
+            ->willThrowException(new RuntimeException('No such authentication source.'));
 
         $this->credentialStatusServiceMock->expects($this->once())
             ->method('setStatus')
@@ -521,6 +561,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->sut()->change(new Request());
     }
+
 
     /**
      * @throws \Throwable
@@ -538,6 +579,7 @@ class CredentialStatusControllerTest extends TestCase
 
         $this->sut()->change(new Request([], ['q' => 'someone@example.org', 'page' => '3']));
     }
+
 
     /**
      * @throws \Throwable

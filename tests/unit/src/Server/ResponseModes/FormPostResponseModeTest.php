@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseModes;
 
 use Nyholm\Psr7\Response;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -15,9 +16,11 @@ use SimpleSAML\XHTML\Template;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode
  */
+#[AllowMockObjectsWithoutExpectations]
 class FormPostResponseModeTest extends TestCase
 {
     protected FormPostResponseMode $sut;
+
 
     protected function setUp(): void
     {
@@ -50,6 +53,7 @@ class FormPostResponseModeTest extends TestCase
 
         $this->sut = new FormPostResponseMode($templateFactory);
     }
+
 
     public function testBuildResponseReturnsHtmlWithFormPost(): void
     {

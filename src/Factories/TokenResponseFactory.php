@@ -22,6 +22,7 @@ class TokenResponseFactory
     ) {
     }
 
+
     public function build(): TokenResponse
     {
         $tokenResponse = new TokenResponse(

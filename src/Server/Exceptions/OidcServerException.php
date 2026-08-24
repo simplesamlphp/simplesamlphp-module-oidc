@@ -22,9 +22,10 @@ class OidcServerException extends OAuthServerException
     protected ?string $redirectUri = null;
 
     /**
-     * @var null|ResponseModeInterface
+     * @var null|\SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface
      */
     protected ?ResponseModeInterface $responseMode = null;
+
 
     private static function create(
         string $message,
@@ -60,6 +61,7 @@ class OidcServerException extends OAuthServerException
         return $exception;
     }
 
+
     /**
      * Unsupported response type error.
      *
@@ -88,6 +90,7 @@ class OidcServerException extends OAuthServerException
             $responseMode,
         );
     }
+
 
     /**
      * Invalid scope error.
@@ -129,6 +132,7 @@ class OidcServerException extends OAuthServerException
         return $e;
     }
 
+
     /**
      * Invalid request error with redirect ability.
      *
@@ -151,7 +155,7 @@ class OidcServerException extends OAuthServerException
     ): static {
         $errorMessage = 'The request is missing a required parameter, includes an invalid parameter value, ' .
         'includes a parameter more than once, or is otherwise malformed.';
-        $hint = ($hint === null) ? \sprintf('Check the `%s` parameter', $parameter) : $hint;
+        $hint ??= \sprintf('Check the `%s` parameter', $parameter);
         $e = self::create(
             $errorMessage,
             9,
@@ -166,6 +170,7 @@ class OidcServerException extends OAuthServerException
 
         return $e;
     }
+
 
     /**
      * @param string|null $hint
@@ -198,6 +203,7 @@ class OidcServerException extends OAuthServerException
         return $e;
     }
 
+
     /**
      * The authenticated client is not authorized to use this authorization grant type or response type
      * (RFC 6749 sections 4.1.2.1 / 5.2).
@@ -227,6 +233,7 @@ class OidcServerException extends OAuthServerException
             $responseMode,
         );
     }
+
 
     /**
      * Prompt none requires that user should be authenticated.
@@ -263,6 +270,7 @@ class OidcServerException extends OAuthServerException
         return $e;
     }
 
+
     /**
      * Request object not supported.
      *
@@ -298,6 +306,7 @@ class OidcServerException extends OAuthServerException
         return $e;
     }
 
+
     /**
      * Invalid refresh token.
      *
@@ -311,6 +320,7 @@ class OidcServerException extends OAuthServerException
     {
         return self::create('The refresh token is invalid.', 8, 'invalid_grant', 400, $hint, null, $previous);
     }
+
 
     public static function invalidTrustChain(
         ?string $hint = null,
@@ -336,6 +346,7 @@ class OidcServerException extends OAuthServerException
         return $e;
     }
 
+
     /**
      * Forbidden request.
      *
@@ -357,6 +368,7 @@ class OidcServerException extends OAuthServerException
             $previous,
         );
     }
+
 
     /**
      * Invalid client metadata error, as defined by the OAuth 2.0 Dynamic Client
@@ -387,6 +399,7 @@ class OidcServerException extends OAuthServerException
         );
     }
 
+
     /**
      * Invalid redirect URI error, as defined by the OAuth 2.0 Dynamic Client
      * Registration Protocol (RFC 7591, section 3.2.2) and OpenID Connect
@@ -416,6 +429,7 @@ class OidcServerException extends OAuthServerException
         );
     }
 
+
     /**
      * Returns the current payload.
      *
@@ -425,6 +439,7 @@ class OidcServerException extends OAuthServerException
     {
         return parent::getPayload();
     }
+
 
     /**
      * Updates the current payload.
@@ -436,6 +451,7 @@ class OidcServerException extends OAuthServerException
         parent::setPayload($payload);
     }
 
+
     /**
      * @param string|null $redirectUri Set to string, or unset it with null
      */
@@ -443,6 +459,7 @@ class OidcServerException extends OAuthServerException
     {
         $this->redirectUri = $redirectUri;
     }
+
 
     /**
      * Check if the exception has an associated redirect URI.
@@ -459,6 +476,7 @@ class OidcServerException extends OAuthServerException
         return $this->redirectUri !== null;
     }
 
+
     /**
      * Returns the Redirect URI used for redirecting.
      *
@@ -468,6 +486,7 @@ class OidcServerException extends OAuthServerException
     {
         return $this->redirectUri;
     }
+
 
     /**
      * @param string|null $state Set to string, or unset it with null
@@ -485,6 +504,7 @@ class OidcServerException extends OAuthServerException
         $payload['state'] = $state;
         $this->setPayload($payload);
     }
+
 
     /**
      * Generate an HTTP response.

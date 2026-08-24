@@ -34,6 +34,7 @@ class PreAuthCodeGrantFactory
     ) {
     }
 
+
     /**
      * @throws \Exception
      */

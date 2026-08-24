@@ -29,6 +29,7 @@ trait DatabaseRowValuesTrait
         );
     }
 
+
     /**
      * @param array<array-key,mixed> $row
      */
@@ -43,6 +44,7 @@ trait DatabaseRowValuesTrait
 
         return is_scalar($value) ? (string)$value : null;
     }
+
 
     /**
      * @param array<array-key,mixed> $row
@@ -62,6 +64,7 @@ trait DatabaseRowValuesTrait
         return (int)$value;
     }
 
+
     /**
      * @param array<array-key,mixed> $row
      */
@@ -76,6 +79,7 @@ trait DatabaseRowValuesTrait
 
         return is_string($value) && preg_match('/^-?\d+$/', $value) === 1 ? (int)$value : null;
     }
+
 
     /**
      * @param array<array-key,mixed> $row
@@ -94,6 +98,7 @@ trait DatabaseRowValuesTrait
 
         return (bool)$value;
     }
+
 
     /**
      * @param array<array-key,mixed> $row

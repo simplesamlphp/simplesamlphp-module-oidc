@@ -35,11 +35,12 @@ use Throwable;
 /**
  * Resolve a client instance based on a client_id or request object.
  *
- * @extends AbstractRule<\SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<\SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface>
  */
 class ClientRule extends AbstractRule
 {
     protected const string KEY_REQUEST_OBJECT_JTI = 'request_object_jti';
+
 
     public function __construct(
         RequestParamsResolver $requestParamsResolver,
@@ -55,6 +56,7 @@ class ClientRule extends AbstractRule
     ) {
         parent::__construct($requestParamsResolver, $helpers);
     }
+
 
     /**
      * @inheritDoc
@@ -72,8 +74,8 @@ class ClientRule extends AbstractRule
      * @throws \SimpleSAML\OpenID\Exceptions\TrustChainException
      * @throws \SimpleSAML\OpenID\Exceptions\TrustMarkException
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -153,6 +155,7 @@ class ClientRule extends AbstractRule
 
         throw OidcServerException::invalidClient($request);
     }
+
 
     /**
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods

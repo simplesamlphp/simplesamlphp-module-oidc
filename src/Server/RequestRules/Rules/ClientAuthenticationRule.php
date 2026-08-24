@@ -19,7 +19,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
- * @extends AbstractRule<\SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<\SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod>
  */
 class ClientAuthenticationRule extends AbstractRule
 {
@@ -31,12 +31,13 @@ class ClientAuthenticationRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,

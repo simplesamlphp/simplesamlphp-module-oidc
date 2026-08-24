@@ -33,6 +33,7 @@ class StatusListRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_status_list';
 
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -42,10 +43,12 @@ class StatusListRepository extends AbstractDatabaseRepository
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * Reads a list for the purpose of serving it.
@@ -75,6 +78,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return $this->findByIdOnPrimary($id);
     }
 
+
     /**
      * Reads a list for the purpose of deciding something about it.
      *
@@ -89,6 +93,7 @@ class StatusListRepository extends AbstractDatabaseRepository
             ),
         );
     }
+
 
     /**
      * The lists a credential of this pool, policy and lane may currently be allocated into.
@@ -134,6 +139,7 @@ class StatusListRepository extends AbstractDatabaseRepository
 
         return $records;
     }
+
 
     /**
      * Lists of this pool, policy and lane which exist but are not open for allocation yet, because
@@ -203,6 +209,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return $records;
     }
 
+
     /**
      * Removes a list this request created and then decided not to use.
      *
@@ -254,6 +261,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return is_int($affected) && $affected > 0;
     }
 
+
     /**
      * Highest generation used so far for this pool, policy and lane, or 0 when there is none yet.
      *
@@ -284,6 +292,7 @@ class StatusListRepository extends AbstractDatabaseRepository
 
         return is_numeric($highest) ? (int)$highest : 0;
     }
+
 
     /**
      * Inserts a new list.
@@ -359,6 +368,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         );
     }
 
+
     /**
      * Opens a freshly seeded list for allocation.
      *
@@ -384,6 +394,7 @@ class StatusListRepository extends AbstractDatabaseRepository
 
         return is_int($affected) && $affected > 0;
     }
+
 
     /**
      * Stops a list accepting new allocations.
@@ -411,6 +422,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return is_int($affected) && $affected > 0;
     }
 
+
     /**
      * Bumps the advisory allocation counter.
      *
@@ -430,6 +442,7 @@ class StatusListRepository extends AbstractDatabaseRepository
             ['id' => $id],
         );
     }
+
 
     /**
      * Marks the published token as no longer representing the list's content.
@@ -458,6 +471,7 @@ class StatusListRepository extends AbstractDatabaseRepository
             ['id' => $id],
         );
     }
+
 
     /**
      * Publishes a freshly signed token, provided the content it was signed over is still the content
@@ -534,6 +548,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return is_int($affected) && $affected > 0;
     }
 
+
     /**
      * Lists which have a published token, in batches, for the reconciler to check.
      *
@@ -589,6 +604,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return $candidates;
     }
 
+
     /**
      * Invalidates a published token, but only while it is still the one which was examined.
      *
@@ -627,6 +643,7 @@ class StatusListRepository extends AbstractDatabaseRepository
 
         return is_int($affected) && $affected > 0;
     }
+
 
     /**
      * Stops lists accepting allocations which they were never going to receive again anyway.
@@ -694,6 +711,7 @@ class StatusListRepository extends AbstractDatabaseRepository
 
         return is_int($affected) ? $affected : 0;
     }
+
 
     /**
      * Lists which stopped accepting allocations long enough ago to be worth examining for retirement.
@@ -765,6 +783,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         );
     }
 
+
     /**
      * Stops a list being served, and gives back the token it was being served from.
      *
@@ -826,6 +845,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return is_int($affected) && $affected > 0;
     }
 
+
     /**
      * Retired lists which still have entries behind them, and have been retired long enough for that to
      * be safe to act on.
@@ -859,6 +879,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         );
     }
 
+
     /**
      * @param array<string,mixed> $params
      * @return string[]
@@ -880,6 +901,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return $identifiers;
     }
 
+
     /**
      * @param array<array-key,mixed> $rows
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -892,6 +914,7 @@ class StatusListRepository extends AbstractDatabaseRepository
         return is_array($row) ? StatusListRecord::fromRow($row) : null;
     }
 
+
     /**
      * A read which is guaranteed not to come from a lagging secondary.
      *
@@ -902,6 +925,7 @@ class StatusListRepository extends AbstractDatabaseRepository
     {
         return $this->database->readPrimary($statement, $params)->fetchAll();
     }
+
 
     /**
      * Timestamps are stored without a zone and read back as UTC, so a moment is converted to UTC on the

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -26,22 +27,37 @@ use SimpleSAML\OpenID\Jws\ParsedJws;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator
  */
+#[AllowMockObjectsWithoutExpectations]
 class BearerTokenValidatorTest extends TestCase
 {
     protected MockObject $accessTokenRepositoryMock;
+
     protected array $accessTokenState;
+
     protected AccessTokenEntity $accessTokenEntityMock;
+
     protected string $accessToken;
+
     protected ClientEntityInterface $clientEntityMock;
+
     protected ServerRequestInterface $serverRequest;
+
     protected MockObject $publicKeyMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $jwsMock;
+
     protected MockObject $jwksMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $parsedJwsFactoryMock;
+
     protected MockObject $parsedJwsMock;
+
     protected string $clientId;
+
 
     /**
      * @throws \Exception
@@ -85,6 +101,7 @@ class BearerTokenValidatorTest extends TestCase
         $this->parsedJwsMock->method('getIssuer')->willReturn('issuer123');
     }
 
+
     protected function sut(
         ?AccessTokenRepository $accessTokenRepository = null,
         ?ModuleConfig $moduleConfig = null,
@@ -107,12 +124,14 @@ class BearerTokenValidatorTest extends TestCase
         );
     }
 
+
     public function testValidatorThrowsForNonExistentAccessToken()
     {
         $this->expectException(OidcServerException::class);
 
         $this->sut()->validateAuthorization($this->serverRequest);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -132,6 +151,7 @@ class BearerTokenValidatorTest extends TestCase
             $validatedServerRequest->getAttribute('oauth_access_token_id'),
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -159,6 +179,7 @@ class BearerTokenValidatorTest extends TestCase
         );
     }
 
+
     public function testThrowsForUnparsableAccessToken()
     {
         $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . 'invalid');
@@ -171,6 +192,7 @@ class BearerTokenValidatorTest extends TestCase
 
         $this->sut()->validateAuthorization($serverRequest);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -190,6 +212,7 @@ class BearerTokenValidatorTest extends TestCase
 
         $this->sut()->validateAuthorization($serverRequest);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

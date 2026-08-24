@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Exception;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -21,7 +22,6 @@ use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
-use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\Session;
 use SimpleSAML\XHTML\Template;
@@ -31,26 +31,45 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\EndSessionController
  */
+#[AllowMockObjectsWithoutExpectations]
 class EndSessionControllerTest extends TestCase
 {
     protected Stub $authorizationServerStub;
+
     protected Stub $authenticationServiceStub;
+
     protected Stub $sessionServiceStub;
+
     protected Stub $sessionLogoutTicketStoreBuilderStub;
+
     protected Stub $serverRequestStub;
+
     protected Stub $idTokenHintStub;
+
     protected Stub $logoutRequestStub;
+
     protected Stub $dataSetStub;
+
     protected MockObject $currentSessionMock;
+
     protected MockObject $sessionMock;
+
     protected array $dataSet = ['sid' => '123'];
+
     protected Stub $loggerServiceStub;
+
     protected Stub $sessionLogoutTicketStoreDbStub;
+
     protected MockObject $loggerServiceMock;
+
     protected Stub $templateFactoryStub;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $errorResponderMock;
+
     protected Stub $uiLocalesResolverStub;
+
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -75,6 +94,7 @@ class EndSessionControllerTest extends TestCase
         $this->uiLocalesResolverStub = $this->createStub(UiLocalesResolver::class);
     }
 
+
     protected function mock(?TemplateFactory $templateFactory = null): EndSessionController
     {
         return new EndSessionController(
@@ -89,6 +109,7 @@ class EndSessionControllerTest extends TestCase
         );
     }
 
+
     public function testConstruct(): void
     {
         $this->assertInstanceOf(
@@ -96,6 +117,7 @@ class EndSessionControllerTest extends TestCase
             $this->mock(),
         );
     }
+
 
     /**
      * @throws \Throwable
@@ -111,6 +133,7 @@ class EndSessionControllerTest extends TestCase
         $this->mock()->__invoke($this->serverRequestStub);
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Error\BadRequest
@@ -125,7 +148,6 @@ class EndSessionControllerTest extends TestCase
         $this->sessionServiceStub->method('getSessionById')->willReturn($this->sessionMock);
         $this->idTokenHintStub->method('getPayload')->willReturn($this->dataSet);
         $this->idTokenHintStub->method('getPayloadClaim')
-            ->with(ClaimsEnum::Sid->value)
             ->willReturn('123');
         $this->logoutRequestStub->method('getIdTokenHint')->willReturn($this->idTokenHintStub);
         $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
@@ -138,6 +160,7 @@ class EndSessionControllerTest extends TestCase
 
         $this->mock()->__invoke($this->serverRequestStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -153,7 +176,6 @@ class EndSessionControllerTest extends TestCase
         $this->sessionServiceStub->method('getSessionById')->willThrowException(new Exception());
         $this->idTokenHintStub->method('getPayload')->willReturn($this->dataSet);
         $this->idTokenHintStub->method('getPayloadClaim')
-            ->with(ClaimsEnum::Sid->value)
             ->willReturn('123');
         $this->logoutRequestStub->method('getIdTokenHint')->willReturn($this->idTokenHintStub);
         $this->authorizationServerStub->method('validateLogoutRequest')->willReturn($this->logoutRequestStub);
@@ -165,6 +187,7 @@ class EndSessionControllerTest extends TestCase
 
         $this->mock()->__invoke($this->serverRequestStub);
     }
+
 
     /**
      * @throws \Throwable
@@ -184,6 +207,7 @@ class EndSessionControllerTest extends TestCase
         $this->mock()->__invoke($this->serverRequestStub);
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Error\BadRequest
@@ -200,6 +224,7 @@ class EndSessionControllerTest extends TestCase
         $this->assertInstanceOf(RedirectResponse::class, $this->mock()->__invoke($this->serverRequestStub));
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Error\BadRequest
@@ -213,10 +238,12 @@ class EndSessionControllerTest extends TestCase
         $this->assertInstanceOf(Response::class, $this->mock()->__invoke($this->serverRequestStub));
     }
 
+
     public function testLogoutHandler(): never
     {
         $this->markTestIncomplete();
     }
+
 
     /**
      * @throws \Throwable
@@ -234,6 +261,7 @@ class EndSessionControllerTest extends TestCase
         $this->assertSame('hr', $this->captureRenderedTemplateLanguage());
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Error\BadRequest
@@ -249,6 +277,7 @@ class EndSessionControllerTest extends TestCase
 
         $this->assertNull($this->captureRenderedTemplateLanguage());
     }
+
 
     /**
      * Invoke the controller with a TemplateFactory mock and return the language passed to the rendered

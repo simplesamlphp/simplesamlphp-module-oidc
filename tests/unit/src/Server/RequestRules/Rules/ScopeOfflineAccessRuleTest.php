@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -24,23 +25,39 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeOfflineAccessRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class ScopeOfflineAccessRuleTest extends TestCase
 {
     protected Stub $serverRequestStub;
+
     protected MockObject $resultBagMock;
+
     protected MockObject $loggerServiceMock;
+
     protected Stub $clientStub;
+
     protected Stub $scopeEntityOpenid;
+
     protected Stub $scopeEntityOfflineAccess;
+
     protected Stub $redirectUriResultStub;
+
     protected Stub $stateResultStub;
+
     protected Stub $clientResultStub;
+
     protected Stub $validScopesResultStub;
+
     protected Stub $moduleConfigStub;
+
     protected Stub $openIdConfigurationStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -74,6 +91,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -87,6 +105,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(
@@ -94,6 +113,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
             $this->sut(),
         );
     }
+
 
     /**
      * @throws \Throwable
@@ -130,6 +150,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
         $this->assertFalse($result->getValue());
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -163,6 +184,7 @@ class ScopeOfflineAccessRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     /**
      * @throws \Throwable

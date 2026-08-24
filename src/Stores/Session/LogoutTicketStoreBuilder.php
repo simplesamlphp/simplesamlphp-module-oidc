@@ -8,20 +8,24 @@ class LogoutTicketStoreBuilder
 {
     protected static ?LogoutTicketStoreInterface $sessionLogoutTicketStore;
 
+
     public function __construct(?LogoutTicketStoreInterface $sessionLogoutTicketStore = null)
     {
         self::$sessionLogoutTicketStore = $sessionLogoutTicketStore ?? self::getDefaultSessionLogoutTicketStore();
     }
+
 
     public function getInstance(): LogoutTicketStoreInterface
     {
         return self::getStaticInstance();
     }
 
+
     public static function getStaticInstance(): LogoutTicketStoreInterface
     {
         return self::$sessionLogoutTicketStore ?? self::getDefaultSessionLogoutTicketStore();
     }
+
 
     public static function getDefaultSessionLogoutTicketStore(): LogoutTicketStoreInterface
     {

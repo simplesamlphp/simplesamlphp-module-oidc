@@ -17,6 +17,7 @@ class Str
         return array_filter(explode($delimiter, trim($scopes)), fn($scope) => !empty($scope));
     }
 
+
     /**
      * @param non-empty-string $pattern
      * @return string[]

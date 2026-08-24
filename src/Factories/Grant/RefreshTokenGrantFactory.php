@@ -24,6 +24,7 @@ class RefreshTokenGrantFactory
     ) {
     }
 
+
     public function build(): RefreshTokenGrant
     {
         $refreshTokenGrant = new RefreshTokenGrant(

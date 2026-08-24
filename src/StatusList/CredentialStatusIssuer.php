@@ -38,14 +38,16 @@ class CredentialStatusIssuer
     ) {
     }
 
+
     /**
      * @param string $credentialConfigurationId Which configuration is being issued, deciding both
      * whether there is a pool at all and which one.
      * @param string $credentialId The `jti` the credential will carry, which has to be minted before
      * this is called, since claiming the index and recording what it was claimed for are one operation.
      * @param string $userIdentifier Hashed here and never stored as given.
-     * @param ?DateTimeImmutable $expiresAt When the credential expires, or null if it never does.
-     * @return ?StatusClaim Null when this configuration does not allocate Status List entries.
+     * @param ?\DateTimeImmutable $expiresAt When the credential expires, or null if it never does.
+     * @return ?\SimpleSAML\OpenID\TokenStatusList\StatusClaim Null when this configuration does not allocate
+     *   Status List entries.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException

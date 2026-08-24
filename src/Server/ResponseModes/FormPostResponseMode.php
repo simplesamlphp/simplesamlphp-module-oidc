@@ -10,13 +10,10 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
 
 class FormPostResponseMode implements ResponseModeInterface
 {
-    private TemplateFactory $templateFactory;
-
-    public function __construct(
-        TemplateFactory $templateFactory,
-    ) {
-        $this->templateFactory = $templateFactory;
+    public function __construct(private readonly TemplateFactory $templateFactory)
+    {
     }
+
 
     public function buildResponse(string $redirectUri, array $params): AbstractResponseType
     {

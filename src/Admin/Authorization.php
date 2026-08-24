@@ -20,11 +20,13 @@ class Authorization
     ) {
     }
 
+
     public function isAdmin(): bool
     {
         $this->loggerService->debug('Authorization::isAdmin');
         return $this->sspBridge->utils()->auth()->isAdmin();
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
@@ -60,6 +62,7 @@ class Authorization
         }
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
@@ -92,6 +95,7 @@ class Authorization
         // Fallback to admin authentication.
         $this->requireAdmin(true);
     }
+
 
     public function getUserId(): string
     {

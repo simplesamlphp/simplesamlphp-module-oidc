@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Helpers\Arr;
 
 #[CoversClass(Arr::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ArrTest extends TestCase
 {
     protected function sut(): Arr
     {
         return new Arr();
     }
+
 
     public function testCanFindByCallback(): void
     {
@@ -32,6 +35,7 @@ class ArrTest extends TestCase
         ));
     }
 
+
     public function testEnsureStringValues(): void
     {
         $this->assertSame(
@@ -39,6 +43,7 @@ class ArrTest extends TestCase
             $this->sut()->ensureStringValues([1, 2]),
         );
     }
+
 
     public function testIsValueOneOf(): void
     {
@@ -50,6 +55,7 @@ class ArrTest extends TestCase
         $this->assertFalse($this->sut()->isValueOneOf(['a'], ['b']));
     }
 
+
     public function testIsValueSubsetOf(): void
     {
         $this->assertTrue($this->sut()->isValueSubsetOf('a', ['a', 'b', 'c']));
@@ -60,6 +66,7 @@ class ArrTest extends TestCase
         $this->assertFalse($this->sut()->isValueSubsetOf('a', ['b']));
         $this->assertFalse($this->sut()->isValueSubsetOf(['a', 'c'], ['b']));
     }
+
 
     public function testIsValueSupersetOf(): void
     {

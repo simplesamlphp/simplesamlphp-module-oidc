@@ -14,6 +14,7 @@ class Section
      */
     protected array $rows;
 
+
     /**
      * @param string $title Section heading.
      * @param string $anchor Fragment identifier, used for in-page navigation.
@@ -26,15 +27,18 @@ class Section
         $this->rows = $rows;
     }
 
+
     public function getTitle(): string
     {
         return $this->title;
     }
 
+
     public function getAnchor(): string
     {
         return $this->anchor;
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Admin\ConfigOverview\Row[]

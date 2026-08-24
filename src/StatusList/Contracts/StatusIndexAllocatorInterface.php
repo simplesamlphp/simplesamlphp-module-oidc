@@ -28,7 +28,7 @@ interface StatusIndexAllocatorInterface
      * @param string $credentialConfigurationId Recorded on the entry, since a pool serves several
      * configurations and the pool alone does not say which one this was.
      * @param ?string $subjectRef Keyed hash of the user identifier, never the identifier itself.
-     * @param ?DateTimeImmutable $expiresAt When the credential expires, or null if it never does. A
+     * @param ?\DateTimeImmutable $expiresAt When the credential expires, or null if it never does. A
      * list holding a non-expiring entry can never be retired.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException When no index could be claimed in
      * any list. Running out of probes in one list is not this: that rotates to a new list and retries.

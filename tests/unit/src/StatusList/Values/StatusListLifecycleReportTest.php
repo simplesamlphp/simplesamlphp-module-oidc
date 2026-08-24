@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList\Values;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListLifecycleReport;
 
 #[CoversClass(StatusListLifecycleReport::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListLifecycleReportTest extends TestCase
 {
     public function testCarriesWhatEachStepGotThrough(): void
@@ -23,6 +25,7 @@ class StatusListLifecycleReportTest extends TestCase
         $this->assertSame(['something went wrong'], $report->getFailures());
     }
 
+
     /**
      * A cron which had nothing to do should say nothing, rather than adding a line reporting five zeroes
      * to every run of every deployment.
@@ -32,11 +35,13 @@ class StatusListLifecycleReportTest extends TestCase
         $this->assertFalse((new StatusListLifecycleReport())->hasChanges());
     }
 
+
     public function testAnyStepGettingSomethingDoneCounts(): void
     {
         $this->assertTrue((new StatusListLifecycleReport(0, 0, 0, 0, 1))->hasChanges());
         $this->assertTrue((new StatusListLifecycleReport(1))->hasChanges());
     }
+
 
     /**
      * A run which got nothing done because everything failed still has something to report.

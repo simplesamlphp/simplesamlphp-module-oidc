@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -28,18 +29,29 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Utils\HTTP as SspHttp;
 
 #[CoversClass(MaxAgeRule::class)]
+#[AllowMockObjectsWithoutExpectations]
 class MaxAgeRuleTest extends TestCase
 {
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $authSimpleFactoryMock;
+
     protected MockObject $authenticationServiceMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $authSimpleMock;
+
     protected MockObject $clientMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $requestMock;
+
     protected MockObject $responseModeMock;
+
     protected ResultBag $resultBag;
+
 
     protected function setUp(): void
     {
@@ -59,6 +71,7 @@ class MaxAgeRuleTest extends TestCase
         $this->resultBag->add(new Result(ClientRule::class, $this->clientMock));
     }
 
+
     protected function sut(): MaxAgeRule
     {
         return new MaxAgeRule(
@@ -69,6 +82,7 @@ class MaxAgeRuleTest extends TestCase
             $this->sspBridgeMock,
         );
     }
+
 
     protected function checkRule(): ?Result
     {
@@ -81,6 +95,7 @@ class MaxAgeRuleTest extends TestCase
         );
     }
 
+
     public function testReturnsNullWhenNoMaxAgeNoDefaultAndNoRequireAuthTime(): void
     {
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
@@ -89,6 +104,7 @@ class MaxAgeRuleTest extends TestCase
 
         $this->assertNull($this->checkRule());
     }
+
 
     public function testRequireAuthTimeReturnsAuthInstantWithoutMaxAge(): void
     {
@@ -105,6 +121,7 @@ class MaxAgeRuleTest extends TestCase
         $this->assertSame(1000, $result?->getValue());
     }
 
+
     public function testDefaultMaxAgeNotExpiredReturnsAuthInstant(): void
     {
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
@@ -116,6 +133,7 @@ class MaxAgeRuleTest extends TestCase
 
         $this->assertNotNull($this->checkRule());
     }
+
 
     public function testExpiredMaxAgeReAuthenticatesAndPropagatesLoginHint(): void
     {

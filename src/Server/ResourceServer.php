@@ -14,6 +14,7 @@ class ResourceServer
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */

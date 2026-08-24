@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 #[CoversClass(CredentialIssuerConfigurationController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class CredentialIssuerConfigurationControllerTest extends TestCase
 {
     protected const string CONFIGURATION_ID = 'UniversityDegreeCredential';
@@ -54,11 +56,17 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         'getVciStatusListRequestsPerMinute',
     ];
 
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $vciContextResolverMock;
+
     protected SignatureKeyPairBag $vciSignatureKeyPairBag;
+
 
     protected function setUp(): void
     {
@@ -94,6 +102,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         );
     }
 
+
     protected function buildSignatureKeyPair(string $keyId, SignatureAlgorithmEnum $algorithm): SignatureKeyPair
     {
         $keyPairMock = $this->createMock(KeyPair::class);
@@ -105,6 +114,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
 
         return $signatureKeyPairMock;
     }
+
 
     /**
      * @return array<string,array<string,mixed>>
@@ -119,6 +129,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         ];
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -131,6 +142,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
             $this->vciContextResolverMock,
         );
     }
+
 
     /**
      * @return array<array-key,mixed>
@@ -149,6 +161,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         return $decoded;
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -161,6 +174,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         $this->assertSame(self::CREDENTIAL_ENDPOINT, $metadata[ClaimsEnum::CredentialEndpoint->value]);
         $this->assertSame(self::NONCE_ENDPOINT, $metadata[ClaimsEnum::NonceEndpoint->value]);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -186,6 +200,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         // What the operator configured is still there, with the above added rather than substituted.
         $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
     }
+
 
     /**
      * A wallet is told which algorithm a credential will come back signed with, and that has to be the
@@ -217,6 +232,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
             );
         }
     }
+
 
     /**
      * The document goes to wallets, so nothing about how this deployment runs its Status Lists may be
@@ -259,6 +275,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         // here would be invented rather than published.
         $this->assertStringNotContainsString('status_list', $encoded);
     }
+
 
     /**
      * The constructor is the gate: with Verifiable Credentials switched off there is no metadata to

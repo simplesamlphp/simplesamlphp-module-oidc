@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -17,17 +18,25 @@ use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Services\AuthContextService
  */
+#[AllowMockObjectsWithoutExpectations]
 class AuthContextServiceTest extends TestCase
 {
-    final public const AUTHORIZED_USER = [
+    final public const array AUTHORIZED_USER = [
         'idAttribute' => ['myUsername'],
         'someEntitlement' => ['val1', 'val2', 'val3'],
     ];
+
+
     protected Configuration $permissions;
+
     protected MockObject $oidcConfigurationMock;
+
     protected MockObject $moduleConfigMock;
+
     protected MockObject $authSimpleService;
+
     protected MockObject $authSimpleFactory;
+
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -54,6 +63,7 @@ class AuthContextServiceTest extends TestCase
         $this->authSimpleFactory->method('getDefaultAuthSource')->willReturn($this->authSimpleService);
     }
 
+
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
         ?AuthSimpleFactory $authSimpleFactory = null,
@@ -70,6 +80,7 @@ class AuthContextServiceTest extends TestCase
         );
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -77,6 +88,7 @@ class AuthContextServiceTest extends TestCase
             $this->sut(),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -92,6 +104,7 @@ class AuthContextServiceTest extends TestCase
         );
     }
 
+
     public function testItRespectsCandidatePriority(): void
     {
         $this->moduleConfigMock->method('getUserIdentifierAttributes')
@@ -104,6 +117,7 @@ class AuthContextServiceTest extends TestCase
         );
     }
 
+
     public function testItThrowsWhenNoUsername(): void
     {
         $this->moduleConfigMock->method('getUserIdentifierAttributes')->willReturn(['attributeNotSet']);
@@ -112,6 +126,7 @@ class AuthContextServiceTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->sut()->getAuthUserId();
     }
+
 
     /**
      * @throws \Exception
@@ -124,8 +139,9 @@ class AuthContextServiceTest extends TestCase
         $this->authSimpleService->method('getAttributes')->willReturn(self::AUTHORIZED_USER);
 
         $this->sut()->requirePermission('client');
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue(true);
     }
+
 
     /**
      * @throws \Exception
@@ -138,6 +154,7 @@ class AuthContextServiceTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->sut()->requirePermission('no-match');
     }
+
 
     /**
      * @throws \Exception
@@ -159,6 +176,7 @@ class AuthContextServiceTest extends TestCase
         $this->sut()->requirePermission('client');
     }
 
+
     /**
      * @throws \Exception
      */
@@ -177,6 +195,7 @@ class AuthContextServiceTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->sut()->requirePermission('client');
     }
+
 
     /**
      * @throws \Exception

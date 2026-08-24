@@ -22,6 +22,7 @@ class Authorization
 
     public const string KEY_AUTHORIZATION = 'Authorization';
 
+
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly SspBridge $sspBridge,
@@ -40,7 +41,7 @@ class Authorization
         if ($forceAdminAuthentication) {
             try {
                 $this->sspBridge->utils()->auth()->requireAdmin();
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 throw new AuthorizationException(
                     Translate::noop('Unable to initiate admin authentication.'),
                     previous: $exception,
@@ -52,6 +53,7 @@ class Authorization
             throw new AuthorizationException(Translate::noop('SimpleSAMLphp Admin access required.'));
         }
     }
+
 
     /**
      * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
@@ -81,6 +83,7 @@ class Authorization
             throw new AuthorizationException(Translate::noop('Authorization token is not authorized for this action.'));
         }
     }
+
 
     /**
      * Authorize a state changing request, and say who it is being made by.
@@ -140,6 +143,7 @@ class Authorization
 
         return $this->apiTokenPrincipalResolver->resolve($token);
     }
+
 
     protected function findToken(Request $request): ?string
     {

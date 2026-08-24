@@ -22,6 +22,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
      */
     protected int $ttl;
 
+
     public function __construct(
         ?Database $database = null,
         int $ttl = 60,
@@ -30,6 +31,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
         $this->database = $database ?? Database::getInstance();
         $this->ttl = max($ttl, 0);
     }
+
 
     public function add(string $sid): void
     {
@@ -44,6 +46,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -56,6 +59,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
             ['sid' => $sid],
         );
     }
+
 
     /**
      * @inheritDoc
@@ -85,6 +89,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
         $this->database->write($stmt, $params);
     }
 
+
     /**
      * @inheritDoc
      * @throws \Exception
@@ -95,6 +100,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
         /** @var list<array{sid: string, created_at: string}> */
         return $this->database->read("SELECT * FROM {$this->getTableName()}")->fetchAll(PDO::FETCH_ASSOC);
     }
+
 
     /**
      * @throws \Exception
@@ -110,6 +116,8 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
             ],
         );
     }
+
+
     /**
      * @return string
      */

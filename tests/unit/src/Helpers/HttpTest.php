@@ -4,25 +4,30 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers\Http;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
+#[AllowMockObjectsWithoutExpectations]
 class HttpTest extends TestCase
 {
     protected MockObject $serverRequestMock;
+
 
     protected function setUp(): void
     {
         $this->serverRequestMock = $this->createMock(ServerRequestInterface::class);
     }
 
+
     protected function sut(): Http
     {
         return new Http();
     }
+
 
     public function testCanGetAllRequestParams(): void
     {
@@ -37,6 +42,7 @@ class HttpTest extends TestCase
             $this->sut()->getAllRequestParams($this->serverRequestMock),
         );
     }
+
 
     public function testCanGetAllRequestParamsBasedOnAllowedMethodsForGet(): void
     {
@@ -55,6 +61,7 @@ class HttpTest extends TestCase
         );
     }
 
+
     public function testCanGetAllRequestParamsBasedOnAllowedMethodsForPost(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')
@@ -72,6 +79,7 @@ class HttpTest extends TestCase
         );
     }
 
+
     public function testGerAllRequestParamsBasedOnAllowedMethodsReturnsNullForNonAllowedMethod(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')
@@ -85,21 +93,25 @@ class HttpTest extends TestCase
         );
     }
 
+
     public function testCanGetBearerToken(): void
     {
         $this->assertSame('abc123', $this->sut()->getBearerToken('Bearer abc123'));
     }
+
 
     public function testGetBearerTokenIsCaseInsensitiveAndTrimsToken(): void
     {
         $this->assertSame('abc123', $this->sut()->getBearerToken('bearer   abc123  '));
     }
 
+
     public function testGetBearerTokenReturnsNullWhenMissingOrNotBearer(): void
     {
         $this->assertNull($this->sut()->getBearerToken('Basic dXNlcjpwYXNz'));
         $this->assertNull($this->sut()->getBearerToken(null));
     }
+
 
     public function testGetBearerTokenReturnsNullForEmptyToken(): void
     {

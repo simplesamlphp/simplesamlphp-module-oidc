@@ -32,6 +32,7 @@ class AuthContextService
     ) {
     }
 
+
     /**
      * @throws \SimpleSAML\Error\Exception
      * @throws \Exception
@@ -51,6 +52,7 @@ class AuthContextService
 
         return $userId;
     }
+
 
     /**
      * Checks if the user has the correct entitlements for the given permission. Throws an exception if user does not.
@@ -84,6 +86,7 @@ class AuthContextService
         throw new RuntimeException('Missing entitlement for ' . $neededPermission);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -93,6 +96,7 @@ class AuthContextService
         $simple->requireAuth();
         return $simple;
     }
+
 
     public function logout(): void
     {

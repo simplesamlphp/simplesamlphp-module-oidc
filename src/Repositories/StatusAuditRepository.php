@@ -41,6 +41,7 @@ class StatusAuditRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_status_audit';
 
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -50,10 +51,12 @@ class StatusAuditRepository extends AbstractDatabaseRepository
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * @param ?string $actorRef Who asked for the change: an API token principal's name, an
@@ -105,6 +108,7 @@ class StatusAuditRepository extends AbstractDatabaseRepository
 
         return $id;
     }
+
 
     /**
      * Removes trail rows older than a cut-off, up to a bound.
@@ -186,6 +190,7 @@ class StatusAuditRepository extends AbstractDatabaseRepository
 
         return $removed;
     }
+
 
     /**
      * Timestamps are stored without a zone and read back as UTC, so a moment is converted to UTC on the

@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Helpers\Str;
 
 #[CoversClass(Str::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StrTest extends TestCase
 {
     protected function sut(): Str
     {
         return new Str();
     }
+
 
     public function testCanConvertScopesStringToArray(): void
     {
@@ -23,6 +26,7 @@ class StrTest extends TestCase
             $this->sut()->convertScopesStringToArray('a b'),
         );
     }
+
 
     public function testCanConvertTextToArray(): void
     {

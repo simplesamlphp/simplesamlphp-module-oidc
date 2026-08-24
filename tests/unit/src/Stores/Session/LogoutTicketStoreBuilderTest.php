@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Stores\Session;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
@@ -12,6 +13,7 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreInterface;
 /**
  * @covers \SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder
  */
+#[AllowMockObjectsWithoutExpectations]
 class LogoutTicketStoreBuilderTest extends TestCase
 {
     public function testConstructWithDefaultStore(): void

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Forms;
 
+use JsonException;
 use Nette\Forms\Form;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
@@ -67,6 +68,7 @@ class ClientForm extends Form
         $this->buildForm();
     }
 
+
     public function validateRedirectUri(Form $form): void
     {
         $values = $form->getValues(self::TYPE_ARRAY);
@@ -78,6 +80,7 @@ class ClientForm extends Form
             'Invalid URI: ',
         );
     }
+
 
     public function validateAllowedOrigin(Form $form): void
     {
@@ -91,6 +94,7 @@ class ClientForm extends Form
         );
     }
 
+
     public function validatePostLogoutRedirectUri(Form $form): void
     {
         $values = $form->getValues(self::TYPE_ARRAY);
@@ -102,6 +106,7 @@ class ClientForm extends Form
             'Invalid post-logout redirect URI: ',
         );
     }
+
 
     public function validateBackChannelLogoutUri(Form $form): void
     {
@@ -116,6 +121,7 @@ class ClientForm extends Form
         }
     }
 
+
     public function validateEntityIdentifier(Form $form): void
     {
         /** @var ?string $entityIdentifier */
@@ -128,6 +134,7 @@ class ClientForm extends Form
             );
         }
     }
+
 
     public function validateClientRegistrationTypes(Form $form): void
     {
@@ -142,15 +149,18 @@ class ClientForm extends Form
         }
     }
 
+
     public function validateFederationJwks(Form $form): void
     {
         $this->validateJwks($form->getValues()['federation_jwks'] ?? null);
     }
 
+
     public function validateProtocolJwks(Form $form): void
     {
         $this->validateJwks($form->getValues()['jwks'] ?? null);
     }
+
 
     public function validateJwksUri(Form $form): void
     {
@@ -193,6 +203,7 @@ class ClientForm extends Form
             }
         }
     }
+
 
     /**
      * Validate the per-client Authentication Processing Filters. The value is
@@ -239,6 +250,7 @@ class ClientForm extends Form
         }
     }
 
+
     /**
      * Cast integer-like string array keys to int, leaving all other keys (and
      * the values) untouched. Only the top level is processed, which is where
@@ -259,6 +271,7 @@ class ClientForm extends Form
 
         return $result;
     }
+
 
     public function validateJwks(mixed $jwks): void
     {
@@ -281,6 +294,7 @@ class ClientForm extends Form
         }
     }
 
+
     /**
      * @param string[] $values
      * @param non-empty-string $regex
@@ -296,6 +310,7 @@ class ClientForm extends Form
             }
         }
     }
+
 
     public function getValues(string|object|bool|null $returnType = null, ?array $controls = null): array
     {
@@ -353,7 +368,7 @@ class ClientForm extends Form
             $values['federation_jwks'] = empty($federationJwks) ?
             null :
             json_decode($federationJwks, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (JsonException $e) {
             $this->addError('Federation JSON error: ' . $e->getMessage());
             $values['federation_jwks'] = null;
         }
@@ -364,7 +379,7 @@ class ClientForm extends Form
             $values['jwks'] = empty($jwks) ?
             null :
             json_decode($jwks, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $e) {
+        } catch (JsonException $e) {
             $this->addError('JWKS JSON error: ' . $e->getMessage());
             $values['jwks'] = null;
         }
@@ -484,13 +499,14 @@ class ClientForm extends Form
             $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = is_array($decodedAuthProcFilters) ?
             $this->castNumericKeysToInt($decodedAuthProcFilters) :
             $decodedAuthProcFilters;
-        } catch (\JsonException $e) {
+        } catch (JsonException $e) {
             $this->addError('Authentication Processing Filters JSON error: ' . $e->getMessage());
             $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = [];
         }
 
         return $values;
     }
+
 
     /**
      * @throws \Exception
@@ -623,6 +639,7 @@ class ClientForm extends Form
 
         return $this;
     }
+
 
     /**
      * @throws \Exception
@@ -800,6 +817,7 @@ class ClientForm extends Form
         )->setHtmlAttribute('class', 'full-width');
     }
 
+
     /**
      * Validate provided response modes
      *
@@ -820,6 +838,7 @@ class ClientForm extends Form
         }
     }
 
+
     /**
      * ID Token signing algorithms the OP can actually sign with, i.e., those
      * for which a protocol signing key pair is configured (the same set
@@ -835,6 +854,7 @@ class ClientForm extends Form
         return $this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllAlgorithmNamesUnique();
     }
 
+
     /**
      * @return string[] map of value => label
      */
@@ -843,6 +863,7 @@ class ClientForm extends Form
         $supported = $this->moduleConfig->getSupportedResponseModes();
         return array_combine($supported, $supported);
     }
+
 
     /**
      * Grant types the client may be registered to use (value => label), matching the OP's
@@ -857,6 +878,7 @@ class ClientForm extends Form
         return array_combine($supported, $supported);
     }
 
+
     /**
      * Response types the client may be registered to use (value => label), matching the OP's
      * response_types_supported.
@@ -870,6 +892,7 @@ class ClientForm extends Form
         return array_combine($supported, $supported);
     }
 
+
     /**
      * Token endpoint authentication methods the client may be registered to use (value => label).
      *
@@ -881,6 +904,7 @@ class ClientForm extends Form
 
         return array_combine($supported, $supported);
     }
+
 
     /**
      * The OP's supported ACR values (value => label), as configured via OPTION_AUTH_ACR_VALUES_SUPPORTED and
@@ -896,6 +920,7 @@ class ClientForm extends Form
         return array_combine($supported, $supported);
     }
 
+
     /**
      * Whether the OP has any supported ACR values configured. Used by the template to hide the per-client
      * default_acr_values field when there is nothing to select.
@@ -904,6 +929,7 @@ class ClientForm extends Form
     {
         return $this->getSupportedAcrValues() !== [];
     }
+
 
     /**
      * JSON map of response_type => required grant_types, restricted to the response types this OP offers. Consumed
@@ -920,6 +946,7 @@ class ClientForm extends Form
         return (string)json_encode($map, JSON_UNESCAPED_SLASHES);
     }
 
+
     /**
      * Application types the client may register (value => label).
      *
@@ -935,6 +962,7 @@ class ClientForm extends Form
         return array_combine($supported, $supported);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -945,6 +973,7 @@ class ClientForm extends Form
             $this->moduleConfig->getScopes(),
         );
     }
+
 
     /**
      * @return string[]

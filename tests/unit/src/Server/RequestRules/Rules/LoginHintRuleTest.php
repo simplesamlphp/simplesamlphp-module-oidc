@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,14 +19,21 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class LoginHintRuleTest extends TestCase
 {
     protected Stub $requestStub;
+
     protected Stub $resultBagStub;
+
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -42,6 +50,7 @@ class LoginHintRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -54,6 +63,7 @@ class LoginHintRuleTest extends TestCase
             $helpers,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -73,6 +83,7 @@ class LoginHintRuleTest extends TestCase
 
         $this->assertEquals('user@example.org', $result->getValue());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

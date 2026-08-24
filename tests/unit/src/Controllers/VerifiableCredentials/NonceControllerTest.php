@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,12 +16,17 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 #[CoversClass(NonceController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class NonceControllerTest extends TestCase
 {
     protected MockObject $nonceServiceMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $moduleConfigMock;
+
 
     public function setUp(): void
     {
@@ -29,6 +35,7 @@ class NonceControllerTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
     }
+
 
     /**
      * @throws \Exception

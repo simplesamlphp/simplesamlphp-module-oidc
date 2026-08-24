@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -17,13 +18,19 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Utils\Auth;
 
 #[CoversClass(Authorization::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AuthorizationTest extends TestCase
 {
     protected MockObject $sspBridgeMock;
+
     protected MockObject $sspBridgeUtilsMock;
+
     protected MockObject $sspBridgeUtilsAuthMock;
+
     protected MockObject $authContextServiceMock;
+
     protected MockObject $loggerServiceMock;
+
 
     protected function setUp(): void
     {
@@ -37,6 +44,7 @@ class AuthorizationTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
 
+
     protected function sut(
         ?SspBridge $sspBridge = null,
         ?AuthContextService $authContextService = null,
@@ -49,10 +57,12 @@ class AuthorizationTest extends TestCase
         return new Authorization($sspBridge, $authContextService, $loggerService);
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(Authorization::class, $this->sut());
     }
+
 
     public function testCanCheckIsAdmin(): void
     {
@@ -60,6 +70,7 @@ class AuthorizationTest extends TestCase
         $this->sspBridgeUtilsAuthMock->method('isAdmin')->willReturn(true);
         $this->assertTrue($this->sut()->isAdmin());
     }
+
 
     public function testCanRequireAdmin(): void
     {
@@ -71,6 +82,7 @@ class AuthorizationTest extends TestCase
         $this->sut()->requireAdmin();
     }
 
+
     public function testCanForceRequireAdmin(): void
     {
         $this->sspBridgeUtilsAuthMock->expects($this->once())->method('requireAdmin');
@@ -78,6 +90,7 @@ class AuthorizationTest extends TestCase
 
         $this->sut()->requireAdmin(true);
     }
+
 
     public function testThrowsOnForceRequireAdminError(): void
     {
@@ -90,6 +103,7 @@ class AuthorizationTest extends TestCase
         $this->sut()->requireAdmin(true);
     }
 
+
     public function testRequireAdminOrUserWithPermissionReturnsIfAdmin(): void
     {
         $this->sspBridgeUtilsAuthMock->expects($this->once())->method('isAdmin')->willReturn(true);
@@ -97,6 +111,7 @@ class AuthorizationTest extends TestCase
 
         $this->sut()->requireAdminOrUserWithPermission('permission');
     }
+
 
     public function testRequireAdminOrUserWithPermissionReturnsIfUser(): void
     {
@@ -111,6 +126,7 @@ class AuthorizationTest extends TestCase
         $this->sut()->requireAdminOrUserWithPermission('permission');
     }
 
+
     public function testRequireUserWithPermissionThrowsIfUserNotAuthorized(): void
     {
         $this->expectException(AuthorizationException::class);
@@ -122,6 +138,7 @@ class AuthorizationTest extends TestCase
 
         $this->sut()->requireAdminOrUserWithPermission('permission');
     }
+
 
     public function testCanGetUserId(): void
     {

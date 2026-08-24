@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList\Values;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
@@ -12,6 +13,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 
 #[CoversClass(StatusListPoolBag::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListPoolBagTest extends TestCase
 {
     /**
@@ -23,6 +25,7 @@ class StatusListPoolBagTest extends TestCase
         return StatusListPoolBag::fromConfig($config, StatusListKeyProfileEnum::DidJwk);
     }
 
+
     public function testAnEmptyConfigurationYieldsAnEmptyBag(): void
     {
         $bag = $this->sut([]);
@@ -31,6 +34,7 @@ class StatusListPoolBagTest extends TestCase
         $this->assertSame([], $bag->getAll());
         $this->assertNull($bag->getForCredentialConfigurationId('Anything'));
     }
+
 
     public function testResolvesACredentialConfigurationToItsPool(): void
     {
@@ -46,6 +50,7 @@ class StatusListPoolBagTest extends TestCase
         $this->assertSame('degrees', $bag->getById('degrees')?->getId());
     }
 
+
     /**
      * A configuration in no pool is not an error: its credentials are simply issued without a status
      * claim, and so can not be revoked.
@@ -58,6 +63,7 @@ class StatusListPoolBagTest extends TestCase
 
         $this->assertNull($bag->getForCredentialConfigurationId('EmployeeBadge'));
     }
+
 
     /**
      * Allocation needs one answer to which policy a credential is issued under, so two pools claiming
@@ -74,6 +80,7 @@ class StatusListPoolBagTest extends TestCase
         ]);
     }
 
+
     public function testRejectsAPoolWhoseSettingsAreNotAnArray(): void
     {
         $this->expectException(ConfigurationError::class);
@@ -81,12 +88,14 @@ class StatusListPoolBagTest extends TestCase
         $this->sut(['degrees' => 'UniversityDegree']);
     }
 
+
     public function testRejectsAPoolWithoutAnIdentifier(): void
     {
         $this->expectException(ConfigurationError::class);
 
         $this->sut([[StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['UniversityDegree']]]);
     }
+
 
     public function testListsEveryCredentialConfigurationItCovers(): void
     {

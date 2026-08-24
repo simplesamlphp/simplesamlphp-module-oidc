@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -25,6 +26,7 @@ use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
  * being allocated into it any more.
  */
 #[CoversClass(StatusListRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListRepositoryTest extends TestCase
 {
     protected const string LIST_ID = 'a-status-list-id';
@@ -37,10 +39,15 @@ class StatusListRepositoryTest extends TestCase
 
     protected const int CAPACITY = 8;
 
+
     protected MockObject $moduleConfigMock;
+
     protected Helpers $helpers;
+
     protected StatusListRepository $repository;
+
     protected StatusListEntryRepository $entryRepository;
+
 
     /**
      * @throws \Exception
@@ -62,6 +69,7 @@ class StatusListRepositoryTest extends TestCase
 
         (new DatabaseMigration())->migrate();
     }
+
 
     protected function setUp(): void
     {
@@ -85,6 +93,7 @@ class StatusListRepositoryTest extends TestCase
         Database::getInstance()->write(sprintf('DELETE FROM %s', $this->entryRepository->getTableName()));
         Database::getInstance()->write(sprintf('DELETE FROM %s', $this->repository->getTableName()));
     }
+
 
     /**
      * @throws \Exception
@@ -115,6 +124,7 @@ class StatusListRepositoryTest extends TestCase
         $this->repository->activate($id);
     }
 
+
     /**
      * Deactivation is stamped with the moment it happened, which is now, and the retirement candidate
      * query looks for lists deactivated before a cut-off. Backdating the column is how a test says a
@@ -133,6 +143,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * A moment far enough ahead that any expiry a test sets is behind it, for the cases which are not
      * about the expiry guard itself.
@@ -141,6 +152,7 @@ class StatusListRepositoryTest extends TestCase
     {
         return new DateTimeImmutable('2099-01-01 00:00:00');
     }
+
 
     /**
      * One combination the current configuration would allocate into.
@@ -152,6 +164,7 @@ class StatusListRepositoryTest extends TestCase
     ): StatusListAllocationTarget {
         return new StatusListAllocationTarget($poolId, $policyFingerprint, $expiryLane);
     }
+
 
     /**
      * A pool which has stopped using one of the two lanes leaves its list in the other one active and
@@ -179,6 +192,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertInstanceOf(DateTimeImmutable::class, $statusList?->getDeactivatedAt());
     }
 
+
     /**
      * The same transition the other way round, which is what giving a pool's last configuration a
      * lifetime looks like.
@@ -198,6 +212,7 @@ class StatusListRepositoryTest extends TestCase
 
         $this->assertFalse($this->repository->findByIdOnPrimary(self::LIST_ID)?->isActive());
     }
+
 
     /**
      * The whole point, end to end: two lists of one pool, one per lane, each holding the kind of
@@ -254,6 +269,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertFalse($this->repository->findByIdOnPrimary(self::OTHER_LIST_ID)?->isRetired());
     }
 
+
     /**
      * The other half of the same rule, and the one which would turn a mixed pool into a rotation loop if
      * it were got wrong: while a pool allocates into both lanes, both of its lists are current and
@@ -278,6 +294,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertTrue($this->repository->findByIdOnPrimary(self::LIST_ID)?->isActive());
         $this->assertTrue($this->repository->findByIdOnPrimary(self::OTHER_LIST_ID)?->isActive());
     }
+
 
     /**
      * Both lanes of one pool and policy can hold the same generation, since that is the scope the
@@ -308,6 +325,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * The counter is read over the same scope the unique constraint covers, so a list under a different
      * policy -- during a signing key rotation, say -- does not raise the generation a request in this
@@ -330,6 +348,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -348,6 +367,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertSame(self::LIST_ID, $expiring[0]->getId());
         $this->assertSame(StatusListExpiryLaneEnum::Expiring, $expiring[0]->getExpiryLane());
     }
+
 
     /**
      * A list being seeded in the other lane is not something a request in this one may stand down for:
@@ -385,6 +405,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * Retirement candidates are chosen by what a list holds, not by its lane, and this is the case which
      * makes that matter: a non-expiring list which was created and never allocated into names no
@@ -406,6 +427,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * A list is only ever selected for allocation while its pool and policy fingerprint match the
      * current configuration, so one created under a policy which has since changed is unreachable. It
@@ -426,6 +448,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertInstanceOf(DateTimeImmutable::class, $statusList?->getDeactivatedAt());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -436,6 +459,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertSame(0, $this->repository->deactivateSuperseded([$this->target()]));
         $this->assertTrue($this->repository->findByIdOnPrimary(self::LIST_ID)?->isActive());
     }
+
 
     /**
      * @throws \Exception
@@ -448,6 +472,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertFalse($this->repository->findByIdOnPrimary(self::LIST_ID)?->isActive());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -458,6 +483,7 @@ class StatusListRepositoryTest extends TestCase
 
         $this->assertSame(2, $this->repository->deactivateSuperseded([]));
     }
+
 
     /**
      * A list is created inactive and stays that way while its entries are seeded. Stamping one of those
@@ -489,6 +515,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertNull($this->repository->findByIdOnPrimary(self::LIST_ID)?->getDeactivatedAt());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -504,6 +531,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -518,6 +546,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -530,6 +559,7 @@ class StatusListRepositoryTest extends TestCase
             $this->repository->findRetirementCandidates(new DateTimeImmutable('2099-01-01 00:00:00'), 10),
         );
     }
+
 
     /**
      * Inactive with no deactivation stamp is a list whose entries are still being seeded, or one whose
@@ -562,6 +592,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * A list holding a credential without an expiry is not waiting for anything -- it can never be
      * retired. Leaving it among the candidates would let a deployment with enough of them fill every
@@ -592,6 +623,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * Unallocated entries have no expiry either, and there is one for every index of the list from the
      * moment it is created, so an exclusion which did not filter on allocation would rule out every
@@ -621,6 +653,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -636,6 +669,7 @@ class StatusListRepositoryTest extends TestCase
             $this->repository->findRetirementCandidates(new DateTimeImmutable('2026-08-07 12:00:00'), 10),
         );
     }
+
 
     /**
      * Retiring a list takes it out of the set being paged through, so an offset would step over exactly
@@ -659,6 +693,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertSame(['list-a', 'list-b'], $this->repository->findRetirementCandidates($cutOff, 2));
         $this->assertSame(['list-c'], $this->repository->findRetirementCandidates($cutOff, 2, 'list-b'));
     }
+
 
     /**
      * @throws \Exception
@@ -686,6 +721,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertSame('', $statusList?->getSignedTokenContentHash());
     }
 
+
     /**
      * The counter is what keeps a signer which is mid-flight from publishing a token onto a list which
      * has just been retired out from under it.
@@ -707,6 +743,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -717,6 +754,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertFalse($this->repository->retire(self::LIST_ID, $this->spentBefore()));
         $this->assertFalse($this->repository->findByIdOnPrimary(self::LIST_ID)?->isRetired());
     }
+
 
     /**
      * Of several workers deciding at the same moment, only one should report having retired it.
@@ -731,6 +769,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertTrue($this->repository->retire(self::LIST_ID, $this->spentBefore()));
         $this->assertFalse($this->repository->retire(self::LIST_ID, $this->spentBefore()));
     }
+
 
     /**
      * @throws \Exception
@@ -748,6 +787,7 @@ class StatusListRepositoryTest extends TestCase
             $expiresAt,
         );
     }
+
 
     /**
      * The whole point of testing the expiry inside the retiring statement: a caller which read the
@@ -768,6 +808,7 @@ class StatusListRepositoryTest extends TestCase
         $this->assertFalse($this->repository->findByIdOnPrimary(self::LIST_ID)?->isRetired());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -782,6 +823,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -795,6 +837,7 @@ class StatusListRepositoryTest extends TestCase
             $this->repository->retire(self::LIST_ID, new DateTimeImmutable('2099-01-01 00:00:00')),
         );
     }
+
 
     /**
      * Every index exists as a row from the moment the list is created and an unallocated one has no
@@ -813,6 +856,7 @@ class StatusListRepositoryTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -825,6 +869,7 @@ class StatusListRepositoryTest extends TestCase
 
         $this->assertSame([self::LIST_ID], $this->repository->findRetiredWithEntries(10, $this->spentBefore()));
     }
+
 
     /**
      * Removing the entries is bounded, so the same list is found again by run after run. Once it has
@@ -843,6 +888,7 @@ class StatusListRepositoryTest extends TestCase
 
         $this->assertSame([], $this->repository->findRetiredWithEntries(10, $this->spentBefore()));
     }
+
 
     /**
      * Retirement can not be serialised against an issuance which was already in flight, so a credential
@@ -864,6 +910,7 @@ class StatusListRepositoryTest extends TestCase
             $this->repository->findRetiredWithEntries(10, new DateTimeImmutable('2020-01-01 00:00:00')),
         );
     }
+
 
     /**
      * @throws \Exception

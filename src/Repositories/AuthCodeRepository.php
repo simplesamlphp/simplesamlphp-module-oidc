@@ -35,10 +35,12 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface
@@ -47,6 +49,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
     {
         throw new RuntimeException('Not implemented. Use AuthCodeEntityFactory instead.');
     }
+
 
     /**
      * {@inheritdoc}
@@ -110,6 +113,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         );
     }
 
+
     /**
      * Find Auth Code by id.
      * @throws \Exception
@@ -150,6 +154,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return $authCodeEntity;
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \Exception
@@ -166,6 +171,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $authCode->revoke();
         $this->update($authCode);
     }
+
 
     /**
      * Atomically consume a VCI pre-authorized code.
@@ -196,6 +202,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return $affected === 1;
     }
 
+
     /**
      * {@inheritdoc}
      * @throws \Exception
@@ -211,6 +218,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         return $authCode->isRevoked();
     }
 
+
     /**
      * Removes expired auth codes.
      * @throws \Exception
@@ -224,6 +232,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
             ],
         );
     }
+
 
     /**
      * @throws \JsonException
@@ -266,6 +275,7 @@ EOS
             $this->getCacheKey($authCodeEntity->getIdentifier()),
         );
     }
+
 
     protected function preparePdoState(array $state): array
     {

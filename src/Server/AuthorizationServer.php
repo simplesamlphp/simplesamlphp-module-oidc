@@ -48,6 +48,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
      */
     protected CryptKeyInterface $publicKey;
 
+
     /**
      * @inheritDoc
      */
@@ -77,6 +78,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         }
         $this->requestRulesManager = $requestRulesManager;
     }
+
 
     /**
      * @inheritDoc
@@ -167,6 +169,7 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         );
         throw OidcServerException::unsupportedResponseType($redirectUri, $state, $responseMode);
     }
+
 
     /**
      * @throws \Throwable

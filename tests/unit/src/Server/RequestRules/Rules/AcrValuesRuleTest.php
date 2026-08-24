@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -20,15 +21,23 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class AcrValuesRuleTest extends TestCase
 {
     protected Stub $requestStub;
+
     protected Stub $resultBagStub;
+
     protected Stub $resultStub;
+
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Stub $responseModeStub;
+
     protected Helpers $helpers;
+
 
     /**
      * @throws \Exception
@@ -44,6 +53,7 @@ class AcrValuesRuleTest extends TestCase
         $this->helpers = new Helpers();
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -56,6 +66,7 @@ class AcrValuesRuleTest extends TestCase
             $helpers,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -71,6 +82,7 @@ class AcrValuesRuleTest extends TestCase
         ) ?? new Result(AcrValuesRule::class, null);
         $this->assertNull($result->getValue());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -93,6 +105,7 @@ class AcrValuesRuleTest extends TestCase
         $this->assertTrue($result->getValue()['essential']);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -111,6 +124,7 @@ class AcrValuesRuleTest extends TestCase
         $this->assertSame(['1', '0'], $result->getValue()['values']);
         $this->assertFalse($result->getValue()['essential']);
     }
+
 
     /**
      * When no acr is requested (claims param or acr_values), the client's registered default_acr_values are used.

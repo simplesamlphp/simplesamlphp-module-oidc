@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -13,14 +14,17 @@ use SimpleSAML\Module\oidc\Admin\Menu\Item;
 
 #[CoversClass(Menu::class)]
 #[UsesClass(Item::class)]
+#[AllowMockObjectsWithoutExpectations]
 class MenuTest extends TestCase
 {
     protected MockObject $itemMock;
+
 
     protected function setUp(): void
     {
         $this->itemMock = $this->createMock(Item::class);
     }
+
 
     protected function sut(
         ?Item ...$items,
@@ -28,11 +32,13 @@ class MenuTest extends TestCase
         return new Menu(...$items);
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(Menu::class, $this->sut());
         $this->assertInstanceOf(Menu::class, $this->sut($this->itemMock));
     }
+
 
     public function testCanAddGetItem(): void
     {
@@ -42,6 +48,7 @@ class MenuTest extends TestCase
         $this->assertCount(1, $sut->getItems());
     }
 
+
     public function testCanSetGetActiveHrefPath(): void
     {
         $sut = $this->sut();
@@ -49,6 +56,7 @@ class MenuTest extends TestCase
         $sut->setActiveHrefPath('oidc');
         $this->assertSame('oidc', $sut->getActiveHrefPath());
     }
+
 
     public function testCanBuildItem(): void
     {

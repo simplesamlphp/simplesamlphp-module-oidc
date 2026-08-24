@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\OAuth2;
 
+use Exception;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
@@ -23,11 +24,12 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class TokenIntrospectionController
 {
     /**
-     * @throws OidcServerException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -50,6 +52,7 @@ class TokenIntrospectionController
             throw OidcServerException::forbidden('OAuth2 Token Introspection API endpoint not enabled.');
         }
     }
+
 
     public function __invoke(Request $request): Response
     {
@@ -98,10 +101,11 @@ class TokenIntrospectionController
             $payload = $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
         }
 
-        $payload = $payload ?? ['active' => false];
+        $payload ??= ['active' => false];
 
         return $this->routes->newJsonResponse($payload);
     }
+
 
     /**
      * Whether the caller is to be told about a token issued to the given client, logging any refusal.
@@ -135,13 +139,14 @@ class TokenIntrospectionController
         return false;
     }
 
+
     protected function resolveAccessTokenPayload(
         string $tokenParam,
         IntrospectionAuthorization $introspectionAuthorization,
     ): ?array {
         try {
             $accessToken = $this->bearerTokenValidator->ensureValidAccessToken($tokenParam);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->loggerService->error('Access token validation failed: ' . $e->getMessage());
             return null;
         }
@@ -177,6 +182,7 @@ class TokenIntrospectionController
         ]);
     }
 
+
     /**
      * @psalm-suppress MixedAssignment
      */
@@ -187,7 +193,7 @@ class TokenIntrospectionController
         try {
             $decryptedToken = $this->oAuth2Bridge->decrypt($tokenParam);
             $tokenData = json_decode($decryptedToken, true, 512, JSON_THROW_ON_ERROR);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->loggerService->error('Refresh token decrypting failed: ' . $e->getMessage());
             return null;
         }
@@ -252,6 +258,7 @@ class TokenIntrospectionController
         ]);
     }
 
+
     protected function prepareScopeString(array $scopes): string
     {
         $scopes = array_filter(
@@ -262,6 +269,7 @@ class TokenIntrospectionController
         return implode(' ', $scopes);
     }
 
+
     /**
      * Establish who is asking, and with it which tokens they are entitled to be told about.
      *
@@ -270,7 +278,7 @@ class TokenIntrospectionController
      * registered itself through Dynamic Client Registration - read the subject, scopes and lifetime of
      * tokens belonging to every other client of this OP.
      *
-     * @throws AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      * @throws \Exception
      */
     protected function resolveIntrospectionAuthorization(Request $request): IntrospectionAuthorization

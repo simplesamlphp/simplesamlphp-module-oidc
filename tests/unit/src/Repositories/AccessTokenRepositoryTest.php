@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
 use Exception;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -27,26 +29,42 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 #[CoversClass(AccessTokenRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class AccessTokenRepositoryTest extends TestCase
 {
-    final public const CLIENT_ID = 'access_token_client_id';
-    final public const USER_ID = 'access_token_user_id';
-    final public const ACCESS_TOKEN_ID = 'access_token_id';
-    final public const AUTH_CODE_ID = 'auth_code_id';
+    final public const string CLIENT_ID = 'access_token_client_id';
+
+    final public const string USER_ID = 'access_token_user_id';
+
+    final public const string ACCESS_TOKEN_ID = 'access_token_id';
+
+    final public const string AUTH_CODE_ID = 'auth_code_id';
+
 
     protected MockObject $moduleConfigMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $clientEntityFactoryMock;
+
     protected MockObject $accessTokenEntityFactoryMock;
+
     protected MockObject $accessTokenEntityMock;
+
     protected MockObject $helpersMock;
+
     protected MockObject $dateTimeHelperMock;
 
     protected static bool $dbSeeded = false;
+
     protected MockObject $clientEntityMock;
+
     protected array $accessTokenState;
+
     protected Database $database;
+
     protected MockObject $protocolCacheMock;
+
 
     /**
      * @throws \Exception
@@ -65,6 +83,7 @@ class AccessTokenRepositoryTest extends TestCase
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
     }
+
 
     protected function setUp(): void
     {
@@ -93,12 +112,13 @@ class AccessTokenRepositoryTest extends TestCase
         ];
 
         $this->helpersMock = $this->createMock(Helpers::class);
-        $this->dateTimeHelperMock = $this->createMock(Helpers\DateTime::class);
+        $this->dateTimeHelperMock = $this->createMock(DateTime::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
 
         $this->database = Database::getInstance();
         $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
     }
+
 
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
@@ -125,10 +145,12 @@ class AccessTokenRepositoryTest extends TestCase
         );
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_access_token', $this->sut()->getTableName());
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
@@ -151,6 +173,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertEquals($this->accessTokenEntityMock, $foundAccessToken);
     }
 
+
     public function testPersistNewAccessTokenThrowsIfNotAccessTokenEntity(): void
     {
         $oAuthAccessTokenEntity = $this->createMock(\League\OAuth2\Server\Entities\AccessTokenEntityInterface::class);
@@ -161,6 +184,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->sut()->persistNewAccessToken($oAuthAccessTokenEntity);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -170,6 +194,7 @@ class AccessTokenRepositoryTest extends TestCase
 
         $this->assertNull($notFoundAccessToken);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -193,6 +218,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertTrue($isRevoked);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -204,6 +230,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->sut()->revokeAccessToken('notoken');
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -213,6 +240,7 @@ class AccessTokenRepositoryTest extends TestCase
 
         $this->sut()->isAccessTokenRevoked('notoken');
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -233,6 +261,7 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertNull($notFoundAccessToken);
     }
 
+
     public function testCanGetNewToken()
     {
         $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')
@@ -251,6 +280,7 @@ class AccessTokenRepositoryTest extends TestCase
             ),
         );
     }
+
 
     public function testCanGetNewTokenForEmptyUserId(): void
     {
@@ -271,6 +301,7 @@ class AccessTokenRepositoryTest extends TestCase
         );
     }
 
+
     public function testCanGetNewTokenThrowsForEmptyId(): void
     {
         $this->expectException(OidcServerException::class);
@@ -286,6 +317,7 @@ class AccessTokenRepositoryTest extends TestCase
             new DateTimeImmutable(),
         );
     }
+
 
     public function testCanRevokeByAuthCodeId(): void
     {

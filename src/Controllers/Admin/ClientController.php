@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
+use DateTimeImmutable;
 use Nette\Forms\Form;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
@@ -47,6 +48,7 @@ class ClientController
         $this->authorization->requireAdminOrUserWithPermission(AuthContextService::PERM_CLIENT);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -62,6 +64,7 @@ class ClientController
         return $this->clientRepository->findById($clientId, $authedUserId) ??
         throw new OidcException('Client not found.');
     }
+
 
     public function index(Request $request): Response
     {
@@ -83,6 +86,7 @@ class ClientController
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
@@ -100,6 +104,7 @@ class ClientController
             RoutesEnum::AdminClients->value,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
@@ -128,6 +133,7 @@ class ClientController
         );
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
@@ -153,6 +159,7 @@ class ClientController
             RoutesEnum::AdminClients->value,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -223,6 +230,7 @@ class ClientController
             RoutesEnum::AdminClients->value,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -303,6 +311,7 @@ class ClientController
         );
     }
 
+
     /**
      * TODO v8 mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
@@ -312,9 +321,9 @@ class ClientController
         string $identifier,
         string $secret,
         RegistrationTypeEnum $registrationType,
-        \DateTimeImmutable $updatedAt,
-        ?\DateTimeImmutable $createdAt = null,
-        ?\DateTimeImmutable $expiresAt = null,
+        DateTimeImmutable $updatedAt,
+        ?DateTimeImmutable $createdAt = null,
+        ?DateTimeImmutable $expiresAt = null,
         ?string $owner = null,
         bool $isGeneric = false,
     ): ClientEntityInterface {

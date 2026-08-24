@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 use DateTimeImmutable;
 use DateTimeZone;
 use PDOStatement;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(StatusAuditRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusAuditRepositoryTest extends TestCase
 {
     protected const string CREDENTIAL_ID_HASH = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -34,9 +36,13 @@ class StatusAuditRepositoryTest extends TestCase
      */
     protected const int MAX_BOUND_VARIABLES = 999;
 
+
     protected MockObject $moduleConfigMock;
+
     protected Helpers $helpers;
+
     protected StatusAuditRepository $repository;
+
 
     /**
      * @throws \Exception
@@ -59,6 +65,7 @@ class StatusAuditRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
@@ -74,10 +81,12 @@ class StatusAuditRepositoryTest extends TestCase
         Database::getInstance()->write(sprintf('DELETE FROM %s', $this->repository->getTableName()));
     }
 
+
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_status_audit', $this->repository->getTableName());
     }
+
 
     /**
      * @return array<array<string,mixed>>
@@ -88,6 +97,7 @@ class StatusAuditRepositoryTest extends TestCase
             ->read(sprintf('SELECT * FROM %s ORDER BY created_at', $this->repository->getTableName()))
             ->fetchAll();
     }
+
 
     /**
      * @throws \Exception
@@ -115,6 +125,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertSame('HR system', $rows[0]['actor_ref']);
         $this->assertSame(StatusChangeSourceEnum::Api->value, $rows[0]['source']);
     }
+
 
     /**
      * A trail whose rows overwrite each other is not a trail. Every change against the same credential
@@ -149,6 +160,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertNotSame($rows[0]['id'], $rows[1]['id']);
     }
 
+
     /**
      * A scheduled task has no human or API principal behind it, and inventing one would be worse than
      * recording that there was none.
@@ -168,6 +180,7 @@ class StatusAuditRepositoryTest extends TestCase
 
         $this->assertNull($this->readRows()[0]['actor_ref']);
     }
+
 
     /**
      * @throws \Exception
@@ -192,6 +205,7 @@ class StatusAuditRepositoryTest extends TestCase
             $this->readRows()[0]['created_at'],
         );
     }
+
 
     /**
      * Every row needs its own identifier, and they are generated rather than handed out by the
@@ -219,6 +233,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertSame($identifiers, array_unique($identifiers));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -235,6 +250,7 @@ class StatusAuditRepositoryTest extends TestCase
             new DateTimeImmutable($createdAt, new DateTimeZone('UTC')),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -257,6 +273,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertSame(2, (int)$rows[0]['idx']);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -274,6 +291,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertSame(0, $this->repository->removeOlderThan($cutOff, 2));
     }
 
+
     /**
      * @throws \Exception
      */
@@ -289,6 +307,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertSame(0, $removed);
         $this->assertCount(1, $this->readRows());
     }
+
 
     /**
      * The cut-off is compared against a column which carries no timezone and is written in UTC, so one
@@ -309,6 +328,7 @@ class StatusAuditRepositoryTest extends TestCase
         $this->assertSame(0, $removed);
         $this->assertCount(1, $this->readRows());
     }
+
 
     /**
      * The tests above run against a real SQLite, which has allowed 32766 bound variables since 3.32, so

@@ -20,50 +20,60 @@ class RelyingPartyAssociation implements RelyingPartyAssociationInterface
     ) {
     }
 
+
     public function getClientId(): string
     {
         return $this->clientId;
     }
+
 
     public function setClientId(string $clientId): void
     {
         $this->clientId = $clientId;
     }
 
+
     public function getUserId(): string
     {
         return $this->userId;
     }
+
 
     public function setUserId(string $userId): void
     {
         $this->userId = $userId;
     }
 
+
     public function getSessionId(): ?string
     {
         return $this->sessionId;
     }
+
 
     public function setSessionId(?string $sessionId): void
     {
         $this->sessionId = $sessionId;
     }
 
+
     public function getBackChannelLogoutUri(): ?string
     {
         return $this->backChannelLogoutUri;
     }
+
 
     public function setBackChannelLogoutUri(?string $backChannelLogoutUri): void
     {
         $this->backChannelLogoutUri = $backChannelLogoutUri;
     }
 
+
     public function getClientIdTokenSignedResponseAlg(): ?string
     {
         return $this->idTokenSignedResponseAlg;
     }
+
 
     public function setClientIdTokenSignedResponseAlg(?string $idTokenSignedResponseAlg): void
     {

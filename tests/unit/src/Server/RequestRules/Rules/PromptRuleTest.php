@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -31,18 +32,29 @@ use SimpleSAML\OpenID\Core\IdTokenHint;
 use SimpleSAML\Utils\HTTP as SspHttp;
 
 #[CoversClass(PromptRule::class)]
+#[AllowMockObjectsWithoutExpectations]
 class PromptRuleTest extends TestCase
 {
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $authSimpleFactoryMock;
+
     protected MockObject $authenticationServiceMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $authSimpleMock;
+
     protected MockObject $clientMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $requestMock;
+
     protected MockObject $responseModeMock;
+
     protected ResultBag $resultBag;
+
 
     protected function setUp(): void
     {
@@ -64,6 +76,7 @@ class PromptRuleTest extends TestCase
         $this->resultBag->add(new Result(StateRule::class, 'state123'));
     }
 
+
     protected function sut(): PromptRule
     {
         return new PromptRule(
@@ -74,6 +87,7 @@ class PromptRuleTest extends TestCase
             $this->sspBridgeMock,
         );
     }
+
 
     protected function checkRule(): ?Result
     {
@@ -86,6 +100,7 @@ class PromptRuleTest extends TestCase
         );
     }
 
+
     public function testReturnsNullWhenNoPromptParam(): void
     {
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
@@ -93,6 +108,7 @@ class PromptRuleTest extends TestCase
 
         $this->assertNull($this->checkRule());
     }
+
 
     public function testPromptLoginReAuthenticatesAndPropagatesLoginHint(): void
     {
@@ -120,6 +136,7 @@ class PromptRuleTest extends TestCase
         $this->assertNull($this->checkRule());
     }
 
+
     public function testPromptNoneThrowsLoginRequiredWhenNotAuthenticated(): void
     {
         $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
@@ -130,6 +147,7 @@ class PromptRuleTest extends TestCase
         $this->expectExceptionMessage('End-User is not already authenticated.');
         $this->checkRule();
     }
+
 
     public function testPromptNoneWithMatchingIdTokenHintProceeds(): void
     {
@@ -146,6 +164,7 @@ class PromptRuleTest extends TestCase
         $this->assertNull($this->checkRule());
     }
 
+
     public function testPromptNoneWithoutIdTokenHintProceeds(): void
     {
         $this->resultBag->add(new Result(IdTokenHintRule::class, null));
@@ -157,6 +176,7 @@ class PromptRuleTest extends TestCase
 
         $this->assertNull($this->checkRule());
     }
+
 
     public function testPromptNoneWithMismatchedIdTokenHintThrowsLoginRequired(): void
     {

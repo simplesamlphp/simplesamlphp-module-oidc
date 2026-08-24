@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -25,21 +26,31 @@ use SimpleSAML\OpenID\Core\IdToken;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class PostLogoutRedirectUriRuleTest extends TestCase
 {
     protected Stub $clientRepositoryStub;
+
     protected Stub $requestStub;
+
     protected Stub $resultBagStub;
+
     protected Stub $clientStub;
 
     protected static string $postLogoutRedirectUri = 'https://redirect.org/uri';
+
     protected static string $issuer = 'https://example.org';
 
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected MockObject $idTokenMock;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -61,6 +72,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -76,6 +88,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
             $clientRepository,
         );
     }
+
 
     /**
      * @throws \Throwable
@@ -94,6 +107,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
 
         $this->assertNull($result->getValue());
     }
+
 
     /**
      * @throws \Throwable
@@ -124,6 +138,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         $this->assertNull($result->getValue());
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -150,6 +165,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -179,6 +195,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -213,6 +230,7 @@ class PostLogoutRedirectUriRuleTest extends TestCase
         ) ??
         (new Result(PostLogoutRedirectUriRule::class));
     }
+
 
     /**
      * @throws \Throwable

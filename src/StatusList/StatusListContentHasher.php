@@ -34,6 +34,7 @@ class StatusListContentHasher
      */
     final public const string VERSION = 'v1';
 
+
     /**
      * @param array<int,int> $nonValidStatuses Index to status for every entry which is not Valid. Every
      * index absent from this map is Valid, including the ones never allocated, which is the same

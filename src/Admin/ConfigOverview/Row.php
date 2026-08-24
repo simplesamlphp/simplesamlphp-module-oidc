@@ -29,20 +29,24 @@ class Row
     ) {
     }
 
+
     public function getLabel(): string
     {
         return $this->label;
     }
+
 
     public function getValue(): mixed
     {
         return $this->value;
     }
 
+
     public function getValueType(): ConfigOverviewValueTypeEnum
     {
         return $this->valueType;
     }
+
 
     /**
      * The ModuleConfig::OPTION_* value this row displays, or null if the row is not tied to a
@@ -53,6 +57,7 @@ class Row
         return $this->configOption;
     }
 
+
     /**
      * Additional context, for example, that the shown value is a fallback rather than a configured
      * one.
@@ -61,6 +66,7 @@ class Row
     {
         return $this->note;
     }
+
 
     /**
      * Set when the current value warrants administrator attention, typically a security relevant

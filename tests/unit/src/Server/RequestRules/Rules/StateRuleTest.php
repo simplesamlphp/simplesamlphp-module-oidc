@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -19,12 +20,17 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class StateRuleTest extends TestCase
 {
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -36,6 +42,7 @@ class StateRuleTest extends TestCase
         $this->helpers = new Helpers();
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
+
 
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
@@ -50,10 +57,12 @@ class StateRuleTest extends TestCase
         );
     }
 
+
     public function testGetKey(): void
     {
         $this->assertSame(StateRule::class, $this->sut()->getKey());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -79,6 +88,7 @@ class StateRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame($value, $result->getValue());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

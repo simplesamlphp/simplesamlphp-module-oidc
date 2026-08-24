@@ -15,6 +15,7 @@ class Client
     {
     }
 
+
     /**
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException

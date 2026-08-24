@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
@@ -19,15 +21,18 @@ use SimpleSAML\OpenID\Federation\TrustMark;
 
 #[CoversClass(FederationOverviewBuilder::class)]
 #[CoversClass(AbstractOverviewBuilder::class)]
+#[AllowMockObjectsWithoutExpectations]
 class FederationOverviewBuilderTest extends TestCase
 {
     use OverviewTestTrait;
     use FederationOverviewTestTrait;
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(FederationOverviewBuilder::class, $this->buildFederationOverviewBuilder());
     }
+
 
     public function testCanBuildSections(): void
     {
@@ -43,6 +48,7 @@ class FederationOverviewBuilderTest extends TestCase
         }
     }
 
+
     public function testSectionAnchorsAreUnique(): void
     {
         $anchors = array_map(
@@ -53,12 +59,14 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertSame($anchors, array_unique($anchors));
     }
 
+
     public function testEveryRowHasALabel(): void
     {
         foreach ($this->flattenRows($this->buildFederationOverviewBuilder()->build()) as $row) {
             $this->assertNotEmpty($row->getLabel());
         }
     }
+
 
     public function testNotesWhenFederationIsDisabled(): void
     {
@@ -79,6 +87,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNull($enabledRow->getNote());
     }
 
+
     /**
      * Same guard as on the protocol screen: isIssuerConfigured() reads the option through
      * getOptionalString(), which throws for a non-string value.
@@ -95,6 +104,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNotNull($row->getWarning());
         $this->assertNull($row->getNote());
     }
+
 
     public function testShowsTrustAnchorsWithAndWithoutJwks(): void
     {
@@ -120,6 +130,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNull($row->getWarning());
     }
 
+
     /**
      * A JWKS which is neither a string nor null makes ModuleConfig::getTrustAnchorJwksJson() throw
      * at runtime, so it must not be shown as though the JWKS were simply omitted.
@@ -143,6 +154,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('neither a JSON string nor null', (string)$row->getWarning());
     }
 
+
     /**
      * getFederationTrustAnchors() throws when federation is enabled without any Trust Anchor. That
      * is exactly the misconfiguration an administrator opens this screen to diagnose, so it must be
@@ -163,6 +175,7 @@ class FederationOverviewBuilderTest extends TestCase
         // The raw exception text can quote configured values back, so it goes to the log only.
         $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
     }
+
 
     /**
      * The exception message from a broken option must never reach the screen, since config
@@ -191,6 +204,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringNotContainsString('No Trust Anchors have been configured', (string)$row->getWarning());
     }
 
+
     public function testShowsAuthorityHints(): void
     {
         $row = $this->findRowForOption(
@@ -203,6 +217,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame(['https://intermediate.example.org/'], $row->getValue());
     }
+
 
     public function testNeverExposesTrustMarkTokens(): void
     {
@@ -219,6 +234,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame('1', $row->getValue());
     }
+
 
     public function testShowsResolvedTrustMarks(): void
     {
@@ -244,6 +260,7 @@ class FederationOverviewBuilderTest extends TestCase
         );
     }
 
+
     /**
      * A Trust Mark which cannot be read must not take the screen down, but it must not vanish
      * without a trace either.
@@ -251,7 +268,7 @@ class FederationOverviewBuilderTest extends TestCase
     public function testWarnsAboutTrustMarksWhichCanNotBeRead(): void
     {
         $brokenTrustMark = $this->createMock(TrustMark::class);
-        $brokenTrustMark->method('getTrustMarkType')->willThrowException(new \RuntimeException('broken'));
+        $brokenTrustMark->method('getTrustMarkType')->willThrowException(new RuntimeException('broken'));
 
         $loggerMock = $this->createMock(LoggerService::class);
         $loggerMock->expects($this->once())
@@ -272,6 +289,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('could not be read', (string)$row->getWarning());
     }
 
+
     public function testDoesNotWarnWhenAllTrustMarksAreReadable(): void
     {
         $trustMark = $this->createMock(TrustMark::class);
@@ -286,6 +304,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
     }
+
 
     public function testShowsDynamicTrustMarks(): void
     {
@@ -302,6 +321,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertSame(['trust-mark-type' => ['https://tmi.example.org/']], $row->getValue());
     }
 
+
     public function testDescribesTrustMarkStatusPolicy(): void
     {
         $row = $this->findRowForOption(
@@ -317,6 +337,7 @@ class FederationOverviewBuilderTest extends TestCase
         // Built from message IDs, so it must stay translatable.
         $this->assertSame(ConfigOverviewValueTypeEnum::Text, $row->getValueType());
     }
+
 
     public function testNormalizesParticipationLimits(): void
     {
@@ -345,6 +366,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNull($row->getWarning());
     }
 
+
     /**
      * Warnings must be whole sentences from the catalog. Interpolating identifiers into them would
      * produce a string gettext can never match, leaving the warning English everywhere.
@@ -366,6 +388,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringNotContainsString('any_of', $warning);
         $this->assertStringNotContainsString('https://ta.example.org/', $warning);
     }
+
 
     /**
      * FederationParticipationValidator calls LimitsEnum::from() on the raw map, so an unrecognized
@@ -394,6 +417,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('Unrecognized limit identifiers', (string)$row->getWarning());
     }
 
+
     /**
      * The runtime rejects these shapes, so presenting them as an empty (harmless) rule would hide a
      * broken configuration.
@@ -418,6 +442,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('unexpected shape', (string)$row->getWarning());
     }
 
+
     public function testWarnsAboutNonArrayParticipationLimitEntry(): void
     {
         $row = $this->findRowForOption(
@@ -433,6 +458,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertSame(['https://ta.example.org/' => 'not-an-array'], $row->getValue());
         $this->assertStringContainsString('unexpected shape', (string)$row->getWarning());
     }
+
 
     public function testShowsTrustChainResolutionLimits(): void
     {
@@ -454,6 +480,7 @@ class FederationOverviewBuilderTest extends TestCase
         }
     }
 
+
     public function testRedactsCredentialsInFederationHttpClientOptions(): void
     {
         $sections = $this->buildFederationOverviewBuilder([
@@ -474,6 +501,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertSame('(not shown)', $value['proxy']);
     }
 
+
     public function testWarnsWhenFederationTlsVerificationIsDisabled(): void
     {
         $row = $this->findRowForOption(
@@ -487,6 +515,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('man-in-the-middle', (string)$row->getWarning());
     }
 
+
     public function testNeverExposesCacheAdapterArguments(): void
     {
         $sections = $this->buildFederationOverviewBuilder([
@@ -497,6 +526,7 @@ class FederationOverviewBuilderTest extends TestCase
 
         $this->assertStringNotContainsString('super-secret-password', $this->renderableContent($sections));
     }
+
 
     public function testNotesWhenNoFederationCacheAdapterIsConfigured(): void
     {
@@ -511,6 +541,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('recommended in production', (string)$row->getNote());
     }
 
+
     public function testRendersDurationsIncludingYears(): void
     {
         $row = $this->findRowForOption(
@@ -523,6 +554,7 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame('1 year (P1Y)', $row->getValue());
     }
+
 
     public function testShowsOptionalEntityMetadata(): void
     {

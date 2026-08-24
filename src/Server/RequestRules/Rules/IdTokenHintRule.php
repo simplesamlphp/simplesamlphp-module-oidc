@@ -18,9 +18,10 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Jwks;
+use Throwable;
 
 /**
- * @extends AbstractRule<\SimpleSAML\OpenID\Core\IdTokenHint|null>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<\SimpleSAML\OpenID\Core\IdTokenHint|null>
  */
 class IdTokenHintRule extends AbstractRule
 {
@@ -34,13 +35,14 @@ class IdTokenHintRule extends AbstractRule
         parent::__construct($requestParamsResolver, $helpers);
     }
 
+
     /**
      * @inheritDoc
      *
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,
@@ -93,7 +95,7 @@ class IdTokenHintRule extends AbstractRule
         // expired); the `nbf` and `iat` timestamps are still validated.
         try {
             $idTokenHint = $this->core->idTokenHintFactory()->fromToken($idTokenHintParam);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $loggerService->notice(
                 'Request rejected: `id_token_hint` could not be parsed or validated.',
                 ['exception' => $exception->getMessage()],
@@ -125,7 +127,7 @@ class IdTokenHintRule extends AbstractRule
 
         try {
             $idTokenHint->verifyWithKeySet($jwks);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $loggerService->notice(
                 'Request rejected: `id_token_hint` signature verification failed.',
                 ['exception' => $exception->getMessage()],

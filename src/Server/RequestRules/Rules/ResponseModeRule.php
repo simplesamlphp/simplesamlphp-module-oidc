@@ -21,7 +21,7 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 /**
- * @extends AbstractRule<\SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<\SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface>
  */
 class ResponseModeRule extends AbstractRule
 {
@@ -40,8 +40,8 @@ class ResponseModeRule extends AbstractRule
     /**
      * @inheritDoc
      *
-     * @param ResponseModeInterface $responseMode
-     * @param HttpMethodsEnum[] $allowedServerRequestMethods
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      */
     public function checkRule(
         ServerRequestInterface $request,

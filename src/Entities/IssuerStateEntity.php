@@ -20,6 +20,7 @@ class IssuerStateEntity implements MementoInterface
     ) {
     }
 
+
     public function getState(): array
     {
         return [
@@ -30,25 +31,30 @@ class IssuerStateEntity implements MementoInterface
         ];
     }
 
+
     public function getValue(): string
     {
         return $this->value;
     }
+
 
     public function getCreatedAt(): DateTimeImmutable
     {
         return $this->createdAt;
     }
 
+
     public function getExpirestAt(): DateTimeImmutable
     {
         return $this->expirestAt;
     }
 
+
     public function isRevoked(): bool
     {
         return $this->isRevoked;
     }
+
 
     public function revoke(): void
     {

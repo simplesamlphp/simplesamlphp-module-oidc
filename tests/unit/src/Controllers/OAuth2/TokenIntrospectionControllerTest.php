@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\OAuth2;
 
+use Exception;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -28,17 +30,27 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(TokenIntrospectionController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class TokenIntrospectionControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
+
     protected MockObject $authenticatedOAuth2ClientResolverMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerServiceMock;
+
     protected MockObject $apiAuthorizationMock;
+
     protected MockObject $requestParamsResolverMock;
+
     protected MockObject $bearerTokenValidatorMock;
+
     protected MockObject $oAuth2BridgeMock;
+
     protected MockObject $refreshTokenRepositoryMock;
+
 
     protected function setUp(): void
     {
@@ -55,6 +67,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->oAuth2BridgeMock = $this->createMock(OAuth2Bridge::class);
         $this->refreshTokenRepositoryMock = $this->createMock(RefreshTokenRepository::class);
     }
+
 
     protected function sut(
         ?ModuleConfig $moduleConfig = null,
@@ -80,10 +93,12 @@ class TokenIntrospectionControllerTest extends TestCase
         );
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(TokenIntrospectionController::class, $this->sut());
     }
+
 
     public function testConstructThrowsForbiddenIfApiNotEnabled(): void
     {
@@ -98,6 +113,7 @@ class TokenIntrospectionControllerTest extends TestCase
             throw $e;
         }
     }
+
 
     public function testConstructThrowsForbiddenIfIntrospectionNotEnabled(): void
     {
@@ -114,6 +130,7 @@ class TokenIntrospectionControllerTest extends TestCase
         }
     }
 
+
     /**
      * @param string $clientId Identifier the client authenticated as. A caller is only told about tokens
      * issued to it, so this is what the tokens in these tests have to belong to.
@@ -129,6 +146,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         return $mock;
     }
+
 
     public function testInvokeReturnsUnauthorizedOnAuthorizationException(): void
     {
@@ -153,6 +171,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 
+
     public function testInvokeReturnsBadRequestIfMissingToken(): void
     {
         $requestMock = $this->createMock(Request::class);
@@ -173,6 +192,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 
+
     public function testInvokeReturnsActiveFalseIfTokenInvalid(): void
     {
         $requestMock = $this->createMock(Request::class);
@@ -189,12 +209,12 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
             ->with('invalid-token')
-            ->willThrowException(new \Exception('bad token'));
+            ->willThrowException(new Exception('bad token'));
 
         $this->oAuth2BridgeMock->expects($this->once())
             ->method('decrypt')
             ->with('invalid-token')
-            ->willThrowException(new \Exception('bad refresh token'));
+            ->willThrowException(new Exception('bad refresh token'));
 
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
@@ -204,6 +224,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeCallsAccessTokenFirstRefreshSecondIfNoHint(): void
     {
@@ -221,7 +242,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
             ->with('invalid-access-token')
-            ->willThrowException(new \Exception('bad token'));
+            ->willThrowException(new Exception('bad token'));
 
         $this->oAuth2BridgeMock->expects($this->once())
             ->method('decrypt')
@@ -240,13 +261,12 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true && $data['client_id'] === 'client1';
-            }))
+            ->with($this->callback(fn(array $data) => $data['active'] === true && $data['client_id'] === 'client1'))
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeWithTokenTypeHintAccessToken(): void
     {
@@ -276,13 +296,12 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true && $data['client_id'] === 'client2';
-            }))
+            ->with($this->callback(fn(array $data) => $data['active'] === true && $data['client_id'] === 'client2'))
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeWithTokenTypeHintRefreshToken(): void
     {
@@ -316,13 +335,12 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true && $data['client_id'] === 'client3';
-            }))
+            ->with($this->callback(fn(array $data) => $data['active'] === true && $data['client_id'] === 'client3'))
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeReturnsExpectedAccessTokenPayload(): void
     {
@@ -373,6 +391,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 
+
     public function testInvokeReturnsExpectedRefreshTokenPayload(): void
     {
         $requestMock = $this->createMock(Request::class);
@@ -404,19 +423,18 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true
-                    && $data['scope'] === 'scope1 scope2'
-                    && $data['client_id'] === 'client1'
-                    && $data['exp'] > time()
-                    && $data['sub'] === 'sub1'
-                    && $data['aud'] === 'client1'
-                    && $data['jti'] === 'jti1';
-            }))
+            ->with($this->callback(fn(array $data) => $data['active'] === true
+                && $data['scope'] === 'scope1 scope2'
+                && $data['client_id'] === 'client1'
+                && $data['exp'] > time()
+                && $data['sub'] === 'sub1'
+                && $data['aud'] === 'client1'
+                && $data['jti'] === 'jti1'))
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeDoesNotTellClientAboutAnotherClientsAccessToken(): void
     {
@@ -452,6 +470,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeDoesNotTellClientAboutAnotherClientsRefreshToken(): void
     {
@@ -490,6 +509,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 
+
     /**
      * A token whose owner the payload does not state can not be matched against the caller, so the caller
      * is told nothing rather than being given the benefit of the doubt.
@@ -526,6 +546,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 
+
     /**
      * An identifier PHP considers falsy is still an identifier - a client entity rejects only an empty
      * one - so the client it names is still to be told about its own tokens. The introspection response
@@ -558,13 +579,16 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true && $data['sub'] === 'own-subject-identifier';
-            }))
+            ->with(
+                $this->callback(
+                    fn(array $data) => $data['active'] === true && $data['sub'] === 'own-subject-identifier',
+                ),
+            )
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeLetsConfiguredResourceServerIntrospectAnotherClientsToken(): void
     {
@@ -595,13 +619,16 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true && $data['client_id'] === 'other-client';
-            }))
+            ->with(
+                $this->callback(
+                    fn(array $data) => $data['active'] === true && $data['client_id'] === 'other-client',
+                ),
+            )
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
+
 
     public function testInvokeLetsApiTokenCallerIntrospectAnyClientsToken(): void
     {
@@ -633,9 +660,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
-            ->with($this->callback(function (array $data) {
-                return $data['active'] === true && $data['client_id'] === 'some-client';
-            }))
+            ->with($this->callback(fn(array $data) => $data['active'] === true && $data['client_id'] === 'some-client'))
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));

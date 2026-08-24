@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\StatusList;
 
+use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -40,6 +42,7 @@ use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
 #[CoversClass(StatusListRepository::class)]
 #[CoversClass(StatusListEntryRepository::class)]
 #[CoversClass(StatusAuditRepository::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListStorageTest extends TestCase
 {
     protected const string LIST_ID = 'integration-status-list-0000000000000000000000000000000000000000';
@@ -49,13 +52,19 @@ class StatusListStorageTest extends TestCase
 
     protected const int CAPACITY = 64;
 
+
     public static array $pgConfig;
+
     public static array $mysqlConfig;
+
     public static array $sqliteConfig;
 
     protected Database $database;
+
     protected StatusListRepository $statusListRepository;
+
     protected StatusListEntryRepository $statusListEntryRepository;
+
 
     /**
      * @throws \Exception
@@ -67,6 +76,7 @@ class StatusListStorageTest extends TestCase
         self::$mysqlConfig = DatabaseContainers::mysql();
         self::$sqliteConfig = DatabaseContainers::sqlite();
     }
+
 
     /**
      * @param array<string,mixed> $config
@@ -357,7 +367,7 @@ class StatusListStorageTest extends TestCase
                 'integration-pool',
                 'integration-fingerprint',
                 StatusListExpiryLaneEnum::Expiring,
-                $helpers->dateTime()->getUtc()->sub(new \DateInterval('PT2M')),
+                $helpers->dateTime()->getUtc()->sub(new DateInterval('PT2M')),
             ),
         );
 
@@ -368,7 +378,7 @@ class StatusListStorageTest extends TestCase
                 'integration-pool',
                 'integration-fingerprint',
                 StatusListExpiryLaneEnum::Expiring,
-                $helpers->dateTime()->getUtc()->add(new \DateInterval('PT2M')),
+                $helpers->dateTime()->getUtc()->add(new DateInterval('PT2M')),
             ),
         );
 
@@ -380,7 +390,7 @@ class StatusListStorageTest extends TestCase
                 'integration-pool',
                 'integration-fingerprint',
                 StatusListExpiryLaneEnum::Expiring,
-                $helpers->dateTime()->getUtc()->sub(new \DateInterval('PT2M')),
+                $helpers->dateTime()->getUtc()->sub(new DateInterval('PT2M')),
             ),
         );
     }
@@ -460,7 +470,7 @@ class StatusListStorageTest extends TestCase
         $this->givenSeededList();
 
         $issuedAt = (new Helpers())->dateTime()->getUtc();
-        $expiresAt = $issuedAt->add(new \DateInterval('P7D'));
+        $expiresAt = $issuedAt->add(new DateInterval('P7D'));
         $firstHash = str_repeat('a', 64);
 
         // The first publication observes the empty hash a newly created list carries.
@@ -511,7 +521,7 @@ class StatusListStorageTest extends TestCase
 
         $hash = str_repeat('c', 64);
         $issuedAt = (new Helpers())->dateTime()->getUtc();
-        $expiresAt = $issuedAt->add(new \DateInterval('P7D'));
+        $expiresAt = $issuedAt->add(new DateInterval('P7D'));
 
         $this->assertTrue(
             $this->statusListRepository->publishToken(
@@ -533,7 +543,7 @@ class StatusListStorageTest extends TestCase
                 0,
                 $hash,
                 'stale.refresh.token',
-                $issuedAt->sub(new \DateInterval('PT1H')),
+                $issuedAt->sub(new DateInterval('PT1H')),
                 $expiresAt,
             ),
         );
@@ -546,8 +556,8 @@ class StatusListStorageTest extends TestCase
                 0,
                 $hash,
                 'refreshed.token',
-                $issuedAt->add(new \DateInterval('PT1H')),
-                $expiresAt->add(new \DateInterval('PT1H')),
+                $issuedAt->add(new DateInterval('PT1H')),
+                $expiresAt->add(new DateInterval('PT1H')),
             ),
         );
 
@@ -572,7 +582,7 @@ class StatusListStorageTest extends TestCase
         $this->givenSeededList();
 
         $issuedAt = (new Helpers())->dateTime()->getUtc();
-        $expiresAt = $issuedAt->add(new \DateInterval('P7D'));
+        $expiresAt = $issuedAt->add(new DateInterval('P7D'));
 
         // What a signer reads before it starts: nothing published, and the counter as it stands.
         $observed = $this->statusListRepository->findByIdOnPrimary(self::LIST_ID);
@@ -629,7 +639,7 @@ class StatusListStorageTest extends TestCase
             str_repeat('d', 64),
             'a.published.token',
             $issuedAt,
-            $issuedAt->add(new \DateInterval('P7D')),
+            $issuedAt->add(new DateInterval('P7D')),
         );
 
         $published = $this->statusListRepository->findPublished(10);
@@ -664,7 +674,7 @@ class StatusListStorageTest extends TestCase
             $examinedHash,
             'the.examined.token',
             $issuedAt,
-            $issuedAt->add(new \DateInterval('P7D')),
+            $issuedAt->add(new DateInterval('P7D')),
         );
 
         // A hash which is not the one on the row: this token is not the one that was examined.
@@ -692,6 +702,7 @@ class StatusListStorageTest extends TestCase
         $this->assertSame(1, $statusList?->getInvalidationCounter());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -716,6 +727,7 @@ class StatusListStorageTest extends TestCase
             ),
         );
     }
+
 
     /**
      * A second list, in the non-expiring lane, for the cases which need an entry of each kind. They can
@@ -745,6 +757,7 @@ class StatusListStorageTest extends TestCase
         $this->statusListEntryRepository->seed(self::OTHER_LIST_ID, self::CAPACITY);
         $this->statusListRepository->activate(self::OTHER_LIST_ID);
     }
+
 
     /**
      * @return array<string,mixed>
@@ -1230,6 +1243,7 @@ class StatusListStorageTest extends TestCase
         $this->assertTrue($migration->isMigrated());
         $this->assertSame([], $migration->getNotImplementedVersions());
     }
+
 
     /**
      * @return array<string,array{string}>

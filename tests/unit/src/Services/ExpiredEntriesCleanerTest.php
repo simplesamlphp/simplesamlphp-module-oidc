@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,13 +16,19 @@ use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Services\ExpiredEntriesCleaner;
 
 #[CoversClass(ExpiredEntriesCleaner::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ExpiredEntriesCleanerTest extends TestCase
 {
     private AccessTokenRepository&MockObject $accessTokenRepositoryMock;
+
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
+
     private RefreshTokenRepository&MockObject $refreshTokenRepositoryMock;
+
     private IssuerStateRepository&MockObject $issuerStateRepositoryMock;
+
     private PushedAuthorizationRequestRepository&MockObject $pushedAuthorizationRequestRepositoryMock;
+
 
     protected function setUp(): void
     {
@@ -33,6 +40,7 @@ class ExpiredEntriesCleanerTest extends TestCase
             PushedAuthorizationRequestRepository::class,
         );
     }
+
 
     public function testItIsInitializable(): void
     {
@@ -46,6 +54,7 @@ class ExpiredEntriesCleanerTest extends TestCase
 
         $this->assertInstanceOf(ExpiredEntriesCleaner::class, $cleaner);
     }
+
 
     public function testCleanRemovesExpiredAndInvalidEntries(): void
     {

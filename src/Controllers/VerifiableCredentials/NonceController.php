@@ -25,6 +25,7 @@ class NonceController
         }
     }
 
+
     /**
      * @throws \Exception
      */

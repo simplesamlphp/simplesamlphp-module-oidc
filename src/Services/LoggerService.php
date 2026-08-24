@@ -17,40 +17,48 @@ class LoggerService implements LoggerInterface
         Logger::emergency((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
+
     public function alert(string|Stringable $message, array $context = []): void
     {
         Logger::alert((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
+
 
     public function critical(string|Stringable $message, array $context = []): void
     {
         Logger::critical((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
+
     public function error(string|Stringable $message, array $context = []): void
     {
         Logger::error((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
+
 
     public function warning(string|Stringable $message, array $context = []): void
     {
         Logger::warning((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
+
     public function notice(string|Stringable $message, array $context = []): void
     {
         Logger::notice((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
+
 
     public function info(string|Stringable $message, array $context = []): void
     {
         Logger::info((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
 
+
     public function debug(string|Stringable $message, array $context = []): void
     {
         Logger::debug((string)$message . ($context ? " " . var_export($context, true) : ""));
     }
+
 
     public function log(mixed $level, string|Stringable $message, array $context = []): void
     {
@@ -66,6 +74,7 @@ class LoggerService implements LoggerInterface
             default => throw new InvalidArgumentException("Unrecognized log level '$level''"),
         };
     }
+
 
     public static function getInstance(): self
     {

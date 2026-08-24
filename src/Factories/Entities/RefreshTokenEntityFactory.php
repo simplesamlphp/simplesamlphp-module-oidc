@@ -17,6 +17,7 @@ class RefreshTokenEntityFactory
     ) {
     }
 
+
     public function fromData(
         string $id,
         DateTimeImmutable $expiryDateTime,
@@ -32,6 +33,7 @@ class RefreshTokenEntityFactory
             $isRevoked,
         );
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException

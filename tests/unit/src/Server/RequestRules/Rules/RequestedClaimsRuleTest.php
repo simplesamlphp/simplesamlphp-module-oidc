@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -23,18 +24,28 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class RequestedClaimsRuleTest extends TestCase
 {
     protected ResultBag $resultBag;
+
     protected Stub $clientStub;
+
     protected Stub $requestStub;
+
     protected string $redirectUri = 'https://some-redirect-uri.org';
+
     protected Stub $loggerServiceStub;
+
     /** @var string[] */
     protected static array $userIdAttrs = ['uid'];
+
     protected Stub $requestParamsResolverStub;
+
     protected Stub $claimSetEntityFactoryStub;
+
     protected Helpers $helpers;
+
     protected Stub $responseModeStub;
 
 
@@ -63,6 +74,7 @@ class RequestedClaimsRuleTest extends TestCase
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
+
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
         ?Helpers $helpers = null,
@@ -82,6 +94,7 @@ class RequestedClaimsRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -96,6 +109,7 @@ class RequestedClaimsRuleTest extends TestCase
         );
         $this->assertNull($result);
     }
+
 
     /**
      * @throws \Throwable

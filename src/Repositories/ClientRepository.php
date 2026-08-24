@@ -28,10 +28,12 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * {@inheritdoc}
@@ -57,6 +59,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $client;
     }
 
+
     /**
      * @inheritDoc
      * @throws \JsonException
@@ -76,6 +79,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         return true;
     }
+
 
     /**
      * @throws \JsonException
@@ -127,6 +131,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clientEntity;
     }
 
+
     public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
         /** @var ?array $cachedState */
@@ -177,6 +182,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clientEntity;
     }
 
+
     public function findFederatedByEntityIdentifier(
         string $entityIdentifier,
         ?string $owner = null,
@@ -199,6 +205,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clientEntity;
     }
 
+
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
     {
         if (isset($owner)) {
@@ -211,6 +218,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         }
         return [$query, $params];
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
@@ -242,6 +250,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
         return $clients;
     }
+
 
     /**
      * @return \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface[]
@@ -282,6 +291,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         return $clients;
     }
 
+
     /**
      * @return array{
      *   numPages: int,
@@ -313,7 +323,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $params,
         );
 
-        $clients = array_map(fn(array $state) => $this->clientEntityFactory->fromState($state), $stmt->fetchAll());
+        $clients = array_map($this->clientEntityFactory->fromState(...), $stmt->fetchAll());
 
         return [
             'numPages' => $numPages,
@@ -321,6 +331,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             'items' => $clients,
         ];
     }
+
 
     public function add(ClientEntityInterface $client): void
     {
@@ -403,6 +414,7 @@ EOS
         }
     }
 
+
     public function delete(ClientEntityInterface $client, ?string $owner = null): void
     {
         /**
@@ -423,6 +435,7 @@ EOS
             $this->protocolCache?->delete($this->getCacheKey($entityIdentifier));
         }
     }
+
 
     public function update(ClientEntityInterface $client, ?string $owner = null): void
     {
@@ -487,6 +500,7 @@ EOF
         }
     }
 
+
     private function count(string $query, ?string $owner): int
     {
         /**
@@ -507,6 +521,7 @@ EOF
         return (int) $stmt->fetchColumn();
     }
 
+
     /**
      * @throws \Exception
      */
@@ -516,12 +531,14 @@ EOF
             ->getOptionalIntegerRange(ModuleConfig::OPTION_ADMIN_UI_PAGINATION_ITEMS_PER_PAGE, 1, 100, 20);
     }
 
+
     private function calculateNumOfPages(int $total, int $limit): int
     {
         $numPages = (int)ceil($total / $limit);
 
         return max($numPages, 1);
     }
+
 
     private function calculateCurrentPage(int $page, int $numPages): int
     {
@@ -536,10 +553,12 @@ EOF
         return $page;
     }
 
+
     private function calculateOffset(int $page, int $limit): float|int
     {
         return ($page - 1) * $limit;
     }
+
 
     protected function preparePdoState(array $state): array
     {
@@ -553,6 +572,7 @@ EOF
 
         return $state;
     }
+
 
     public function getGenericForVci(): ClientEntityInterface
     {

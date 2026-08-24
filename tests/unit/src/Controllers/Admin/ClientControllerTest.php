@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -27,20 +28,33 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(ClientController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ClientControllerTest extends TestCase
 {
     protected MockObject $templateFactoryMock;
+
     protected MockObject $authorizationMock;
+
     protected MockObject $clientRepositoryMock;
+
     protected MockObject $clientEntityFactoryMock;
+
     protected MockObject $allowedOriginRepositoryMock;
+
     protected MockObject $formFactoryMock;
+
     protected MockObject $sspBridgeMock;
+
     protected MockObject $sessionMessagesServiceMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $helpersMock;
+
     protected MockObject $loggerMock;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $clientFormMock;
 
     protected array $sampleFormData = [
@@ -86,6 +100,7 @@ class ClientControllerTest extends TestCase
         ClientEntity::KEY_ALLOWED_RESPONSE_MODES => ['query', 'fragment', 'form_post'],
     ];
 
+
     protected function setUp(): void
     {
         $this->templateFactoryMock = $this->createMock(TemplateFactory::class);
@@ -105,6 +120,7 @@ class ClientControllerTest extends TestCase
         $this->clientFormMock = $this->createMock(ClientForm::class);
         $this->formFactoryMock->method('build')->willReturn($this->clientFormMock);
     }
+
 
     protected function sut(
         ?TemplateFactory $templateFactory = null,
@@ -146,11 +162,13 @@ class ClientControllerTest extends TestCase
         );
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->authorizationMock->expects($this->once())->method('requireAdminOrUserWithPermission');
         $this->assertInstanceOf(ClientController::class, $this->sut());
     }
+
 
     public function testIndex(): void
     {
@@ -173,6 +191,7 @@ class ClientControllerTest extends TestCase
         $this->sut()->index($request);
     }
 
+
     public function testShow(): void
     {
         $request = Request::create(
@@ -190,6 +209,7 @@ class ClientControllerTest extends TestCase
         $this->sut()->show($request);
     }
 
+
     public function testShowThrowsIfClientIdNotProvided(): void
     {
         $request = Request::create(
@@ -203,6 +223,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->show($request);
     }
+
 
     public function testCanResetSecret(): void
     {
@@ -224,6 +245,7 @@ class ClientControllerTest extends TestCase
         $this->sut()->resetSecret($request);
     }
 
+
     public function testResetSecretThrowsIfCurrentSecretNotValid(): void
     {
         $request = Request::create(
@@ -241,6 +263,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->resetSecret($request);
     }
+
 
     public function testCanDelete(): void
     {
@@ -261,6 +284,7 @@ class ClientControllerTest extends TestCase
         $this->sut()->delete($request);
     }
 
+
     public function testDeleteThrowsIfCurrentSecretNotValid(): void
     {
         $request = Request::create(
@@ -278,6 +302,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->delete($request);
     }
+
 
     public function testCanAdd(): void
     {
@@ -299,6 +324,7 @@ class ClientControllerTest extends TestCase
         $this->sut()->add();
     }
 
+
     public function testCanShowAddForm(): void
     {
         $this->clientFormMock->expects($this->once())->method('isSuccess')->willReturn(false);
@@ -308,6 +334,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->add();
     }
+
 
     public function testWontAddIfClientIdentifierExists(): void
     {
@@ -327,6 +354,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->add();
     }
+
 
     public function testWontAddIfClientEntityIdentifierExists(): void
     {
@@ -349,6 +377,7 @@ class ClientControllerTest extends TestCase
         $this->sut()->add();
     }
 
+
     public function testThrowsForInvalidClientData(): void
     {
         $data = $this->sampleFormData;
@@ -361,6 +390,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->add();
     }
+
 
     public function testCanEdit(): void
     {
@@ -396,6 +426,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->edit($request);
     }
+
 
     public function testWontEditIfClientEntityIdentifierExists(): void
     {
@@ -436,6 +467,7 @@ class ClientControllerTest extends TestCase
 
         $this->sut()->edit($request);
     }
+
 
     public function testCanShowEditForm(): void
     {

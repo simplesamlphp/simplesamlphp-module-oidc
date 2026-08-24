@@ -13,7 +13,8 @@ use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 
 class PsrHttpBridge
 {
-    private PsrHttpFactory $psrHttpFactory;
+    private readonly PsrHttpFactory $psrHttpFactory;
+
 
     public function __construct(
         private readonly HttpFoundationFactory $httpFoundationFactory,
@@ -30,30 +31,36 @@ class PsrHttpBridge
         );
     }
 
+
     public function getHttpFoundationFactory(): HttpFoundationFactory
     {
         return $this->httpFoundationFactory;
     }
+
 
     public function getServerRequestFactory(): ServerRequestFactoryInterface
     {
         return $this->serverRequestFactory;
     }
 
+
     public function getResponseFactory(): ResponseFactoryInterface
     {
         return $this->responseFactory;
     }
+
 
     public function getStreamFactory(): StreamFactoryInterface
     {
         return $this->streamFactory;
     }
 
+
     public function getUploadedFileFactory(): UploadedFileFactoryInterface
     {
         return $this->uploadedFileFactory;
     }
+
 
     public function getPsrHttpFactory(): PsrHttpFactory
     {

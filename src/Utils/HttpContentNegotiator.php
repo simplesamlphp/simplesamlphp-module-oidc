@@ -68,6 +68,7 @@ class HttpContentNegotiator
         return $bestWeight > 0.0;
     }
 
+
     /**
      * The content coding to encode the body with, in the client's order of preference.
      *
@@ -118,6 +119,7 @@ class HttpContentNegotiator
         return $best;
     }
 
+
     /**
      * Splits one comma separated element into its value and its weight.
      *
@@ -152,6 +154,7 @@ class HttpContentNegotiator
         return ['value' => $value, 'weight' => $weight];
     }
 
+
     /**
      * How specifically a media range names the given media type: 3 exact, 2 by type, 1 by wildcard, and
      * -1 for no match at all.
@@ -176,6 +179,7 @@ class HttpContentNegotiator
 
         return $parsed['type'] === $wanted['type'] && $parsed['subtype'] === $wanted['subtype'] ? 3 : -1;
     }
+
 
     /**
      * @return ?array{type: string, subtype: string}

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -15,12 +16,17 @@ use SimpleSAML\Module\oidc\StatusList\StatusListReconciler;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListReconciliationCandidate;
 
 #[CoversClass(StatusListReconciler::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListReconcilerTest extends TestCase
 {
     protected MockObject $statusListRepositoryMock;
+
     protected MockObject $statusListEntryRepositoryMock;
+
     protected MockObject $loggerServiceMock;
+
     protected StatusListContentHasher $statusListContentHasher;
+
 
     protected function setUp(): void
     {
@@ -29,6 +35,7 @@ class StatusListReconcilerTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->statusListContentHasher = new StatusListContentHasher();
     }
+
 
     protected function sut(): StatusListReconciler
     {
@@ -40,6 +47,7 @@ class StatusListReconcilerTest extends TestCase
         );
     }
 
+
     protected function record(
         string $id,
         string $signedTokenContentHash,
@@ -48,6 +56,7 @@ class StatusListReconcilerTest extends TestCase
         return new StatusListReconciliationCandidate($id, 2, 64, $signedTokenContentHash, $invalidationCounter);
     }
 
+
     /**
      * @param array<int,int> $statuses
      */
@@ -55,6 +64,7 @@ class StatusListReconcilerTest extends TestCase
     {
         return $this->statusListContentHasher->hash(2, 64, $statuses);
     }
+
 
     /**
      * @throws \Exception
@@ -66,6 +76,7 @@ class StatusListReconcilerTest extends TestCase
 
         $this->assertSame(0, $this->sut()->reconcile());
     }
+
 
     /**
      * @throws \Exception
@@ -79,6 +90,7 @@ class StatusListReconcilerTest extends TestCase
 
         $this->assertSame(0, $this->sut()->reconcile());
     }
+
 
     /**
      * The failure this exists for: the entry update landed and the invalidation which should have
@@ -100,6 +112,7 @@ class StatusListReconcilerTest extends TestCase
         $this->assertSame(1, $this->sut()->reconcile());
     }
 
+
     /**
      * A signer may publish a correct token between the batch being read and this decision. Clearing
      * that would be churn, and repeated runs could keep defeating a signer doing the right thing, so
@@ -120,6 +133,7 @@ class StatusListReconcilerTest extends TestCase
         $this->assertSame(0, $this->sut()->reconcile());
     }
 
+
     /**
      * A short page means there is no next one, so nothing more is asked for.
      *
@@ -133,6 +147,7 @@ class StatusListReconcilerTest extends TestCase
 
         $this->assertSame(0, $this->sut()->reconcile());
     }
+
 
     /**
      * Invalidating a list takes it out of the set being paged through, so a numeric offset would step
@@ -170,6 +185,7 @@ class StatusListReconcilerTest extends TestCase
         $this->assertSame(50, $this->sut()->reconcile());
         $this->assertSame([null, 'list-099'], $cursors);
     }
+
 
     /**
      * Stopping short is not a normal outcome, because every run starts from the beginning: the lists

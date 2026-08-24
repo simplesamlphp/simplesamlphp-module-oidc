@@ -22,7 +22,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
  *  - the client is configured with the administrator-only `add_claims_to_id_token` option (the client wants its
  *    claims in the ID Token regardless, e.g. because it never calls the UserInfo endpoint).
  *
- * @extends AbstractRule<bool>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<bool>
  */
 class AddClaimsToIdTokenRule extends AbstractRule
 {
@@ -31,7 +31,7 @@ class AddClaimsToIdTokenRule extends AbstractRule
      *
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,

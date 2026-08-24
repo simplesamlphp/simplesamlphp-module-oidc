@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
@@ -19,6 +20,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
 
+
     public function __construct(
         string $id,
         DateTimeImmutable $expiryDateTime,
@@ -27,7 +29,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
         bool $isRevoked = false,
     ) {
         if ($id === '') {
-            throw new \InvalidArgumentException('Refresh token identifier cannot be empty.');
+            throw new InvalidArgumentException('Refresh token identifier cannot be empty.');
         }
 
         $this->setIdentifier($id);
@@ -36,6 +38,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
         $this->setAuthCodeId($authCodeId);
         $this->isRevoked = $isRevoked;
     }
+
 
     public function getState(): array
     {

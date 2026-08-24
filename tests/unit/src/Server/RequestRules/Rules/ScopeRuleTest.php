@@ -6,12 +6,14 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use LogicException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Builder\InvocationStubber;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\Str;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -26,28 +28,38 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule
  */
+#[AllowMockObjectsWithoutExpectations]
 class ScopeRuleTest extends TestCase
 {
     protected Stub $scopeRepositoryStub;
+
     protected Stub $resultBagStub;
+
     protected array $data = [
         'default_scope' => '',
         'scope_delimiter_string' => ' ',
     ];
+
     protected string $scopes = 'openid profile';
 
     protected array $scopeEntities = [];
 
     protected Result $redirectUriResult;
+
     protected Result $stateResult;
 
     protected Stub $requestStub;
 
     protected Stub $loggerServiceStub;
+
     protected Stub $requestParamsResolverStub;
+
     protected Stub $helpersStub;
+
     protected Stub $strHelperMock;
+
     protected Stub $responseModeStub;
+
 
     /**
      * @throws \Exception
@@ -66,10 +78,11 @@ class ScopeRuleTest extends TestCase
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpersStub = $this->createStub(Helpers::class);
-        $this->strHelperMock = $this->createMock(Helpers\Str::class);
+        $this->strHelperMock = $this->createMock(Str::class);
         $this->helpersStub->method('str')->willReturn($this->strHelperMock);
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
+
 
     protected function sut(
         ?RequestParamsResolver $requestParamsResolver = null,
@@ -87,10 +100,12 @@ class ScopeRuleTest extends TestCase
         );
     }
 
+
     public function testConstruct(): void
     {
         $this->assertInstanceOf(ScopeRule::class, $this->sut());
     }
+
 
     /**
      * @throws \Throwable
@@ -109,6 +124,7 @@ class ScopeRuleTest extends TestCase
         );
     }
 
+
     /**
      * @throws \Throwable
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -126,6 +142,7 @@ class ScopeRuleTest extends TestCase
             $this->responseModeStub,
         );
     }
+
 
     /**
      * @throws \Throwable
@@ -159,6 +176,7 @@ class ScopeRuleTest extends TestCase
         $this->assertSame($this->scopeEntities['profile'], $result->getValue()[1]);
     }
 
+
     /**
      * @throws \Throwable
      */
@@ -184,6 +202,7 @@ class ScopeRuleTest extends TestCase
         );
     }
 
+
     protected function prepareValidResultBag(): ResultBag
     {
         $resultBag = new ResultBag();
@@ -191,6 +210,7 @@ class ScopeRuleTest extends TestCase
         $resultBag->add($this->stateResult);
         return $resultBag;
     }
+
 
     protected function prepareValidScopeRepositoryStub(): InvocationStubber
     {

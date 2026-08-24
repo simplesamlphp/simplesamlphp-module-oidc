@@ -33,6 +33,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class PushedAuthorizationController
 {
@@ -47,6 +48,7 @@ class PushedAuthorizationController
         private readonly LoggerService $logger,
     ) {
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -142,6 +144,7 @@ class PushedAuthorizationController
         return $response;
     }
 
+
     /**
      * Resolve the authorization request parameters which are to be persisted
      * for later use at the authorization endpoint.
@@ -203,6 +206,7 @@ class PushedAuthorizationController
         return $parameters;
     }
 
+
     public function par(Request $request): Response
     {
         try {
@@ -213,7 +217,7 @@ class PushedAuthorizationController
             // Per RFC 9126, the error response format is the one specified for the token endpoint, so make
             // sure we never redirect (regardless of any redirect URI contained in the exception).
             return $this->errorResponder->forExceptionJson($exception);
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->logger->error(
                 'PushedAuthorizationController: error processing request: ' . $exception->getMessage(),
             );

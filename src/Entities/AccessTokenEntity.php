@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
+use InvalidArgumentException;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
@@ -31,6 +32,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
 
+
     /**
      * String representation of access token issued to the client.
      * @var string|null $stringRepresentation
@@ -42,6 +44,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * @var array $requestedClaims
      */
     protected array $requestedClaims;
+
 
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
@@ -64,7 +67,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?string $issuerState = null,
     ) {
         if ($id === '') {
-            throw new \InvalidArgumentException('Access token identifier cannot be empty.');
+            throw new InvalidArgumentException('Access token identifier cannot be empty.');
         }
 
         $this->setIdentifier($id);
@@ -86,6 +89,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         }
     }
 
+
     /**
      * @return array
      */
@@ -94,10 +98,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         return $this->requestedClaims;
     }
 
+
     public function setRequestedClaims(array $requestedClaims): void
     {
         $this->requestedClaims = $requestedClaims;
     }
+
 
     /**
      * {@inheritdoc}
@@ -124,6 +130,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         ];
     }
 
+
     /**
      * Generate string representation, save it in a field, and return it.
      * @return string
@@ -134,6 +141,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         return $this->toString();
     }
 
+
     /**
      * Get string representation of access token at the moment of casting it to string.
      * @return string String representation of the access token.
@@ -142,6 +150,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     {
         return $this->stringRepresentation ??= $this->convertToJWT()->getToken();
     }
+
 
     /**
      * Implemented instead of original AccessTokenTrait::convertToJWT() method
@@ -180,25 +189,30 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         );
     }
 
+
     public function getFlowTypeEnum(): ?FlowTypeEnum
     {
         return $this->flowTypeEnum;
     }
+
 
     public function getAuthorizationDetails(): ?array
     {
         return $this->authorizationDetails;
     }
 
+
     public function getBoundClientId(): ?string
     {
         return $this->boundClientId;
     }
 
+
     public function getBoundRedirectUri(): ?string
     {
         return $this->boundRedirectUri;
     }
+
 
     public function getIssuerState(): ?string
     {

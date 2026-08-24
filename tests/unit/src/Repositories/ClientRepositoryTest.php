@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -19,11 +20,15 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\ClientRepository
  */
+#[AllowMockObjectsWithoutExpectations]
 class ClientRepositoryTest extends TestCase
 {
     protected ClientRepository $repository;
+
     protected MockObject $clientEntityMock;
+
     protected MockObject $clientEntityFactoryMock;
+
 
     /**
      * @throws \Exception
@@ -43,6 +48,7 @@ class ClientRepositoryTest extends TestCase
         (new DatabaseMigration())->migrate();
     }
 
+
     protected function setUp(): void
     {
         $this->clientEntityMock = $this->createMock(ClientEntityInterface::class);
@@ -58,31 +64,19 @@ class ClientRepositoryTest extends TestCase
         );
     }
 
-    /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \JsonException
-     */
+
     public function tearDown(): void
     {
-        $this->clientEntityFactoryMock->method('fromState')->willReturnCallback(
-            function (array $state) {
-                $client = $this->createStub(ClientEntityInterface::class);
-                $client->method('getIdentifier')->willReturn($state['id']);
-                return $client;
-            },
-        );
-
-        $clients = $this->repository->findAll();
-
-        foreach ($clients as $client) {
-            $this->repository->delete($client);
-        }
+        $database = Database::getInstance();
+        $database->write('DELETE FROM ' . $this->repository->getTableName());
     }
+
 
     public function testGetTableName(): void
     {
         $this->assertSame('phpunit_oidc_client', $this->repository->getTableName());
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -97,6 +91,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
@@ -109,6 +104,7 @@ class ClientRepositoryTest extends TestCase
         $client = $this->repository->getClientEntity('clientid');
         $this->assertNotNull($client);
     }
+
 
     public function testGetClientEntityReturnsNullForExpiredClient(): void
     {
@@ -124,6 +120,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($this->repository->getClientEntity('clientid'));
     }
 
+
     /**
      * @throws \JsonException
      */
@@ -135,6 +132,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($this->repository->getClientEntity('clientid'));
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
@@ -145,6 +143,7 @@ class ClientRepositoryTest extends TestCase
 
         $this->assertNull($client);
     }
+
 
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
@@ -161,6 +160,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertTrue($validate);
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
@@ -176,6 +176,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertTrue($validate);
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
@@ -189,6 +190,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertFalse($validate);
     }
 
+
     /**
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
@@ -198,6 +200,7 @@ class ClientRepositoryTest extends TestCase
         $validate = $this->repository->validateClient('clientid', 'wrongclientsecret', null);
         $this->assertFalse($validate);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -212,6 +215,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertCount(1, $clients);
         $this->assertInstanceOf(ClientEntity::class, current($clients));
     }
+
 
     /**
      * @throws \Exception
@@ -234,6 +238,7 @@ class ClientRepositoryTest extends TestCase
         self::assertEquals(2, $clientPageTwo['currentPage']);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -249,6 +254,7 @@ class ClientRepositoryTest extends TestCase
         self::assertEquals(2, $clientPageOne['currentPage']);
     }
 
+
     /**
      * @throws \Exception
      */
@@ -259,6 +265,7 @@ class ClientRepositoryTest extends TestCase
         self::assertEquals(1, $clientPageOne['currentPage']);
         self::assertCount(0, $clientPageOne['items']);
     }
+
 
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -289,6 +296,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertEquals($client, $foundClient);
     }
 
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
@@ -305,6 +313,7 @@ class ClientRepositoryTest extends TestCase
 
         $this->assertNull($foundClient);
     }
+
 
     /**
      * @throws \JsonException
@@ -358,6 +367,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNotNull($foundClient);
     }
 
+
     public function testCanFindByIdFromCache(): void
     {
         $protocolCacheMock = $this->createMock(ProtocolCache::class);
@@ -378,6 +388,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertInstanceOf(ClientEntityInterface::class, $sut->findById('clientid'));
     }
 
+
     public function testCanFindByEntityIdentifier(): void
     {
         $client = self::getClient(id: 'clientId', entityId: 'entityId');
@@ -392,6 +403,7 @@ class ClientRepositoryTest extends TestCase
 
         $this->assertNull($this->repository->findByEntityIdentifier('nonExistingEntityId'));
     }
+
 
     public function testCanFindFederatedByEntityIdentifier(): void
     {
@@ -408,6 +420,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($this->repository->findFederatedByEntityIdentifier('nonExistingEntityId'));
     }
 
+
     public function testCanNotFindFederatedByEntityIdentifierIfMissingFederationAttributes(): void
     {
         $client = self::getClient(id: 'clientId', entityId: 'entityId');
@@ -423,6 +436,7 @@ class ClientRepositoryTest extends TestCase
         $this->assertNull($this->repository->findFederatedByEntityIdentifier('entityId'));
     }
 
+
     public function testCanFindAllFederated(): void
     {
         $client = self::getClient(id: 'clientId', entityId: 'entityId', federationJwks: []);
@@ -432,6 +446,7 @@ class ClientRepositoryTest extends TestCase
 
         $this->assertCount(1, $this->repository->findAllFederated());
     }
+
 
     public function testCanFindByEntityIdFromCache(): void
     {
@@ -451,6 +466,7 @@ class ClientRepositoryTest extends TestCase
 
         $this->assertInstanceOf(ClientEntityInterface::class, $sut->findByEntityIdentifier('entityId'));
     }
+
 
     public static function getClient(
         string $id,

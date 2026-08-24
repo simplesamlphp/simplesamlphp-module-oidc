@@ -43,6 +43,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         CredentialFormatIdentifiersEnum::VcSdJwt->value,
     ];
 
+
     /**
      * @return \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[]
      * @throws \Exception
@@ -60,6 +61,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildCredentialOfferSection(),
         ];
     }
+
 
     /**
      * Token Status List settings, being what makes issued credentials revocable.
@@ -262,6 +264,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);
     }
 
+
     /**
      * @return array<string,array<string,mixed>>
      */
@@ -289,6 +292,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return $described;
     }
+
 
     /**
      * @throws \Exception
@@ -348,6 +352,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -425,6 +430,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return new Section(Translate::noop('Endpoints'), 'endpoints', ...$rows);
     }
 
+
     protected function buildSignatureKeysSection(): Section
     {
         $keyPairBag = null;
@@ -454,6 +460,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -574,6 +581,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -681,6 +689,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * @throws \Exception
      */
@@ -759,6 +768,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             ),
         );
     }
+
 
     /**
      * @throws \Exception
@@ -866,6 +876,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         );
     }
 
+
     /**
      * Prepare the supported credential configurations for display, pulling together the pieces which
      * are otherwise spread over several config options.
@@ -926,6 +937,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return $configurations;
     }
 
+
     /**
      * Credential configuration IDs which have a usable JSON-LD context document.
      *
@@ -948,6 +960,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return $ids;
     }
 
+
     /**
      * Configured attribute mappings for one credential configuration.
      *
@@ -960,6 +973,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return is_array($mappings) ? $mappings : [];
     }
+
 
     /**
      * Normalize a configured redirect URI prefix exactly the way ClientRedirectUriRule does, that
@@ -992,6 +1006,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return null;
     }
 
+
     /**
      * Whether any credential configuration declares a format which cannot be issued.
      */
@@ -1006,6 +1021,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return false;
     }
+
 
     /**
      * Whether any credential configuration carries a mapping whose given flag has the given value.
@@ -1028,6 +1044,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return false;
     }
+
 
     /**
      * Display names from the credential metadata, which may carry one entry per locale.
@@ -1062,6 +1079,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return $names;
     }
 
+
     /**
      * Claim paths declared by a credential configuration, rendered in dotted form.
      *
@@ -1083,6 +1101,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return $paths;
     }
 
+
     /**
      * Render a declared claim path, in dotted form. Segments which are not scalar are skipped, since
      * they cannot be part of a usable path.
@@ -1103,6 +1122,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return implode('.', $segments);
     }
+
 
     /**
      * Render the claim path a mapping actually writes to.
@@ -1135,6 +1155,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return implode('.', $segments);
     }
+
 
     /**
      * Effective user attribute to claim path mappings for one credential configuration.
@@ -1190,6 +1211,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return $mappings;
     }
 
+
     /**
      * Whether a mapping will actually be applied during issuance.
      *
@@ -1228,6 +1250,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         return null;
     }
 
+
     /**
      * Present the auth source to email attribute map in the shape the StringMap rendering expects.
      *
@@ -1252,6 +1275,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         return $map;
     }
+
 
     /**
      * Whether the configured map holds an entry which the runtime will ignore.

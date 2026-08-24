@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use DateInterval;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -21,17 +22,24 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(StatusListController::class)]
+#[AllowMockObjectsWithoutExpectations]
 class StatusListControllerTest extends TestCase
 {
     protected const string LIST_ID = 'a-status-list-id';
 
     protected const string TOKEN = 'header.payload.signature';
 
+
     protected MockObject $statusListTokenProviderMock;
+
     protected MockObject $statusListRateLimiterMock;
+
     protected MockObject $routesMock;
+
     protected MockObject $loggerServiceMock;
+
     protected Helpers $helpers;
+
 
     /**
      * @throws \Exception
@@ -53,6 +61,7 @@ class StatusListControllerTest extends TestCase
         $this->statusListTokenProviderMock->method('getToken')->willReturn($this->tokenResult());
     }
 
+
     /**
      * @throws \Exception
      */
@@ -68,6 +77,7 @@ class StatusListControllerTest extends TestCase
         );
     }
 
+
     protected function sut(): StatusListController
     {
         return new StatusListController(
@@ -79,6 +89,7 @@ class StatusListControllerTest extends TestCase
             $this->loggerServiceMock,
         );
     }
+
 
     /**
      * @param array<string,string> $headers
@@ -95,6 +106,7 @@ class StatusListControllerTest extends TestCase
         return new Request($query, [], [], [], [], $server);
     }
 
+
     public function testServesTheToken(): void
     {
         $response = $this->sut()->statusList($this->request(), self::LIST_ID);
@@ -103,6 +115,7 @@ class StatusListControllerTest extends TestCase
         $this->assertSame(self::TOKEN, $response->getContent());
         $this->assertSame(StatusListController::MEDIA_TYPE, $response->headers->get('Content-Type'));
     }
+
 
     /**
      * The specification recommends cross origin reads, and a browser based Relying Party which can not
@@ -115,6 +128,7 @@ class StatusListControllerTest extends TestCase
             $this->sut()->statusList($this->request(), self::LIST_ID)->headers->get('Access-Control-Allow-Origin'),
         );
     }
+
 
     public function testAnnouncesHowLongTheResponseMayBeCached(): void
     {
@@ -131,6 +145,7 @@ class StatusListControllerTest extends TestCase
         $this->assertMatchesRegularExpression('/^"[0-9a-f]{64}"$/', (string)$response->headers->get('ETag'));
     }
 
+
     /**
      * A list which is not served and one which never existed are the same answer.
      */
@@ -145,6 +160,7 @@ class StatusListControllerTest extends TestCase
             $this->sut()->statusList($this->request(), self::LIST_ID)->getStatusCode(),
         );
     }
+
 
     /**
      * Failing closed is the whole point: a token which no longer describes its list reports revoked
@@ -163,6 +179,7 @@ class StatusListControllerTest extends TestCase
         $this->assertEmpty($response->getContent());
     }
 
+
     /**
      * Answering a historical query with the current status would be worse than refusing it.
      */
@@ -174,6 +191,7 @@ class StatusListControllerTest extends TestCase
         );
     }
 
+
     public function testRespondsNotAcceptableWhenTheMediaTypeIsRefused(): void
     {
         $this->assertSame(
@@ -181,6 +199,7 @@ class StatusListControllerTest extends TestCase
             $this->sut()->statusList($this->request(['Accept' => 'text/html']), self::LIST_ID)->getStatusCode(),
         );
     }
+
 
     public function testServesTheTokenWhenTheMediaTypeIsAccepted(): void
     {
@@ -191,6 +210,7 @@ class StatusListControllerTest extends TestCase
             );
         }
     }
+
 
     public function testRespondsTooManyRequestsWhenTheLimitIsReached(): void
     {
@@ -204,6 +224,7 @@ class StatusListControllerTest extends TestCase
         $this->assertSame('60', $response->headers->get('Retry-After'));
     }
 
+
     public function testCompressesTheBodyWhenTheClientAsksForIt(): void
     {
         $response = $this->sut()->statusList($this->request(['Accept-Encoding' => 'gzip']), self::LIST_ID);
@@ -212,6 +233,7 @@ class StatusListControllerTest extends TestCase
         $this->assertSame(self::TOKEN, gzdecode((string)$response->getContent()));
     }
 
+
     public function testSendsTheBodyUnencodedWhenNoCodingIsAcceptable(): void
     {
         $response = $this->sut()->statusList($this->request(['Accept-Encoding' => 'br']), self::LIST_ID);
@@ -219,6 +241,7 @@ class StatusListControllerTest extends TestCase
         $this->assertNull($response->headers->get('Content-Encoding'));
         $this->assertSame(self::TOKEN, $response->getContent());
     }
+
 
     /**
      * The compressed and uncompressed responses are different representations of the same token, so a
@@ -232,6 +255,7 @@ class StatusListControllerTest extends TestCase
         $this->assertNotSame($plain->headers->get('ETag'), $compressed->headers->get('ETag'));
     }
 
+
     public function testRespondsNotModifiedWhenTheClientAlreadyHasTheToken(): void
     {
         $entityTag = (string)$this->sut()->statusList($this->request(), self::LIST_ID)->headers->get('ETag');
@@ -242,6 +266,7 @@ class StatusListControllerTest extends TestCase
         $this->assertSame($entityTag, $response->headers->get('ETag'));
         $this->assertSame(43200, $response->getMaxAge());
     }
+
 
     /**
      * If-None-Match compares weakly, so a tag the client stored as weak still matches.
@@ -259,6 +284,7 @@ class StatusListControllerTest extends TestCase
         );
     }
 
+
     public function testRespondsNotModifiedForAWildcardValidator(): void
     {
         $this->assertSame(
@@ -266,6 +292,7 @@ class StatusListControllerTest extends TestCase
             $this->sut()->statusList($this->request(['If-None-Match' => '*']), self::LIST_ID)->getStatusCode(),
         );
     }
+
 
     public function testServesTheTokenWhenTheClientHoldsADifferentOne(): void
     {
@@ -277,6 +304,7 @@ class StatusListControllerTest extends TestCase
             )->getStatusCode(),
         );
     }
+
 
     /**
      * A client which stored the uncompressed copy and now asks for a compressed one is not holding the

@@ -8,5 +8,6 @@ interface AcrResponseTypeInterface
 {
     public function setAcr(?string $acr): void;
 
+
     public function getAcr(): ?string;
 }

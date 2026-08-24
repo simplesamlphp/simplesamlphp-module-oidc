@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
 use DateTimeImmutable;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 
 #[CoversClass(DateTime::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DateTimeTest extends TestCase
 {
     protected function sut(): DateTime
@@ -17,14 +19,16 @@ class DateTimeTest extends TestCase
         return new DateTime();
     }
 
+
     public function testCanGetUtc(): void
     {
-        $this->assertInstanceOf(\DateTimeImmutable::class, $this->sut()->getUtc());
+        $this->assertInstanceOf(DateTimeImmutable::class, $this->sut()->getUtc());
         $this->assertSame(
             'UTC',
             $this->sut()->getUtc()->getTimezone()->getName(),
         );
     }
+
 
     public function testCanGetFromTimestamp(): void
     {
@@ -35,6 +39,7 @@ class DateTimeTest extends TestCase
             $this->sut()->getFromTimestamp($timestamp)->getTimestamp(),
         );
     }
+
 
     public function testCanGetSecondsToExpirationTime(): void
     {

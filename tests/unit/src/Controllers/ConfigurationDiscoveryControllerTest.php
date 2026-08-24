@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
@@ -13,9 +14,10 @@ use SimpleSAML\Module\oidc\Services\OpMetadataService;
 /**
  * @covers \SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController
  */
+#[AllowMockObjectsWithoutExpectations]
 class ConfigurationDiscoveryControllerTest extends TestCase
 {
-    final public const OIDC_OP_METADATA = [
+    final public const array OIDC_OP_METADATA = [
         'issuer' => 'http://localhost',
         'authorization_endpoint' => 'http://localhost/authorization',
         'token_endpoint' => 'http://localhost/token',
@@ -30,8 +32,11 @@ class ConfigurationDiscoveryControllerTest extends TestCase
         'end_session_endpoint' => 'http://localhost/end-session',
     ];
 
+
     protected MockObject $opMetadataServiceMock;
+
     protected MockObject $serverRequestMock;
+
 
     /**
      * @throws \Exception
@@ -44,6 +49,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
         $this->serverRequestMock = $this->createMock(ServerRequest::class);
     }
 
+
     protected function mock(
         ?OpMetadataService $opMetadataService = null,
     ): ConfigurationDiscoveryController {
@@ -51,6 +57,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
 
         return new ConfigurationDiscoveryController($opMetadataService);
     }
+
 
     public function testItIsInitializable(): void
     {
@@ -60,6 +67,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
         );
     }
 
+
     public function testItReturnsOpenIdConnectConfiguration(): void
     {
         $this->assertSame(
@@ -67,6 +75,7 @@ class ConfigurationDiscoveryControllerTest extends TestCase
             self::OIDC_OP_METADATA,
         );
     }
+
 
     public function testItAlwaysReturnsAccessControlAllowOrigin(): void
     {

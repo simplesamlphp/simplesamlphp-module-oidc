@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 
+#[AllowMockObjectsWithoutExpectations]
 class ScopeEntityTest extends TestCase
 {
     protected function mock(
@@ -18,6 +20,7 @@ class ScopeEntityTest extends TestCase
         return new ScopeEntity($id, $description, $icon, $attributes);
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(
@@ -25,6 +28,7 @@ class ScopeEntityTest extends TestCase
             $this->mock(),
         );
     }
+
 
     public function testCanGetProperties(): void
     {

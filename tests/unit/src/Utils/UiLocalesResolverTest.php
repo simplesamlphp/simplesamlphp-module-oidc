@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -12,6 +13,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 
 #[CoversClass(UiLocalesResolver::class)]
+#[AllowMockObjectsWithoutExpectations]
 class UiLocalesResolverTest extends TestCase
 {
     protected function sut(?array $availableLanguages = null): UiLocalesResolver
@@ -23,10 +25,12 @@ class UiLocalesResolverTest extends TestCase
         return new UiLocalesResolver($sspConfiguration, new SspBridge());
     }
 
+
     public function testCanCreateInstance(): void
     {
         $this->assertInstanceOf(UiLocalesResolver::class, $this->sut());
     }
+
 
     public static function uiLocalesProvider(): array
     {
@@ -48,6 +52,7 @@ class UiLocalesResolverTest extends TestCase
         ];
     }
 
+
     #[DataProvider('uiLocalesProvider')]
     public function testCanResolveUiLocales(
         ?string $uiLocales,
@@ -57,6 +62,7 @@ class UiLocalesResolverTest extends TestCase
         $this->assertSame($expectedLanguage, $this->sut($availableLanguages)->resolve($uiLocales));
     }
 
+
     public function testFallsBackToDefaultAvailableLanguage(): void
     {
         // When language.available is not configured, the SSP fallback language (en) is used.
@@ -64,15 +70,18 @@ class UiLocalesResolverTest extends TestCase
         $this->assertNull($this->sut()->resolve('de'));
     }
 
+
     public function testCanGetSupportedUiLocalesAsBcp47Tags(): void
     {
         $this->assertSame(['en', 'hr', 'pt-BR'], $this->sut(['en', 'hr', 'pt_BR'])->getSupportedUiLocales());
     }
 
+
     public function testSupportedUiLocalesFallBackToDefaultAvailableLanguage(): void
     {
         $this->assertSame(['en'], $this->sut()->getSupportedUiLocales());
     }
+
 
     public function testSupportedUiLocalesExcludeCodesUnknownToTranslationSystem(): void
     {

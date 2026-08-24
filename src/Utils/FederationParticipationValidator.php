@@ -11,6 +11,7 @@ use SimpleSAML\OpenID\Exceptions\TrustMarkException;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Federation\EntityStatement;
 use SimpleSAML\OpenID\Federation\TrustChain;
+use Throwable;
 
 class FederationParticipationValidator
 {
@@ -20,6 +21,7 @@ class FederationParticipationValidator
         protected readonly LoggerService $loggerService,
     ) {
     }
+
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -81,6 +83,7 @@ class FederationParticipationValidator
         }
     }
 
+
     /**
      * @param non-empty-string[] $limitedTrustMarkTypes
      * @throws \SimpleSAML\OpenID\Exceptions\EntityStatementException
@@ -123,7 +126,7 @@ class FederationParticipationValidator
                     ),
                 );
                 return;
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 $this->loggerService->debug(
                     sprintf(
                         'Trust Mark Type %s validation failed with error: %s. Trying next if available.',
@@ -144,6 +147,7 @@ class FederationParticipationValidator
         $this->loggerService->error($error);
         throw new TrustMarkException($error);
     }
+
 
     /**
      * @param non-empty-string[] $limitedTrustMarkTypes
@@ -184,7 +188,7 @@ class FederationParticipationValidator
                         $limitedTrustMarkType,
                     ),
                 );
-            } catch (\Throwable $exception) {
+            } catch (Throwable $exception) {
                 $error = sprintf(
                     'Trust Mark Type %s validation failed with error: %s. AllOf limit rule failed.',
                     $limitedTrustMarkType,

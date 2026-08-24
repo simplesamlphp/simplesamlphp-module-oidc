@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 use DateTimeImmutable;
 use DateTimeZone;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -15,6 +16,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\StreamInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\PushedAuthorizationController;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
@@ -40,24 +42,39 @@ use Symfony\Component\HttpFoundation\Request;
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
 #[UsesClass(ResolvedClientAuthenticationMethod::class)]
+#[AllowMockObjectsWithoutExpectations]
 class PushedAuthorizationControllerTest extends TestCase
 {
     protected MockObject $authenticatedOAuth2ClientResolverMock;
+
     protected MockObject $pushedAuthorizationRequestRepositoryMock;
+
     protected MockObject $pushedAuthorizationRequestEntityFactoryMock;
+
     protected MockObject $requestRulesManagerMock;
+
     protected MockObject $psrHttpBridgeMock;
+
     protected MockObject $errorResponderMock;
+
     protected Helpers $helpers;
+
     protected MockObject $loggerMock;
 
     protected MockObject $serverRequestMock;
+
     protected MockObject $responseMock;
+
     protected MockObject $responseFactoryMock;
+
     protected MockObject $streamMock;
+
     protected MockObject $clientMock;
+
     protected MockObject $parEntityMock;
+
     protected MockObject $resultBagMock;
+
 
     protected function setUp(): void
     {
@@ -98,6 +115,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->requestRulesManagerMock->method('check')->willReturn($this->resultBagMock);
     }
 
+
     protected function sut(): PushedAuthorizationController
     {
         return new PushedAuthorizationController(
@@ -112,6 +130,7 @@ class PushedAuthorizationControllerTest extends TestCase
         );
     }
 
+
     protected function prepareAuthenticatedClient(
         ClientAuthenticationMethodsEnum $method = ClientAuthenticationMethodsEnum::ClientSecretPost,
     ): void {
@@ -119,10 +138,12 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn($resolvedAuth);
     }
 
+
     public function testItIsInitializable(): void
     {
         $this->assertInstanceOf(PushedAuthorizationController::class, $this->sut());
     }
+
 
     public function testMethodMustBePost(): void
     {
@@ -137,6 +158,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->assertSame($this->responseMock, $response);
     }
 
+
     public function testClientAuthenticationFailureThrows(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
@@ -145,6 +167,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->sut()->__invoke($this->serverRequestMock);
     }
+
 
     public function testConfidentialClientMustAuthenticate(): void
     {
@@ -155,6 +178,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->sut()->__invoke($this->serverRequestMock);
     }
+
 
     public function testRejectsRequestUriInBody(): void
     {
@@ -169,6 +193,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->sut()->__invoke($this->serverRequestMock);
     }
 
+
     public function testRejectsClientIdParamWhichDoesNotMatchAuthenticatedClient(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
@@ -181,6 +206,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->sut()->__invoke($this->serverRequestMock);
     }
+
 
     public function testHandlesValidParRequest(): void
     {
@@ -223,6 +249,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->assertSame($this->responseMock, $response);
     }
 
+
     public function testPersistsRequestObjectPayloadOnlyWhenJarIsUsed(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
@@ -255,6 +282,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->sut()->__invoke($this->serverRequestMock);
     }
 
+
     public function testRejectsRequestObjectClientIdClaimWhichDoesNotMatchAuthenticatedClient(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
@@ -269,6 +297,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->expectException(OidcServerException::class);
         $this->sut()->__invoke($this->serverRequestMock);
     }
+
 
     public function testParReturnsJsonErrorResponseForOAuthServerException(): void
     {
@@ -290,6 +319,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->assertSame($jsonResponse, $this->sut()->par($requestMock));
     }
 
+
     public function testParReturnsGenericJsonErrorResponseForUnexpectedThrowable(): void
     {
         $requestMock = $this->createMock(Request::class);
@@ -299,7 +329,7 @@ class PushedAuthorizationControllerTest extends TestCase
 
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
-            ->willThrowException(new \RuntimeException('some internal error'));
+            ->willThrowException(new RuntimeException('some internal error'));
 
         $jsonResponse = new JsonResponse();
         $this->errorResponderMock->expects($this->once())

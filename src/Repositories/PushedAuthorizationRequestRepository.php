@@ -17,6 +17,7 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_par';
 
+
     public function __construct(
         ModuleConfig $moduleConfig,
         Database $database,
@@ -27,10 +28,12 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
 
+
     public function getTableName(): string
     {
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
+
 
     /**
      * Persist the Pushed Authorization Request entity in the database.
@@ -53,6 +56,7 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
             $this->getCacheKey($entity->getRequestUri()),
         );
     }
+
 
     /**
      * Find Pushed Authorization Request entity by request_uri.
@@ -89,6 +93,7 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
         return $entity;
     }
 
+
     /**
      * Find Pushed Authorization Request entity which is not consumed nor expired.
      *
@@ -115,6 +120,7 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
         return $entity;
     }
 
+
     /**
      * Mark the Pushed Authorization Request as consumed (one-time use). Atomic,
      * so it can be used as a replay guard: returns true only if this call was
@@ -134,6 +140,7 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
 
         return is_int($affected) && $affected > 0;
     }
+
 
     /**
      * Delete expired Pushed Authorization Request records.

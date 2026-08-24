@@ -11,10 +11,12 @@ class HtmlResponse extends AbstractResponseType
 {
     private string $html = '';
 
+
     public function setHtml(string $html): void
     {
         $this->html = $html;
     }
+
 
     public function generateHttpResponse(ResponseInterface $response): ResponseInterface
     {

@@ -16,6 +16,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
         return $this->database->applyPrefix(self::TABLE_NAME);
     }
 
+
     /**
      * @param string[] $origins
      */
@@ -47,6 +48,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
         $this->database->write($stmt, $params);
     }
 
+
     public function delete(string $clientId): void
     {
         $this->database->write(
@@ -54,6 +56,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
             ['client_id' => $clientId],
         );
     }
+
 
     public function get(string $clientId): array
     {
@@ -64,6 +67,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
 
         return $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
     }
+
 
     public function has(string $origin): bool
     {
@@ -89,6 +93,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
 
         return $has;
     }
+
 
     protected function clearCache(array $origins): void
     {

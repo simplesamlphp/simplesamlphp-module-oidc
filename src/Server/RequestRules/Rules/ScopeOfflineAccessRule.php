@@ -14,7 +14,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
- * @extends AbstractRule<bool>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<bool>
  */
 class ScopeOfflineAccessRule extends AbstractRule
 {
@@ -23,7 +23,7 @@ class ScopeOfflineAccessRule extends AbstractRule
      *
      * @throws \Throwable
      *
-     * @param ResponseModeInterface $responseMode
+     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
      */
     public function checkRule(
         ServerRequestInterface $request,
