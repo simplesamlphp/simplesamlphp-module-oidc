@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
@@ -1189,6 +1190,81 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * The metadata this module publishes has always said a key proof is required, so requiring one is
+     * what an unlisted configuration keeps doing. Issuing credentials which are bound to nothing is the
+     * thing an operator opts into.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialsAreBoundToAHolderKeyUnlessConfiguredOtherwise(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame([], $sut->getVciCredentialBindingPolicies());
+        $this->assertSame(
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $sut->getVciCredentialBindingPolicyFor('TestCredential'),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheConfiguredCredentialBindingPolicy(): void
+    {
+        // Both the enum and its backing value, since the configuration file is PHP and an operator may
+        // reasonably write either.
+        foreach ([VciCredentialBindingPolicyEnum::Proofless, 'proofless'] as $configured) {
+            $sut = $this->sut(overrides: $this->withCredentialBindingPolicy($configured));
+
+            $this->assertSame(
+                VciCredentialBindingPolicyEnum::Proofless,
+                $sut->getVciCredentialBindingPolicyFor('TestCredential'),
+            );
+            // Configurations which are not listed keep requiring a key proof.
+            $this->assertSame(
+                VciCredentialBindingPolicyEnum::ProofBound,
+                $sut->getVciCredentialBindingPolicyFor('SomethingElse'),
+            );
+        }
+    }
+
+
+    /**
+     * A typo would otherwise be silent, and the configuration it was meant for would go on demanding
+     * key proofs the wallet was never going to send.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialBindingPoliciesRejectAnUnknownCredentialConfiguration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('NoSuchCredential');
+
+        $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['NoSuchCredential' => 'proofless'],
+            ],
+        ))->getVciCredentialBindingPolicies();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCredentialBindingPoliciesRejectAnUnknownPolicy(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withCredentialBindingPolicy('sometimes'))
+            ->getVciCredentialBindingPolicies();
+    }
+
+
+    /**
      * The shape this option has always had, which has to go on working.
      *
      * @throws \Exception
@@ -1441,6 +1517,21 @@ class ModuleConfigTest extends TestCase
             [
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
                 ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => ['TestCredential' => $ttl],
+            ],
+        );
+    }
+
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function withCredentialBindingPolicy(mixed $bindingPolicy): array
+    {
+        return array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['TestCredential' => $bindingPolicy],
             ],
         );
     }

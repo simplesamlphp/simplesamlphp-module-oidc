@@ -13,9 +13,11 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -24,11 +26,12 @@ use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -43,7 +46,6 @@ use SimpleSAML\OpenID\TokenStatusList\StatusReference;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\VerifiableCredentials as VerifiableCredentialsService;
-use SimpleSAML\OpenID\VerifiableCredentials\Factories\OpenId4VciProofFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use SimpleSAML\OpenID\VerifiableCredentials\SdJwtVc\Factories\SdJwtVcFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\SdJwtVc\SdJwtVc;
@@ -63,6 +65,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected const string ISSUER = 'https://issuer.com';
 
     protected const string STATUS_LIST_URI = 'https://issuer.com/module.php/oidc/statuslist/list-1';
+
+    protected const string HOLDER_DID = 'did:jwk:holder';
 
 
     protected MockObject $resourceServerMock;
@@ -87,7 +91,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected MockObject $issuerStateRepositoryMock;
 
-    protected MockObject $nonceServiceMock;
+    protected MockObject $openId4VciProofValidatorMock;
 
     protected MockObject $vciContextResolverMock;
 
@@ -105,6 +109,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected MockObject $vciPrivateKeyMock;
 
+    protected VciCredentialBindingPolicyEnum $bindingPolicy;
+
 
     public function setUp(): void
     {
@@ -119,7 +125,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->didMock = $this->createMock(Did::class);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
-        $this->nonceServiceMock = $this->createMock(NonceService::class);
+        $this->openId4VciProofValidatorMock = $this->createMock(OpenId4VciProofValidator::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
         $this->credentialStatusIssuerMock = $this->createMock(CredentialStatusIssuer::class);
         $this->helpers = new Helpers();
@@ -131,6 +137,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->moduleConfigMock->method('getVciValidCredentialClaimPathsFor')->willReturn([]);
         $this->moduleConfigMock->method('getVciUserAttributeToCredentialClaimPathMapFor')->willReturn([]);
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
+        $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
+            ->willReturnCallback(fn(): VciCredentialBindingPolicyEnum => $this->bindingPolicy);
 
         $this->prepareRequestPipeline();
         $this->prepareUser();
@@ -243,6 +252,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
+     * Issue against a proof-bound configuration, with the key proofs already validated.
+     *
+     * What a key proof has to satisfy before it gets this far is OpenId4VciProofValidatorTest's
+     * subject; here the validator stands in for it and hands back what it resolved, so these tests are
+     * about what issuance does with that.
+     *
      * @param string[] $proofJwts
      */
     protected function issue(
@@ -259,19 +274,25 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->requestParamsResolverMock->method('getAllFromRequestBasedOnAllowedMethods')
             ->willReturn($requestData);
 
-        $proofFactoryMock = $this->createMock(OpenId4VciProofFactory::class);
-        $this->verifiableCredentialsMock->method('openId4VciProofFactory')->willReturn($proofFactoryMock);
-
-        $proofMocks = [];
+        $validatedProofs = [];
         foreach ($proofJwts as $ignored) {
-            $proofMock = $this->createMock(OpenId4VciProof::class);
-            $proofMock->method('getAudience')->willReturn([self::ISSUER]);
-            $proofMock->method('getJsonWebKey')->willReturn(['kty' => 'EC']);
-            $proofMock->method('getNonce')->willReturn(null);
-            $proofMocks[] = $proofMock;
+            $validatedProofs[] = new ValidatedOpenId4VciProof(
+                $this->createMock(OpenId4VciProof::class),
+                self::HOLDER_DID,
+                self::HOLDER_DID . '#0',
+            );
         }
-        $proofFactoryMock->method('fromToken')->willReturnOnConsecutiveCalls(...$proofMocks);
+        $this->openId4VciProofValidatorMock->method('validateRequest')->willReturn($validatedProofs);
 
+        $this->dispatch($requestData);
+    }
+
+
+    /**
+     * @param array<string,mixed> $requestData
+     */
+    protected function dispatch(array $requestData): void
+    {
         $request = new Request([], [], [], [], [], [], json_encode($requestData));
         $request->setMethod('POST');
 
@@ -293,7 +314,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->userRepositoryMock,
             $this->didMock,
             $this->issuerStateRepositoryMock,
-            $this->nonceServiceMock,
+            $this->openId4VciProofValidatorMock,
             $this->vciContextResolverMock,
             $this->credentialStatusIssuerMock,
             $this->helpers,
@@ -328,6 +349,103 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->assertSame($this->vciPrivateKeyMock, $signedWith['key']);
             $this->assertSame(SignatureAlgorithmEnum::ES256, $signedWith['algorithm']);
         }
+    }
+
+
+    /**
+     * The credential is issued to the holder identifier the key proof resolved to, and says so in the
+     * same two places it always has.
+     */
+    public function testBindsTheCredentialToWhatTheProofResolvedTo(): void
+    {
+        $this->issue();
+
+        $payload = $this->signedPayloads[0];
+
+        $this->assertSame(self::HOLDER_DID, $payload[ClaimsEnum::Sub->value] ?? null);
+        $this->assertSame(
+            self::HOLDER_DID,
+            $payload[ClaimsEnum::Vc->value][ClaimsEnum::Credential_Subject->value][ClaimsEnum::Id->value] ?? null,
+        );
+    }
+
+
+    /**
+     * A configuration which advertises no proof type issues one credential, to a subject identifier of
+     * this issuer's own making, and asks the validator for nothing more than that.
+     */
+    public function testAProoflessConfigurationIssuesOneUnboundCredential(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::Proofless;
+
+        $this->moduleConfigMock->method('getVciCredentialConfiguration')
+            ->willReturn([ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value]);
+        $this->requestParamsResolverMock->method('getAllFromRequestBasedOnAllowedMethods')
+            ->willReturn(['credential_configuration_id' => self::CONFIGURATION_ID]);
+        $this->openId4VciProofValidatorMock->method('validateRequest')->willReturn([null]);
+
+        $this->dispatch(['credential_configuration_id' => self::CONFIGURATION_ID]);
+
+        $this->assertCount(1, $this->signedPayloads);
+
+        $payload = $this->signedPayloads[0];
+
+        $this->assertSame(self::ISSUER . '/sub/user123', $payload[ClaimsEnum::Sub->value] ?? null);
+        // Nothing was proved, so there is no key to confirm the credential is held by.
+        $this->assertArrayNotHasKey(ClaimsEnum::Cnf->value, $payload);
+    }
+
+
+    /**
+     * The refusal keeps the error code the check that made it chose. Flattening every refusal to
+     * `invalid_proof` would tell a wallet whose nonce merely went stale to go looking for a fault in
+     * the proof it built, instead of fetching a fresh nonce and retrying.
+     */
+    public function testAnswersARefusedRequestWithTheErrorCodeTheRefusalCarried(): void
+    {
+        $this->moduleConfigMock->method('getVciCredentialConfiguration')
+            ->willReturn([ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value]);
+        $this->requestParamsResolverMock->method('getAllFromRequestBasedOnAllowedMethods')
+            ->willReturn(['credential_configuration_id' => self::CONFIGURATION_ID]);
+        $this->openId4VciProofValidatorMock->method('validateRequest')->willThrowException(
+            new CredentialRequestException('invalid_nonce', 'c_nonce is invalid or expired.'),
+        );
+
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('invalid_nonce', $this->anything(), 400)
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->dispatch(['credential_configuration_id' => self::CONFIGURATION_ID]);
+
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * Nothing is allocated or signed until every proof in the request has passed.
+     *
+     * A Status List entry claimed for a credential which is then never issued can not be handed back:
+     * the index stays spent, and the list it came from can only be retired once every entry in it has
+     * expired. So a request refused on its last proof must leave no trace of its first.
+     */
+    public function testAllocatesNothingWhenTheRequestIsRefused(): void
+    {
+        $this->moduleConfigMock->method('getVciCredentialConfiguration')
+            ->willReturn([ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value]);
+        $this->requestParamsResolverMock->method('getAllFromRequestBasedOnAllowedMethods')
+            ->willReturn(['credential_configuration_id' => self::CONFIGURATION_ID]);
+        $this->openId4VciProofValidatorMock->method('validateRequest')->willThrowException(
+            new CredentialRequestException('invalid_proof', 'Key proof signature could not be verified.'),
+        );
+
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+        $this->routesMock->method('newJsonErrorResponse')->willReturn($this->createMock(JsonResponse::class));
+
+        $this->dispatch(['credential_configuration_id' => self::CONFIGURATION_ID]);
+
+        $this->assertSame([], $this->signedPayloads);
     }
 
 

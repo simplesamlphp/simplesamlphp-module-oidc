@@ -13,11 +13,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use Symfony\Component\HttpFoundation\Response;
@@ -48,6 +50,8 @@ class CredentialIssuerConfigurationController
 
         $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 
+        $isAnyConfigurationProofBound = false;
+
         // Every credential configuration advertises the one algorithm the active signing key uses,
         // because that is the only one issuance will actually sign with. Advertising the algorithms of
         // the other configured pairs would invite a wallet to ask for a credential this issuer would
@@ -59,18 +63,36 @@ class CredentialIssuerConfigurationController
                 $credentialConfiguration[ClaimsEnum::CredentialSigningAlgValuesSupported->value] = [
                     $signatureKeyPair->getSignatureAlgorithm()->value,
                 ];
-                $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] = [
-                    'did:key',
-                    'did:jwk',
-                ];
-                $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
-                    'jwt' => [
-                        ClaimsEnum::ProofSigningAlgValuesSupported->value => $this->moduleConfig
-                            ->getSupportedAlgorithms()
-                            ->getSignatureAlgorithmBag()
-                            ->getAllNamesUnique(),
-                    ],
-                ];
+
+                $bindingPolicy = $this->moduleConfig->getVciCredentialBindingPolicyFor($credentialConfigurationId);
+
+                if ($bindingPolicy === VciCredentialBindingPolicyEnum::ProofBound) {
+                    $isAnyConfigurationProofBound = true;
+
+                    $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] = [
+                        'did:key',
+                        'did:jwk',
+                    ];
+                    $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
+                        OpenId4VciProofValidator::PROOF_TYPE_JWT => [
+                            ClaimsEnum::ProofSigningAlgValuesSupported->value => $this->moduleConfig
+                                ->getSupportedAlgorithms()
+                                ->getSignatureAlgorithmBag()
+                                ->getAllNamesUnique(),
+                        ],
+                    ];
+                } else {
+                    // Both fields go, not just one. OpenID4VCI requires `proof_types_supported` wherever
+                    // `cryptographic_binding_methods_supported` appears, and requires a `proofs`
+                    // parameter wherever `proof_types_supported` appears, so leaving either in place
+                    // would promise a wallet a binding this configuration does not perform. Unset rather
+                    // than skipped, because the credential configurations are published as the operator
+                    // wrote them and may state either field themselves.
+                    unset(
+                        $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value],
+                        $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value],
+                    );
+                }
 
                 $credentialFormatId = $credentialConfiguration[ClaimsEnum::Format->value] ?? null;
 
@@ -116,9 +138,6 @@ class CredentialIssuerConfigurationController
             // credential_response_encryption
 
             // OPTIONAL
-            // batch_credential_issuance
-
-            // OPTIONAL
             // signed_metadata
 
             // OPTIONAL
@@ -138,6 +157,15 @@ class CredentialIssuerConfigurationController
             ClaimsEnum::CredentialConfigurationsSupported->value => $credentialConfigurationsSupported,
 
         ];
+
+        // The cap the credential endpoint enforces on a `proofs` array, stated where a wallet can read
+        // it before it builds one. Batching only happens where key proofs do, so an issuer whose every
+        // configuration issues unbound credentials advertises no batch size at all.
+        if ($isAnyConfigurationProofBound) {
+            $configuration[ClaimsEnum::BatchCredentialIssuance->value] = [
+                ClaimsEnum::BatchSize->value => ModuleConfig::VCI_BATCH_SIZE,
+            ];
+        }
 
         return $this->routes->newJsonResponse($configuration);
     }

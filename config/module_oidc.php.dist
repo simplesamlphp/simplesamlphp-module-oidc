@@ -1639,6 +1639,45 @@ $config = [
 //    ],
 
     /**
+     * (optional) Whether each credential configuration binds its credentials to
+     * a key the wallet proves it holds. Configurations which are not listed
+     * here are proof-bound, which is the default.
+     *
+     * VciCredentialBindingPolicyEnum::ProofBound (the default) requires the
+     * Credential Request to carry a `proofs` parameter, verifies the key proof
+     * inside it, and issues the credential to the holder identifier that proof
+     * resolves to. The configuration advertises both
+     * `cryptographic_binding_methods_supported` and `proof_types_supported`.
+     *
+     * VciCredentialBindingPolicyEnum::Proofless issues credentials which are
+     * not bound to any wallet key, to a subject identifier derived from the
+     * authenticated user. The configuration then advertises neither of those
+     * two metadata fields, and a key proof sent anyway is refused - nothing
+     * told the wallet which proof type or signing algorithm to build one with.
+     *
+     * OpenID4VCI ties these together, which is why one option governs the
+     * advertisement and the issuance at once: `proof_types_supported` must be
+     * present wherever `cryptographic_binding_methods_supported` is, and a
+     * Credential Request must carry `proofs` wherever `proof_types_supported`
+     * is. Advertising binding and then issuing without it tells a wallet its
+     * credential is held to its key when nothing of the sort was checked.
+     *
+     * Note that a proofless configuration can not be conformant to profiles
+     * which require holder binding, such as DIIP.
+     *
+     * This is a top-level option rather than something inside the credential
+     * configurations, because those are published verbatim as Credential
+     * Issuer metadata and anything placed among them becomes visible to every
+     * wallet.
+     */
+//    ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => [
+//        'UniversityDegreeCredential' =>
+//            \SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum::ProofBound,
+//        'EmployeeBadgeCredential' =>
+//            \SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum::Proofless,
+//    ],
+
+    /**
      * (optional) Whether issued Verifiable Credentials get a Token Status List
      * entry allocated to them, which is what makes them revocable and
      * suspendable. Defaults to false.

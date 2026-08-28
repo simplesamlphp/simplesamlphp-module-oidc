@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
@@ -73,6 +74,17 @@ class ModuleConfig
      * already in flight, and nothing here can serialise the two instead.
      */
     final public const int MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS = 3600;
+
+    /**
+     * The most Key Proofs one Credential Request may carry.
+     *
+     * Each proof issues a credential of its own and claims a Status List entry of its own, so an
+     * uncapped `proofs` array lets a single authenticated request spend an arbitrary amount of storage
+     * and signing work. Fixed rather than configurable: the number is published in Credential Issuer
+     * metadata as `batch_credential_issuance.batch_size`, and a wallet which read it there has to be
+     * able to rely on it.
+     */
+    final public const int VCI_BATCH_SIZE = 8;
 
     final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
 
@@ -266,6 +278,8 @@ class ModuleConfig
 
     final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
 
+    final public const string OPTION_VCI_CREDENTIAL_BINDING_POLICIES = 'vci_credential_binding_policies';
+
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
 
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
@@ -348,6 +362,12 @@ class ModuleConfig
 
     /** @var ?array<string,\DateInterval> Credential configuration ID to how long its credentials live. */
     protected ?array $vciCredentialTtls = null;
+
+    /**
+     * @var ?array<string,\SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum> Credential
+     * configuration ID to whether its credentials are bound to a holder key.
+     */
+    protected ?array $vciCredentialBindingPolicies = null;
 
 
     /**
@@ -1959,6 +1979,110 @@ class ModuleConfig
     public function getVciCredentialTtlFor(string $credentialConfigurationId): ?DateInterval
     {
         return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
+    }
+
+
+    /**
+     * Whether each credential configuration binds its credentials to a key the wallet proves it holds.
+     *
+     * A top-level option for the same reason the lifetimes are: the credential configurations are
+     * published wholesale as Credential Issuer metadata, so anything placed among them becomes visible
+     * to every wallet.
+     *
+     * Configurations absent from this map are proof-bound, which is what the metadata this module
+     * publishes has always claimed. A deployment which relies on issuing without a Key Proof names its
+     * configurations here, and their metadata then stops advertising a binding they never performed.
+     *
+     * @return array<string,\SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialBindingPolicies(): array
+    {
+        if (is_array($this->vciCredentialBindingPolicies)) {
+            return $this->vciCredentialBindingPolicies;
+        }
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+        $bindingPolicies = [];
+
+        /** @var mixed $value */
+        foreach (
+            $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES, []) as $key => $value
+        ) {
+            $credentialConfigurationId = (string)$key;
+
+            if (!in_array($credentialConfigurationId, $supportedIds, true)) {
+                // Silently ignoring this would leave a configuration meant to issue without a Key Proof
+                // demanding one, and nothing would say so.
+                throw new ConfigurationError(
+                    sprintf(
+                        'Option "%s" sets a binding policy for the credential configuration "%s", which ' .
+                        'is not one of the configurations declared under "%s".',
+                        self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                        $credentialConfigurationId,
+                        self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $bindingPolicies[$credentialConfigurationId] = $this->resolveCredentialBindingPolicy(
+                $credentialConfigurationId,
+                $value,
+            );
+        }
+
+        return $this->vciCredentialBindingPolicies = $bindingPolicies;
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveCredentialBindingPolicy(
+        string $credentialConfigurationId,
+        mixed $value,
+    ): VciCredentialBindingPolicyEnum {
+        if ($value instanceof VciCredentialBindingPolicyEnum) {
+            return $value;
+        }
+
+        if (
+            is_string($value) &&
+            ($bindingPolicy = VciCredentialBindingPolicyEnum::tryFrom($value)) instanceof
+            VciCredentialBindingPolicyEnum
+        ) {
+            return $bindingPolicy;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Option "%s" gives "%s" a binding policy which is not one of: %s.',
+                self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                $credentialConfigurationId,
+                implode(
+                    ', ',
+                    array_map(
+                        fn(VciCredentialBindingPolicyEnum $case): string => $case->value,
+                        VciCredentialBindingPolicyEnum::cases(),
+                    ),
+                ),
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+    }
+
+
+    /**
+     * Whether this credential configuration binds its credentials to a key the wallet proves it holds.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialBindingPolicyFor(
+        string $credentialConfigurationId,
+    ): VciCredentialBindingPolicyEnum {
+        return $this->getVciCredentialBindingPolicies()[$credentialConfigurationId] ??
+        VciCredentialBindingPolicyEnum::ProofBound;
     }
 
 

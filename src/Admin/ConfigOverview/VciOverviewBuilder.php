@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 use DateInterval;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
@@ -557,6 +558,51 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 ) : null,
                 $error,
             ),
+            $this->guardRow(
+                Translate::noop('Credential Binding Policies'),
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                function (): Row {
+                    // Only the exceptions are listed. Requiring a key proof is the default, so naming
+                    // every configuration which does would bury the ones which do not, and it is those
+                    // an administrator needs to recognise on sight.
+                    $proofless = array_keys(
+                        array_filter(
+                            $this->moduleConfig->getVciCredentialBindingPolicies(),
+                            $this->isProofless(...),
+                        ),
+                    );
+
+                    if ($proofless === []) {
+                        return new Row(
+                            Translate::noop('Credential Binding Policies'),
+                            Translate::noop('Every configuration requires a key proof'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                            Translate::noop(
+                                'Every credential configuration binds its credentials to a key the ' .
+                                'wallet proves it holds, which is the default. Each one advertises ' .
+                                'the binding methods and proof types it accepts, and a Credential ' .
+                                'Request carrying no valid key proof is refused.',
+                            ),
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Credential Binding Policies'),
+                        $proofless,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                        null,
+                        Translate::noop(
+                            'These credential configurations issue credentials which are not bound ' .
+                            'to any wallet key, so nothing ties an issued credential to whoever ' .
+                            'presents it later. They advertise no binding methods and no proof ' .
+                            'types, and a key proof sent to them is refused. Configurations which ' .
+                            'are not listed require a key proof.',
+                        ),
+                    );
+                },
+            ),
             new Row(
                 Translate::noop('Attribute to Claim Path Mappings'),
                 $attributeMap,
@@ -1004,6 +1050,15 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         }
 
         return null;
+    }
+
+
+    /**
+     * Whether a credential configuration issues credentials which are not bound to a holder key.
+     */
+    protected function isProofless(VciCredentialBindingPolicyEnum $bindingPolicy): bool
+    {
+        return $bindingPolicy === VciCredentialBindingPolicyEnum::Proofless;
     }
 
 

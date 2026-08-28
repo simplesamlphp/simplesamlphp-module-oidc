@@ -54,6 +54,12 @@ services:
   SimpleSAML\Module\oidc\StatusList\StatusListLifecycle:
     public: true
 
+  # Verifiable Credential Issuance. Values carry what a validated request resolved to rather than being
+  # autowired, so they are excluded the same way the Token Status List ones are.
+  SimpleSAML\Module\oidc\VerifiableCredentials\:
+    resource: '../../src/VerifiableCredentials/*'
+    exclude: '../../src/VerifiableCredentials/{Values}'
+
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
