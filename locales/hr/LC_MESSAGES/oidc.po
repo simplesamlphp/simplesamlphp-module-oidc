@@ -247,6 +247,11 @@ msgid "Discovery URL"
 msgstr "URL za otkrivanje"
 
 msgid ""
+"Dynamically fetched Trust Marks could not be read, so they are not shown. "
+"Check that option below."
+msgstr ""
+
+msgid ""
 "Each of these is a destination that whoever supplies a DID can send this "
 "deployment to."
 msgstr ""
@@ -551,6 +556,11 @@ msgstr "Algoritam potpisivanja"
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:44
 msgid "SimpleSAMLphp admin access required."
 msgstr "Potreban SimpleSAMLphp administratorski pristup."
+
+msgid ""
+"Statically configured Trust Mark tokens could not be read, so they are not "
+"shown. Check that option below."
+msgstr ""
 
 msgid "Status"
 msgstr "Status"

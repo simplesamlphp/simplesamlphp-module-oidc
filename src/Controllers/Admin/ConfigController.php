@@ -133,14 +133,49 @@ class ConfigController
             );
         }
 
-        if (is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens())) {
+        // Both options are read here rather than by a builder, so a wrong type for either throws on the
+        // way to a screen whose rows would otherwise have reported it. The rows below still do; this only
+        // has to stop the read itself from taking the page down before they run.
+        //
+        // Guarded separately, and deliberately: one catch around both would let a failure of the first
+        // skip the second, hiding trust marks that are perfectly readable, and would leave a message
+        // saying nothing is shown next to marks the first read had already produced.
+        //
+        // Neither message renders the exception, which comes from config validation and can quote
+        // configured values back. The option at fault gets a warning on its own row below.
+        $trustMarkTokens = null;
+        $dynamicTrustMarks = null;
+
+        try {
+            $trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens();
+        } catch (Throwable) {
+            $this->sessionMessagesService->addMessage(
+                Translate::noop(
+                    'Statically configured Trust Mark tokens could not be read, so they are not ' .
+                    'shown. Check that option below.',
+                ),
+            );
+        }
+
+        try {
+            $dynamicTrustMarks = $this->moduleConfig->getFederationDynamicTrustMarks();
+        } catch (Throwable) {
+            $this->sessionMessagesService->addMessage(
+                Translate::noop(
+                    'Dynamically fetched Trust Marks could not be read, so they are not shown. Check ' .
+                    'that option below.',
+                ),
+            );
+        }
+
+        if (is_array($trustMarkTokens)) {
             $trustMarks = array_map(
                 fn(string $token): TrustMark => $federation->trustMarkFactory()->fromToken($token),
                 $trustMarkTokens,
             );
         }
 
-        if (is_array($dynamicTrustMarks = $this->moduleConfig->getFederationDynamicTrustMarks())) {
+        if (is_array($dynamicTrustMarks)) {
             /**
              * @var non-empty-string $trustMarkType
              * @var non-empty-string $trustMarkIssuerId

@@ -7,9 +7,9 @@ namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
@@ -41,12 +41,19 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
     protected const string SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
 
+    /**
+     * Note the factory rather than the extractor itself. Building one reads the translation table and the
+     * user identifier attributes, and throws when either has the wrong type, so taking a built extractor
+     * here would make that throw happen while the container wires this screen up - the screen whose whole
+     * purpose is to report such an option. Deferred to the row that displays it, where guardRow() turns
+     * the failure into a warning in the right place.
+     */
     public function __construct(
         ModuleConfig $moduleConfig,
         Routes $routes,
         DateIntervalFormatter $dateIntervalFormatter,
         LoggerService $logger,
-        protected readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        protected readonly ClaimTranslatorExtractorFactory $claimTranslatorExtractorFactory,
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
@@ -413,7 +420,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
                 fn(): Row => new Row(
                     Translate::noop('SAML Attribute to OIDC Claim Translation'),
-                    $this->claimTranslatorExtractor->getTranslationTable(),
+                    $this->claimTranslatorExtractorFactory->build()->getTranslationTable(),
                     ConfigOverviewValueTypeEnum::Json,
                     ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
                     Translate::noop(

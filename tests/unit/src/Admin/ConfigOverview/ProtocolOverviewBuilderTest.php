@@ -13,9 +13,10 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\Row;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 
@@ -263,7 +264,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $this->createMock(Routes::class),
             new DateIntervalFormatter(),
             $loggerMock,
-            $this->createMock(ClaimTranslatorExtractor::class),
+            $this->buildClaimTranslatorExtractorFactory(),
         );
 
         $row = $this->findRowForOption(
@@ -735,6 +736,67 @@ class ProtocolOverviewBuilderTest extends TestCase
 
         $this->assertNotNull($row, sprintf('No row displays %s.', $option));
         $this->assertNotNull($row->getWarning(), sprintf('%s is not reported on its row.', $option));
+    }
+
+
+    /**
+     * The claim translator must be built by this screen, not handed to it already built.
+     *
+     * ClaimTranslatorExtractorFactory::build() reads the translation table and the user identifier
+     * attributes, so a wrong type for either throws. While the builder took a built extractor, that
+     * throw happened as Symfony wired the controller up, and the screen 500'd before any row ran. The
+     * other tests here inject a mock factory and so could never have caught it; this one uses the real
+     * factory over the real configuration, which is the only shape that reproduces it.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('malformedClaimTranslatorOptionProvider')]
+    public function testBuildsTheClaimTranslatorBehindTheGuard(string $option, mixed $value): void
+    {
+        // A valid configuration first, so a row which warns unconditionally cannot pass this.
+        $healthyRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+        );
+        $this->assertNotNull($healthyRow);
+        $this->assertNull($healthyRow->getWarning());
+
+        $builder = new ProtocolOverviewBuilder(
+            $this->buildOverviewModuleConfig([$option => $value]),
+            $this->createMock(Routes::class),
+            new DateIntervalFormatter(),
+            $this->createMock(LoggerService::class),
+            new ClaimTranslatorExtractorFactory(
+                $this->buildOverviewModuleConfig([$option => $value]),
+                new ClaimSetEntityFactory(),
+            ),
+        );
+
+        $row = $this->findRowForOption(
+            $builder->build(),
+            ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: mixed}>
+     */
+    public static function malformedClaimTranslatorOptionProvider(): array
+    {
+        return [
+            'translation table is not an array' => [
+                ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                'not-an-array',
+            ],
+            'user identifier attributes are not an array' => [
+                ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
+                123,
+            ],
+        ];
     }
 
 

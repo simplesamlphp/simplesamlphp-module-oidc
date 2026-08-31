@@ -6,22 +6,26 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\OpenID\Federation;
 
 class FederationFactory
 {
     /**
-     * Note the factory rather than the policy itself. A policy is built from configuration that can be
-     * malformed, and building it throws when it is. Taking one here would make that throw happen while the
-     * container wires up anything that reaches this factory - including the admin Configuration screens,
-     * which exist to report exactly such an option. Deferring it to build() keeps them reachable.
+     * Note the factories rather than the policy and the cache themselves. Both are built from
+     * configuration that can be malformed, and building either throws when it is. Taking a built one here
+     * would make that throw happen while the container wires up anything that reaches this factory -
+     * including the admin Configuration screens, which exist to report exactly such an option. Deferring
+     * both to build() keeps them reachable.
+     *
+     * The policy was moved behind its factory first; the cache stayed behind and reintroduced the same
+     * fault on its own, so a malformed federation cache adapter still took the federation screen down
+     * before any row could report it. Do not inject a built collaborator here.
      */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
         protected readonly DestinationPolicyFactory $destinationPolicyFactory,
-        protected readonly ?FederationCache $federationCache = null,
+        protected readonly CacheFactory $cacheFactory,
     ) {
     }
 
@@ -29,6 +33,7 @@ class FederationFactory
     /**
      * @throws \ReflectionException
      * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException On a cache adapter which cannot be built.
      */
     public function build(): Federation
     {
@@ -37,7 +42,7 @@ class FederationFactory
             maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
             timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             maxTrustChainDepth: $this->moduleConfig->getFederationMaxTrustChainDepth(),
-            cache: $this->federationCache?->cache,
+            cache: $this->cacheFactory->forFederation()?->cache,
             logger: $this->loggerService,
             defaultTrustMarkStatusEndpointUsagePolicyEnum:
             $this->moduleConfig->getFederationTrustMarkStatusEndpointUsagePolicy(),
