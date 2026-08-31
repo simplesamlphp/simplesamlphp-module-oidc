@@ -1232,4 +1232,15 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertStringNotContainsString('super-secret-dsn', $this->renderableContent($sections));
     }
+
+
+    /**
+     * Covers every option this screen displays, including ones added after this was written.
+     */
+    public function testNoDisplayedOptionCanTakeTheScreenDown(): void
+    {
+        $this->assertNoDisplayedOptionCanThrow(
+            fn(array $overrides): VciOverviewBuilder => $this->buildVciOverviewBuilder($overrides),
+        );
+    }
 }

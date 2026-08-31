@@ -50,20 +50,27 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildEntitySection(): Section
     {
-        $isEnabled = $this->moduleConfig->getFederationEnabled();
-
         return new Section(
             Translate::noop('Entity'),
             'entity',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Federation Enabled'),
-                $this->yesNo($isEnabled),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_FEDERATION_ENABLED,
-                $isEnabled ? null : Translate::noop(
-                    'All OpenID Federation capabilities are off, and the federation endpoints are ' .
-                    'not served. The settings below are inert until this is enabled.',
-                ),
+                function (): Row {
+                    $isEnabled = $this->moduleConfig->getFederationEnabled();
+
+                    return new Row(
+                        Translate::noop('Federation Enabled'),
+                        $this->yesNo($isEnabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_FEDERATION_ENABLED,
+                        $isEnabled ? null : Translate::noop(
+                            'All OpenID Federation capabilities are off, and the federation ' .
+                            'endpoints are not served. The settings below are inert until this is ' .
+                            'enabled.',
+                        ),
+                    );
+                },
             ),
             $this->buildIssuerRow(
                 Translate::noop('Also this entity\'s Entity Identifier in the federation.'),
@@ -73,59 +80,100 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
                     'reached, which breaks Trust Chain resolution.',
                 ),
             ),
-            $this->buildOptionalTextRow(
+            $this->guardRow(
                 Translate::noop('Organization Name'),
-                $this->moduleConfig->getOrganizationName(),
                 ModuleConfig::OPTION_ORGANIZATION_NAME,
+                fn(): Row => $this->buildOptionalTextRow(
+                    Translate::noop('Organization Name'),
+                    $this->moduleConfig->getOrganizationName(),
+                    ModuleConfig::OPTION_ORGANIZATION_NAME,
+                ),
             ),
-            $this->buildOptionalTextRow(
+            $this->guardRow(
                 Translate::noop('Display Name'),
-                $this->moduleConfig->getDisplayName(),
                 ModuleConfig::OPTION_DISPLAY_NAME,
+                fn(): Row => $this->buildOptionalTextRow(
+                    Translate::noop('Display Name'),
+                    $this->moduleConfig->getDisplayName(),
+                    ModuleConfig::OPTION_DISPLAY_NAME,
+                ),
             ),
-            $this->buildOptionalTextRow(
+            $this->guardRow(
                 Translate::noop('Description'),
-                $this->moduleConfig->getDescription(),
                 ModuleConfig::OPTION_DESCRIPTION,
+                fn(): Row => $this->buildOptionalTextRow(
+                    Translate::noop('Description'),
+                    $this->moduleConfig->getDescription(),
+                    ModuleConfig::OPTION_DESCRIPTION,
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Keywords'),
-                $this->moduleConfig->getKeywords() ?? [],
-                ConfigOverviewValueTypeEnum::StringList,
                 ModuleConfig::OPTION_KEYWORDS,
+                fn(): Row => new Row(
+                    Translate::noop('Keywords'),
+                    $this->moduleConfig->getKeywords() ?? [],
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_KEYWORDS,
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Contacts'),
-                $this->moduleConfig->getContacts() ?? [],
-                ConfigOverviewValueTypeEnum::StringList,
                 ModuleConfig::OPTION_CONTACTS,
+                fn(): Row => new Row(
+                    Translate::noop('Contacts'),
+                    $this->moduleConfig->getContacts() ?? [],
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_CONTACTS,
+                ),
             ),
-            $this->buildOptionalUrlRow(
+            $this->guardRow(
                 Translate::noop('Logo URI'),
-                $this->moduleConfig->getLogoUri(),
                 ModuleConfig::OPTION_LOGO_URI,
+                fn(): Row => $this->buildOptionalUrlRow(
+                    Translate::noop('Logo URI'),
+                    $this->moduleConfig->getLogoUri(),
+                    ModuleConfig::OPTION_LOGO_URI,
+                ),
             ),
-            $this->buildOptionalUrlRow(
+            $this->guardRow(
                 Translate::noop('Policy URI'),
-                $this->moduleConfig->getPolicyUri(),
                 ModuleConfig::OPTION_POLICY_URI,
+                fn(): Row => $this->buildOptionalUrlRow(
+                    Translate::noop('Policy URI'),
+                    $this->moduleConfig->getPolicyUri(),
+                    ModuleConfig::OPTION_POLICY_URI,
+                ),
             ),
-            $this->buildOptionalUrlRow(
+            $this->guardRow(
                 Translate::noop('Information URI'),
-                $this->moduleConfig->getInformationUri(),
                 ModuleConfig::OPTION_INFORMATION_URI,
+                fn(): Row => $this->buildOptionalUrlRow(
+                    Translate::noop('Information URI'),
+                    $this->moduleConfig->getInformationUri(),
+                    ModuleConfig::OPTION_INFORMATION_URI,
+                ),
             ),
-            $this->buildOptionalUrlRow(
+            $this->guardRow(
                 Translate::noop('Organization URI'),
-                $this->moduleConfig->getOrganizationUri(),
                 ModuleConfig::OPTION_ORGANIZATION_URI,
+                fn(): Row => $this->buildOptionalUrlRow(
+                    Translate::noop('Organization URI'),
+                    $this->moduleConfig->getOrganizationUri(),
+                    ModuleConfig::OPTION_ORGANIZATION_URI,
+                ),
             ),
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('Entity Statement Duration'),
-                $this->moduleConfig->getFederationEntityStatementDuration(),
                 ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
-                Translate::noop(
-                    'Sets the Expiration Time (exp) claim on Entity Statements published by this OP.',
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Entity Statement Duration'),
+                    $this->moduleConfig->getFederationEntityStatementDuration(),
+                    ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
+                    Translate::noop(
+                        'Sets the Expiration Time (exp) claim on Entity Statements published by ' .
+                        'this OP.',
+                    ),
                 ),
             ),
         );
@@ -137,6 +185,17 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildEndpointsSection(): Section
     {
+        // The row itself displays a URL rather than an option, so a bad OPTION_FEDERATION_ENABLED is
+        // reported on its own row in the Entity section instead. Resolved defensively here only so
+        // that it cannot take this row down on the way past.
+        $isEnabled = false;
+
+        try {
+            $isEnabled = $this->moduleConfig->getFederationEnabled();
+        } catch (Throwable) {
+            // Reported on the Federation Enabled row, where the option which failed is named.
+        }
+
         return new Section(
             Translate::noop('Endpoints'),
             'endpoints',
@@ -145,7 +204,7 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
                 $this->routes->urlFederationConfiguration(),
                 ConfigOverviewValueTypeEnum::Url,
                 null,
-                $this->moduleConfig->getFederationEnabled() ?
+                $isEnabled ?
                 null :
                 Translate::noop('Not served, since OpenID Federation is disabled.'),
             ),
@@ -198,7 +257,23 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         try {
             $trustAnchors = $this->moduleConfig->getFederationTrustAnchors();
         } catch (Throwable $exception) {
-            $error = $this->describeResolutionError($exception, ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS);
+            // That getter reads OPTION_FEDERATION_ENABLED as well, to decide whether an empty list is
+            // an error, so a malformed switch throws from inside it too. Reporting that here would put
+            // an invented Trust Anchors failure next to the real one on the Federation Enabled row, so
+            // it is only this option's to report when the switch itself reads cleanly. If both are
+            // malformed at once the switch is reported and this one surfaces on the next load, which
+            // is the right order to fix them in anyway.
+            $isSwitchReadable = true;
+
+            try {
+                $this->moduleConfig->getFederationEnabled();
+            } catch (Throwable) {
+                $isSwitchReadable = false;
+            }
+
+            $error = $isSwitchReadable ?
+            $this->describeResolutionError($exception, ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS) :
+            null;
         }
 
         $trustAnchorList = $this->buildTrustAnchorList($trustAnchors);
@@ -211,8 +286,6 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
                 'Trust Chain validation against it will fail.',
             );
         }
-
-        $authorityHints = $this->moduleConfig->getFederationAuthorityHints() ?? [];
 
         return new Section(
             Translate::noop('Trust Anchors and Authority Hints'),
@@ -228,14 +301,18 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
                 ),
                 $error,
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Authority Hints'),
-                $authorityHints,
-                ConfigOverviewValueTypeEnum::StringList,
                 ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS,
-                Translate::noop(
-                    'Entity Identifiers of the Intermediates or Trust Anchors directly above this ' .
-                    'entity. Required if this entity has a Superior.',
+                fn(): Row => new Row(
+                    Translate::noop('Authority Hints'),
+                    $this->moduleConfig->getFederationAuthorityHints() ?? [],
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS,
+                    Translate::noop(
+                        'Entity Identifiers of the Intermediates or Trust Anchors directly above ' .
+                        'this entity. Required if this entity has a Superior.',
+                    ),
                 ),
             ),
         );
@@ -249,30 +326,6 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
     protected function buildTrustMarksSection(array $trustMarks): Section
     {
         $trustMarkList = $this->buildTrustMarkList($trustMarks, $unreadableTrustMarkCount);
-        $staticTokenCount = count($this->moduleConfig->getFederationTrustMarkTokens() ?? []);
-        $dynamicTrustMarks = $this->moduleConfig->getFederationDynamicTrustMarks() ?? [];
-        $participationLimits = $this->moduleConfig->getFederationParticipationLimitByTrustMarks();
-        // Warnings are fixed sentences rather than interpolated ones, so that they resolve against
-        // the message catalog. The offending entries are visible in the row value itself.
-        $hasUnknownLimitIds = $this->findUnknownParticipationLimitIds($participationLimits) !== [];
-        $hasMalformedLimits = $this->hasMalformedParticipationLimits($participationLimits);
-
-        $participationLimitsWarning = match (true) {
-            $hasUnknownLimitIds && $hasMalformedLimits => Translate::noop(
-                'Unrecognized limit identifiers and entries of an unexpected shape are configured. ' .
-                'The runtime validator rejects both, so federation participation will fail for the ' .
-                'affected Trust Anchors.',
-            ),
-            $hasUnknownLimitIds => Translate::noop(
-                'Unrecognized limit identifiers are configured, which the runtime validator rejects. ' .
-                'Only \'one_of\' and \'all_of\' are supported.',
-            ),
-            $hasMalformedLimits => Translate::noop(
-                'Some entries have an unexpected shape. Each Trust Anchor must map to a list of ' .
-                'limits, and each limit to a list of Trust Mark Type strings.',
-            ),
-            default => null,
-        };
 
         return new Section(
             Translate::noop('Trust Marks'),
@@ -293,46 +346,90 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
                     'written to the SimpleSAMLphp log.',
                 ) : null,
             ),
-            $this->buildSecretCountRow(
+            $this->guardRow(
                 Translate::noop('Statically Configured Trust Mark Tokens'),
-                $staticTokenCount,
                 ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS,
-                Translate::noop(
-                    'Signed JWTs held in configuration, intended for long lasting or non-expiring ' .
-                    'Trust Marks. Their decoded payloads are listed above.',
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Statically Configured Trust Mark Tokens'),
+                    count($this->moduleConfig->getFederationTrustMarkTokens() ?? []),
+                    ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS,
+                    Translate::noop(
+                        'Signed JWTs held in configuration, intended for long lasting or ' .
+                        'non-expiring Trust Marks. Their decoded payloads are listed above.',
+                    ),
                 ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Dynamically Fetched Trust Marks'),
-                $this->buildDynamicTrustMarkMap($dynamicTrustMarks),
-                ConfigOverviewValueTypeEnum::StringMap,
                 ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS,
-                Translate::noop('Trust Mark Type, and the Trust Mark Issuer it is fetched from.'),
+                fn(): Row => new Row(
+                    Translate::noop('Dynamically Fetched Trust Marks'),
+                    $this->buildDynamicTrustMarkMap(
+                        $this->moduleConfig->getFederationDynamicTrustMarks() ?? [],
+                    ),
+                    ConfigOverviewValueTypeEnum::StringMap,
+                    ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS,
+                    Translate::noop('Trust Mark Type, and the Trust Mark Issuer it is fetched from.'),
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Trust Mark Status Endpoint Usage Policy'),
-                $this->describeTrustMarkStatusPolicy(
-                    $this->moduleConfig->getFederationTrustMarkStatusEndpointUsagePolicy(),
-                ),
-                // UI text built from message IDs, so it stays translatable.
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY,
-                Translate::noop(
-                    'When the Trust Mark Issuer\'s status endpoint is consulted to check whether a ' .
-                    'Trust Mark is still valid.',
+                fn(): Row => new Row(
+                    Translate::noop('Trust Mark Status Endpoint Usage Policy'),
+                    $this->describeTrustMarkStatusPolicy(
+                        $this->moduleConfig->getFederationTrustMarkStatusEndpointUsagePolicy(),
+                    ),
+                    // UI text built from message IDs, so it stays translatable.
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_FEDERATION_TRUST_MARK_STATUS_ENDPOINT_USAGE_POLICY,
+                    Translate::noop(
+                        'When the Trust Mark Issuer\'s status endpoint is consulted to check whether ' .
+                        'a Trust Mark is still valid.',
+                    ),
                 ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Federation Participation Limits'),
-                $this->buildParticipationLimits($participationLimits),
-                ConfigOverviewValueTypeEnum::Json,
                 ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS,
-                Translate::noop(
-                    'Per Trust Anchor, the Trust Marks an entity must hold in order to participate. ' .
-                    '\'one_of\' requires at least one from the list, \'all_of\' requires them all. ' .
-                    'Trust Anchors which are not listed apply no Trust Mark limit.',
-                ),
-                $participationLimitsWarning,
+                function (): Row {
+                    $participationLimits = $this->moduleConfig->getFederationParticipationLimitByTrustMarks();
+                    // Warnings are fixed sentences rather than interpolated ones, so that they
+                    // resolve against the message catalog. The offending entries are visible in the
+                    // row value itself.
+                    $hasUnknownLimitIds = $this->findUnknownParticipationLimitIds($participationLimits) !== [];
+                    $hasMalformedLimits = $this->hasMalformedParticipationLimits($participationLimits);
+
+                    return new Row(
+                        Translate::noop('Federation Participation Limits'),
+                        $this->buildParticipationLimits($participationLimits),
+                        ConfigOverviewValueTypeEnum::Json,
+                        ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS,
+                        Translate::noop(
+                            'Per Trust Anchor, the Trust Marks an entity must hold in order to ' .
+                            'participate. \'one_of\' requires at least one from the list, ' .
+                            '\'all_of\' requires them all. Trust Anchors which are not listed apply ' .
+                            'no Trust Mark limit.',
+                        ),
+                        match (true) {
+                            $hasUnknownLimitIds && $hasMalformedLimits => Translate::noop(
+                                'Unrecognized limit identifiers and entries of an unexpected shape ' .
+                                'are configured. The runtime validator rejects both, so federation ' .
+                                'participation will fail for the affected Trust Anchors.',
+                            ),
+                            $hasUnknownLimitIds => Translate::noop(
+                                'Unrecognized limit identifiers are configured, which the runtime ' .
+                                'validator rejects. Only \'one_of\' and \'all_of\' are supported.',
+                            ),
+                            $hasMalformedLimits => Translate::noop(
+                                'Some entries have an unexpected shape. Each Trust Anchor must map ' .
+                                'to a list of limits, and each limit to a list of Trust Mark Type ' .
+                                'strings.',
+                            ),
+                            default => null,
+                        },
+                    );
+                },
             ),
         );
     }
@@ -346,46 +443,70 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Trust Chain resolution limits'),
             'trust-chain-limits',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Maximum Trust Chain Depth'),
-                (string)$this->moduleConfig->getFederationMaxTrustChainDepth(),
-                ConfigOverviewValueTypeEnum::RawText,
                 ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH,
-                Translate::noop('Hops from the leaf entity up to a Trust Anchor. Clamped by the library to 1..20.'),
-            ),
-            new Row(
-                Translate::noop('Maximum Authority Hints per Entity'),
-                (string)$this->moduleConfig->getFederationMaxAuthorityHints(),
-                ConfigOverviewValueTypeEnum::RawText,
-                ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS,
-                Translate::noop('The branching factor. Clamped by the library to 1..12.'),
-            ),
-            new Row(
-                Translate::noop('Maximum Entity Statement Fetches per Resolution'),
-                (string)$this->moduleConfig->getFederationMaxTrustChainFetches(),
-                ConfigOverviewValueTypeEnum::RawText,
-                ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES,
-                Translate::noop(
-                    'Depth and authority hints multiply out, so this budget and the timeout below ' .
-                    'are the effective bounds. Clamped by the library to 1..1000.',
+                fn(): Row => new Row(
+                    Translate::noop('Maximum Trust Chain Depth'),
+                    (string)$this->moduleConfig->getFederationMaxTrustChainDepth(),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH,
+                    Translate::noop(
+                        'Hops from the leaf entity up to a Trust Anchor. Clamped by the library to 1..20.',
+                    ),
                 ),
             ),
-            new Row(
-                Translate::noop('Trust Chain Resolve Timeout (seconds)'),
-                (string)$this->moduleConfig->getFederationTrustChainResolveTimeout(),
-                ConfigOverviewValueTypeEnum::RawText,
-                ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT,
-                Translate::noop('Wall-clock deadline for one resolution. Clamped by the library to 1..300.'),
+            $this->guardRow(
+                Translate::noop('Maximum Authority Hints per Entity'),
+                ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS,
+                fn(): Row => new Row(
+                    Translate::noop('Maximum Authority Hints per Entity'),
+                    (string)$this->moduleConfig->getFederationMaxAuthorityHints(),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS,
+                    Translate::noop('The branching factor. Clamped by the library to 1..12.'),
+                ),
             ),
-            new Row(
+            $this->guardRow(
+                Translate::noop('Maximum Entity Statement Fetches per Resolution'),
+                ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES,
+                fn(): Row => new Row(
+                    Translate::noop('Maximum Entity Statement Fetches per Resolution'),
+                    (string)$this->moduleConfig->getFederationMaxTrustChainFetches(),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES,
+                    Translate::noop(
+                        'Depth and authority hints multiply out, so this budget and the timeout ' .
+                        'below are the effective bounds. Clamped by the library to 1..1000.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Trust Chain Resolve Timeout (seconds)'),
+                ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT,
+                fn(): Row => new Row(
+                    Translate::noop('Trust Chain Resolve Timeout (seconds)'),
+                    (string)$this->moduleConfig->getFederationTrustChainResolveTimeout(),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT,
+                    Translate::noop(
+                        'Wall-clock deadline for one resolution. Clamped by the library to 1..300.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
                 Translate::noop('Maximum Fetch Response Size (bytes)'),
-                $this->formatBytes($this->moduleConfig->getFederationMaxFetchSizeBytes()),
-                ConfigOverviewValueTypeEnum::RawText,
                 ModuleConfig::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES,
-                Translate::noop(
-                    'These limits matter because Trust Chain resolution is reachable on an ' .
-                    'unauthenticated path, walking entity configurations fetched from arbitrary, ' .
-                    'possibly hostile, federation entities.',
+                fn(): Row => new Row(
+                    Translate::noop('Maximum Fetch Response Size (bytes)'),
+                    $this->formatBytes($this->moduleConfig->getFederationMaxFetchSizeBytes()),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES,
+                    Translate::noop(
+                        'These limits matter because Trust Chain resolution is reachable on an ' .
+                        'unauthenticated path, walking entity configurations fetched from arbitrary, ' .
+                        'possibly hostile, federation entities.',
+                    ),
                 ),
             ),
         );
@@ -397,50 +518,78 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildCacheSection(): Section
     {
-        $adapterClass = $this->moduleConfig->getFederationCacheAdapterClass();
-        $adapterArgumentCount = count($this->moduleConfig->getFederationCacheAdapterArguments());
-        $isCachingActive = !is_null($adapterClass);
+        // Only asserted to be a string when it is read, so a value of another type throws here. This
+        // screen is where an administrator goes to find that out, so it must not take it down.
+        $isCachingActive = false;
+
+        try {
+            $isCachingActive = !is_null($this->moduleConfig->getFederationCacheAdapterClass());
+        } catch (Throwable) {
+            // Reported on its own row below, where the option which failed to resolve is named.
+        }
 
         $notUsedNote = Translate::noop('Not used, since no federation cache adapter is configured.');
 
         return new Section(
             Translate::noop('Cache'),
             'cache',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Cache Adapter'),
-                $adapterClass ?? Translate::noop('N/A'),
-                $isCachingActive ? ConfigOverviewValueTypeEnum::RawText : ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER,
-                $isCachingActive ? null : Translate::noop(
-                    'Not set, so no federation caching is performed and every Trust Chain ' .
-                    'resolution refetches. Setting a cache adapter is recommended in production.',
-                ),
+                function () use ($isCachingActive): Row {
+                    $adapterClass = $this->moduleConfig->getFederationCacheAdapterClass();
+
+                    return new Row(
+                        Translate::noop('Cache Adapter'),
+                        $adapterClass ?? Translate::noop('N/A'),
+                        $isCachingActive ?
+                        ConfigOverviewValueTypeEnum::RawText :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER,
+                        $isCachingActive ? null : Translate::noop(
+                            'Not set, so no federation caching is performed and every Trust Chain ' .
+                            'resolution refetches. Setting a cache adapter is recommended in production.',
+                        ),
+                    );
+                },
             ),
-            $this->buildSecretCountRow(
+            $this->guardRow(
                 Translate::noop('Cache Adapter Arguments'),
-                $adapterArgumentCount,
                 ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS,
-                Translate::noop(
-                    'Values are not shown, since adapter arguments can carry connection credentials.',
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Cache Adapter Arguments'),
+                    count($this->moduleConfig->getFederationCacheAdapterArguments()),
+                    ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS,
+                    Translate::noop(
+                        'Values are not shown, since adapter arguments can carry connection credentials.',
+                    ),
                 ),
             ),
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('Maximum Cache Duration for Fetched Artifacts'),
-                $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
                 ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED,
-                $isCachingActive ? Translate::noop(
-                    'Caps how long a fetched artifact is cached, since its own expiry is set by the ' .
-                    'issuer and can be long. Lower values propagate federation changes faster.',
-                ) : $notUsedNote,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Maximum Cache Duration for Fetched Artifacts'),
+                    $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
+                    ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED,
+                    $isCachingActive ? Translate::noop(
+                        'Caps how long a fetched artifact is cached, since its own expiry is set by ' .
+                        'the issuer and can be long. Lower values propagate federation changes faster.',
+                    ) : $notUsedNote,
+                ),
             ),
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('Cache Duration for Produced Artifacts'),
-                $this->moduleConfig->getFederationEntityStatementCacheDurationForProduced(),
                 ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED,
-                $isCachingActive ? Translate::noop(
-                    'Avoids recomputing the JWS signature for statements this OP publishes on every ' .
-                    'request.',
-                ) : $notUsedNote,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Cache Duration for Produced Artifacts'),
+                    $this->moduleConfig->getFederationEntityStatementCacheDurationForProduced(),
+                    ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED,
+                    $isCachingActive ? Translate::noop(
+                        'Avoids recomputing the JWS signature for statements this OP publishes on ' .
+                        'every request.',
+                    ) : $notUsedNote,
+                ),
             ),
         );
     }
@@ -454,19 +603,23 @@ class FederationOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Outbound HTTP requests'),
             'outbound-http',
-            $this->buildHttpClientOptionsRow(
+            $this->guardRow(
                 Translate::noop('Federation HTTP Client Options'),
-                $this->moduleConfig->getFederationHttpClientOptions(),
                 ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS,
-                Translate::noop(
-                    'Merged over the library\'s hardening defaults, so a value set here replaces the ' .
-                    'corresponding default. Of note: \'timeout\' and \'connect_timeout\' (Guzzle ' .
-                    'reads 0 as no timeout), and \'allow_redirects\' (the library restricts ' .
-                    'redirects to at most 3 https hops).',
-                ),
-                Translate::noop(
-                    'Not set, so the library\'s hardening defaults apply, including TLS ' .
-                    'verification and restricted redirects.',
+                fn(): Row => $this->buildHttpClientOptionsRow(
+                    Translate::noop('Federation HTTP Client Options'),
+                    $this->moduleConfig->getFederationHttpClientOptions(),
+                    ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS,
+                    Translate::noop(
+                        'Merged over the library\'s hardening defaults, so a value set here replaces ' .
+                        'the corresponding default. Of note: \'timeout\' and \'connect_timeout\' ' .
+                        '(Guzzle reads 0 as no timeout), and \'allow_redirects\' (the library ' .
+                        'restricts redirects to at most 3 https hops).',
+                    ),
+                    Translate::noop(
+                        'Not set, so the library\'s hardening defaults apply, including TLS ' .
+                        'verification and restricted redirects.',
+                    ),
                 ),
             ),
         );
