@@ -171,6 +171,64 @@ not through an HTTP handler supplied by configuration.
 The current settings are shown in the admin area under `OIDC` > `Configuration`,
 in the Protocol screen's outbound HTTP section.
 
+### DID resolution has a policy of its own
+
+Resolving a holder's `did:web` identifier is also an outbound fetch, but it is
+the only one whose destination is named by whoever is being issued a credential:
+the identifier arrives inside a wallet's key proof and the URL is derived from
+it. It therefore gets its own settings, and **the `OPTION_OUTBOUND_*` options
+above are never applied to it.** Those exemptions were granted so the deployment
+could reach addresses it operates itself; sharing them here would let a wallet
+name any of them.
+
+```php
+ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => ['wallet.internal.example'],
+ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32'],
+```
+
+Both are empty by default, so a DID may only resolve to a public `https`
+destination. The usual reason to set either is a test environment in which the
+DID host resolves to a container address rather than to its public one.
+
+`OPTION_VCI_DID_ADDRESS_PINNING_MODE` works as described above with two
+differences: it defaults to `Required` rather than `Preferred`, and `Preferred`
+is **refused** when the configuration is read, since proceeding unpinned is
+exactly what should not happen on a fetch driven from outside.
+
+That leaves `Disabled` for the deployment that cannot pin and is not thereby
+unprotected — one reaching the internet through a forward proxy. The proxy
+resolves the destination itself, so there is nothing to pin, and the proxy is
+doing the egress control that pinning approximates:
+
+```php
+ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE =>
+    \SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum::Disabled,
+```
+
+**This is only honest while the proxy carries every DID destination.** An
+exclusion list (`NO_PROXY`, or a `no` entry) sends matching hosts direct, and a
+proxy configured for plain `http` alone is not used for the `https` fetch a
+`did:web` identifier resolves to. Wherever a fetch goes direct, turning pinning
+off removes the protection rather than delegating it. A deployment that simply
+lacks the cURL extension is not this case and should install the extension.
+
+Resolved documents are cached in the VCI cache, which is configured separately
+from the protocol and federation ones:
+
+```php
+ModuleConfig::OPTION_VCI_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => ['openidVci', 60 * 60 * 6, '/path/to/cache'],
+```
+
+Without an adapter, every key proof naming a `did:web` identifier is another
+outbound fetch. `OPTION_VCI_DID_CACHE_MAX_DURATION` (default `PT6H`) is how long
+a document is reused; a DID document states no expiry of its own, so this is the
+whole of its freshness rule, and a holder rotating a key is not seen until it
+runs out.
+
+These settings are shown in the admin area under `OIDC` > `Configuration`, on
+the VCI screen.
+
 ## Pushed Authorization Requests (PAR) and Request Objects
 
 A client can send authorization request parameters in several ways:

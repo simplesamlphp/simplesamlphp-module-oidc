@@ -1678,6 +1678,114 @@ $config = [
 //    ],
 
     /**
+     * (optional) Dedicated cache adapter for the Verifiable Credential Issuance
+     * layer. If set to null (the default), no VCI caching is performed.
+     *
+     * Kept separate from the protocol and federation cache adapters because
+     * what is kept here is fetched from destinations named by whoever is being
+     * issued a credential, rather than by this deployment. Today that means
+     * resolved DID documents: without a cache, every key proof naming a did:web
+     * identifier is another outbound fetch, so setting this is recommended in
+     * production. Can be set to any Symfony Cache Adapter class. If set, make
+     * sure to also give proper adapter arguments for its instantiation below.
+     * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
+     */
+    ModuleConfig::OPTION_VCI_CACHE_ADAPTER => null,
+//    ModuleConfig::OPTION_VCI_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+
+    /**
+     * VCI cache adapter arguments used for adapter instantiation, in the order
+     * of constructor arguments. Refer to the documentation for a particular
+     * adapter on which arguments are needed to create its instance.
+     */
+    ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => [
+        // Adapter arguments here...
+    ],
+    // Example for FileSystemAdapter:
+//    ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => [
+//        'openidVci', // Namespace, subdirectory of main cache directory
+//        60 * 60 * 6, // Default lifetime in seconds (used when a particular cache item doesn't define its own lifetime)
+//        '/path/to/main/cache/directory' // Must be writable. Can be set to null to use the system temporary directory.
+//    ],
+
+    /**
+     * (optional) How long a resolved DID document may be reused. Defaults to
+     * 'PT6H' (6 hours). Only has an effect when a VCI cache adapter is set.
+     *
+     * A DID document states no expiry of its own, so unlike a fetched
+     * federation artifact this is not a ceiling over a duration the issuer
+     * chose - it is the whole of the freshness rule. A holder rotating a key is
+     * not seen until this runs out.
+     */
+//    ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION => 'PT6H',
+
+    /**
+     * (optional) Hosts that DID resolution may reach whatever they resolve to.
+     * Empty by default, so a DID may only resolve to a public destination.
+     *
+     * These are deliberately NOT OPTION_OUTBOUND_ALLOWED_HOSTS, and that option
+     * is never read here. Those exemptions are granted so this deployment can
+     * reach addresses it operates itself; a did:web identifier arrives in a
+     * wallet's key proof and names its own destination, so sharing them would
+     * let whoever sends a credential request send this deployment to any of
+     * them.
+     *
+     * What is said about the general option applies here too: the address check
+     * and the address pinning are both skipped for a host listed here, so keep
+     * this to destinations the deployment operates itself. The usual reason to
+     * set it is a test environment in which the DID host resolves to a
+     * container address rather than to its public one.
+     */
+//    ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => [
+//        'wallet.internal.example',
+//    ],
+
+    /**
+     * (optional) Address ranges DID resolution may reach alongside the public
+     * ones, as CIDR. Empty by default. Separate from
+     * OPTION_OUTBOUND_ALLOWED_CIDRS on the same reasoning as the hosts above.
+     *
+     * Use the narrowest range that covers the destination ('10.1.2.3/32' rather
+     * than '10.0.0.0/8'), so that permitting one internal endpoint does not
+     * permit the whole private network. An unusable range is refused when the
+     * destination policy is built, rather than quietly never matching, and is
+     * reported on the VCI configuration overview screen.
+     */
+//    ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => [
+//        '10.1.2.3/32',
+//    ],
+
+    /**
+     * (optional) How strictly DID resolution insists on fetching from the
+     * address that was validated. Defaults to
+     * AddressPinningModeEnum::Required.
+     *
+     * The mechanics are the ones described for
+     * OPTION_OUTBOUND_ADDRESS_PINNING_MODE above, but the default is stricter
+     * here and Preferred is refused outright, because the destination is chosen
+     * by whoever supplies the DID and Preferred carries on unpinned wherever
+     * pinning turns out to be unavailable.
+     *
+     * - Required (default): refuse the fetch when the address cannot be pinned.
+     *   Pinning needs the cURL extension, the cURL handler, and a connection
+     *   this deployment is the one making.
+     * - Disabled: never pin. Meant for a deployment reaching the internet
+     *   through a forward proxy: the proxy resolves the destination itself, so
+     *   there is nothing to pin, and the proxy is doing the egress control that
+     *   pinning approximates. This is only honest while the proxy carries EVERY
+     *   DID destination. An exclusion list (NO_PROXY, or a 'no' entry) sends
+     *   matching hosts direct, and a proxy configured for plain http alone is
+     *   not used for the https fetch a did:web identifier resolves to. Wherever
+     *   a fetch goes direct, this removes the protection rather than delegating
+     *   it.
+     * - Preferred: refused when the configuration is read. A deployment that
+     *   merely lacks the cURL extension is not the proxy case, and should
+     *   install the extension instead.
+     */
+//    ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE =>
+//        \SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum::Required,
+
+    /**
      * (optional) Whether issued Verifiable Credentials get a Token Status List
      * entry allocated to them, which is what makes them revocable and
      * suspendable. Defaults to false.

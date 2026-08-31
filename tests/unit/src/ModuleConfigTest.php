@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\SupportedAlgorithms;
@@ -1737,5 +1738,168 @@ class ModuleConfigTest extends TestCase
             ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
             $inverted,
         ))->getVciStatusListAuditRetention();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testVciCacheIsNotConfiguredByDefault(): void
+    {
+        $this->assertNull($this->sut()->getVciCacheAdapterClass());
+        $this->assertSame([], $this->sut()->getVciCacheAdapterArguments());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetVciCacheAdapterOptions(): void
+    {
+        $sut = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER => ArrayAdapter::class,
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => ['openidVci'],
+        ]));
+
+        $this->assertSame(ArrayAdapter::class, $sut->getVciCacheAdapterClass());
+        $this->assertSame(['openidVci'], $sut->getVciCacheAdapterArguments());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDidCacheMaxDurationDefaultsToSixHours(): void
+    {
+        $this->assertSame(6, $this->sut()->getVciDidCacheMaxDuration()->h);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetDidCacheMaxDuration(): void
+    {
+        $this->assertSame(
+            30,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                'PT30M',
+            ))->getVciDidCacheMaxDuration()->i,
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDidResolutionHasNoDestinationExemptionsByDefault(): void
+    {
+        $this->assertSame([], $this->sut()->getVciDidOutboundAllowedHosts());
+        $this->assertSame([], $this->sut()->getVciDidOutboundAllowedCidrs());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetDidDestinationExemptions(): void
+    {
+        $sut = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => ['wallet.internal.example', 123],
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32', null],
+        ]));
+
+        // Non-string entries are dropped rather than handed to the policy.
+        $this->assertSame(['wallet.internal.example'], $sut->getVciDidOutboundAllowedHosts());
+        $this->assertSame(['10.1.2.3/32'], $sut->getVciDidOutboundAllowedCidrs());
+    }
+
+
+    /**
+     * The general outbound exemptions exist so this deployment can reach addresses it operates itself.
+     * A DID names its own destination and is supplied by whoever is being authenticated, so inheriting
+     * them here would let that party send this deployment to any of them.
+     *
+     * @throws \Exception
+     */
+    public function testDidResolutionDoesNotInheritTheGeneralOutboundExemptions(): void
+    {
+        $sut = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => ['rp.internal.example'],
+            ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS => ['10.0.0.0/8'],
+        ]));
+
+        $this->assertSame([], $sut->getVciDidOutboundAllowedHosts());
+        $this->assertSame([], $sut->getVciDidOutboundAllowedCidrs());
+    }
+
+
+    /**
+     * Stricter than the general outbound default, which is Preferred.
+     *
+     * @throws \Exception
+     */
+    public function testDidAddressPinningModeDefaultsToRequired(): void
+    {
+        $this->assertSame(
+            AddressPinningModeEnum::Required,
+            $this->sut()->getVciDidAddressPinningMode(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetDidAddressPinningModeFromEnumOrString(): void
+    {
+        $this->assertSame(
+            AddressPinningModeEnum::Disabled,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                AddressPinningModeEnum::Disabled,
+            ))->getVciDidAddressPinningMode(),
+        );
+
+        $this->assertSame(
+            AddressPinningModeEnum::Disabled,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                AddressPinningModeEnum::Disabled->value,
+            ))->getVciDidAddressPinningMode(),
+        );
+    }
+
+
+    /**
+     * Preferred proceeds unpinned wherever pinning turns out to be unavailable, which is the one thing
+     * a fetch whose destination is chosen from outside must not do. Refused while the configuration is
+     * read, so the admin screens report it rather than an issuance failing later.
+     *
+     * @throws \Exception
+     */
+    public function testRejectsPreferredDidAddressPinningMode(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+            AddressPinningModeEnum::Preferred,
+        ))->getVciDidAddressPinningMode();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnUnknownDidAddressPinningMode(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+            'whenever-convenient',
+        ))->getVciDidAddressPinningMode();
     }
 }

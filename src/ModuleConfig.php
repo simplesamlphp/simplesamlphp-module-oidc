@@ -280,6 +280,18 @@ class ModuleConfig
 
     final public const string OPTION_VCI_CREDENTIAL_BINDING_POLICIES = 'vci_credential_binding_policies';
 
+    final public const string OPTION_VCI_CACHE_ADAPTER = 'vci_cache_adapter';
+
+    final public const string OPTION_VCI_CACHE_ADAPTER_ARGUMENTS = 'vci_cache_adapter_arguments';
+
+    final public const string OPTION_VCI_DID_CACHE_MAX_DURATION = 'vci_did_cache_max_duration';
+
+    final public const string OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS = 'vci_did_outbound_allowed_hosts';
+
+    final public const string OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS = 'vci_did_outbound_allowed_cidrs';
+
+    final public const string OPTION_VCI_DID_ADDRESS_PINNING_MODE = 'vci_did_address_pinning_mode';
+
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
 
     final public const string OPTION_DCR_REGISTRATION_AUTH = 'dcr_registration_auth';
@@ -2511,6 +2523,139 @@ class ModuleConfig
             self::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
             ['openid-credential-offer://',],
         );
+    }
+
+
+    /**
+     * Cache adapter class for the Verifiable Credential Issuance layer. Kept apart from the protocol and
+     * federation caches, since what is kept here is fetched from destinations named by whoever is being
+     * issued a credential rather than by this deployment.
+     *
+     * @throws \Exception
+     */
+    public function getVciCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_VCI_CACHE_ADAPTER, null);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function getVciCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+
+    /**
+     * How long a resolved DID document may be reused.
+     *
+     * A DID document carries no expiry of its own, so unlike a fetched federation artifact there is
+     * nothing for this to be a ceiling over - it is the whole of the freshness rule. Lowering it makes a
+     * holder's key rotation take effect sooner, at the cost of a fetch per resolution.
+     *
+     * @throws \Exception
+     */
+    public function getVciDidCacheMaxDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(self::OPTION_VCI_DID_CACHE_MAX_DURATION, 'PT6H'),
+        );
+    }
+
+
+    /**
+     * Hosts DID resolution may reach whatever they resolve to.
+     *
+     * Deliberately separate from OPTION_OUTBOUND_ALLOWED_HOSTS, and never read from it. Those exemptions
+     * are granted so this deployment can reach addresses it operates itself for federation; a DID names
+     * its own destination and is supplied by whoever is being authenticated, so handing them over would
+     * let that party send this deployment to any of them.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getVciDidOutboundAllowedHosts(): array
+    {
+        $hosts = $this->config()->getOptionalArray(self::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS, []);
+
+        return array_values(array_filter($hosts, 'is_string'));
+    }
+
+
+    /**
+     * Address ranges DID resolution may reach alongside the public ones, as CIDR. Separate from
+     * OPTION_OUTBOUND_ALLOWED_CIDRS on the same reasoning as the hosts above.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getVciDidOutboundAllowedCidrs(): array
+    {
+        $cidrs = $this->config()->getOptionalArray(self::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS, []);
+
+        return array_values(array_filter($cidrs, 'is_string'));
+    }
+
+
+    /**
+     * How strictly DID resolution insists on connecting to the address that was validated.
+     *
+     * Required by default, rather than the Preferred which the general outbound option defaults to, and
+     * Preferred is refused outright here. Preferred proceeds unpinned wherever the cURL handler is
+     * unavailable, which leaves the DNS rebinding window open on precisely the fetches whose destination
+     * is chosen by whoever supplies the DID.
+     *
+     * Refused while the configuration is read rather than when the resolver is built, so that an
+     * unusable value is reported by the admin Configuration screens instead of surfacing later as a
+     * failed credential issuance.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciDidAddressPinningMode(): AddressPinningModeEnum
+    {
+        /** @psalm-suppress MixedAssignment */
+        $mode = $this->config()->getOptionalValue(
+            self::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+            AddressPinningModeEnum::Required,
+        );
+
+        $case = $mode instanceof AddressPinningModeEnum ? $mode : null;
+
+        // Accepting the backing value as well keeps a configuration written as a plain string working,
+        // which is easy to reach for when every neighbouring option in the file is a scalar.
+        if (is_null($case) && is_string($mode)) {
+            $case = AddressPinningModeEnum::tryFrom($mode);
+        }
+
+        if (!$case instanceof AddressPinningModeEnum) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid value for %s. Expected a %s case or one of "%s", got "%s".',
+                    self::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                    AddressPinningModeEnum::class,
+                    implode('", "', array_column(AddressPinningModeEnum::cases(), 'value')),
+                    var_export($mode, true),
+                ),
+            );
+        }
+
+        if ($case === AddressPinningModeEnum::Preferred) {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s can not be %s, which proceeds unpinned whenever pinning turns out to be ' .
+                    'unavailable. Use %s, or %s where a forward proxy is doing the egress control that ' .
+                    'pinning would otherwise approximate.',
+                    self::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                    AddressPinningModeEnum::Preferred->value,
+                    AddressPinningModeEnum::Required->value,
+                    AddressPinningModeEnum::Disabled->value,
+                ),
+            );
+        }
+
+        return $case;
     }
 
 

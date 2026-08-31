@@ -11,9 +11,11 @@ use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 use Stringable;
 use Throwable;
 
@@ -58,6 +60,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildCredentialConfigurationsSection(),
             $this->buildNonRegisteredClientsSection(),
             $this->buildStatusListsSection(),
+            $this->buildDidResolutionSection(),
+            $this->buildCacheSection(),
             $this->buildDurationsSection(),
             $this->buildCredentialOfferSection(),
         ];
@@ -731,6 +735,181 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'them specific: a loose prefix defeats the check.',
                 ) : null,
                 $allowedPrefixesError ?? $prefixesWarning,
+            ),
+        );
+    }
+
+
+    /**
+     * Where resolving a holder's Decentralized Identifier is allowed to send this deployment.
+     *
+     * Every row here describes a destination chosen by whoever presents the identifier, not by this
+     * deployment, which is why these settings exist separately from the general outbound ones and never
+     * inherit from them.
+     *
+     * @throws \Exception
+     */
+    protected function buildDidResolutionSection(): Section
+    {
+        return new Section(
+            Translate::noop('DID resolution'),
+            'did-resolution',
+            $this->guardRow(
+                Translate::noop('DID Outbound Allowed Hosts'),
+                ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+                function (): Row {
+                    $allowedHosts = $this->moduleConfig->getVciDidOutboundAllowedHosts();
+                    // The getter only establishes that these are strings; whether they are usable is the
+                    // policy's own judgement, made in its constructor. Built bare rather than through
+                    // DidWebResolver::buildDestinationPolicy(), which would also log the notice that
+                    // belongs to the resolution path rather than to rendering this screen.
+                    new DestinationPolicy(allowedHosts: $allowedHosts);
+
+                    return new Row(
+                        Translate::noop('DID Outbound Allowed Hosts'),
+                        $allowedHosts,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+                        $allowedHosts === [] ?
+                        Translate::noop(
+                            'None, so a DID may only resolve to a public destination. Separate from the ' .
+                            'general outbound exemptions, which are never applied here.',
+                        ) :
+                        Translate::noop(
+                            'Reachable whatever they resolve to. The address check and the address ' .
+                            'pinning are both skipped for these.',
+                        ),
+                        $allowedHosts === [] ?
+                        null :
+                        Translate::noop(
+                            'Each of these is a destination that whoever supplies a DID can send this ' .
+                            'deployment to.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('DID Outbound Allowed Address Ranges'),
+                ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+                function (): Row {
+                    $allowedCidrs = $this->moduleConfig->getVciDidOutboundAllowedCidrs();
+                    // A range that can never match would otherwise be shown as a working exemption.
+                    new DestinationPolicy(allowedCidrs: $allowedCidrs);
+
+                    return new Row(
+                        Translate::noop('DID Outbound Allowed Address Ranges'),
+                        $allowedCidrs,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+                        $allowedCidrs === [] ?
+                        Translate::noop('None, so a DID may only resolve to a public address.') :
+                        Translate::noop('Reachable alongside the public addresses.'),
+                        $allowedCidrs === [] ?
+                        null :
+                        Translate::noop(
+                            'Each of these is a range that whoever supplies a DID can send this ' .
+                            'deployment into.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('DID Address Pinning'),
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                function (): Row {
+                    $pinningMode = $this->moduleConfig->getVciDidAddressPinningMode();
+
+                    return new Row(
+                        Translate::noop('DID Address Pinning'),
+                        $pinningMode->value,
+                        ConfigOverviewValueTypeEnum::RawText,
+                        ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                        Translate::noop(
+                            'Whether a DID document must be fetched from the address that was ' .
+                            'validated, rather than the host being resolved a second time when the ' .
+                            'connection is made.',
+                        ),
+                        $pinningMode === AddressPinningModeEnum::Disabled ?
+                        Translate::noop(
+                            'Pinning is off, so a host named by a DID can resolve to a permitted ' .
+                            'address for the check and to another one for the fetch. Only sound where a ' .
+                            'forward proxy carries every DID destination; an exclusion list or a ' .
+                            'proxy set for plain http alone leaves some going direct.',
+                        ) :
+                        null,
+                    );
+                },
+            ),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function buildCacheSection(): Section
+    {
+        $isCachingActive = false;
+
+        try {
+            $isCachingActive = !is_null($this->moduleConfig->getVciCacheAdapterClass());
+        } catch (Throwable) {
+            // Reported on its own row below, where the option which failed to resolve is named.
+        }
+
+        return new Section(
+            Translate::noop('Cache'),
+            'cache',
+            $this->guardRow(
+                Translate::noop('Cache Adapter'),
+                ModuleConfig::OPTION_VCI_CACHE_ADAPTER,
+                function () use ($isCachingActive): Row {
+                    // Resolved inside the guard: the option is only asserted to be a string when it is
+                    // read, so a value of another type throws, and this screen is where an administrator
+                    // goes to find that out.
+                    $adapterClass = $this->moduleConfig->getVciCacheAdapterClass();
+
+                    return new Row(
+                        Translate::noop('Cache Adapter'),
+                        $adapterClass ?? Translate::noop('N/A'),
+                        $isCachingActive ?
+                        ConfigOverviewValueTypeEnum::RawText :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_CACHE_ADAPTER,
+                        $isCachingActive ? null : Translate::noop(
+                            'Not set, so every key proof naming a did:web identifier is another ' .
+                            'outbound fetch. Setting a cache adapter is recommended in production.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Cache Adapter Arguments'),
+                ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS,
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Cache Adapter Arguments'),
+                    count($this->moduleConfig->getVciCacheAdapterArguments()),
+                    ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS,
+                    Translate::noop(
+                        'Values are not shown, since adapter arguments can carry connection credentials.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('DID Document Cache Duration'),
+                ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('DID Document Cache Duration'),
+                    $this->moduleConfig->getVciDidCacheMaxDuration(),
+                    ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                    $isCachingActive ?
+                    Translate::noop(
+                        'How long a resolved DID document is reused. A DID document states no expiry ' .
+                        'of its own, so this is the whole of its freshness rule: a holder rotating a ' .
+                        'key is not seen until it runs out.',
+                    ) :
+                    Translate::noop('Not used, since no VCI cache adapter is configured.'),
+                ),
             ),
         );
     }

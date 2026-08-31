@@ -13,6 +13,8 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 #[CoversClass(VciOverviewBuilder::class)]
 #[CoversClass(AbstractOverviewBuilder::class)]
@@ -1054,5 +1056,180 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getValue());
         $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * Turning pinning off is the one DID setting which weakens a protection rather than merely
+     * widening it, so it has to stay visible to whoever opens this screen.
+     */
+    public function testWarnsWhenDidAddressPinningIsDisabled(): void
+    {
+        $requiredRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+        );
+
+        $this->assertNotNull($requiredRow);
+        $this->assertSame(AddressPinningModeEnum::Required->value, $requiredRow->getValue());
+        $this->assertNull($requiredRow->getWarning());
+
+        $disabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE => AddressPinningModeEnum::Disabled,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+        );
+
+        $this->assertNotNull($disabledRow);
+        $this->assertSame(AddressPinningModeEnum::Disabled->value, $disabledRow->getValue());
+        $this->assertNotNull($disabledRow->getWarning());
+    }
+
+
+    /**
+     * Preferred is refused when the configuration is read, and this screen is what an administrator
+     * opens to find out why, so the refusal has to be reported on the row rather than take the page
+     * down.
+     */
+    public function testReportsARefusedDidAddressPinningModeInPlace(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE => AddressPinningModeEnum::Preferred,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * Each exemption is a destination that whoever supplies a DID can send this deployment to.
+     */
+    public function testWarnsAboutDidDestinationExemptions(): void
+    {
+        $sections = $this->buildVciOverviewBuilder()->build();
+
+        $hostsRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+        );
+        $this->assertNotNull($hostsRow);
+        $this->assertSame([], $hostsRow->getValue());
+        $this->assertNull($hostsRow->getWarning());
+
+        $cidrsRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+        );
+        $this->assertNotNull($cidrsRow);
+        $this->assertSame([], $cidrsRow->getValue());
+        $this->assertNull($cidrsRow->getWarning());
+
+        $exemptedSections = $this->buildVciOverviewBuilder([
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => ['wallet.internal.example'],
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32'],
+        ])->build();
+
+        $exemptedHostsRow = $this->findRowForOption(
+            $exemptedSections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+        );
+        $this->assertNotNull($exemptedHostsRow);
+        $this->assertSame(['wallet.internal.example'], $exemptedHostsRow->getValue());
+        $this->assertNotNull($exemptedHostsRow->getWarning());
+
+        $exemptedCidrsRow = $this->findRowForOption(
+            $exemptedSections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+        );
+        $this->assertNotNull($exemptedCidrsRow);
+        $this->assertSame(['10.1.2.3/32'], $exemptedCidrsRow->getValue());
+        $this->assertNotNull($exemptedCidrsRow->getWarning());
+    }
+
+
+    /**
+     * An unusable range would otherwise be shown as a working exemption.
+     */
+    public function testReportsAnUnusableDidAddressRangeInPlace(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['not-a-range'],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    public function testNotesWhenNoVciCacheIsConfigured(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getNote());
+    }
+
+
+    /**
+     * A malformed cache option must be reported on its row rather than take the screen down. The
+     * getters only assert the value's type when it is read, and this screen is where an administrator
+     * goes to find out that a value is wrong.
+     */
+    #[DataProvider('malformedCacheOptionProvider')]
+    public function testReportsAMalformedCacheOptionInPlace(string $option, mixed $value): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([$option => $value])->build(),
+            $option,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    public static function malformedCacheOptionProvider(): array
+    {
+        return [
+            'adapter class is not a string' => [ModuleConfig::OPTION_VCI_CACHE_ADAPTER, 123],
+            'adapter arguments are not an array' => [
+                ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS,
+                'not-an-array',
+            ],
+            'cache duration is not a duration' => [
+                ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                'not-a-duration',
+            ],
+        ];
+    }
+
+
+    /**
+     * Adapter arguments can carry connection credentials, so the row counts them instead of showing
+     * them.
+     */
+    public function testDoesNotRenderVciCacheAdapterArguments(): void
+    {
+        $sections = $this->buildVciOverviewBuilder([
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER => ArrayAdapter::class,
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => ['openidVci', 'super-secret-dsn'],
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS);
+        $this->assertNotNull($row);
+        $this->assertSame('2', $row->getValue());
+
+        $this->assertStringNotContainsString('super-secret-dsn', $this->renderableContent($sections));
     }
 }

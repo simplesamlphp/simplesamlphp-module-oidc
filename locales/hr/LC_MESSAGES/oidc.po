@@ -225,11 +225,36 @@ msgstr "Obriši"
 msgid "Description"
 msgstr "Opis"
 
+msgid "DID Address Pinning"
+msgstr ""
+
+msgid "DID Document Cache Duration"
+msgstr ""
+
+msgid "DID Outbound Allowed Address Ranges"
+msgstr ""
+
+msgid "DID Outbound Allowed Hosts"
+msgstr ""
+
+msgid "DID resolution"
+msgstr ""
+
 msgid "Disabled"
 msgstr "Onemogućeno"
 
 msgid "Discovery URL"
 msgstr "URL za otkrivanje"
+
+msgid ""
+"Each of these is a destination that whoever supplies a DID can send this "
+"deployment to."
+msgstr ""
+
+msgid ""
+"Each of these is a range that whoever supplies a DID can send this "
+"deployment into."
+msgstr ""
 
 msgid "Edit"
 msgstr "Uredi"
@@ -285,6 +310,12 @@ msgstr "Forsirani ACR za autentikaciju putem kolačića"
 
 msgid "Homepage URI"
 msgstr "URI početne stranice"
+
+msgid ""
+"How long a resolved DID document is reused. A DID document states no expiry "
+"of its own, so this is the whole of its freshness rule: a holder rotating a "
+"key is not seen until it runs out."
+msgstr ""
 
 msgid "Identifier"
 msgstr "Identifikator"
@@ -390,12 +421,28 @@ msgstr "Nema registriranih klijenata"
 msgid "No entries."
 msgstr "Nema unosa."
 
+msgid "None, so a DID may only resolve to a public address."
+msgstr ""
+
+msgid ""
+"None, so a DID may only resolve to a public destination. Separate from the "
+"general outbound exemptions, which are never applied here."
+msgstr ""
+
 msgid ""
 "Note that this will first resolve Trust Chain between given entity and Trust "
 "Anchor, and only then do the Trust Mark validation."
 msgstr ""
 "Imajte na umu da će ovo prvo razriješiti lanac povjerenja između danog entiteta i sidra povjerenja, "
 "a tek onda izvršiti provjeru oznaku povjerenja."
+
+msgid ""
+"Not set, so every key proof naming a did:web identifier is another outbound "
+"fetch. Setting a cache adapter is recommended in production."
+msgstr ""
+
+msgid "Not used, since no VCI cache adapter is configured."
+msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_adminmenu.php:24
 msgid "OIDC"
@@ -422,6 +469,13 @@ msgstr "Ime organizacije"
 msgid "Owner"
 msgstr "Vlasnik"
 
+msgid ""
+"Pinning is off, so a host named by a DID can resolve to a permitted address "
+"for the check and to another one for the fetch. Only sound where a forward "
+"proxy carries every DID destination; an exclusion list or a proxy set for "
+"plain http alone leaves some going direct."
+msgstr ""
+
 msgid "PKI"
 msgstr "PKI"
 
@@ -446,6 +500,14 @@ msgstr "Javan"
 
 msgid "Public Key"
 msgstr "Javni ključ"
+
+msgid "Reachable alongside the public addresses."
+msgstr ""
+
+msgid ""
+"Reachable whatever they resolve to. The address check and the address "
+"pinning are both skipped for these."
+msgstr ""
 
 msgid "Redirect URI"
 msgstr "URI za preusmjeravanje"
@@ -584,6 +646,12 @@ msgstr "Atribut identifikator korisnika"
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:61
 msgid "User not authorized."
 msgstr "Korisnik nije autoriziran."
+
+msgid ""
+"Whether a DID document must be fetched from the address that was validated, "
+"rather than the host being resolved a second time when the connection is "
+"made."
+msgstr ""
 
 msgid "Yes"
 msgstr "Da"
