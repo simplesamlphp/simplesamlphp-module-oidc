@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -29,7 +30,6 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
-use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\TokenStatusList\StatusClaim;
 use SimpleSAML\OpenID\VerifiableCredentials;
@@ -68,7 +68,13 @@ class CredentialIssuerCredentialController
         protected readonly LoggerService $loggerService,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
-        protected readonly Did $did,
+        // The factory rather than the facade, so that the guard below is what answers a deployment with
+        // Verifiable Credentials switched off. The container resolves every argument here before this
+        // constructor body runs, and building the facade reads the DID destination settings and
+        // instantiates the VCI cache adapter - which turned that 403 into a 500 on a request this
+        // endpoint refuses outright. The only thing wanted of it is the issuer's own did:jwk, derived
+        // from a key already in hand, so nothing is built until there is a credential to sign.
+        protected readonly DidFactory $didFactory,
         protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly OpenId4VciProofValidator $openId4VciProofValidator,
         protected readonly VciContextResolver $vciContextResolver,
@@ -605,7 +611,8 @@ class CredentialIssuerCredentialController
 
             $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
 
-            $issuerDid = $this->did->didJwkResolver()->generateDidJwkFromJwk($publicKey->jwk()->all());
+            $issuerDid = $this->didFactory->build()->didJwkResolver()
+                ->generateDidJwkFromJwk($publicKey->jwk()->all());
 
             $issuedAt = new DateTimeImmutable();
 

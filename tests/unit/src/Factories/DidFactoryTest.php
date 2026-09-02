@@ -176,6 +176,34 @@ class DidFactoryTest extends TestCase
 
 
     /**
+     * One facade per request, however many collaborators ask for it.
+     *
+     * Callers build lazily rather than being handed a built facade, so several of them reach this
+     * factory within one request. Building each their own would instantiate the configured cache adapter
+     * once per caller, which for a shared backend means a connection each - where the container held
+     * exactly one facade before any of them called this directly.
+     */
+    public function testTheFacadeIsBuiltOnceAndSharedByEveryCaller(): void
+    {
+        $forVciCalls = 0;
+
+        $cacheFactoryMock = $this->createMock(CacheFactory::class);
+        $cacheFactoryMock->method('forVci')->willReturnCallback(
+            function () use (&$forVciCalls): ?VciCache {
+                $forVciCalls++;
+
+                return null;
+            },
+        );
+
+        $didFactory = new DidFactory($this->moduleConfigMock, $this->loggerServiceMock, $cacheFactoryMock);
+
+        $this->assertSame($didFactory->build(), $didFactory->build());
+        $this->assertSame(1, $forVciCalls);
+    }
+
+
+    /**
      * An exemption is a destination that whoever supplies a DID may send this deployment to, so the
      * library notices it. The factory has to hand over a logger for that to be recorded anywhere.
      */

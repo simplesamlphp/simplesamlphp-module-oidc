@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
@@ -188,12 +189,48 @@ class OpenId4VciProofValidatorTest extends TestCase
     }
 
 
+    /**
+     * Constructing this validator builds no DID facade.
+     *
+     * It is a constructor argument of the Credential Endpoint controller, so the container builds it
+     * before that controller's own constructor body can refuse a deployment with Verifiable Credentials
+     * switched off. Holding a built facade here therefore made the DID and cache settings decide the
+     * answer to a request that endpoint refuses outright.
+     */
+    public function testBuildsNoDidFacadeUntilAProofNeedsOne(): void
+    {
+        $didFactoryMock = $this->createMock(DidFactory::class);
+        $didFactoryMock->expects($this->never())->method('build');
+
+        $validator = new OpenId4VciProofValidator(
+            $this->moduleConfigMock,
+            $this->verifiableCredentialsMock,
+            $didFactoryMock,
+            $this->nonceServiceMock,
+            $this->loggerServiceMock,
+        );
+
+        // Nor does a configuration which validates no proof at all, though it goes the whole way
+        // through a request.
+        $validator->validateRequest(
+            ['credential_configuration_id' => 'test'],
+            VciCredentialBindingPolicyEnum::Proofless,
+            $this->accessTokenMock,
+        );
+    }
+
+
     protected function sut(): OpenId4VciProofValidator
     {
+        $didFactoryMock = $this->createMock(DidFactory::class);
+        // Resolved when the validator asks rather than when this is wired up, since a test which
+        // replaces the facade mock to steer one call does so before reaching for the subject.
+        $didFactoryMock->method('build')->willReturnCallback(fn(): Did => $this->didMock);
+
         return new OpenId4VciProofValidator(
             $this->moduleConfigMock,
             $this->verifiableCredentialsMock,
-            $this->didMock,
+            $didFactoryMock,
             $this->nonceServiceMock,
             $this->loggerServiceMock,
         );

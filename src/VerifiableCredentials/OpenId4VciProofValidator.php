@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
@@ -107,13 +108,44 @@ class OpenId4VciProofValidator
     ];
 
 
+    /** The DID facade for this request, obtained on first use. {@see did()} */
+    protected ?Did $did = null;
+
+
+    /**
+     * @param \SimpleSAML\Module\oidc\Factories\DidFactory $didFactory The factory rather than the facade
+     *        it builds. This validator is a constructor argument of the Credential Endpoint controller,
+     *        and the container resolves every such argument before that controller's constructor body
+     *        runs - so taking a built facade here made a deployment with Verifiable Credentials switched
+     *        off answer that endpoint by failing on DID settings it has no use for, instead of by the
+     *        403 the guard is there to give. Nothing about a proof is validated at construction, so
+     *        nothing about DID needs building then either.
+     */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly VerifiableCredentials $verifiableCredentials,
-        protected readonly Did $did,
+        protected readonly DidFactory $didFactory,
         protected readonly NonceService $nonceService,
         protected readonly LoggerService $loggerService,
     ) {
+    }
+
+
+    /**
+     * The DID facade, built the first time a proof actually needs one.
+     *
+     * The factory keeps the built facade, so this is the same instance every other collaborator in the
+     * request gets rather than one more of its own.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     * @throws \SimpleSAML\OpenID\Exceptions\DidException
+     * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException
+     * @throws \Exception
+     */
+    protected function did(): Did
+    {
+        return $this->did ??= $this->didFactory->build();
     }
 
 
@@ -491,7 +523,7 @@ class OpenId4VciProofValidator
             $this->assertPublicJwk($headerJwk);
 
             try {
-                $subject = $this->did->didJwkResolver()->generateDidJwkFromJwk($headerJwk);
+                $subject = $this->did()->didJwkResolver()->generateDidJwkFromJwk($headerJwk);
             } catch (JsonException) {
                 throw new CredentialRequestException(
                     'invalid_proof',
@@ -642,7 +674,7 @@ class OpenId4VciProofValidator
         $didResolutionBudget->noteResolutionAttempt($didUrl);
 
         try {
-            return $this->did->resolveDocument(
+            return $this->did()->resolveDocument(
                 $didUrl->getDid(),
                 $didResolutionBudget->getDeadlineTimestamp(),
             );
@@ -698,7 +730,7 @@ class OpenId4VciProofValidator
         // refusal. Asking the policy alone would accept a method it does not narrow but this deployment
         // can not resolve - refused a moment later by the resolver, but refused as an unresolvable DID
         // rather than as one this issuer never offered to accept.
-        $acceptedDidMethods = $bindingPolicy->acceptableDidMethodsFrom($this->did->supportedMethods());
+        $acceptedDidMethods = $bindingPolicy->acceptableDidMethodsFrom($this->did()->supportedMethods());
 
         if (in_array(DidUrl::PREFIX . $didUrl->getMethod(), $acceptedDidMethods, true)) {
             return;

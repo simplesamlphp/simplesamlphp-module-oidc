@@ -19,6 +19,18 @@ use SimpleSAML\OpenID\Did\DidWebResolver;
 class DidFactory
 {
     /**
+     * The facade this factory has already built, if it has.
+     *
+     * Building one instantiates the configured VCI cache adapter, which for a shared backend means
+     * opening a connection, so the callers within a request share a facade instead of each getting one
+     * of their own. The container held exactly one before any caller reached this factory directly;
+     * this is what keeps that true now that they do, and it is why a caller may build lazily without
+     * turning a single connection into one per collaborator.
+     */
+    protected ?Did $did = null;
+
+
+    /**
      * Note the configuration rather than a built policy. Building one throws when the configuration is
      * malformed, and the container reaches this factory while wiring up the admin Configuration screens -
      * the screens whose whole purpose is to report exactly such an option. Deferring it to build() keeps
@@ -38,6 +50,13 @@ class DidFactory
 
 
     /**
+     * The DID facade for this request, built on the first call and returned as it stands afterwards.
+     *
+     * Reading configuration is deferred to here rather than to the constructor, so this is the point at
+     * which a malformed DID or cache setting becomes an error - which is the whole reason a caller with
+     * no use for DID resolution can hold this factory safely. See {@see $did} for why the result is kept
+     * rather than rebuilt.
+     *
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException On a cache adapter which can not be built.
      * @throws \SimpleSAML\OpenID\Exceptions\DidException
@@ -47,6 +66,19 @@ class DidFactory
      * @throws \Exception
      */
     public function build(): Did
+    {
+        return $this->did ??= $this->buildDid();
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     * @throws \SimpleSAML\OpenID\Exceptions\DidException
+     * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException
+     * @throws \Exception
+     */
+    protected function buildDid(): Did
     {
         return new Did(
             maxCacheDuration: $this->moduleConfig->getVciDidCacheMaxDuration(),

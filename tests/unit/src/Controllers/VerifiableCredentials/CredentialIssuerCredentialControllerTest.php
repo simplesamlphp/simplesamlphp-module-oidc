@@ -19,11 +19,13 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
@@ -89,6 +91,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected MockObject $didMock;
 
+    protected MockObject $didFactoryMock;
+
     protected MockObject $issuerStateRepositoryMock;
 
     protected MockObject $openId4VciProofValidatorMock;
@@ -124,6 +128,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->didMock = $this->createMock(Did::class);
+        $this->didFactoryMock = $this->createMock(DidFactory::class);
+        $this->didFactoryMock->method('build')->willReturn($this->didMock);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->openId4VciProofValidatorMock = $this->createMock(OpenId4VciProofValidator::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
@@ -302,6 +308,30 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     }
 
 
+    /**
+     * A deployment with Verifiable Credentials switched off is refused here, and refused without the DID
+     * facade being built.
+     *
+     * Building it reads the DID destination settings and instantiates the class `vci_cache_adapter`
+     * names - neither of which such a deployment has any reason to have configured correctly, or at all.
+     * The container resolves every constructor argument before the constructor body runs, so taking a
+     * built facade meant a malformed one of those settings answered this endpoint in place of the guard,
+     * with a 500 where a 403 was intended.
+     */
+    public function testRefusesWhenVciIsDisabledWithoutBuildingTheDidFacade(): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+
+        $this->didFactoryMock = $this->createMock(DidFactory::class);
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut();
+    }
+
+
     protected function sut(): CredentialIssuerCredentialController
     {
         return new CredentialIssuerCredentialController(
@@ -314,7 +344,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->loggerServiceMock,
             $this->requestParamsResolverMock,
             $this->userRepositoryMock,
-            $this->didMock,
+            $this->didFactoryMock,
             $this->issuerStateRepositoryMock,
             $this->openId4VciProofValidatorMock,
             $this->vciContextResolverMock,
