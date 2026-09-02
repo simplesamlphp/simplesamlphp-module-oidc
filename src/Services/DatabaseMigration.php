@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Repositories\StatusAuditRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 
 class DatabaseMigration
@@ -265,6 +266,11 @@ class DatabaseMigration
         if (!in_array('20260801000005', $versions, true)) {
             $this->version20260801000005();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260801000005')");
+        }
+
+        if (!in_array('20260902000001', $versions, true)) {
+            $this->version20260902000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260902000001')");
         }
     }
 
@@ -1129,6 +1135,25 @@ EOT
             $entryTableName,
             'subject_ref',
         );
+    }
+
+
+    private function version20260902000001(): void
+    {
+        $issuerIdentityTableName = $this->database->applyPrefix(VciIssuerIdentityRepository::TABLE_NAME);
+        $dateTimeColumnType = $this->dateTimeColumnType();
+
+        // Keyed on a hash of the identifier rather than on the identifier itself: a did:jwk carries a
+        // whole public key, and an RSA one is longer than MySQL will accept in an index.
+        $this->database->write(<<< EOT
+        CREATE TABLE IF NOT EXISTS $issuerIdentityTableName (
+            identifier_hash CHAR(64) PRIMARY KEY NOT NULL,
+            identifier TEXT NOT NULL,
+            mode VARCHAR(32) NOT NULL,
+            first_used_at $dateTimeColumnType NOT NULL
+        )
+EOT
+            ,);
     }
 
 

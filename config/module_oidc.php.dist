@@ -1121,6 +1121,77 @@ $config = [
     ],
 
     /**
+     * How issued credentials name the issuer which signed them, in the `iss`
+     * claim and the `kid` header. Default is `did_jwk`.
+     *
+     *  - VciIssuerIdentifierModeEnum::DidJwk ('did_jwk'): a `did:jwk` derived from
+     *    the active signing key. The credential carries the key with it and so
+     *    verifies with no lookup at all, but nothing ties the DID to this
+     *    deployment; whoever verifies it has to establish that by other means.
+     *  - VciIssuerIdentifierModeEnum::DidWeb ('did_web'): the identifier set in
+     *    OPTION_VCI_ISSUER_DID_IDENTIFIER, which must then be set. Resolvable by
+     *    anyone and bound to a domain name, which is what the DIIP profile asks
+     *    of an issuer.
+     *  - VciIssuerIdentifierModeEnum::Https ('https'): this module's issuer URL,
+     *    with the signing key named by its key set identifier and resolved
+     *    through the published JWKS. This is what makes the
+     *    `.well-known/jwt-vc-issuer` document meaningful, and a way out for
+     *    verifiers which will not accept a DID. It is NOT DIIP conformant: the
+     *    profile requires the issuer to be identified by a DID.
+     *
+     * Read when a credential is signed, so a change here reaches newly issued
+     * credentials only. The ones already in wallets keep naming the identity
+     * they were issued under, which is why moving away from `did_web` does not
+     * on its own stop the DID document being published - see the option below.
+     *
+     * Under `https` the same obligation falls on the key set rather than on a
+     * document: a credential names its signing key by its JWKS key ID, so it is
+     * verifiable only while that key is still published. So while this says
+     * `https`, the VCI keys stay in JWKS and `.well-known/jwt-vc-issuer` keeps
+     * being served even when OPTION_VCI_ENABLED is false. **Moving off `https`
+     * withdraws both**, and credentials issued under it stop verifying at that
+     * point - so make that change only once they have expired, or serve their
+     * key set by other means. The Verifiable Credential configuration screen
+     * lists which identities credentials were actually issued under, which is
+     * what configuration alone cannot tell you.
+     */
+    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE =>
+        \SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum::DidJwk,
+
+    /**
+     * (optional) The `did:web` identifier this deployment publishes a DID
+     * document for. Required when OPTION_VCI_ISSUER_IDENTIFIER_MODE is
+     * `did_web`. Under the other modes it is optional, and **keep it set** for
+     * as long as credentials issued under it still need to be verified - see
+     * the lifecycle note below.
+     *
+     * The document is served at the module's `did.json` route, and is served
+     * whenever this option is set - including when the mode above has moved on
+     * to something else. That is deliberate: a credential issued under a
+     * `did:web` identity can only be verified by resolving that DID, so
+     * withdrawing the document the moment the mode changes would make every
+     * credential issued under it permanently unverifiable. Keep this set to go
+     * on answering for what was issued earlier; remove it to retire the
+     * identity, which is a decision rather than a side effect.
+     *
+     * Configured rather than derived, because the `did:web` method decides the
+     * document URL from the identifier alone. `did:web:example.org` resolves to
+     * `https://example.org/.well-known/did.json`, at the web root, which
+     * SimpleSAMLphp does not serve; deriving one from the module URL would
+     * instead give something like
+     * `did:web:example.org:simplesaml:module.php:oidc`, which no deployment
+     * would choose to put into its credentials. Either way, whatever URL the
+     * identifier resolves to has to be made to reach the module's `did.json`
+     * route, typically with a rewrite or a reverse proxy. The Verifiable
+     * Credential configuration overview screen shows both URLs and says when
+     * they differ.
+     *
+     * Example:
+     *  'did:web:example.org'
+     */
+    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+
+    /**
      * Allow or disallow non-registered clients to request verifiable
      * credentials. Default is disallowed (false).
      */

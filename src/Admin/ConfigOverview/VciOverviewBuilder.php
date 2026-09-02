@@ -8,13 +8,19 @@ use DateInterval;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
+use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use Stringable;
 use Throwable;
@@ -45,6 +51,23 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         CredentialFormatIdentifiersEnum::DcSdJwt->value,
         CredentialFormatIdentifiersEnum::VcSdJwt->value,
     ];
+
+
+    /**
+     * The repository is read only here, and the Configuration screens already resolve a database
+     * connection through DatabaseMigration, so this adds no failure mode they did not have. The rows
+     * which use it still catch for themselves, since these screens exist to be readable while
+     * something is broken.
+     */
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        Routes $routes,
+        DateIntervalFormatter $dateIntervalFormatter,
+        LoggerService $logger,
+        protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
+    ) {
+        parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
+    }
 
 
     /**
@@ -345,6 +368,9 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'the OP is reached, which breaks already issued credential offers.',
                 ),
             ),
+            $this->buildIssuerIdentityModeRow(),
+            $this->buildIssuerDidIdentifierRow(),
+            $this->buildIssuedIdentitiesRow(),
             new Row(
                 Translate::noop('Credential Issuer Configuration URL'),
                 $this->routes->urlCredentialIssuerConfiguration(),
@@ -354,6 +380,187 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 Translate::noop('JWT VC Issuer Configuration URL'),
                 $this->routes->urlJwtVcIssuerConfiguration(),
                 ConfigOverviewValueTypeEnum::Url,
+            ),
+        );
+    }
+
+
+    /**
+     * Which identity newly issued credentials are signed under.
+     */
+    protected function buildIssuerIdentityModeRow(): Row
+    {
+        $label = Translate::noop('Issuer Identity Mode');
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+            function () use ($label): Row {
+                $mode = $this->moduleConfig->getVciIssuerIdentifierMode();
+
+                return new Row(
+                    $label,
+                    $mode->value,
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                    match ($mode) {
+                        VciIssuerIdentifierModeEnum::DidJwk => Translate::noop(
+                            'Credentials name a did:jwk derived from the active signing key, so they ' .
+                            'carry that key with them and verify without any lookup. Whoever verifies ' .
+                            'one must still bind the DID to this issuer by their own means.',
+                        ),
+                        VciIssuerIdentifierModeEnum::DidWeb => Translate::noop(
+                            'Credentials name the configured did:web below, and can be verified only ' .
+                            'while the DID document for it is published and reachable.',
+                        ),
+                        VciIssuerIdentifierModeEnum::Https => Translate::noop(
+                            'Credentials name this issuer by its URL and their signing key by its key ' .
+                            'set identifier, which is what makes the JWT VC Issuer configuration ' .
+                            'meaningful.',
+                        ),
+                    },
+                    $mode === VciIssuerIdentifierModeEnum::Https ? Translate::noop(
+                        'This mode is not DIIP conformant on its own: the profile requires the issuer ' .
+                        'to be identified by a Decentralized Identifier.',
+                    ) : null,
+                );
+            },
+        );
+    }
+
+
+    /**
+     * The did:web this deployment publishes a document for, and where that document has to be served.
+     *
+     * Both URLs are shown rather than only the module's own, because the did:web method decides the
+     * first one from the identifier alone: a deployment whose DID carries no path is asking for a URL
+     * at the web root, which SimpleSAMLphp never serves, so something in front has to map one to the
+     * other. Comparing hosts would not catch it, since the path segments decide the URL too.
+     */
+    protected function buildIssuerDidIdentifierRow(): Row
+    {
+        $label = Translate::noop('Issuer did:web Identifier');
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+            function () use ($label): Row {
+                $identifier = $this->moduleConfig->getVciIssuerIdentifier();
+                $didWeb = $identifier->getDidWeb();
+
+                if (is_null($didWeb)) {
+                    return new Row(
+                        $label,
+                        Translate::noop('None configured'),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                        Translate::noop('No DID document is published.'),
+                    );
+                }
+
+                $documentUrl = DidWebResolver::documentUrlFor($didWeb);
+                $servedAt = $this->routes->urlVciDidDocument();
+
+                return new Row(
+                    $label,
+                    [
+                        'did' => $didWeb,
+                        'resolvesTo' => $documentUrl,
+                        'servedAt' => $servedAt,
+                    ],
+                    ConfigOverviewValueTypeEnum::Json,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                    $identifier->isIssuingUnderDidWeb() ?
+                    Translate::noop(
+                        'Newly issued credentials are issued under this identity, and the DID document ' .
+                        'for it is published.',
+                    ) :
+                    Translate::noop(
+                        'Nothing is issued under this identity any more, but its DID document is still ' .
+                        'published so that credentials issued under it earlier stay verifiable. ' .
+                        'Removing this option retires the identity and withdraws the document.',
+                    ),
+                    $documentUrl === $servedAt ? null : Translate::noop(
+                        'The URL this identifier resolves to is not the one this module serves the ' .
+                        'document at, so something in front of it has to map the first to the second. ' .
+                        'Until it does, nothing can resolve this identity and credentials naming it ' .
+                        'can not be verified.',
+                    ),
+                );
+            },
+        );
+    }
+
+
+    /**
+     * Which identities this deployment has actually issued credentials under.
+     *
+     * Configuration cannot answer this, and it is the question which matters: a did:web identity that
+     * was issued under and is no longer published leaves those credentials unverifiable, and nothing
+     * else would report it. Only did:web is flagged, since a did:jwk credential carries its own key
+     * and an issuer URL keeps resolving through the published key set.
+     */
+    protected function buildIssuedIdentitiesRow(): Row
+    {
+        $label = Translate::noop('Identities Credentials Were Issued Under');
+
+        try {
+            $used = $this->vciIssuerIdentityRepository->getAllUsed();
+            $didWeb = $this->moduleConfig->getVciIssuerIdentifier()->getDidWeb();
+        } catch (Throwable $exception) {
+            $this->logger->error(
+                'Configuration overview could not read which issuer identities were issued under: ' .
+                $exception->getMessage(),
+                ['exceptionClass' => $exception::class],
+            );
+
+            return new Row(
+                $label,
+                Translate::noop('N/A'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                null,
+                Translate::noop(
+                    'This could not be read, so a change of issuer identity can not be reported here. ' .
+                    'The reason was written to the SimpleSAMLphp log.',
+                ),
+            );
+        }
+
+        if ($used === []) {
+            return new Row(
+                $label,
+                Translate::noop('None recorded'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                Translate::noop(
+                    'No credential has been issued yet, or every one of them was issued before this ' .
+                    'was recorded.',
+                ),
+            );
+        }
+
+        $noLongerPublished = array_keys(array_filter(
+            $used,
+            static fn(string $mode, string $identifier): bool =>
+                $mode === VciIssuerIdentifierModeEnum::DidWeb->value && $identifier !== $didWeb,
+            ARRAY_FILTER_USE_BOTH,
+        ));
+
+        return new Row(
+            $label,
+            array_keys($used),
+            ConfigOverviewValueTypeEnum::StringList,
+            null,
+            Translate::noop(
+                'Credentials naming any of these have been issued, and credentials do not expire ' .
+                'unless a lifetime is configured for them.',
+            ),
+            $noLongerPublished === [] ? null : Translate::noop(
+                'A did:web identity listed here is no longer the configured one, so its DID document ' .
+                'is no longer published and every credential issued under it can no longer be ' .
+                'verified. Set it as the did:web identifier again to resume publishing it, or serve ' .
+                'the document it needs by other means.',
             ),
         );
     }

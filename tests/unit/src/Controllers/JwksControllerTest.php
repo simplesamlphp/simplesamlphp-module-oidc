@@ -7,12 +7,16 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jwks\Factories\JwksDecoratorFactory;
 use SimpleSAML\OpenID\Jwks\JwksDecorator;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
 /**
@@ -110,5 +114,60 @@ class JwksControllerTest extends TestCase
         $response = $this->mock()->jwks();
         $this->assertTrue($response->headers->has('Access-Control-Allow-Origin'));
         $this->assertSame('*', $response->headers->get('Access-Control-Allow-Origin'));
+    }
+
+
+    /**
+     * Under the `https` issuer identity a credential names its signing key by its identifier in this
+     * key set and carries the key nowhere else, so withdrawing it when issuance is switched off would
+     * make every credential already issued unverifiable.
+     */
+    public function testItKeepsPublishingVciKeysForCredentialsWhichNameThemHere(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getVciStatusListPoolBag')
+            ->willReturn(new StatusListPoolBag());
+        $this->moduleConfigMock->method('getVciIssuerIdentifierMode')
+            ->willReturn(VciIssuerIdentifierModeEnum::Https);
+        $this->moduleConfigMock->expects($this->once())->method('getVciSignatureKeyPairBag')
+            ->willReturn(new SignatureKeyPairBag());
+
+        $this->mock()->__invoke();
+    }
+
+
+    /**
+     * The identity modes which carry their key with the credential do not need it here, so the key set
+     * stays as it was before the issuer identity became configurable.
+     */
+    public function testItWithdrawsVciKeysForIdentitiesWhichDoNotNeedThem(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getVciStatusListPoolBag')
+            ->willReturn(new StatusListPoolBag());
+        $this->moduleConfigMock->method('getVciIssuerIdentifierMode')
+            ->willReturn(VciIssuerIdentifierModeEnum::DidJwk);
+        $this->moduleConfigMock->expects($this->never())->method('getVciSignatureKeyPairBag');
+
+        $this->mock()->__invoke();
+    }
+
+
+    /**
+     * A key set which cannot be served takes down verification of every token this issuer has ever
+     * signed, so a malformed issuer identity must not reach it.
+     */
+    public function testAMalformedIssuerIdentityModeDoesNotTakeTheKeySetDown(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getVciStatusListPoolBag')
+            ->willReturn(new StatusListPoolBag());
+        $this->moduleConfigMock->method('getVciIssuerIdentifierMode')
+            ->willThrowException(new ConfigurationError('nope'));
+        $this->moduleConfigMock->expects($this->never())->method('getVciSignatureKeyPairBag');
+
+        $response = $this->mock()->jwks();
+
+        $this->assertSame(200, $response->getStatusCode());
     }
 }

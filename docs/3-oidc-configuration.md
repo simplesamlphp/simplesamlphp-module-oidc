@@ -78,6 +78,8 @@ There you can see discovery URLs. Typical discovery endpoints are:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server](https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server)
 - JWT VC Issuer configuration:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/jwt-vc-issuer](https://yourserver/simplesaml/module.php/oidc/.well-known/jwt-vc-issuer)
+- DID document, when a `did:web` issuer identifier is configured:
+[https://yourserver/simplesaml/module.php/oidc/did.json](https://yourserver/simplesaml/module.php/oidc/did.json)
 
 You may publish these as ".well-known" URLs at the web root using your
 web server. For example, for `openid-configuration`:
@@ -228,6 +230,104 @@ runs out.
 
 These settings are shown in the admin area under `OIDC` > `Configuration`, on
 the VCI screen.
+
+## Issuer identity and the DID document
+
+A credential says who issued it in its `iss` claim and which key signed it in its
+`kid` header, and whoever verifies it has to be able to resolve both.
+`OPTION_VCI_ISSUER_IDENTIFIER_MODE` decides how:
+
+- `did_jwk` (default): `iss` is a `did:jwk` derived from the active signing key
+  and `kid` is that DID with the `#0` fragment. The credential carries the key
+  with it, so it verifies with no lookup at all. Nothing ties the DID to this
+  deployment, though; a verifier has to establish that by other means.
+- `did_web`: `iss` is the identifier set in `OPTION_VCI_ISSUER_DID_IDENTIFIER`
+  and `kid` names one verification method inside the DID document this module
+  publishes. Resolvable by anyone and bound to a domain name, which is what the
+  DIIP profile asks of an issuer.
+- `https`: `iss` is this module's issuer URL and `kid` is the key's JWKS key ID,
+  so the key is resolved through the published key set. This is what makes the
+  `.well-known/jwt-vc-issuer` document meaningful, and a way out for verifiers
+  which will not accept a DID. **It is not DIIP conformant**, since the profile
+  requires the issuer to be identified by a DID.
+
+The mode is read when a credential is signed, so changing it reaches newly issued
+credentials only. Credentials already in wallets go on naming the identity they
+were issued under — which is what the retention rules below are about.
+
+### Keeping the `https` identity resolvable
+
+Under `https` a credential names its signing key by its JWKS key ID, so it is
+verifiable only while that key is still published. Two endpoints therefore stop
+following `OPTION_VCI_ENABLED` while this mode is selected: the VCI keys stay in
+the published JWKS, and `.well-known/jwt-vc-issuer` — which is how an SD-JWT VC
+verifier finds that key set — keeps being served. Turning issuance off stops new
+credentials being issued without making the existing ones unverifiable, the same
+guarantee the Status List and DID document endpoints give.
+
+**Moving off `https` withdraws both.** Unlike `did:web`, there is no separate
+option to keep serving under: the identity is the issuer URL, which every mode
+has. Credentials issued under `https` therefore stop verifying when the mode
+changes, so make that change only once they have expired, or arrange to serve
+their key set by other means.
+
+### Serving the DID document
+
+The document is served at `.../module.php/oidc/did.json`, and lists **every** key
+configured under `OPTION_VCI_SIGNATURE_KEY_PAIRS` — not only the pair currently
+signing — under both `verificationMethod` and `assertionMethod`. That is the same
+reasoning as the JWKS document: a key which signed a credential still in
+circulation has to stay resolvable, so a pair displaced by a rollover must remain
+configured. Each verification method is named by its key ID, so the `kid` in a
+credential stays stable across restarts and reordering.
+
+The `did:web` method decides the document's URL from the identifier alone, which
+is why the identifier is configured rather than derived. `did:web:example.org`
+resolves to `https://example.org/.well-known/did.json`, at the web root, which
+SimpleSAMLphp does not serve; deriving one from the module URL would instead give
+`did:web:example.org:simplesaml:module.php:oidc`, which no deployment would
+choose to put into its credentials. Either way, whatever URL your identifier
+resolves to has to be made to reach `did.json`, the same way the well-known URLs
+above are:
+
+nginx:
+
+```nginx
+location = /.well-known/did.json {
+    rewrite ^(.*)$ /simplesaml/module.php/oidc/did.json break;
+    proxy_pass https://localhost;
+}
+```
+
+The VCI configuration screen shows both URLs — the one the identifier resolves to
+and the one this module serves — and says so when they differ.
+
+Like the Status List endpoint, this one is **not** gated on
+`OPTION_VCI_ENABLED`. Turning issuance off has to stop new credentials being
+issued, not make the existing ones unverifiable.
+
+### Changing or retiring a `did:web` identity
+
+A credential naming a `did:web` identity can only be verified by resolving that
+DID. If the document stops being served, the signature can never be checked
+again — the credential is unverifiable, not merely unbound — and credentials do
+not expire unless `OPTION_VCI_CREDENTIAL_TTLS` gives them a lifetime.
+
+So the document is published **whenever `OPTION_VCI_ISSUER_DID_IDENTIFIER` is
+set**, including when the mode has moved on to `did_jwk` or `https`. In that
+state nothing new is issued under the DID, but what was issued under it earlier
+keeps verifying. Removing the option is what retires the identity, and that is
+then a decision rather than a side effect of changing the mode.
+
+To move to a different `did:web` identity while keeping the old one resolvable,
+the old document has to be served by other means: it is a static JSON file, so
+fetch it from `did.json` before changing the option and park it at the URL the
+old identifier resolves to.
+
+The VCI configuration screen lists every identity this deployment has actually
+issued credentials under, and warns when one of them is a `did:web` it no longer
+publishes. Configuration alone cannot answer that question, which is why it is
+recorded as credentials are issued.
 
 ## Holder binding and the DIIP profile
 

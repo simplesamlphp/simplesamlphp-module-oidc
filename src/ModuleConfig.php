@@ -16,9 +16,11 @@ use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
@@ -30,6 +32,7 @@ use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
+use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
@@ -261,6 +264,10 @@ class ModuleConfig
     final public const string OPTION_TIMESTAMP_VALIDATION_LEEWAY = 'timestamp_validation_leeway';
 
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
+
+    final public const string OPTION_VCI_ISSUER_IDENTIFIER_MODE = 'vci_issuer_identifier_mode';
+
+    final public const string OPTION_VCI_ISSUER_DID_IDENTIFIER = 'vci_issuer_did_identifier';
 
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
 
@@ -2323,6 +2330,121 @@ class ModuleConfig
     public function getActiveVciSignatureKeyPair(): SignatureKeyPair
     {
         return $this->getVciSignatureKeyPairBag()->getFirstOrFail();
+    }
+
+
+    /**
+     * Which kind of identity newly issued credentials are signed under.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerIdentifierMode(): VciIssuerIdentifierModeEnum
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_ISSUER_IDENTIFIER_MODE, null);
+
+        if (is_null($configured)) {
+            return VciIssuerIdentifierModeEnum::DidJwk;
+        }
+
+        if ($configured instanceof VciIssuerIdentifierModeEnum) {
+            return $configured;
+        }
+
+        if (is_string($configured) && (($mode = VciIssuerIdentifierModeEnum::tryFrom($configured)) !== null)) {
+            return $mode;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Option "%s" must be one of: %s.',
+                self::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(VciIssuerIdentifierModeEnum $case): string => $case->value,
+                        VciIssuerIdentifierModeEnum::cases(),
+                    ),
+                ),
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+    }
+
+
+    /**
+     * The did:web this deployment publishes a DID document for, or null when it publishes none.
+     *
+     * Configured rather than derived, deliberately. Deriving it from the module URL would produce
+     * something like did:web:example.org:simplesaml:module.php:oidc, which is a name no deployment
+     * would choose to put into credentials, and the clean did:web:example.org resolves to a URL at the
+     * web root which SimpleSAMLphp does not serve at all - so either way the deployment has to say
+     * which name it is publishing under and arrange for that URL to reach this module.
+     *
+     * Validated through the library's own did:web rules rather than by pattern here, so that an
+     * identifier which is syntactically a DID but could never be resolved - an IP literal host, a
+     * single label one, a percent encoded segment - is refused where it is configured rather than
+     * after credentials have been issued under it.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerDidIdentifier(): ?string
+    {
+        $configured = $this->config()->getOptionalString(self::OPTION_VCI_ISSUER_DID_IDENTIFIER, null);
+
+        if (is_null($configured) || trim($configured) === '') {
+            return null;
+        }
+
+        $configured = trim($configured);
+
+        try {
+            DidWebResolver::assertIdentifierIsResolvable($configured);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is not a did:web identifier which could be resolved: %s',
+                    self::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                    $throwable->getMessage(),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $configured;
+    }
+
+
+    /**
+     * The two issuer identity options, resolved together.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerIdentifier(): VciIssuerIdentifier
+    {
+        $mode = $this->getVciIssuerIdentifierMode();
+        $didWeb = $this->getVciIssuerDidIdentifier();
+
+        // The one combination which can not be honoured. Every other pairing means something: the DID
+        // set under another mode keeps its document published for credentials issued earlier, and no
+        // DID at all under another mode is simply a deployment which never used one.
+        if ($mode === VciIssuerIdentifierModeEnum::DidWeb && is_null($didWeb)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is set to "%s", so option "%s" must name the did:web to issue under.',
+                    self::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                    VciIssuerIdentifierModeEnum::DidWeb->value,
+                    self::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        try {
+            return new VciIssuerIdentifier($mode, $didWeb);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError($throwable->getMessage(), self::DEFAULT_FILE_NAME);
+        }
     }
 
 

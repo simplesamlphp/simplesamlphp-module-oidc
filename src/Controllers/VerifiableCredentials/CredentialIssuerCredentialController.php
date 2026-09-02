@@ -11,12 +11,12 @@ use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
-use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -25,6 +25,8 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -68,14 +70,15 @@ class CredentialIssuerCredentialController
         protected readonly LoggerService $loggerService,
         protected readonly RequestParamsResolver $requestParamsResolver,
         protected readonly UserRepository $userRepository,
-        // The factory rather than the facade, so that the guard below is what answers a deployment with
-        // Verifiable Credentials switched off. The container resolves every argument here before this
-        // constructor body runs, and building the facade reads the DID destination settings and
-        // instantiates the VCI cache adapter - which turned that 403 into a 500 on a request this
-        // endpoint refuses outright. The only thing wanted of it is the issuer's own did:jwk, derived
-        // from a key already in hand, so nothing is built until there is a credential to sign.
-        protected readonly DidFactory $didFactory,
+        // Holds the DID facade factory rather than a built facade, so that the guard below is what
+        // answers a deployment with Verifiable Credentials switched off. The container resolves every
+        // argument here before this constructor body runs, and building the facade reads the DID
+        // destination settings and instantiates the VCI cache adapter - which turned that 403 into a
+        // 500 on a request this endpoint refuses outright. Nothing is built until there is a credential
+        // to sign.
+        protected readonly VciIssuerIdentityResolver $vciIssuerIdentityResolver,
         protected readonly IssuerStateRepository $issuerStateRepository,
+        protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
         protected readonly OpenId4VciProofValidator $openId4VciProofValidator,
         protected readonly VciContextResolver $vciContextResolver,
         protected readonly CredentialStatusIssuer $credentialStatusIssuer,
@@ -445,6 +448,10 @@ class CredentialIssuerCredentialController
 
         $issuedCredentialsData = [];
 
+        // Noted from inside the loop so that what is recorded afterwards is the identity credentials
+        // were actually signed under, rather than what configuration said before any of them was.
+        $issuerIdentity = null;
+
         foreach ($validatedProofs as $validatedProof) {
             // A configuration which issues credentials that are not bound to a holder key has no wallet
             // key to name here, so the subject is one this issuer derives from the authenticated user.
@@ -609,10 +616,13 @@ class CredentialIssuerCredentialController
 
             $signingKey = $vciSignatureKeyPair->getKeyPair()->getPrivateKey();
 
-            $publicKey = $vciSignatureKeyPair->getKeyPair()->getPublicKey();
-
-            $issuerDid = $this->didFactory->build()->didJwkResolver()
-                ->generateDidJwkFromJwk($publicKey->jwk()->all());
+            // How the credential says who issued it and which key signed it. Resolved from the
+            // configured identity and the key pair in hand rather than derived here, so that the `iss`
+            // claim and the `kid` header can not be built under different rules.
+            $issuerIdentity = $this->vciIssuerIdentityResolver->resolve(
+                $this->moduleConfig->getVciIssuerIdentifier(),
+                $vciSignatureKeyPair,
+            );
 
             $issuedAt = new DateTimeImmutable();
 
@@ -656,7 +666,8 @@ class CredentialIssuerCredentialController
             $this->loggerService->info('Signing and issuing verifiable credential.', [
                 'vcId' => $vcId,
                 'format' => $credentialFormatId,
-                'issuerDid' => $issuerDid,
+                'issuer' => $issuerIdentity->getIssuer(),
+                'issuerKeyId' => $issuerIdentity->getKeyId(),
                 'sub' => $sub,
                 'algorithm' => $signatureAlgorithm->value,
                 'expiresAt' => $expiresAt?->getTimestamp(),
@@ -699,7 +710,7 @@ class CredentialIssuerCredentialController
                             $resolvedCredentialIdentifier,
                         ],
                         //ClaimsEnum::Issuer->value => $this->moduleConfig->getIssuer(),
-                        ClaimsEnum::Issuer->value => $issuerDid,
+                        ClaimsEnum::Issuer->value => $issuerIdentity->getIssuer(),
                         ClaimsEnum::Issuance_Date->value => $issuedAt->format(DateTimeInterface::RFC3339),
                         ClaimsEnum::Id->value => $vcId,
                         ClaimsEnum::Credential_Subject->value =>
@@ -720,7 +731,7 @@ class CredentialIssuerCredentialController
                         [
                         ClaimsEnum::Vc->value => $verifiableCredentialBody,
                         //ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
-                        ClaimsEnum::Iss->value => $issuerDid,
+                        ClaimsEnum::Iss->value => $issuerIdentity->getIssuer(),
                         ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                         ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                         ClaimsEnum::Sub->value => $sub,
@@ -729,7 +740,7 @@ class CredentialIssuerCredentialController
                         $commonClaims,
                     ),
                     [
-                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                    ClaimsEnum::Kid->value => $issuerIdentity->getKeyId(),
                     ],
                 );
             }
@@ -737,7 +748,7 @@ class CredentialIssuerCredentialController
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
                 $sdJwtPayload = array_merge(
                     [
-                    ClaimsEnum::Iss->value => $issuerDid,
+                    ClaimsEnum::Iss->value => $issuerIdentity->getIssuer(),
                     ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Sub->value => $sub,
@@ -752,7 +763,7 @@ class CredentialIssuerCredentialController
                     $signatureAlgorithm,
                     $sdJwtPayload,
                     [
-                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                    ClaimsEnum::Kid->value => $issuerIdentity->getKeyId(),
                     ],
                     disclosureBag: $disclosureBag,
                 );
@@ -775,11 +786,11 @@ class CredentialIssuerCredentialController
                             CredentialTypesEnum::VerifiableCredential->value,
                             $resolvedCredentialIdentifier,
                         ],
-                        ClaimsEnum::Issuer->value => $issuerDid,
+                        ClaimsEnum::Issuer->value => $issuerIdentity->getIssuer(),
                         ClaimsEnum::ValidFrom->value => $issuedAt->format(DateTimeInterface::RFC3339),
                         ClaimsEnum::Credential_Subject->value =>
                         $credentialSubject[ClaimsEnum::Credential_Subject->value] ?? [],
-                        ClaimsEnum::Iss->value => $issuerDid,
+                        ClaimsEnum::Iss->value => $issuerIdentity->getIssuer(),
                         ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                         ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
                         ClaimsEnum::Sub->value => $sub,
@@ -799,7 +810,7 @@ class CredentialIssuerCredentialController
                     $signatureAlgorithm,
                     $sdJwtPayload,
                     [
-                    ClaimsEnum::Kid->value => $issuerDid . '#0',
+                    ClaimsEnum::Kid->value => $issuerIdentity->getKeyId(),
                     ],
                     disclosureBag: $disclosureBag,
                 );
@@ -815,6 +826,25 @@ class CredentialIssuerCredentialController
                 ['token' => substr($token, 0, 20) . '...'],
                 //['token' => $token],
             );
+        }
+
+        // Note which identity this deployment has now issued under, so that a later change to it can be
+        // reported rather than only discovered by whoever fails to verify an older credential. Recorded
+        // after the fact and only when something was actually issued, since an identity nothing was
+        // signed under obliges this deployment to nothing.
+        if ($issuedCredentialsData !== [] && $issuerIdentity instanceof VciIssuerIdentity) {
+            try {
+                $this->vciIssuerIdentityRepository->recordUsage($issuerIdentity);
+            } catch (Throwable $throwable) {
+                // Deliberately not fatal, unlike the Status List allocation above. The credential is
+                // signed and valid whether or not this was written; all that is lost is the ability to
+                // warn about a later identity change, so failing the request would trade a real
+                // credential for a diagnostic.
+                $this->loggerService->error(
+                    'Could not record the issuer identity credentials were issued under.',
+                    ['issuer' => $issuerIdentity->getIssuer(), 'error' => $throwable->getMessage()],
+                );
+            }
         }
 
         if (is_string($issuerState)) {

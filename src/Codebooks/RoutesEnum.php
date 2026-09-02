@@ -92,6 +92,18 @@ enum RoutesEnum: string
     case JwtVcIssuerConfiguration = '.well-known/jwt-vc-issuer';
 
     /*****************************************************************************************************************
+     * Decentralized Identifiers
+     ****************************************************************************************************************/
+
+    // Publishes the DID document for the configured did:web identifier. The did:web method appends
+    // "did.json" to the path its identifier transforms to, so the name of this route is fixed by the
+    // method rather than chosen here. Like the Status List route, it is deliberately not gated on the
+    // Verifiable Credential Issuance switch: a credential issued under a did:web identity can only be
+    // verified by resolving that DID, so withholding this document makes such credentials unverifiable
+    // rather than merely unissuable.
+    case VciDidDocument = 'did.json';
+
+    /*****************************************************************************************************************
      * API
      ****************************************************************************************************************/
 

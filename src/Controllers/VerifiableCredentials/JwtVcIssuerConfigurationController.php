@@ -14,12 +14,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class JwtVcIssuerConfigurationController
 {
@@ -31,9 +33,30 @@ class JwtVcIssuerConfigurationController
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
     ) {
-        if (!$this->moduleConfig->getVciEnabled()) {
+        if (!$this->moduleConfig->getVciEnabled() && !$this->isNeededByIssuedCredentials()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
+        }
+    }
+
+
+    /**
+     * Whether credentials already issued are verified by way of this document.
+     *
+     * Under the `https` issuer identity, an SD-JWT VC states its issuer as a URL and a verifier finds
+     * the key set to check it against by fetching exactly this document. Withdrawing it when issuance
+     * is switched off would therefore not stop credentials being issued - it would stop the ones
+     * already issued from being verified, which is the same reason the Status List and DID document
+     * endpoints are not gated on that switch either.
+     */
+    protected function isNeededByIssuedCredentials(): bool
+    {
+        try {
+            return $this->moduleConfig->getVciIssuerIdentifierMode() === VciIssuerIdentifierModeEnum::Https;
+        } catch (Throwable) {
+            // Reported on the configuration overview screen, which owns that error. Here the
+            // conservative reading is the one this endpoint had before the identity was configurable.
+            return false;
         }
     }
 

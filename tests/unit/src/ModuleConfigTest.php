@@ -8,6 +8,7 @@ use DateInterval;
 use Defuse\Crypto\Key;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
@@ -1901,5 +1903,155 @@ class ModuleConfigTest extends TestCase
             ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
             'whenever-convenient',
         ))->getVciDidAddressPinningMode();
+    }
+
+
+    /**
+     * The default is what the module did before the option existed.
+     *
+     * @throws \Exception
+     */
+    public function testIssuerIdentifierModeDefaultsToDidJwk(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame(VciIssuerIdentifierModeEnum::DidJwk, $sut->getVciIssuerIdentifierMode());
+        $this->assertNull($sut->getVciIssuerDidIdentifier());
+        $this->assertSame(VciIssuerIdentifierModeEnum::DidJwk, $sut->getVciIssuerIdentifier()->getMode());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testIssuerIdentifierModeAcceptsAnEnumCaseOrItsValue(): void
+    {
+        $this->assertSame(
+            VciIssuerIdentifierModeEnum::Https,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                VciIssuerIdentifierModeEnum::Https,
+            ))->getVciIssuerIdentifierMode(),
+        );
+
+        $this->assertSame(
+            VciIssuerIdentifierModeEnum::Https,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                'https',
+            ))->getVciIssuerIdentifierMode(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnUnknownIssuerIdentifierMode(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+            'did:sov',
+        ))->getVciIssuerIdentifierMode();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheConfiguredDidWebIdentifier(): void
+    {
+        $identifier = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:example.org',
+        ]))->getVciIssuerIdentifier();
+
+        $this->assertTrue($identifier->isIssuingUnderDidWeb());
+        $this->assertSame('did:web:example.org', $identifier->getDidWeb());
+    }
+
+
+    /**
+     * The state the publish-after-mode-change rule rests on: the identifier is still configured, so
+     * its document is still published, but nothing is issued under it any more.
+     *
+     * @throws \Exception
+     */
+    public function testKeepsADidWebIdentifierConfiguredUnderAnotherMode(): void
+    {
+        $identifier = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:example.org',
+        ]))->getVciIssuerIdentifier();
+
+        $this->assertFalse($identifier->isIssuingUnderDidWeb());
+        $this->assertSame('did:web:example.org', $identifier->getDidWeb());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsDidWebModeWithoutAnIdentifierToIssueUnder(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+            VciIssuerIdentifierModeEnum::DidWeb,
+        ))->getVciIssuerIdentifier();
+    }
+
+
+    /**
+     * Refused where it is configured rather than after credentials have been issued under it. These
+     * are all syntactically DIDs; none of them is one this library could ever resolve.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unresolvableDidWebIdentifierDataProvider')]
+    public function testRejectsADidWebIdentifierWhichCouldNotBeResolved(string $identifier): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+            $identifier,
+        ))->getVciIssuerDidIdentifier();
+    }
+
+
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function unresolvableDidWebIdentifierDataProvider(): array
+    {
+        return [
+            'single label host' => ['did:web:localhost'],
+            'IPv4 literal' => ['did:web:127.0.0.1'],
+            'percent encoded segment' => ['did:web:example.org:%2Fetc'],
+            'another method' => ['did:key:z6Mk'],
+            'not a DID at all' => ['https://example.org'],
+            'carries a fragment' => ['did:web:example.org#0'],
+        ];
+    }
+
+
+    /**
+     * An option left as an empty string is the same as not setting it, since a deployment which
+     * cleared the value meant to stop publishing rather than to publish under nothing.
+     *
+     * @throws \Exception
+     */
+    public function testTreatsABlankDidWebIdentifierAsNoneAtAll(): void
+    {
+        $this->assertNull(
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER, '  '))
+                ->getVciIssuerDidIdentifier(),
+        );
     }
 }

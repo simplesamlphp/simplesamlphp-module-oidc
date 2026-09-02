@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers;
 
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Jwks;
@@ -36,7 +37,15 @@ class JwksController
         // which stops new credentials being issued -- credentials already in wallets point at those
         // lists and have to stay verifiable -- so withdrawing the key their tokens are signed with the
         // moment issuance is turned off would break exactly the guarantee that lifecycle rests on.
-        $vciPublicKeys = ($this->moduleConfig->getVciEnabled() || $this->isAnyStatusListKeyPublished())
+        //
+        // The issuer identity mode is asked for the same reason. Under it, a credential names its
+        // signing key by the identifier it carries here and nowhere else, so a credential already in a
+        // wallet is verifiable only while this key set still lists that key.
+        $isVciKeySetNeeded = $this->moduleConfig->getVciEnabled() ||
+        $this->isAnyStatusListKeyPublished() ||
+        $this->isCredentialKeyResolvedThroughThisKeySet();
+
+        $vciPublicKeys = $isVciKeySetNeeded
         ? $this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys()
         : [];
 
@@ -82,6 +91,33 @@ class JwksController
         }
 
         return false;
+    }
+
+
+    /**
+     * Whether credentials this deployment issues name their signing key by its identifier in this key
+     * set, rather than carrying the key with them.
+     *
+     * Answered from configuration alone, for the same reason the Status List question above is: a
+     * repository would open a database connection before this controller is entered, and a key set
+     * which has never needed a database would then fail whenever the database did, taking down
+     * verification of every token this issuer has ever signed.
+     *
+     * The gap that leaves is an operator moving the issuer identity off this mode while credentials
+     * issued under it are still being verified. That is reported where it can be acted on: the
+     * Verifiable Credential configuration screen lists the identities credentials were actually issued
+     * under, which is a question configuration cannot answer.
+     */
+    protected function isCredentialKeyResolvedThroughThisKeySet(): bool
+    {
+        try {
+            return $this->moduleConfig->getVciIssuerIdentifierMode() === VciIssuerIdentifierModeEnum::Https;
+        } catch (Throwable) {
+            // A mode which cannot be resolved is reported on the configuration overview screen, which
+            // owns that error. Here the conservative reading is the one which leaves this key set as it
+            // was before the issuer identity was configurable at all.
+            return false;
+        }
     }
 
 

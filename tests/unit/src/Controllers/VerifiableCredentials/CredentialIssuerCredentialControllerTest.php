@@ -14,17 +14,18 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
-use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -34,11 +35,12 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
-use SimpleSAML\OpenID\Did;
-use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Helpers as VcHelpers;
 use SimpleSAML\OpenID\Helpers\Arr as VcArr;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
@@ -66,6 +68,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected const string ISSUER = 'https://issuer.com';
 
+    protected const string ISSUER_DID = 'did:jwk:test';
+
     protected const string STATUS_LIST_URI = 'https://issuer.com/module.php/oidc/statuslist/list-1';
 
     protected const string HOLDER_DID = 'did:jwk:holder';
@@ -89,9 +93,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected MockObject $userRepositoryMock;
 
-    protected MockObject $didMock;
+    protected MockObject $vciIssuerIdentityResolverMock;
 
-    protected MockObject $didFactoryMock;
+    protected MockObject $vciIssuerIdentityRepositoryMock;
 
     protected MockObject $issuerStateRepositoryMock;
 
@@ -127,9 +131,15 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
-        $this->didMock = $this->createMock(Did::class);
-        $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->method('build')->willReturn($this->didMock);
+        $this->vciIssuerIdentityResolverMock = $this->createMock(VciIssuerIdentityResolver::class);
+        $this->vciIssuerIdentityResolverMock->method('resolve')->willReturn(
+            new VciIssuerIdentity(
+                VciIssuerIdentifierModeEnum::DidJwk,
+                self::ISSUER_DID,
+                self::ISSUER_DID . '#0',
+            ),
+        );
+        $this->vciIssuerIdentityRepositoryMock = $this->createMock(VciIssuerIdentityRepository::class);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->openId4VciProofValidatorMock = $this->createMock(OpenId4VciProofValidator::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
@@ -141,6 +151,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         // VCI must be enabled in constructor
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('getVciIssuerIdentifier')
+            ->willReturn(new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::DidJwk));
         $this->moduleConfigMock->method('getVciValidCredentialClaimPathsFor')->willReturn([]);
         $this->moduleConfigMock->method('getVciUserAttributeToCredentialClaimPathMapFor')->willReturn([]);
         $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
@@ -199,10 +211,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')
             ->willReturn($this->vciSignatureKeyPairMock);
-
-        $didJwkResolverMock = $this->createMock(DidJwkResolver::class);
-        $this->didMock->method('didJwkResolver')->willReturn($didJwkResolverMock);
-        $didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn('did:jwk:test');
 
         $vcHelpersMock = $this->createMock(VcHelpers::class);
         $this->verifiableCredentialsMock->method('helpers')->willReturn($vcHelpersMock);
@@ -309,22 +317,22 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * A deployment with Verifiable Credentials switched off is refused here, and refused without the DID
-     * facade being built.
+     * A deployment with Verifiable Credentials switched off is refused here, and refused without an
+     * issuer identity being resolved.
      *
-     * Building it reads the DID destination settings and instantiates the class `vci_cache_adapter`
-     * names - neither of which such a deployment has any reason to have configured correctly, or at all.
-     * The container resolves every constructor argument before the constructor body runs, so taking a
-     * built facade meant a malformed one of those settings answered this endpoint in place of the guard,
-     * with a 500 where a 403 was intended.
+     * Resolving one builds the DID facade, which reads the DID destination settings and instantiates
+     * the class `vci_cache_adapter` names - neither of which such a deployment has any reason to have
+     * configured correctly, or at all. The container resolves every constructor argument before the
+     * constructor body runs, so anything which builds that facade eagerly answers this endpoint in
+     * place of the guard, with a 500 where a 403 was intended.
      */
-    public function testRefusesWhenVciIsDisabledWithoutBuildingTheDidFacade(): void
+    public function testRefusesWhenVciIsDisabledWithoutResolvingAnIssuerIdentity(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
 
-        $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->expects($this->never())->method('build');
+        $this->vciIssuerIdentityResolverMock = $this->createMock(VciIssuerIdentityResolver::class);
+        $this->vciIssuerIdentityResolverMock->expects($this->never())->method('resolve');
 
         $this->expectException(OidcServerException::class);
 
@@ -344,8 +352,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->loggerServiceMock,
             $this->requestParamsResolverMock,
             $this->userRepositoryMock,
-            $this->didFactoryMock,
+            $this->vciIssuerIdentityResolverMock,
             $this->issuerStateRepositoryMock,
+            $this->vciIssuerIdentityRepositoryMock,
             $this->openId4VciProofValidatorMock,
             $this->vciContextResolverMock,
             $this->credentialStatusIssuerMock,

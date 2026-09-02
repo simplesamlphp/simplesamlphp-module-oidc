@@ -2307,3 +2307,81 @@ msgid ""
 "methods and proof types it accepts, and a Credential Request carrying no "
 "valid key proof is refused."
 msgstr ""
+
+msgid "Issuer Identity Mode"
+msgstr ""
+
+msgid ""
+"Credentials name a did:jwk derived from the active signing key, so they "
+"carry that key with them and verify without any lookup. Whoever verifies "
+"one must still bind the DID to this issuer by their own means."
+msgstr ""
+
+msgid ""
+"Credentials name the configured did:web below, and can be verified only "
+"while the DID document for it is published and reachable."
+msgstr ""
+
+msgid ""
+"Credentials name this issuer by its URL and their signing key by its key "
+"set identifier, which is what makes the JWT VC Issuer configuration "
+"meaningful."
+msgstr ""
+
+msgid ""
+"This mode is not DIIP conformant on its own: the profile requires the "
+"issuer to be identified by a Decentralized Identifier."
+msgstr ""
+
+msgid "Issuer did:web Identifier"
+msgstr ""
+
+msgid "No DID document is published."
+msgstr ""
+
+msgid ""
+"Newly issued credentials are issued under this identity, and the DID "
+"document for it is published."
+msgstr ""
+
+msgid ""
+"Nothing is issued under this identity any more, but its DID document is "
+"still published so that credentials issued under it earlier stay "
+"verifiable. Removing this option retires the identity and withdraws the "
+"document."
+msgstr ""
+
+msgid ""
+"The URL this identifier resolves to is not the one this module serves the "
+"document at, so something in front of it has to map the first to the "
+"second. Until it does, nothing can resolve this identity and credentials "
+"naming it can not be verified."
+msgstr ""
+
+msgid "Identities Credentials Were Issued Under"
+msgstr ""
+
+msgid ""
+"This could not be read, so a change of issuer identity can not be reported "
+"here. The reason was written to the SimpleSAMLphp log."
+msgstr ""
+
+msgid "None recorded"
+msgstr ""
+
+msgid ""
+"No credential has been issued yet, or every one of them was issued before "
+"this was recorded."
+msgstr ""
+
+msgid ""
+"Credentials naming any of these have been issued, and credentials do not "
+"expire unless a lifetime is configured for them."
+msgstr ""
+
+msgid ""
+"A did:web identity listed here is no longer the configured one, so its DID "
+"document is no longer published and every credential issued under it can no "
+"longer be verified. Set it as the did:web identifier again to resume "
+"publishing it, or serve the document it needs by other means."
+msgstr ""

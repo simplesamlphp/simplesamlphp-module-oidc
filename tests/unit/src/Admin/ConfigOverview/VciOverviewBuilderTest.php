@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -23,6 +24,14 @@ class VciOverviewBuilderTest extends TestCase
 {
     use OverviewTestTrait;
     use VciOverviewTestTrait;
+
+
+    /**
+     * A did:web whose document URL a stock module installation can actually serve, and that URL.
+     */
+    protected const string DID_WEB_WITH_PATH = 'did:web:example.org:simplesaml:module.php:oidc';
+
+    protected const string DID_WEB_WITH_PATH_URL = 'https://example.org/simplesaml/module.php/oidc/did.json';
 
 
     /**
@@ -1242,5 +1251,187 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNoDisplayedOptionCanThrow(
             fn(array $overrides): VciOverviewBuilder => $this->buildVciOverviewBuilder($overrides),
         );
+    }
+
+
+    public function testShowsTheIssuerIdentityModeAndSaysWhatItMeans(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(VciIssuerIdentifierModeEnum::DidJwk->value, $row->getValue());
+        $this->assertNotEmpty($row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The `https` mode is a deliberate way out for verifiers which will not take a DID, but the
+     * profile this module claims to follow requires one, so the screen has to say so.
+     */
+    public function testWarnsThatTheHttpsIssuerIdentityIsNotProfileConformant(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::Https,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('DIIP', (string)$row->getWarning());
+    }
+
+
+    public function testSaysWhenNoDidDocumentIsPublished(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Both URLs are shown, and no warning while they agree.
+     */
+    public function testShowsWhereTheDidWebIdentifierResolvesTo(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            [
+                'did' => self::DID_WEB_WITH_PATH,
+                'resolvesTo' => self::DID_WEB_WITH_PATH_URL,
+                'servedAt' => self::DID_WEB_WITH_PATH_URL,
+            ],
+            $row->getValue(),
+        );
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Comparing hosts alone would not catch this: the path segments decide the URL too, and the bare
+     * form asks for one at the web root which SimpleSAMLphp never serves.
+     */
+    public function testWarnsWhenTheDidWebIdentifierResolvesElsewhere(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:example.org',
+                ],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('map', (string)$row->getWarning());
+    }
+
+
+    /**
+     * The document stays published after the mode moves on, and the row says that is what is
+     * happening rather than leaving it looking like a stale setting.
+     */
+    public function testSaysADidWebDocumentIsStillPublishedAfterTheModeMovedOn(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('still', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    public function testSaysNothingHasBeenIssuedYet(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder()->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None recorded', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * A did:jwk credential carries its own key and an issuer URL keeps resolving through the published
+     * key set, so neither is a reason to warn. Only a did:web identity which is no longer published is.
+     */
+    public function testDoesNotWarnAboutIdentitiesWhichStayResolvable(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                [
+                    'did:jwk:retired' => VciIssuerIdentifierModeEnum::DidJwk->value,
+                    'https://issuer.example.org' => VciIssuerIdentifierModeEnum::Https->value,
+                    self::DID_WEB_WITH_PATH => VciIssuerIdentifierModeEnum::DidWeb->value,
+                ],
+                self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            ['did:jwk:retired', 'https://issuer.example.org', self::DID_WEB_WITH_PATH],
+            $row->getValue(),
+        );
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The whole point of recording what was issued under: configuration alone cannot tell anyone that
+     * credentials exist which nothing can resolve any more.
+     */
+    public function testWarnsAboutADidWebIdentityWhichIsNoLongerPublished(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [],
+                ['did:web:retired.example.org' => VciIssuerIdentifierModeEnum::DidWeb->value],
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('no longer published', (string)$row->getWarning());
     }
 }
