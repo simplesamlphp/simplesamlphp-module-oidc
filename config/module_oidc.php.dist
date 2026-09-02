@@ -1649,6 +1649,29 @@ $config = [
      * resolves to. The configuration advertises both
      * `cryptographic_binding_methods_supported` and `proof_types_supported`.
      *
+     * VciCredentialBindingPolicyEnum::DiipProofBound is the above plus the
+     * identifier rules the DIIP profile writes on top of OpenID4VCI: the key
+     * proof must name its key in a `kid` header which is an absolute did:jwk
+     * or did:web URL, resolved from the `authentication` relationship of that
+     * DID document. Two things follow, both about that header:
+     *
+     *  - a key proof carrying its key inline in a `jwk` header is refused,
+     *    since it names no verification method to point at;
+     *  - a did:key holder is refused, though every other configuration keeps
+     *    accepting one.
+     *
+     * The `iss` claim is left to OpenID4VCI, which has it name the client the
+     * access token was issued to, and omitted when no client is identified.
+     * DIIP's own text asks for the holder's DID there instead, which cannot
+     * hold at the same time as that rule for an anonymous pre-authorized code;
+     * FIDEScommunity/DIIP#83 proposes dropping it in favour of the `kid` rule
+     * above, and that is what this implements. A wallet identified by a DID
+     * still works - it is accepted, not required, and holder binding does not
+     * rest on it.
+     *
+     * The configuration advertises did:jwk and did:web as its binding methods
+     * rather than everything this deployment can resolve.
+     *
      * VciCredentialBindingPolicyEnum::Proofless issues credentials which are
      * not bound to any wallet key, to a subject identifier derived from the
      * authenticated user. The configuration then advertises neither of those
@@ -1673,6 +1696,8 @@ $config = [
 //    ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => [
 //        'UniversityDegreeCredential' =>
 //            \SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum::ProofBound,
+//        'DiipCredential' =>
+//            \SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum::DiipProofBound,
 //        'EmployeeBadgeCredential' =>
 //            \SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum::Proofless,
 //    ],

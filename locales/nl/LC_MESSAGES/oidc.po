@@ -157,6 +157,13 @@ msgstr "Client met opgegeven entiteits-ID bestaat al."
 msgid "Confidential"
 msgstr "Vertrouwelijk"
 
+msgid ""
+"Configurations listed as 'proofless' issue credentials which are not bound "
+"to any wallet key, so nothing ties an issued credential to whoever presents "
+"it later. They advertise no binding methods and no proof types, and a key "
+"proof sent to them is refused."
+msgstr ""
+
 msgid "Configuration URL"
 msgstr "Configuratie-URL"
 
@@ -393,6 +400,16 @@ msgstr "OIDC-installatie"
 
 msgid "One or more values from the list. If not selected, falls back to 'automatic'"
 msgstr "Een of meer waarden uit de lijst. Indien niet geselecteerd, terugvallen op 'automatisch'"
+
+msgid ""
+"Only the configurations which differ from the default are listed, with the "
+"policy each one uses. Under 'diip_proof_bound' the DIIP profile rules apply "
+"on top of the OpenID4VCI ones: a key proof must name its key in a 'kid' "
+"header which is an absolute did:jwk or did:web URL, resolved from the "
+"authentication relationship of that document. A key carried inline and a "
+"did:key holder are refused, though every other configuration keeps "
+"accepting both."
+msgstr ""
 
 msgid "OpenID Federation Related Properties"
 msgstr "OpenID Federation-gerelateerde eigenschappen"
@@ -1634,7 +1651,6 @@ msgstr ""
 msgid "These pools are inert, since Status Lists are disabled."
 msgstr ""
 
-
 msgid "Status List Requests Per Minute"
 msgstr ""
 
@@ -2290,12 +2306,4 @@ msgid ""
 "proves it holds, which is the default. Each one advertises the binding "
 "methods and proof types it accepts, and a Credential Request carrying no "
 "valid key proof is refused."
-msgstr ""
-
-msgid ""
-"These credential configurations issue credentials which are not bound to "
-"any wallet key, so nothing ties an issued credential to whoever presents it "
-"later. They advertise no binding methods and no proof types, and a key "
-"proof sent to them is refused. Configurations which are not listed require "
-"a key proof."
 msgstr ""

@@ -20,9 +20,12 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\VerificationRelationshipEnum;
 use SimpleSAML\OpenID\Did;
+use SimpleSAML\OpenID\Did\DidDocument;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
-use SimpleSAML\OpenID\Did\DidKeyJwkResolver;
+use SimpleSAML\OpenID\Did\DidUrl;
+use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
 use SimpleSAML\OpenID\Exceptions\DidException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\SupportedAlgorithms;
@@ -50,6 +53,10 @@ class OpenId4VciProofValidatorTest extends TestCase
 
     protected const string HOLDER_DID_URL = self::HOLDER_DID . '#0';
 
+    protected const string HOLDER_DID_WEB = 'did:web:wallet.example.org';
+
+    protected const string HOLDER_DID_WEB_URL = self::HOLDER_DID_WEB . '#key-1';
+
     /** @var array<string,string> A public EC key, as a wallet would send it in a `jwk` header. */
     protected const array PUBLIC_EC_JWK = [
         'kty' => 'EC',
@@ -73,9 +80,10 @@ class OpenId4VciProofValidatorTest extends TestCase
 
     protected MockObject $didJwkResolverMock;
 
-    protected MockObject $didKeyResolverMock;
-
     protected MockObject $accessTokenMock;
+
+    /** How many times the request under test sent this issuer out to resolve a DID document. */
+    protected int $documentResolutions = 0;
 
 
     protected function setUp(): void
@@ -97,23 +105,87 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->verifiableCredentialsMock->method('openId4VciProofFactory')->willReturn($this->proofFactoryMock);
 
         $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
-        $this->didKeyResolverMock = $this->createMock(DidKeyJwkResolver::class);
         $this->didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
-        $this->didMock->method('didKeyResolver')->willReturn($this->didKeyResolverMock);
-        $this->didJwkResolverMock->method('extractJwkFromDidJwk')->willReturn(self::PUBLIC_EC_JWK);
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn(self::HOLDER_DID);
-        $this->didKeyResolverMock->method('extractJwkFromDidKey')->willReturn(self::PUBLIC_EC_JWK);
+
+        // One call handles every DID method, so the resolvers behind it are no longer stubbed one by
+        // one. Whichever verification method a proof names resolves to a key under the DID it sits
+        // under, which is what lets a test spoil that relationship on purpose.
+        $this->documentResolutions = 0;
+        $this->didMock->method('resolveDocument')->willReturnCallback(
+            function (string $did): DidDocument {
+                $this->documentResolutions++;
+
+                return $this->didDocument($did);
+            },
+        );
 
         $this->nonceServiceMock->method('validateNonce')->willReturn(true);
 
         // An authenticated wallet by default, so the anonymous pre-authorized rules are opted into by
         // the tests which are about them rather than applying everywhere.
+        $this->walletIdentifiedAs(self::CLIENT_ID);
+    }
+
+
+    /**
+     * The access token a proof accompanies, issued to a wallet known by this identifier.
+     */
+    protected function walletIdentifiedAs(string $clientId): void
+    {
         $clientMock = $this->createMock(ClientEntityInterface::class);
-        $clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $clientMock->method('getIdentifier')->willReturn($clientId);
         $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciAuthorizationCode);
         $this->accessTokenMock->method('getBoundClientId')->willReturn(null);
         $this->accessTokenMock->method('getClient')->willReturn($clientMock);
+    }
+
+
+    /**
+     * A document which offers every key asked of it, under the authentication relationship.
+     *
+     * Documents rather than single methods, because that is what the validator resolves: one fetch
+     * answers for every key of one holder, and a test can count the fetches a request caused.
+     */
+    protected function didDocument(string $did): DidDocument
+    {
+        $didDocumentMock = $this->createMock(DidDocument::class);
+        $didDocumentMock->method('getId')->willReturn($did);
+        // A named method rather than a closure: rector rewrites a single-return closure into an arrow
+        // function, and the arrow function this one becomes is too long for the line limit phpcs
+        // enforces, so the two tools disagree about every spelling but this one.
+        $didDocumentMock->method('resolveVerificationMethod')->willReturnCallback(
+            $this->verificationMethodIn(...),
+        );
+
+        return $didDocumentMock;
+    }
+
+
+    protected function verificationMethodIn(
+        DidUrl $didUrl,
+        ?VerificationRelationshipEnum $relationship,
+    ): ResolvedVerificationMethod {
+        return new ResolvedVerificationMethod(
+            $didUrl->getDid(),
+            $didUrl,
+            self::PUBLIC_EC_JWK,
+            $relationship,
+        );
+    }
+
+
+    protected function resolvedVerificationMethod(string $didUrl): ResolvedVerificationMethod
+    {
+        $parsedDidUrl = new DidUrl($didUrl);
+
+        return new ResolvedVerificationMethod(
+            $parsedDidUrl->getDid(),
+            $parsedDidUrl,
+            self::PUBLIC_EC_JWK,
+            VerificationRelationshipEnum::Authentication,
+        );
     }
 
 
@@ -180,6 +252,29 @@ class OpenId4VciProofValidatorTest extends TestCase
         );
 
         return ['proofs' => ['jwt' => array_fill(0, $proofCount, 'proof-jwt')]];
+    }
+
+
+    /**
+     * A request whose proofs differ from one another, for the rules which are about the request rather
+     * than about any one proof in it.
+     *
+     * @param list<array<string,mixed>> $overridesPerProof
+     * @return array<string,mixed>
+     */
+    protected function requestWithProofs(array $overridesPerProof): array
+    {
+        $index = 0;
+        $this->proofFactoryMock->method('fromToken')->willReturnCallback(
+            function () use ($overridesPerProof, &$index): OpenId4VciProof {
+                /** @var array<string,mixed> $overrides */
+                $overrides = $overridesPerProof[$index++] ?? [];
+
+                return $this->proofMock($overrides);
+            },
+        );
+
+        return ['proofs' => ['jwt' => array_fill(0, count($overridesPerProof), 'proof-jwt')]];
     }
 
 
@@ -439,24 +534,190 @@ class OpenId4VciProofValidatorTest extends TestCase
 
 
     /**
-     * `did:web` arrives in a later step; until then an unresolvable method has to be refused rather than
-     * fallen through, which is what left proofs unverified.
+     * A `kid` which is not a DID URL at all is refused rather than falling through, which is what left
+     * proofs unverified before every method went through one resolution call.
      */
     public function testRefusesAVerificationMethodItCanNotResolve(): void
     {
-        $this->assertRefusedWith('invalid_proof', $this->requestWith(['getKeyId' => 'did:web:example.org#0']));
         $this->assertRefusedWith('invalid_proof', $this->requestWith(['getKeyId' => 'not-a-did']));
     }
 
 
-    public function testRefusesAVerificationMethodWhichFailsToResolve(): void
+    /**
+     * A JOSE `kid` names a key. Resolving the bare DID and then picking a verification method out of
+     * its document would be this issuer choosing which of the holder's keys the credential is bound to,
+     * and writing that choice into a `cnf` claim the wallet never asserted.
+     */
+    public function testRefusesAKeyIdWhichNamesOnlyTheDid(): void
     {
-        $didJwkResolverMock = $this->createMock(DidJwkResolver::class);
-        $didJwkResolverMock->method('extractJwkFromDidJwk')->willThrowException(new DidException('malformed'));
+        $this->assertRefusedWith('invalid_proof', $this->requestWith(['getKeyId' => self::HOLDER_DID]));
+        $this->assertRefusedWith('invalid_proof', $this->requestWith(['getKeyId' => self::HOLDER_DID_WEB]));
+    }
+
+
+    public function testRefusesADidWhichFailsToResolve(): void
+    {
         $this->didMock = $this->createMock(Did::class);
-        $this->didMock->method('didJwkResolver')->willReturn($didJwkResolverMock);
+        $this->didMock->method('resolveDocument')
+            ->willThrowException(new DidException('could not be retrieved'));
 
         $this->assertRefusedWith('invalid_proof', $this->requestWith());
+    }
+
+
+    /**
+     * A document which resolves but does not offer the named key for authentication is refused just the
+     * same, and with the same message: which of the two failed is a wallet's own business to work out.
+     *
+     * Note the policy here is the default `ProofBound`, not `DiipProofBound`. A verification
+     * relationship is how a DID controller says what a key may be used for, so a key listed under none
+     * of them has not been authorized to authenticate with, whichever profile the configuration runs.
+     */
+    public function testRefusesAVerificationMethodTheDocumentDoesNotOffer(): void
+    {
+        $didDocumentMock = $this->createMock(DidDocument::class);
+        $didDocumentMock->method('resolveVerificationMethod')
+            ->willThrowException(new DidException('not under that relationship'));
+
+        $this->didMock = $this->createMock(Did::class);
+        $this->didMock->method('resolveDocument')->willReturn($didDocumentMock);
+
+        $this->assertRefusedWith('invalid_proof', $this->requestWith());
+    }
+
+
+    /**
+     * The holder authenticates with this key, so the document has to list it under that relationship.
+     * Passing none would search the document's own verificationMethod entries instead, which is not the
+     * same question.
+     */
+    public function testResolvesUnderTheAuthenticationRelationship(): void
+    {
+        $didDocumentMock = $this->createMock(DidDocument::class);
+        $didDocumentMock->expects($this->once())->method('resolveVerificationMethod')
+            ->with(
+                $this->callback(
+                    static fn(DidUrl $didUrl): bool => $didUrl->getValue() === self::HOLDER_DID_URL,
+                ),
+                VerificationRelationshipEnum::Authentication,
+            )
+            ->willReturn($this->resolvedVerificationMethod(self::HOLDER_DID_URL));
+
+        $this->didMock = $this->createMock(Did::class);
+        $this->didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+        // The whole request shares one deadline, so the fetch is bounded by when the request has to be
+        // done rather than by the per-fetch timeout each proof would otherwise get to itself.
+        $this->didMock->expects($this->once())->method('resolveDocument')
+            ->with(self::HOLDER_DID, $this->isFloat())
+            ->willReturn($didDocumentMock);
+
+        $this->sut()->validateRequest(
+            $this->requestWith(),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+    }
+
+
+    /**
+     * `did:web` is the point of this step: it resolves through the same call as every other method,
+     * rather than needing a branch of its own added to a chain.
+     */
+    public function testAcceptsADidWebHolder(): void
+    {
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(['getKeyId' => self::HOLDER_DID_WEB_URL]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+        $this->assertSame(self::HOLDER_DID_WEB_URL, $validatedProofs[0]->getKeyId());
+    }
+
+
+    /*****************************************************************************************************
+     * What one request may spend on resolving the DIDs it names.
+     ****************************************************************************************************/
+
+    /**
+     * A DID which has to be fetched is fetched once, however many proofs in the request name it.
+     */
+    public function testResolvesADidOnlyOncePerRequest(): void
+    {
+        $this->sut()->validateRequest(
+            $this->requestWithProofs(array_fill(0, 4, ['getKeyId' => self::HOLDER_DID_WEB_URL])),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertSame(1, $this->documentResolutions);
+    }
+
+
+    /**
+     * And once for the whole document, not once per key named in it.
+     *
+     * Memoising the verification method instead would have kept the cap counting DIDs while the
+     * requests went out per proof: a batch naming eight keys of one holder is one DID to the budget and
+     * was eight fetches on the wire, so the bound this states would have been true about DIDs and false
+     * about outbound requests. The library's cache closes the same gap when one is configured; nothing
+     * requires one to be.
+     */
+    public function testResolvesOneDocumentForEveryKeyABatchNamesInIt(): void
+    {
+        $overridesPerProof = [];
+
+        for ($index = 0; $index < ModuleConfig::VCI_BATCH_SIZE; $index++) {
+            $overridesPerProof[] = ['getKeyId' => sprintf('%s#key-%d', self::HOLDER_DID_WEB, $index)];
+        }
+
+        $this->sut()->validateRequest(
+            $this->requestWithProofs($overridesPerProof),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertSame(1, $this->documentResolutions);
+    }
+
+
+    /**
+     * Eight proofs naming eight hosts is not a wallet collecting credentials, it is a request using this
+     * issuer to reach eight places.
+     */
+    public function testRefusesMoreDistinctFetchedDidsThanOneRequestMay(): void
+    {
+        $overridesPerProof = [];
+
+        for ($index = 0; $index <= OpenId4VciProofValidator::MAX_NETWORK_RESOLVED_DIDS; $index++) {
+            $overridesPerProof[] = ['getKeyId' => sprintf('did:web:wallet%d.example.org#key-1', $index)];
+        }
+
+        $this->assertRefusedWith('invalid_proof', $this->requestWithProofs($overridesPerProof));
+    }
+
+
+    /**
+     * The cap counts only the DIDs which have to be fetched. Under `did:jwk` every key is its own DID,
+     * so counting those as well would refuse a legitimate batch of the advertised size.
+     */
+    public function testLocallyResolvedDidsDoNotCountAgainstTheFetchBudget(): void
+    {
+        $overridesPerProof = [];
+
+        for ($index = 0; $index < ModuleConfig::VCI_BATCH_SIZE; $index++) {
+            $overridesPerProof[] = ['getKeyId' => sprintf('%s%d', self::HOLDER_DID_URL, $index)];
+        }
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithProofs($overridesPerProof),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(ModuleConfig::VCI_BATCH_SIZE, $validatedProofs);
     }
 
 
@@ -640,5 +901,216 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->proofFactoryMock->method('fromToken')->willReturnOnConsecutiveCalls($goodProof, $badProof);
 
         $this->assertRefusedWith('invalid_proof', ['proofs' => ['jwt' => ['good-jwt', 'bad-jwt']]]);
+    }
+
+
+    /*****************************************************************************************************
+     * The DIIP profile rules, which apply on top of the OpenID4VCI ones for configurations set to them.
+     ****************************************************************************************************/
+
+    /**
+     * A wallet identified by a `did:web`, naming a key under that same DID. Everything the profile asks
+     * for, and the shape a conformant wallet sends.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsAProofWhichMeetsTheDiipRules(): void
+    {
+        $this->walletIdentifiedAs(self::HOLDER_DID_WEB);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith([
+                'getIssuer' => self::HOLDER_DID_WEB,
+                'getKeyId' => self::HOLDER_DID_WEB_URL,
+            ]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+        $this->assertSame(self::HOLDER_DID_WEB_URL, $validatedProofs[0]->getKeyId());
+    }
+
+
+    /**
+     * A `did:jwk` holder satisfies the profile just as well, so the rules are about the method being one
+     * of the two the profile names rather than about the identifier being fetched.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsADidJwkHolderUnderTheDiipRules(): void
+    {
+        $this->walletIdentifiedAs(self::HOLDER_DID);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(['getIssuer' => self::HOLDER_DID]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID, $validatedProofs[0]->getSubject());
+    }
+
+
+    /**
+     * The profile's holder binding is carried by the `kid` header, so a proof with no `iss` at all is
+     * accepted here exactly as it is everywhere else.
+     *
+     * The profile's own text asks for the holder's DID in `iss`, which cannot hold at the same time as
+     * OpenID4VCI's rule for an anonymous pre-authorized code. FIDEScommunity/DIIP#83 proposes dropping
+     * that requirement in favour of the `kid` rule, and this follows the proposal.
+     *
+     * @throws \Throwable
+     */
+    public function testTheDiipRulesDoNotRequireAnIssuerClaim(): void
+    {
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(['getIssuer' => null, 'getKeyId' => self::HOLDER_DID_WEB_URL]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+    }
+
+
+    /**
+     * And a wallet identified by a URL is not turned away. Requiring a DID here would have constrained
+     * how a wallet registers while adding nothing to holder binding, which rests on possession of a key
+     * the holder's DID document lists.
+     *
+     * @throws \Throwable
+     */
+    public function testTheDiipRulesDoNotRequireTheWalletToBeIdentifiedByADid(): void
+    {
+        // The default wallet, identified by a URL, sending a proof which names it correctly.
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(['getIssuer' => self::CLIENT_ID, 'getKeyId' => self::HOLDER_DID_WEB_URL]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+    }
+
+
+    /**
+     * A DID `iss` is still accepted, since the profile's text asks for one and nothing here refuses it.
+     *
+     * @throws \Throwable
+     */
+    public function testTheDiipRulesStillAcceptADidIssuerClaim(): void
+    {
+        $this->walletIdentifiedAs(self::HOLDER_DID_WEB);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith([
+                'getIssuer' => self::HOLDER_DID_WEB,
+                'getKeyId' => self::HOLDER_DID_WEB_URL,
+            ]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+    }
+
+
+    /**
+     * `did:key` keeps working for every other configuration. The profile names two methods, and it is
+     * the `kid` header they constrain.
+     */
+    public function testTheDiipRulesRefuseAHolderMethodTheProfileDoesNotName(): void
+    {
+        $didKey = 'did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK';
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith(['getKeyId' => $didKey . '#z6Mkh']),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+        );
+
+        // Refused before the fetch, not after. Nothing is fetched for a did:key either way, but the
+        // same ordering holds for a method which would be.
+        $this->assertSame(0, $this->documentResolutions);
+    }
+
+
+    /**
+     * The profile's requirements are written in DID URLs, and a key sent inline names no verification
+     * method for one to point at. Every other configuration keeps accepting it.
+     */
+    public function testTheDiipRulesRefuseAnInlineKey(): void
+    {
+        $this->walletIdentifiedAs(self::HOLDER_DID_WEB);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith([
+                'getIssuer' => self::HOLDER_DID_WEB,
+                'getKeyId' => null,
+                'getJsonWebKey' => self::PUBLIC_EC_JWK,
+            ]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+        );
+    }
+
+
+    /**
+     * The case the whole `iss` question turns on.
+     *
+     * OpenID4VCI requires the claim to be absent when the access token identifies no client, and the
+     * profile's own text requires the holder's DID to be in it. Read literally, the two mean a DIIP
+     * configuration could never be issued through an anonymous pre-authorized code. Binding on the
+     * `kid` header instead leaves both rules satisfied and the flow usable.
+     *
+     * @throws \Throwable
+     */
+    public function testTheDiipRulesAreMetThroughAnAnonymousPreAuthorizedCode(): void
+    {
+        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
+        $this->accessTokenMock->method('getBoundClientId')->willReturn(null);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(['getIssuer' => null, 'getKeyId' => self::HOLDER_DID_WEB_URL]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+        $this->assertSame(self::HOLDER_DID_WEB_URL, $validatedProofs[0]->getKeyId());
+    }
+
+
+    /**
+     * A pre-authorized code which does identify its wallet is a different case, and the profile applies
+     * to it like any other.
+     *
+     * @throws \Throwable
+     */
+    public function testAPreAuthorizedCodeIdentifyingItsWalletSatisfiesTheDiipRules(): void
+    {
+        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
+        $this->accessTokenMock->method('getBoundClientId')->willReturn(self::HOLDER_DID_WEB);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith([
+                'getIssuer' => self::HOLDER_DID_WEB,
+                'getKeyId' => self::HOLDER_DID_WEB_URL,
+            ]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
     }
 }

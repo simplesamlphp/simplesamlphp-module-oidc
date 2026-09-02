@@ -229,6 +229,102 @@ runs out.
 These settings are shown in the admin area under `OIDC` > `Configuration`, on
 the VCI screen.
 
+## Holder binding and the DIIP profile
+
+A credential configuration decides for itself whether the credentials it issues
+are bound to a key the wallet proves it holds, and under which rules. The choice
+is one option, because OpenID4VCI ties the metadata and the issuance together:
+`proof_types_supported` must be present wherever
+`cryptographic_binding_methods_supported` is, and a Credential Request must
+carry `proofs` wherever `proof_types_supported` is.
+
+```php
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+
+ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => [
+    'UniversityDegreeCredential' => VciCredentialBindingPolicyEnum::ProofBound,
+    'DiipCredential' => VciCredentialBindingPolicyEnum::DiipProofBound,
+    'EmployeeBadgeCredential' => VciCredentialBindingPolicyEnum::Proofless,
+],
+```
+
+`ProofBound` is the default and applies the OpenID4VCI rules: a key proof is
+required, its signature is verified, and the credential is issued to the holder
+identifier the proof resolves to. The proof may name its key in a `kid` header,
+as a DID URL of any method this deployment can resolve — `did:jwk`, `did:key`
+or `did:web` — or carry the key itself in a `jwk` header.
+
+### What `DiipProofBound` adds
+
+`DiipProofBound` applies the DIIP profile's identifier rules on top of those. The
+key proof must name its key in a `kid` header which is an **absolute `did:jwk` or
+`did:web` URL**, and that verification method must appear in the
+`authentication` relationship of the document the DID resolves to.
+
+Two consequences are worth knowing before switching a configuration to it, both
+about that header, since it is where this profile's holder binding lives:
+
+- **A key proof carrying its key inline is refused.** The requirement is written
+  in DID URLs, and an inline key names no verification method to point at.
+- **A `did:key` holder is refused**, since the profile names the other two.
+
+The `iss` claim is left to OpenID4VCI: the client the access token was issued to
+when there is one, and absent when there is not. A wallet identified by a DID
+works, but nothing requires one, and holder binding does not rest on it.
+
+None of this affects any other configuration. DIIP's requirements are additive,
+so a deployment can offer conformant configurations alongside ones which accept
+inline keys or `did:key` holders.
+
+The credential states which key it is held by in a `cnf` claim, in every format:
+`cnf.kid` naming the verification method the proof named, or `cnf.jwk` carrying
+the key itself when the proof sent one inline. `credentialSubject.id` is not
+equivalent to it — a verifier checking holder binding reads `cnf`.
+
+### Three interpretations this module makes
+
+**The `iss` claim is not required to be a DID.** DIIP v5 says implementations
+*"MUST support the `jwt` proof type with a `did:jwk` or `did:web` as the `iss`
+value"*. Read as a rule to reject anything else, that cannot hold at the same
+time as OpenID4VCI, which requires `iss` to be **absent** when the access token
+was obtained through an anonymous pre-authorized code — so a DIIP configuration
+could never be issued through that flow at all.
+
+[FIDEScommunity/DIIP#83](https://github.com/FIDEScommunity/DIIP/issues/83)
+proposes resolving this by dropping the requirement on `iss` and requiring an
+absolute DID URL in `kid` instead. **That issue was still open and unanswered at
+the time of writing, and DIIP v5 was approved without it**, so this is an
+implementation choice rather than a settled profile rule. Two things make it the
+right one: the requirement is worded as *"MUST support"*, a capability rather
+than a rejection rule, and this module does support a DID `iss` — it accepts one,
+it just does not demand it. And nothing about holder binding rests on that claim.
+What proves the holder is possession of a key their DID document lists under
+`authentication`, which is checked either way.
+
+**The `assertionMethod` sentence.** DIIP §5.1.1 puts the proof's `kid` under the
+`assertionMethod` relationship of the *Issuer's* DID document, while the next
+requirement puts holder binding under `authentication` of the *Holder's*. In
+OpenID4VCI the proof is produced by the wallet, so the two cannot both be read
+literally at once. This module reads it as: the proof JWT resolves against the
+**Holder's** DID under `authentication`, and the credential and Status List
+signatures are made with the **Issuer's** key under `assertionMethod`. If your
+conformance target reads it the other way, this is the place it differs.
+
+**Header-JWK proofs are a documented extension, not a DIIP feature.** They stay
+supported for every other configuration because they work and nothing in
+OpenID4VCI forbids them, but a credential issued against one is not DIIP
+conformant, which is why `DiipProofBound` refuses them.
+
+### What one request may spend
+
+A Credential Request may carry up to `batch_credential_issuance.batch_size`
+proofs (8), name at most **4 distinct DIDs which have to be fetched**, and has
+**15 seconds** in total for all of its fetches. `did:jwk` and `did:key` resolve
+without leaving the process, so they do not count against the fetch limit —
+under `did:jwk` every key is its own DID, and a batch of eight proofs is eight
+distinct DIDs. These are fixed limits on what a request may cost this issuer,
+not settings.
+
 ## Pushed Authorization Requests (PAR) and Request Objects
 
 A client can send authorization request parameters in several ways:

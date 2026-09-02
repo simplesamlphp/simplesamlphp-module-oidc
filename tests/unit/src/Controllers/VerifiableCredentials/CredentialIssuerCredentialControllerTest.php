@@ -263,6 +263,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected function issue(
         string $format = CredentialFormatIdentifiersEnum::JwtVcJson->value,
         array $proofJwts = ['jwt1'],
+        ?array $inlineKey = null,
     ): void {
         $this->moduleConfigMock->method('getVciCredentialConfiguration')
             ->willReturn([ClaimsEnum::Format->value => $format]);
@@ -279,7 +280,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $validatedProofs[] = new ValidatedOpenId4VciProof(
                 $this->createMock(OpenId4VciProof::class),
                 self::HOLDER_DID,
-                self::HOLDER_DID . '#0',
+                $inlineKey === null ? self::HOLDER_DID . '#0' : null,
+                $inlineKey,
             );
         }
         $this->openId4VciProofValidatorMock->method('validateRequest')->willReturn($validatedProofs);
@@ -366,6 +368,50 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->assertSame(
             self::HOLDER_DID,
             $payload[ClaimsEnum::Vc->value][ClaimsEnum::Credential_Subject->value][ClaimsEnum::Id->value] ?? null,
+        );
+    }
+
+
+    /**
+     * `cnf` is where a verifier reads what a credential is held by, and `credentialSubject.id` is not
+     * equivalent to it. The claim was assembled inside two of the three format branches, so the third
+     * issued credentials which looked unbound however carefully the proof behind them was checked.
+     */
+    public function testStatesTheConfirmedKeyInEveryFormat(): void
+    {
+        $issuableFormats = [
+            CredentialFormatIdentifiersEnum::JwtVcJson,
+            CredentialFormatIdentifiersEnum::DcSdJwt,
+            CredentialFormatIdentifiersEnum::VcSdJwt,
+        ];
+
+        foreach ($issuableFormats as $format) {
+            $this->setUp();
+            $this->issue($format->value);
+
+            $this->assertSame(
+                [ClaimsEnum::Kid->value => self::HOLDER_DID . '#0'],
+                $this->signedPayloads[0][ClaimsEnum::Cnf->value] ?? null,
+                sprintf('The %s format did not state the key its credential is held by.', $format->value),
+            );
+        }
+    }
+
+
+    /**
+     * A proof carrying its key inline names no verification method, so there is no `kid` to confirm.
+     * Saying nothing at all was the same defect the other way round: a signature had been verified and
+     * nothing in the credential said which key it was verified against.
+     */
+    public function testConfirmsAnInlineKeyByTheKeyItself(): void
+    {
+        $holderJwk = ['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x-value', 'y' => 'y-value'];
+
+        $this->issue(inlineKey: $holderJwk);
+
+        $this->assertSame(
+            [ClaimsEnum::Jwk->value => $holderJwk],
+            $this->signedPayloads[0][ClaimsEnum::Cnf->value] ?? null,
         );
     }
 

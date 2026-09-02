@@ -566,17 +566,18 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 Translate::noop('Credential Binding Policies'),
                 ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
                 function (): Row {
-                    // Only the exceptions are listed. Requiring a key proof is the default, so naming
-                    // every configuration which does would bury the ones which do not, and it is those
-                    // an administrator needs to recognise on sight.
-                    $proofless = array_keys(
-                        array_filter(
-                            $this->moduleConfig->getVciCredentialBindingPolicies(),
-                            $this->isProofless(...),
-                        ),
+                    // Only the exceptions are listed, each with the policy it runs under. Requiring a
+                    // key proof under the OpenID4VCI rules is the default, so naming every
+                    // configuration which does would bury the ones which do something else, and it is
+                    // those an administrator needs to recognise on sight. One row rather than one per
+                    // policy, because a screen shows a given option exactly once.
+                    $exceptions = array_filter(
+                        $this->moduleConfig->getVciCredentialBindingPolicies(),
+                        static fn(VciCredentialBindingPolicyEnum $bindingPolicy): bool =>
+                            $bindingPolicy !== VciCredentialBindingPolicyEnum::ProofBound,
                     );
 
-                    if ($proofless === []) {
+                    if ($exceptions === []) {
                         return new Row(
                             Translate::noop('Credential Binding Policies'),
                             Translate::noop('Every configuration requires a key proof'),
@@ -591,19 +592,33 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         );
                     }
 
+                    $listed = [];
+
+                    foreach ($exceptions as $credentialConfigurationId => $bindingPolicy) {
+                        $listed[] = sprintf('%s: %s', $credentialConfigurationId, $bindingPolicy->value);
+                    }
+
                     return new Row(
                         Translate::noop('Credential Binding Policies'),
-                        $proofless,
+                        $listed,
                         ConfigOverviewValueTypeEnum::StringList,
                         ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
-                        null,
                         Translate::noop(
-                            'These credential configurations issue credentials which are not bound ' .
-                            'to any wallet key, so nothing ties an issued credential to whoever ' .
-                            'presents it later. They advertise no binding methods and no proof ' .
-                            'types, and a key proof sent to them is refused. Configurations which ' .
-                            'are not listed require a key proof.',
+                            'Only the configurations which differ from the default are listed, with ' .
+                            'the policy each one uses. Under \'diip_proof_bound\' the DIIP profile ' .
+                            'rules apply on top of the OpenID4VCI ones: a key proof must name its ' .
+                            'key in a \'kid\' header which is an absolute did:jwk or did:web URL, ' .
+                            'resolved from the authentication relationship of that document. A key ' .
+                            'carried inline and a did:key holder are refused, though every other ' .
+                            'configuration keeps accepting both.',
                         ),
+                        in_array(VciCredentialBindingPolicyEnum::Proofless, $exceptions, true) ?
+                        Translate::noop(
+                            'Configurations listed as \'proofless\' issue credentials which are not ' .
+                            'bound to any wallet key, so nothing ties an issued credential to ' .
+                            'whoever presents it later. They advertise no binding methods and no ' .
+                            'proof types, and a key proof sent to them is refused.',
+                        ) : null,
                     );
                 },
             ),
@@ -1229,15 +1244,6 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         }
 
         return null;
-    }
-
-
-    /**
-     * Whether a credential configuration issues credentials which are not bound to a holder key.
-     */
-    protected function isProofless(VciCredentialBindingPolicyEnum $bindingPolicy): bool
-    {
-        return $bindingPolicy === VciCredentialBindingPolicyEnum::Proofless;
     }
 
 

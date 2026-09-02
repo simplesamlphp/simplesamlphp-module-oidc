@@ -66,13 +66,27 @@ class CredentialIssuerConfigurationController
 
                 $bindingPolicy = $this->moduleConfig->getVciCredentialBindingPolicyFor($credentialConfigurationId);
 
-                if ($bindingPolicy === VciCredentialBindingPolicyEnum::ProofBound) {
+                // A match rather than a comparison, so that a binding policy added later has to state
+                // what it advertises here instead of falling into whichever branch was written as the
+                // alternative - which for this pair would have silently unadvertised binding for it.
+                $bindingMethods = match ($bindingPolicy) {
+                    // `jwk` is not a DID method: OpenID4VCI defines it as the value for a credential
+                    // bound to a key in JWK format, which is what a key proof carrying its key inline
+                    // in a `jwk` header produces. This configuration accepts those and states the key
+                    // in `cnf.jwk`, so leaving the value out would hide a supported path from every
+                    // wallet which reads this metadata to decide what to send.
+                    VciCredentialBindingPolicyEnum::ProofBound => ['did:key', 'did:jwk', 'did:web', 'jwk'],
+                    // The profile names these two, and its rules confine a holder to them: the proof's
+                    // key has to sit under the DID its `iss` claim states.
+                    VciCredentialBindingPolicyEnum::DiipProofBound => ['did:jwk', 'did:web'],
+                    VciCredentialBindingPolicyEnum::Proofless => null,
+                };
+
+                if ($bindingMethods !== null) {
                     $isAnyConfigurationProofBound = true;
 
-                    $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] = [
-                        'did:key',
-                        'did:jwk',
-                    ];
+                    $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] =
+                    $bindingMethods;
                     $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
                         OpenId4VciProofValidator::PROOF_TYPE_JWT => [
                             ClaimsEnum::ProofSigningAlgValuesSupported->value => $this->moduleConfig

@@ -198,13 +198,45 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
             [SignatureAlgorithmEnum::ES256->value],
             $configuration[ClaimsEnum::CredentialSigningAlgValuesSupported->value],
         );
+        // `jwk` alongside the DID methods, because a key proof may carry its key inline and this
+        // configuration accepts one. A wallet has no other way to find that out.
         $this->assertSame(
-            ['did:key', 'did:jwk'],
+            ['did:key', 'did:jwk', 'did:web', 'jwk'],
             $configuration[ClaimsEnum::CryptographicBindingMethodsSupported->value],
         );
         $this->assertArrayHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
         // What the operator configured is still there, with the above added rather than substituted.
         $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
+    }
+
+
+    /**
+     * A DIIP configuration accepts holders identified by the two methods that profile names, and the
+     * metadata has to say which those are rather than repeating what every other configuration accepts.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testADiipConfigurationAdvertisesOnlyTheMethodsItAccepts(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::DiipProofBound;
+
+        $metadata = $this->publishedMetadata();
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $metadata[ClaimsEnum::CredentialConfigurationsSupported->value];
+        $configuration = $configurations[self::CONFIGURATION_ID];
+
+        // No `jwk` here, unlike the default policy: this one refuses a key proof carrying its key
+        // inline, so advertising the value would invite a proof it would then turn away.
+        $this->assertSame(
+            ['did:jwk', 'did:web'],
+            $configuration[ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+        // It is a key-proof configuration like any other, so both binding fields are present and the
+        // batch size is advertised.
+        $this->assertArrayHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
+        $this->assertArrayHasKey(ClaimsEnum::BatchCredentialIssuance->value, $metadata);
     }
 
 

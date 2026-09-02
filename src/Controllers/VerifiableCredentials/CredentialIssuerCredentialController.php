@@ -666,6 +666,17 @@ class CredentialIssuerCredentialController
                 $commonClaims[ClaimsEnum::Exp->value] = $expiresAt->getTimestamp();
             }
 
+            // Stated once for every format, rather than in each branch which builds one. `cnf` is where
+            // a verifier reads what a credential is held by, so a format branch which omits it hands
+            // out credentials that look unbound however carefully the proof behind them was checked -
+            // which is what happened to this format and to inline-key proofs, each for the whole time
+            // the claim was assembled separately in the branches that happened to have it.
+            $confirmation = $validatedProof?->getConfirmation();
+
+            if ($confirmation !== null) {
+                $commonClaims[ClaimsEnum::Cnf->value] = $confirmation;
+            }
+
             $verifiableCredential = null;
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
@@ -729,12 +740,6 @@ class CredentialIssuerCredentialController
                     $commonClaims,
                 );
 
-                if ($validatedProof !== null && is_string($proofKeyId = $validatedProof->getKeyId())) {
-                    $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proofKeyId,
-                    ];
-                }
-
                 $verifiableCredential = $this->verifiableCredentials->sdJwtVcFactory()->fromData(
                     $signingKey,
                     $signatureAlgorithm,
@@ -780,12 +785,6 @@ class CredentialIssuerCredentialController
                 // `validUntil`, alongside the `validFrom` above, so this format states it both ways.
                 if ($expiresAt instanceof DateTimeImmutable) {
                     $sdJwtPayload[ClaimsEnum::ValidUntil->value] = $expiresAt->format(DateTimeInterface::RFC3339);
-                }
-
-                if ($validatedProof !== null && is_string($proofKeyId = $validatedProof->getKeyId())) {
-                    $sdJwtPayload[ClaimsEnum::Cnf->value] = [
-                    ClaimsEnum::Kid->value => $proofKeyId,
-                    ];
                 }
 
                 $verifiableCredential = $this->verifiableCredentials->vcSdJwtFactory()->fromData(
