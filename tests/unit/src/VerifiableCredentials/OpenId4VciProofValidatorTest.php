@@ -90,7 +90,8 @@ class OpenId4VciProofValidatorTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->verifiableCredentialsMock = $this->createMock(VerifiableCredentialsService::class);
-        $this->didMock = $this->createMock(Did::class);
+        $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
+        $this->didMock = $this->freshDidMock();
         $this->nonceServiceMock = $this->createMock(NonceService::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
 
@@ -104,8 +105,6 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->proofFactoryMock = $this->createMock(OpenId4VciProofFactory::class);
         $this->verifiableCredentialsMock->method('openId4VciProofFactory')->willReturn($this->proofFactoryMock);
 
-        $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
-        $this->didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn(self::HOLDER_DID);
 
         // One call handles every DID method, so the resolvers behind it are no longer stubbed one by
@@ -242,6 +241,24 @@ class OpenId4VciProofValidatorTest extends TestCase
 
 
     /**
+     * A `Did` mock carrying the stubs every test needs, whatever else it goes on to control.
+     *
+     * The registry among them: the binding policy is filtered against it before any resolution is
+     * attempted, so a test replacing this mock to steer one call and rebuilding it by hand would have
+     * its proof refused for naming an unaccepted method - and a test which expected a refusal anyway
+     * would keep passing while no longer exercising what it was written for.
+     */
+    protected function freshDidMock(): MockObject
+    {
+        $didMock = $this->createMock(Did::class);
+        $didMock->method('supportedMethods')->willReturn(['did:jwk', 'did:key', 'did:web']);
+        $didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+
+        return $didMock;
+    }
+
+
+    /**
      * @param array<string,mixed> $overrides
      * @return array<string,mixed>
      */
@@ -285,11 +302,19 @@ class OpenId4VciProofValidatorTest extends TestCase
         string $expectedErrorCode,
         array $requestData,
         VciCredentialBindingPolicyEnum $bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound,
+        ?string $expectedMessageFragment = null,
     ): void {
         try {
             $this->sut()->validateRequest($requestData, $bindingPolicy, $this->accessTokenMock);
         } catch (CredentialRequestException $credentialRequestException) {
             $this->assertSame($expectedErrorCode, $credentialRequestException->getErrorCode());
+
+            if (is_string($expectedMessageFragment)) {
+                $this->assertStringContainsString(
+                    $expectedMessageFragment,
+                    $credentialRequestException->getMessage(),
+                );
+            }
 
             return;
         }
@@ -557,7 +582,7 @@ class OpenId4VciProofValidatorTest extends TestCase
 
     public function testRefusesADidWhichFailsToResolve(): void
     {
-        $this->didMock = $this->createMock(Did::class);
+        $this->didMock = $this->freshDidMock();
         $this->didMock->method('resolveDocument')
             ->willThrowException(new DidException('could not be retrieved'));
 
@@ -579,7 +604,7 @@ class OpenId4VciProofValidatorTest extends TestCase
         $didDocumentMock->method('resolveVerificationMethod')
             ->willThrowException(new DidException('not under that relationship'));
 
-        $this->didMock = $this->createMock(Did::class);
+        $this->didMock = $this->freshDidMock();
         $this->didMock->method('resolveDocument')->willReturn($didDocumentMock);
 
         $this->assertRefusedWith('invalid_proof', $this->requestWith());
@@ -603,8 +628,7 @@ class OpenId4VciProofValidatorTest extends TestCase
             )
             ->willReturn($this->resolvedVerificationMethod(self::HOLDER_DID_URL));
 
-        $this->didMock = $this->createMock(Did::class);
-        $this->didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+        $this->didMock = $this->freshDidMock();
         // The whole request shares one deadline, so the fetch is bounded by when the request has to be
         // done rather than by the per-fetch timeout each proof would otherwise get to itself.
         $this->didMock->expects($this->once())->method('resolveDocument')
@@ -1033,6 +1057,10 @@ class OpenId4VciProofValidatorTest extends TestCase
             'invalid_proof',
             $this->requestWith(['getKeyId' => $didKey . '#z6Mkh']),
             VciCredentialBindingPolicyEnum::DiipProofBound,
+            // Naming what this configuration does accept, and naming it from the same source the
+            // metadata advertises, so a refusal cannot describe a different issuer than the published
+            // document does.
+            'identified by did:jwk or did:web only',
         );
 
         // Refused before the fetch, not after. Nothing is fetched for a did:key either way, but the

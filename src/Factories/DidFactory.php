@@ -6,7 +6,6 @@ namespace SimpleSAML\Module\oidc\Factories;
 
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\VciCache;
 use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidWebResolver;
 
@@ -24,17 +23,23 @@ class DidFactory
      * malformed, and the container reaches this factory while wiring up the admin Configuration screens -
      * the screens whose whole purpose is to report exactly such an option. Deferring it to build() keeps
      * them reachable. Same reasoning as FederationFactory, which regressed on it once.
+     *
+     * The cache is taken as the factory which builds it rather than as a built one, for that same
+     * reason: `vci_cache_adapter` names a class to instantiate with arguments, so building it reads
+     * configuration and can throw. Constructing this factory therefore reads nothing at all, which is
+     * what lets a caller hold one without inheriting a failure from DID settings it may never use.
      */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
         protected readonly LoggerService $loggerService,
-        protected readonly ?VciCache $vciCache = null,
+        protected readonly ?CacheFactory $cacheFactory = null,
     ) {
     }
 
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException On a cache adapter which can not be built.
      * @throws \SimpleSAML\OpenID\Exceptions\DidException
      * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException On configuration the library
      *         refuses when the policy is built, rather than letting an exemption that can never match
@@ -45,7 +50,7 @@ class DidFactory
     {
         return new Did(
             maxCacheDuration: $this->moduleConfig->getVciDidCacheMaxDuration(),
-            cache: $this->vciCache?->cache,
+            cache: $this->cacheFactory?->forVci()?->cache,
             logger: $this->loggerService,
             // Through the library's own helper rather than assembled here: it is what refuses a pinning
             // mode DID resolution can not run under, and building a DestinationPolicy by hand would walk

@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -136,10 +137,41 @@ class DidFactoryTest extends TestCase
     {
         $vciCache = new VciCache(new Psr16Cache(new ArrayAdapter()));
 
+        $cacheFactoryMock = $this->createMock(CacheFactory::class);
+        $cacheFactoryMock->method('forVci')->willReturn($vciCache);
+
         $this->assertInstanceOf(
             Did::class,
-            (new DidFactory($this->moduleConfigMock, $this->loggerServiceMock, $vciCache))->build(),
+            (new DidFactory($this->moduleConfigMock, $this->loggerServiceMock, $cacheFactoryMock))->build(),
         );
+    }
+
+
+    /**
+     * The cache is asked for when the facade is built, not when this factory is constructed. Building
+     * the adapter reads `vci_cache_adapter` and instantiates the class it names, so a caller holding
+     * this factory for something else - the metadata document's DID method list, say - must not inherit
+     * that failure.
+     */
+    public function testTheCacheIsNotBuiltUntilTheFacadeIs(): void
+    {
+        $forVciCalls = 0;
+
+        $cacheFactoryMock = $this->createMock(CacheFactory::class);
+        $cacheFactoryMock->method('forVci')->willReturnCallback(
+            function () use (&$forVciCalls): ?VciCache {
+                $forVciCalls++;
+
+                return null;
+            },
+        );
+
+        $didFactory = new DidFactory($this->moduleConfigMock, $this->loggerServiceMock, $cacheFactoryMock);
+
+        $this->assertSame(0, $forVciCalls);
+
+        $this->assertInstanceOf(Did::class, $didFactory->build());
+        $this->assertSame(1, $forVciCalls);
     }
 
 

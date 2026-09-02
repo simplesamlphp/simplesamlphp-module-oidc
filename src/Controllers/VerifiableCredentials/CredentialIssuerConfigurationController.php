@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 
-use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -27,6 +27,14 @@ use Symfony\Component\HttpFoundation\Response;
 class CredentialIssuerConfigurationController
 {
     /**
+     * Memoised across the credential configurations of one published document.
+     *
+     * @var ?list<string>
+     */
+    protected ?array $resolvableDidMethods = null;
+
+
+    /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
@@ -34,6 +42,12 @@ class CredentialIssuerConfigurationController
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
         protected readonly VciContextResolver $vciContextResolver,
+        // The factory rather than the built facade. Constructing one reads no configuration, whereas
+        // building the facade validates the DID destination settings and the VCI cache adapter - and
+        // the container resolves every constructor argument before the guard below runs, so taking a
+        // built one would answer a request this endpoint refuses outright, or one for a deployment
+        // binding nothing at all, by failing on DID settings neither has any use for.
+        protected readonly DidFactory $didFactory,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -66,21 +80,19 @@ class CredentialIssuerConfigurationController
 
                 $bindingPolicy = $this->moduleConfig->getVciCredentialBindingPolicyFor($credentialConfigurationId);
 
-                // A match rather than a comparison, so that a binding policy added later has to state
-                // what it advertises here instead of falling into whichever branch was written as the
-                // alternative - which for this pair would have silently unadvertised binding for it.
-                $bindingMethods = match ($bindingPolicy) {
-                    // `jwk` is not a DID method: OpenID4VCI defines it as the value for a credential
-                    // bound to a key in JWK format, which is what a key proof carrying its key inline
-                    // in a `jwk` header produces. This configuration accepts those and states the key
-                    // in `cnf.jwk`, so leaving the value out would hide a supported path from every
-                    // wallet which reads this metadata to decide what to send.
-                    VciCredentialBindingPolicyEnum::ProofBound => ['did:key', 'did:jwk', 'did:web', 'jwk'],
-                    // The profile names these two, and its rules confine a holder to them: the proof's
-                    // key has to sit under the DID its `iss` claim states.
-                    VciCredentialBindingPolicyEnum::DiipProofBound => ['did:jwk', 'did:web'],
-                    VciCredentialBindingPolicyEnum::Proofless => null,
-                };
+                // Asked of the policy against the resolver registry rather than written out here, so
+                // that what this advertises and what the Credential Endpoint accepts are one answer
+                // instead of two lists which have to be kept in step. A DID method the library gains is
+                // advertised by every configuration whose policy accepts it without this line changing,
+                // and a policy added later has to say what it binds rather than falling into whichever
+                // branch an `if` here happened to leave open.
+                //
+                // Only a configuration which binds needs the registry, and only then is it worth
+                // building the DID facade to ask for it: a deployment issuing nothing but proofless
+                // credentials publishes this document without its DID settings ever being read.
+                $bindingMethods = $bindingPolicy->requiresKeyProof() ?
+                $bindingPolicy->bindingMethodsFrom($this->resolvableDidMethods()) :
+                null;
 
                 if ($bindingMethods !== null) {
                     $isAnyConfigurationProofBound = true;
@@ -182,5 +194,25 @@ class CredentialIssuerConfigurationController
         }
 
         return $this->routes->newJsonResponse($configuration);
+    }
+
+
+    /**
+     * The DID methods this deployment can resolve, which is what every binding advertisement is
+     * filtered from.
+     *
+     * Built once for the whole document rather than per credential configuration, since the registry
+     * is the same for all of them and building the facade is what reads the DID settings.
+     *
+     * @return list<string>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     * @throws \SimpleSAML\OpenID\Exceptions\DidException
+     * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException
+     * @throws \Exception
+     */
+    protected function resolvableDidMethods(): array
+    {
+        return $this->resolvableDidMethods ??= $this->didFactory->build()->supportedMethods();
     }
 }

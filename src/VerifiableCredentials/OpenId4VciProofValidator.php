@@ -73,16 +73,6 @@ class OpenId4VciProofValidator
     final public const int REQUEST_DEADLINE_SECONDS = 15;
 
     /**
-     * The holder DID methods the DIIP profile names.
-     *
-     * Applied to the `kid` header, which is where the profile's holder binding actually lives: the
-     * wallet proves control of a key listed under `authentication` in the document that DID resolves
-     * to. `did:key` is deliberately absent - this module supports it and every non-DIIP configuration
-     * keeps accepting it, but the profile names these two.
-     */
-    protected const array DIIP_HOLDER_DID_METHODS = ['jwk', 'web'];
-
-    /**
      * JWK members which describe a key without being part of it, so they are acceptable whatever the
      * key type is.
      */
@@ -489,7 +479,7 @@ class OpenId4VciProofValidator
             // verification method for one to point at. Refused rather than resolved into a did:jwk of
             // this issuer's own making, which would be this issuer deciding how the holder is
             // identified in a credential whose whole claim is that the holder decided.
-            if ($bindingPolicy->requiresDiipIdentifiers()) {
+            if (!$bindingPolicy->acceptsInlineKey()) {
                 throw new CredentialRequestException(
                     'invalid_proof',
                     'This credential configuration requires the key proof to name a verification ' .
@@ -516,11 +506,9 @@ class OpenId4VciProofValidator
         /** @var non-empty-string $keyId */
         $didUrl = $this->parseKeyId($keyId);
 
-        // Before resolution, not after: a method the profile does not name is refused without this
+        // Before resolution, not after: a method the policy does not accept is refused without this
         // deployment first having gone out to fetch the DID naming it.
-        if ($bindingPolicy->requiresDiipIdentifiers()) {
-            $this->assertDiipHolderDidUrl($didUrl);
-        }
+        $this->assertHolderDidMethodIsAccepted($didUrl, $bindingPolicy);
 
         $resolved = $this->resolveVerificationMethod($didUrl, $didResolutionBudget);
 
@@ -677,12 +665,19 @@ class OpenId4VciProofValidator
 
 
     /**
-     * The DIIP profile's rule about how a holder is identified.
+     * Refuse a holder whose DID method this credential configuration's binding policy does not accept.
      *
-     * It rests entirely on the `kid` header: an absolute DID URL of one of the two methods the profile
-     * names, resolved under `authentication`. Nothing here reads the `iss` claim, which OpenID4VCI has
-     * name the client the access token was issued to and has omitted altogether when no client is
-     * identified.
+     * Which methods those are is the policy's answer rather than this class's, because the Credential
+     * Issuer metadata publishes the very same answer - see
+     * {@see \SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum::acceptsDidMethod()}. Two
+     * lists kept in step by hand is how an issuer ends up accepting a holder identifier it never
+     * advertised, or advertising one it refuses. Only the DIIP policy narrows anything today: every
+     * other proof-bound configuration accepts whatever the resolver registry can resolve.
+     *
+     * The DIIP rule rests entirely on the `kid` header: an absolute DID URL of one of the two methods
+     * the profile names, resolved under `authentication`. Nothing here reads the `iss` claim, which
+     * OpenID4VCI has name the client the access token was issued to and has omitted altogether when no
+     * client is identified.
      *
      * The profile's own text puts the holder's DID in `iss`, and that cannot be met at the same time as
      * OpenID4VCI's rule for an anonymous pre-authorized code, which requires the claim to be absent.
@@ -695,20 +690,31 @@ class OpenId4VciProofValidator
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
      */
-    protected function assertDiipHolderDidUrl(DidUrl $didUrl): void
-    {
-        if (!in_array($didUrl->getMethod(), self::DIIP_HOLDER_DID_METHODS, true)) {
-            throw new CredentialRequestException(
-                'invalid_proof',
-                sprintf(
-                    'This credential configuration issues to holders identified by %s only.',
-                    implode(' or ', array_map(
-                        static fn(string $method): string => DidUrl::PREFIX . $method,
-                        self::DIIP_HOLDER_DID_METHODS,
-                    )),
-                ),
-            );
+    protected function assertHolderDidMethodIsAccepted(
+        DidUrl $didUrl,
+        VciCredentialBindingPolicyEnum $bindingPolicy,
+    ): void {
+        // The very list this configuration advertises, matched against rather than merely quoted in the
+        // refusal. Asking the policy alone would accept a method it does not narrow but this deployment
+        // can not resolve - refused a moment later by the resolver, but refused as an unresolvable DID
+        // rather than as one this issuer never offered to accept.
+        $acceptedDidMethods = $bindingPolicy->acceptableDidMethodsFrom($this->did->supportedMethods());
+
+        if (in_array(DidUrl::PREFIX . $didUrl->getMethod(), $acceptedDidMethods, true)) {
+            return;
         }
+
+        throw new CredentialRequestException(
+            'invalid_proof',
+            $acceptedDidMethods === [] ?
+            // Reachable only where the profile a configuration follows names no method this deployment
+            // can resolve, which leaves it nothing to name in place of the one it turned away.
+            'This credential configuration can not accept the holder identifier this key proof names.' :
+            sprintf(
+                'This credential configuration issues to holders identified by %s only.',
+                implode(' or ', $acceptedDidMethods),
+            ),
+        );
     }
 
 
