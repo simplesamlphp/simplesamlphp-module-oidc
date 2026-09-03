@@ -1137,7 +1137,11 @@ $config = [
      *    through the published JWKS. This is what makes the
      *    `.well-known/jwt-vc-issuer` document meaningful, and a way out for
      *    verifiers which will not accept a DID. It is NOT DIIP conformant: the
-     *    profile requires the issuer to be identified by a DID.
+     *    profile requires the issuer to be identified by a DID. Note that the
+     *    issuer must resolve to an absolute `https` URL carrying no query and
+     *    no fragment, since a verifier discovers the key set by inserting
+     *    `.well-known/jwt-vc-issuer` into it; issuance is refused otherwise
+     *    rather than emitting a credential nothing could verify.
      *
      * Read when a credential is signed, so a change here reaches newly issued
      * credentials only. The ones already in wallets keep naming the identity

@@ -257,6 +257,14 @@ were issued under — which is what the retention rules below are about.
 
 ### Keeping the `https` identity resolvable
 
+A verifier discovers the key set by inserting `.well-known/jwt-vc-issuer` into
+the `iss` value, so under this mode the issuer must resolve to an absolute
+`https` URL with no query and no fragment. `OPTION_ISSUER` guarantees none of
+that — left unset it is derived from the host of the current request, which is
+`http://` on a development deployment or behind a proxy forwarding the wrong
+scheme — so issuance is refused when it does not, rather than emitting a
+credential no verifier could check.
+
 Under `https` a credential names its signing key by its JWKS key ID, so it is
 verifiable only while that key is still published. Two endpoints therefore stop
 following `OPTION_VCI_ENABLED` while this mode is selected: the VCI keys stay in

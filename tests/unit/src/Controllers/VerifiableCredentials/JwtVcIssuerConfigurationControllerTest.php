@@ -71,6 +71,22 @@ class JwtVcIssuerConfigurationControllerTest extends TestCase
     }
 
 
+    /**
+     * A browser based wallet holding a credential from another origin has to read this document to
+     * find the key set to check it against, so without the header the browser blocks the read and the
+     * credential fails verification at a deployment which serves everything else correctly.
+     */
+    public function testAllowsCrossOriginReads(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
+
+        $this->assertSame(
+            '*',
+            $this->sut()->configuration()->headers->get('Access-Control-Allow-Origin'),
+        );
+    }
+
+
     public function testRefusesWhileIssuanceIsDisabled(): void
     {
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);

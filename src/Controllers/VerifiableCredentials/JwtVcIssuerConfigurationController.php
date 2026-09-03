@@ -68,6 +68,13 @@ class JwtVcIssuerConfigurationController
             ClaimsEnum::JwksUri->value => $this->routes->getModuleUrl(RoutesEnum::Jwks->value),
         ];
 
-        return $this->routes->newJsonResponse($configuration);
+        // Cross origin reads are allowed, as they are on the key set and the DID document. A browser
+        // based wallet or verifier holding a credential from another origin has to read this document
+        // to find the key set to check it against, and without the header the browser refuses the read
+        // -- so the credential fails verification at a deployment which serves everything correctly.
+        return $this->routes->newJsonResponse(
+            $configuration,
+            headers: ['Access-Control-Allow-Origin' => '*'],
+        );
     }
 }

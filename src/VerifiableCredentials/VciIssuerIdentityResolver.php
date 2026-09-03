@@ -121,10 +121,60 @@ class VciIssuerIdentityResolver
             );
         }
 
+        $this->assertIssuerIsDiscoverable($issuer);
+
         return new VciIssuerIdentity(
             VciIssuerIdentifierModeEnum::Https,
             $issuer,
             $signatureKeyPair->getKeyPair()->getKeyId(),
         );
+    }
+
+
+    /**
+     * Refuse an issuer URL which nothing could perform SD-JWT VC discovery against.
+     *
+     * Under this mode the `iss` claim is the whole of the key resolution story: a verifier inserts
+     * `.well-known/jwt-vc-issuer` into it, fetches, and reads `jwks_uri` from what comes back. That
+     * only works for an absolute https URL, and only where the value carries no query or fragment for
+     * the insertion to land after.
+     *
+     * `getIssuer()` guarantees none of this. It falls back to the host of the current request when the
+     * option is not set, so a deployment reached over plain HTTP - which is every deployment behind a
+     * TLS terminating proxy that forwards the wrong scheme, and every development one - would otherwise
+     * issue credentials naming an `http://` issuer. Refusing is the point: a credential which cannot be
+     * verified securely is worse than one that was never issued, and this is the last moment anything
+     * can tell.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     */
+    protected function assertIssuerIsDiscoverable(string $issuer): void
+    {
+        $parts = parse_url($issuer);
+
+        if (
+            // parse_url() decomposes rather than validates: it hands back a scheme and a host for
+            // "https:// issuer.example.org" too, with the space kept inside the host. So the value is
+            // checked for being a URL at all before its parts are read.
+            !filter_var($issuer, FILTER_VALIDATE_URL) ||
+            !is_array($parts) ||
+            // Compared lower cased because URI schemes are case insensitive, while parse_url() keeps
+            // whatever case it was given. Only the comparison is normalised: the value itself is
+            // emitted exactly as configured, since the issuer metadata publishes that same string and
+            // a verifier matching the two byte for byte must not see them disagree.
+            strtolower($parts['scheme'] ?? '') !== 'https' ||
+            (($parts['host'] ?? '') === '') ||
+            array_key_exists('query', $parts) ||
+            array_key_exists('fragment', $parts)
+        ) {
+            throw new OidcException(
+                sprintf(
+                    'Credentials are configured to name this issuer by its URL, but "%s" is not one a ' .
+                    'verifier could discover keys through: it has to be an absolute https URL carrying ' .
+                    'no query and no fragment.',
+                    $issuer,
+                ),
+            );
+        }
     }
 }

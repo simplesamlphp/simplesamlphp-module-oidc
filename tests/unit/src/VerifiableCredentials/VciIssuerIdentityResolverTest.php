@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -202,6 +203,65 @@ class VciIssuerIdentityResolverTest extends TestCase
             new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::DidWeb, self::DID_WEB),
             $this->signatureKeyPair,
         );
+    }
+
+
+    /**
+     * `getIssuer()` falls back to the host of the current request, so under this mode a deployment
+     * reached over plain HTTP would otherwise issue credentials naming an `http://` issuer that no
+     * verifier could discover keys through. Refused rather than issued.
+     */
+    #[DataProvider('undiscoverableIssuerDataProvider')]
+    public function testRefusesAnIssuerUrlNothingCouldDiscoverKeysThrough(string $issuer): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willReturn($issuer);
+
+        $this->expectException(OidcException::class);
+        $this->expectExceptionMessage('absolute https URL');
+
+        $this->sut()->resolve(
+            new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::Https),
+            $this->signatureKeyPair,
+        );
+    }
+
+
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function undiscoverableIssuerDataProvider(): array
+    {
+        return [
+            'plain HTTP' => ['http://issuer.example.org'],
+            'no scheme' => ['issuer.example.org'],
+            'no host' => ['https://'],
+            'carries a query' => ['https://issuer.example.org?tenant=a'],
+            'carries a fragment' => ['https://issuer.example.org#a'],
+            'not a URL at all' => ['not a url'],
+            // parse_url() hands back a scheme and a host for this one, with the space kept inside the
+            // host, so decomposing it is not the same as validating it.
+            'a space inside it' => ['https:// issuer.example.org'],
+        ];
+    }
+
+
+    /**
+     * URI schemes are case insensitive, so this is a valid issuer. The value is emitted exactly as
+     * configured rather than lower cased: the issuer metadata publishes that same string, and a
+     * verifier matching `iss` against it byte for byte must not see the two disagree.
+     */
+    public function testAcceptsAnIssuerUrlWhoseSchemeIsUpperCasedAndEmitsItUnchanged(): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willReturn('HTTPS://issuer.example.org');
+
+        $identity = $this->sut()->resolve(
+            new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::Https),
+            $this->signatureKeyPair,
+        );
+
+        $this->assertSame('HTTPS://issuer.example.org', $identity->getIssuer());
     }
 
 
