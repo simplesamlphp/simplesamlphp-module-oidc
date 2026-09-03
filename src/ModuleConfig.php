@@ -1830,6 +1830,67 @@ class ModuleConfig
 
 
     /**
+     * Whether any configured Status List pool signs under the given key profile.
+     *
+     * Answered from the raw configured values rather than by building the pools, and that is the point
+     * of it. The JWKS endpoint asks this to decide whether the credential signing key still has to be
+     * published, and a pool misconfigured in any way at all would otherwise make the whole bag
+     * unreadable and the answer "no" - withdrawing the key that a different, perfectly good pool's
+     * already published tokens are verified through. A question about one pool must not be answerable
+     * only while every pool is valid.
+     *
+     * The pool bag asks it too, before resolving the issuer `did:web`, so that an option only the
+     * `did_web` profile reads is not consulted for a deployment which has no pool on it.
+     *
+     * A value which is not a valid profile at all counts as "no": the pool is about to be refused by
+     * name, which is a better error than one about whichever profile was being asked about.
+     *
+     * @param array<array-key,mixed> $pools
+     */
+    protected function isAnyStatusListPoolOnKeyProfileIn(
+        array $pools,
+        StatusListKeyProfileEnum $keyProfile,
+        StatusListKeyProfileEnum $defaultKeyProfile,
+    ): bool {
+        /** @var mixed $poolConfig */
+        foreach ($pools as $poolConfig) {
+            if (!is_array($poolConfig) || !array_key_exists(StatusListPool::KEY_KEY_PROFILE, $poolConfig)) {
+                if ($defaultKeyProfile === $keyProfile) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            /** @var mixed $configured */
+            $configured = $poolConfig[StatusListPool::KEY_KEY_PROFILE];
+
+            if ($configured === $keyProfile || $configured === $keyProfile->value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
+     * Whether any configured Status List pool signs under the given key profile.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError On a malformed default key profile, which is the one
+     *         value this cannot be answered without.
+     */
+    public function isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum $keyProfile): bool
+    {
+        return $this->isAnyStatusListPoolOnKeyProfileIn(
+            $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []),
+            $keyProfile,
+            $this->getVciStatusListKeyProfile(),
+        );
+    }
+
+
+    /**
      * The configured Status List pools.
      *
      * Deliberately a separate top-level option rather than something nested inside the credential
@@ -1844,9 +1905,27 @@ class ModuleConfig
             return $this->vciStatusListPoolBag;
         }
 
+        $pools = $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []);
+        $defaultKeyProfile = $this->getVciStatusListKeyProfile();
+
         $poolBag = StatusListPoolBag::fromConfig(
-            $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []),
-            $this->getVciStatusListKeyProfile(),
+            $pools,
+            $defaultKeyProfile,
+            // The module wide issuer identity, which the `did_web` key profile stamps onto every list
+            // it creates. Taken from here rather than configured per pool, so that a deployment cannot
+            // end up with two issuer identities of which only one has a published DID document.
+            //
+            // Resolved only when some pool is actually on that profile. Reading it unconditionally
+            // would mean a malformed did:web identifier -- an option no other profile looks at -- also
+            // stopping the pools from being read, and the JWKS endpoint answers "does any pool need its
+            // key published?" by reading them. A pool on the `jwks` profile would then have the key its
+            // already published tokens are verified through quietly withdrawn, over a setting it does
+            // not use.
+            $this->isAnyStatusListPoolOnKeyProfileIn(
+                $pools,
+                StatusListKeyProfileEnum::DidWeb,
+                $defaultKeyProfile,
+            ) ? $this->getVciIssuerDidIdentifier() : null,
         );
 
         $supportedIds = $this->getVciCredentialConfigurationIdsSupported();

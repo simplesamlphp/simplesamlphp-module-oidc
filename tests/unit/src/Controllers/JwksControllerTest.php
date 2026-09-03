@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -148,6 +149,49 @@ class JwksControllerTest extends TestCase
         $this->moduleConfigMock->method('getVciIssuerIdentifierMode')
             ->willReturn(VciIssuerIdentifierModeEnum::DidJwk);
         $this->moduleConfigMock->expects($this->never())->method('getVciSignatureKeyPairBag');
+
+        $this->mock()->__invoke();
+    }
+
+
+    /**
+     * A pool on the `jwks` profile has its tokens verified through this key set, so the key stays
+     * published even while issuance is off.
+     */
+    public function testItKeepsPublishingVciKeysForAPoolWhoseTokensNameThemHere(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getVciIssuerIdentifierMode')
+            ->willReturn(VciIssuerIdentifierModeEnum::DidJwk);
+        $this->moduleConfigMock->method('isAnyStatusListPoolOnKeyProfile')
+            ->with(StatusListKeyProfileEnum::Jwks)
+            ->willReturn(true);
+        $this->moduleConfigMock->expects($this->once())->method('getVciSignatureKeyPairBag')
+            ->willReturn(new SignatureKeyPairBag());
+
+        $this->mock()->__invoke();
+    }
+
+
+    /**
+     * Whether one pool needs its key published must not depend on every other pool being valid.
+     * Building the bag is all or nothing, so a deployment mixing a `jwks` pool with a `did_web` one
+     * whose issuer identifier is missing or malformed would otherwise have this answer "no" -- and the
+     * key that the `jwks` pool's already published tokens are verified through withdrawn, over an
+     * option those tokens never used.
+     */
+    public function testAPoolBrokenOnAnotherProfileDoesNotWithdrawTheKeyAValidPoolNeeds(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getVciIssuerIdentifierMode')
+            ->willReturn(VciIssuerIdentifierModeEnum::DidJwk);
+        $this->moduleConfigMock->method('isAnyStatusListPoolOnKeyProfile')->willReturn(true);
+
+        // The question is answered without ever building them, so one which cannot be built is not
+        // able to change the answer.
+        $this->moduleConfigMock->expects($this->never())->method('getVciStatusListPoolBag');
+        $this->moduleConfigMock->expects($this->once())->method('getVciSignatureKeyPairBag')
+            ->willReturn(new SignatureKeyPairBag());
 
         $this->mock()->__invoke();
     }

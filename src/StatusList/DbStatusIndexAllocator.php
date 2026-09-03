@@ -477,6 +477,7 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
                 $pool->getRefreshIntervalInSeconds(),
                 $signingKeyId,
                 $pool->getKeyProfile(),
+                $pool->getIssuerIdentifier(),
             );
         } catch (Throwable $throwable) {
             $this->loggerService->info(

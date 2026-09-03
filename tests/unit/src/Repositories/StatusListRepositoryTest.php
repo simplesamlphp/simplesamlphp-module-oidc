@@ -104,6 +104,8 @@ class StatusListRepositoryTest extends TestCase
         string $poolId = self::POOL_ID,
         string $policyFingerprint = self::POLICY,
         StatusListExpiryLaneEnum $expiryLane = StatusListExpiryLaneEnum::Expiring,
+        StatusListKeyProfileEnum $keyProfile = StatusListKeyProfileEnum::DidJwk,
+        ?string $issuerIdentifier = null,
     ): void {
         $this->repository->create(
             $id,
@@ -119,9 +121,37 @@ class StatusListRepositoryTest extends TestCase
             604800,
             3600,
             'a-signing-key-id',
-            StatusListKeyProfileEnum::DidJwk,
+            $keyProfile,
+            $issuerIdentifier,
         );
         $this->repository->activate($id);
+    }
+
+
+    /**
+     * Round trips the column the did:web key profile rests on. The identifier is written when the list
+     * is created and read back with the row, so signing never has to ask configuration who the issuer
+     * was -- which is what keeps a changed setting from rewriting the issuer of tokens already being
+     * verified. The other profiles derive their identity and leave it null.
+     *
+     * @throws \Exception
+     */
+    public function testRecordsTheIssuerIdentifierAListWasCreatedUnder(): void
+    {
+        $this->createList();
+        $this->createList(
+            id: 'a-did-web-list',
+            generation: 2,
+            keyProfile: StatusListKeyProfileEnum::DidWeb,
+            issuerIdentifier: 'did:web:issuer.example.org',
+        );
+
+        $this->assertNull($this->repository->findById(self::LIST_ID)?->getIssuerIdentifier());
+
+        $record = $this->repository->findById('a-did-web-list');
+
+        $this->assertSame(StatusListKeyProfileEnum::DidWeb, $record?->getKeyProfile());
+        $this->assertSame('did:web:issuer.example.org', $record->getIssuerIdentifier());
     }
 
 

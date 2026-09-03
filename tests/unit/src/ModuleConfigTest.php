@@ -1043,6 +1043,199 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * The did:web key profile names the issuer by an identifier the pool does not carry itself, so the
+     * module wide one is handed to it. A deployment has one such identity, and a pool naming a second
+     * would leave one of them without the DID document a Relying Party has to resolve.
+     *
+     * @throws \Exception
+     */
+    public function testHandsTheIssuerIdentifierToAPoolOnTheDidWebKeyProfile(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:issuer.example.org',
+            ],
+        ));
+
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertSame(StatusListKeyProfileEnum::DidWeb, $pool?->getKeyProfile());
+        $this->assertSame('did:web:issuer.example.org', $pool->getIssuerIdentifier());
+    }
+
+
+    /**
+     * Answered without building the pools, so that a pool which cannot be built -- here a `did_web` one
+     * whose issuer identifier is missing -- cannot change the answer for one which can. The JWKS
+     * endpoint decides whether to keep publishing the credential signing key by asking this, and a
+     * `jwks` pool's already published tokens are verified through that key.
+     *
+     * @throws \Exception
+     */
+    public function testAnswersWhichKeyProfilesAreInUseEvenWhileAnotherPoolCanNotBeBuilt(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'TestCredential' => [],
+                    'OtherCredential' => [],
+                ],
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'published' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::Jwks,
+                    ],
+                    // No issuer did:web is configured, so building this one throws.
+                    'decentralised' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['OtherCredential'],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb,
+                    ],
+                ],
+            ],
+        ));
+
+        $this->assertTrue($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks));
+        $this->assertTrue($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::DidWeb));
+        $this->assertFalse($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::DidJwk));
+
+        // The pool bag itself is still refused, which is where that error belongs.
+        $this->expectException(ConfigurationError::class);
+
+        $sut->getVciStatusListPoolBag();
+    }
+
+
+    /**
+     * A pool which names no profile of its own takes the deployment default, so the answer has to
+     * follow that rather than only what each pool spells out.
+     *
+     * @throws \Exception
+     */
+    public function testAPoolWhichNamesNoKeyProfileCountsUnderTheDeploymentDefault(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::Jwks],
+        ));
+
+        $this->assertTrue($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks));
+        $this->assertFalse($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::DidJwk));
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testNoPoolIsOnAnyKeyProfileWhenNonePoolIsConfigured(): void
+    {
+        $this->assertFalse(
+            $this->sut()->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks),
+        );
+    }
+
+
+    /**
+     * A pool may take the profile on its own while the deployment default is another, so whether the
+     * issuer identifier is needed cannot be answered from the default alone. Spelled as the string a
+     * hand written config would use, which is the other shape that has to be recognised.
+     *
+     * @throws \Exception
+     */
+    public function testHandsTheIssuerIdentifierToAPoolWhichTakesTheDidWebProfileOnItsOwn(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidJwk,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'default' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb->value,
+                    ],
+                ],
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:issuer.example.org',
+            ],
+        ));
+
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertSame(StatusListKeyProfileEnum::DidWeb, $pool?->getKeyProfile());
+        $this->assertSame('did:web:issuer.example.org', $pool->getIssuerIdentifier());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRefusesAPoolOnTheDidWebKeyProfileWithNoIssuerIdentifier(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $sut->getVciStatusListPoolBag();
+    }
+
+
+    /**
+     * A pool on a profile which never looks at the issuer did:web must stay readable when that option
+     * is malformed. The JWKS endpoint decides whether to publish the credential signing key by reading
+     * the pools, so a failure here would withdraw the key that a `jwks` profile pool's already
+     * published tokens are verified through -- over a setting those tokens do not use.
+     *
+     * @throws \Exception
+     */
+    public function testAMalformedIssuerIdentifierDoesNotStopPoolsWhichDoNotUseOneFromResolving(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::Jwks,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:localhost',
+            ],
+        ));
+
+        $this->assertSame(
+            StatusListKeyProfileEnum::Jwks,
+            $sut->getVciStatusListPoolBag()->getById('default')?->getKeyProfile(),
+        );
+    }
+
+
+    /**
+     * The same option is still refused where it is actually used, so a malformed identifier cannot
+     * reach a list which would then be signed under it.
+     *
+     * @throws \Exception
+     */
+    public function testAMalformedIssuerIdentifierIsStillRefusedForAPoolWhichUsesOne(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:localhost',
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $sut->getVciStatusListPoolBag();
+    }
+
+
+    /**
      * A pool whose credential configurations all lack a lifetime allocates only into the non-expiring
      * lane, so any list it has in the other one is no longer an allocation target and has to be
      * deactivated -- otherwise nothing would ever fill it, nothing would deactivate it, and it would be

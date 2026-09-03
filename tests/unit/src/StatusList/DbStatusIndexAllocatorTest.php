@@ -720,6 +720,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 int $refreshIntervalSeconds,
                 string $signingKeyId,
                 StatusListKeyProfileEnum $keyProfile,
+                ?string $issuerIdentifier = null,
             ): void {
                 throw new Exception('Database error: duplicate generation.');
             }
@@ -1230,6 +1231,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 int $refreshIntervalSeconds,
                 string $signingKeyId,
                 StatusListKeyProfileEnum $keyProfile,
+                ?string $issuerIdentifier = null,
             ): void {
                 throw new Exception('Database error: duplicate generation.');
             }
@@ -1284,6 +1286,7 @@ class DbStatusIndexAllocatorTest extends TestCase
                 int $refreshIntervalSeconds,
                 string $signingKeyId,
                 StatusListKeyProfileEnum $keyProfile,
+                ?string $issuerIdentifier = null,
             ): void {
                 throw new Exception('Database error: disk full.');
             }

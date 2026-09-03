@@ -860,12 +860,38 @@ key it was signed with is a deployment choice:
 
 - `did_jwk` (default): `kid` is the issuer's `did:jwk:...#0` and `iss` is the same `did:jwk:...`. The
   token carries the key with it and verifies without any external lookup.
+- `did_web`: `iss` is the `did:web` set under `OPTION_VCI_ISSUER_DID_IDENTIFIER` and `kid` names the
+  signing key in the DID document this module publishes for it. This is the profile which makes a
+  credential and the Status List Token it points at name the same issuer under the same resolvable
+  identity. It requires that option to be set — a pool on this profile without one is a configuration
+  error rather than something discovered when a token is signed.
 - `jwks`: `iss` is this module's issuer URL and `kid` is a JWKS key ID, so the key is resolved through
   the published JWKS. Use this for Relying Parties which will not accept a `did:jwk` key identifier.
 
 Each list records the profile it was created under. Changing the setting therefore routes newly issued
 credentials to newly created lists, while existing lists keep being served under the profile their
 holders already resolved them by — so changing it never invalidates anything already in a wallet.
+
+**A `did_web` list also records the identifier, not just the profile.** It has to: unlike the other two,
+that identifier is a setting of its own which can be changed or cleared while lists created under it are
+still being served. Reading it afresh at signing time would silently rewrite the `iss` of every token
+those lists emit, leaving a wallet holding a credential naming one issuer and a status token naming
+another. Because the identifier is recorded, changing it behaves like every other policy change: new
+credentials go to new lists, and the old lists go on naming the issuer they were created under.
+
+The obligation that follows is the same one credentials carry. **Keep the DID document published for
+every identifier an unretired list still names**, not only for the one currently configured — a Relying
+Party checking a credential's status has to resolve the token's issuer, and a `404` there is
+indistinguishable from a revoked deployment. The Verifiable Credential configuration screen lists the
+identities **credentials** were issued under, which answers this too whenever credentials are issued
+under the same `did:web`. It does not cover the case where they are not — a deployment naming its
+credentials some other way while its Status Lists use `did:web` has to track the identifiers of its
+unretired lists itself.
+
+**Selecting `did_web` is a one-way upgrade.** Once a list has been created under it, the deployment can
+no longer be rolled back to a release that predates the profile: an older process reading that row
+refuses it rather than guessing an identity, which takes that list's endpoint down. Roll the code
+forward everywhere before switching a pool onto it.
 
 **A signing key has to outlive every list signed with it.** Each list records the key it was created
 with and is re-signed from that key alone, never from whichever key is current. Rotating keys is
@@ -883,7 +909,9 @@ when the list matters most.
 Whether credentials stay verifiable in the meantime depends on the profile. A `did_jwk` token carries
 its own key, so tokens already published keep verifying. Under `jwks` the key is resolved through this
 module's published JWKS, which the same removal empties, so already published tokens stop verifying too
-once Relying Parties refetch it. A key is only safe to discard once every list it signed has been
+once Relying Parties refetch it. `did_web` behaves the same way as `jwks` here: the key is named in the
+published DID document, which is built from the configured keys, so removing one withdraws it there
+too. A key is only safe to discard once every list it signed has been
 retired, which the lifecycle below does only after the last credential in those lists has expired.
 
 ### Credential expiry

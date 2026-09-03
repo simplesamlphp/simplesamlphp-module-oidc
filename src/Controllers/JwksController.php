@@ -70,6 +70,12 @@ class JwksController
      * the database did, taking down verification of every ID token and access token this issuer has
      * ever signed. That is a far larger failure than the one it would prevent.
      *
+     * Asked of the raw configured values rather than of the built pools, which matters for the same
+     * reason. Building them is all or nothing: one pool misconfigured in any way -- a bad bit count, or
+     * an issuer `did:web` which only another pool's profile even reads -- would make the whole bag
+     * unreadable, this question answer "no", and the key that a perfectly good `jwks` pool's already
+     * published tokens are verified through be withdrawn over a setting those tokens never used.
+     *
      * The gap this leaves is an operator removing a pool, or switching it to the other key profile,
      * while lists created under the old one are still being served. That is the same class of change as
      * removing the signing key itself, and it is caught where it can be acted on: publication resolves
@@ -78,19 +84,14 @@ class JwksController
     protected function isAnyStatusListKeyPublished(): bool
     {
         try {
-            foreach ($this->moduleConfig->getVciStatusListPoolBag()->getAll() as $pool) {
-                if ($pool->getKeyProfile() === StatusListKeyProfileEnum::Jwks) {
-                    return true;
-                }
-            }
+            return $this->moduleConfig->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks);
         } catch (Throwable) {
-            // A pool which can not be resolved is reported on the configuration overview screen, which
-            // owns that error. Here the conservative reading is that no pool needs its key published,
-            // which leaves the key set exactly as it was before Status Lists existed.
+            // Only a pool list or a default key profile which can not be read at all reaches here, and
+            // both are reported on the configuration overview screen, which owns that error. The
+            // conservative reading is that no pool needs its key published, which leaves the key set
+            // exactly as it was before Status Lists existed.
             return false;
         }
-
-        return false;
     }
 
 

@@ -323,19 +323,20 @@ class StatusListRepository extends AbstractDatabaseRepository
         int $refreshIntervalSeconds,
         string $signingKeyId,
         StatusListKeyProfileEnum $keyProfile,
+        ?string $issuerIdentifier = null,
     ): void {
         $this->database->write(
             sprintf(
                 'INSERT INTO %s (
                     id, uri, pool_id, policy_fingerprint, expiry_lane, generation, bits, capacity,
                     allowed_statuses, ttl_seconds, token_validity_seconds, refresh_interval_seconds,
-                    signing_key_id, key_profile, allocated_count, is_active,
+                    signing_key_id, key_profile, issuer_identifier, allocated_count, is_active,
                     signed_token_content_hash, created_at
                 ) VALUES (
                     :id, :uri, :pool_id, :policy_fingerprint, :expiry_lane, :generation, :bits,
                     :capacity, :allowed_statuses, :ttl_seconds, :token_validity_seconds,
-                    :refresh_interval_seconds, :signing_key_id, :key_profile, :allocated_count,
-                    :is_active, :signed_token_content_hash, :created_at
+                    :refresh_interval_seconds, :signing_key_id, :key_profile, :issuer_identifier,
+                    :allocated_count, :is_active, :signed_token_content_hash, :created_at
                 )',
                 $this->getTableName(),
             ),
@@ -354,6 +355,9 @@ class StatusListRepository extends AbstractDatabaseRepository
                 'refresh_interval_seconds' => [$refreshIntervalSeconds, PDO::PARAM_INT],
                 'signing_key_id' => $signingKeyId,
                 'key_profile' => $keyProfile->value,
+                // Null under every profile but `did_web`, which is the only one naming the issuer by
+                // something a list has to remember rather than derive.
+                'issuer_identifier' => $issuerIdentifier,
                 'allocated_count' => [0, PDO::PARAM_INT],
                 // Created inactive, and activated only once every index has been seeded. Otherwise a
                 // concurrent request could select this list and probe indices which do not exist yet,

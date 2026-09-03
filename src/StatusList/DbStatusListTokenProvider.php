@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
@@ -18,7 +19,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
-use SimpleSAML\OpenID\Did;
+use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\TokenStatusList;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use Throwable;
@@ -59,7 +60,12 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         protected readonly StatusListKeyResolver $statusListKeyResolver,
         protected readonly TokenStatusList $tokenStatusList,
         protected readonly ModuleConfig $moduleConfig,
-        protected readonly Did $did,
+        // The factory rather than the facade it builds. Building that one reads the DID cache adapter
+        // and the outbound destination settings, none of which signing a token needs: both identifiers
+        // below are minted from key material already in hand and nothing is fetched. Taking the facade
+        // meant an unrelated outbound option could stop every Status List Token being signed, including
+        // for lists whose profile resolves nothing at all.
+        protected readonly DidFactory $didFactory,
         protected readonly Helpers $helpers,
         protected readonly LoggerService $loggerService,
     ) {
@@ -262,7 +268,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         // for nobody holding a credential bound to the old one, while looking like success.
         $signatureKeyPair = $this->statusListKeyResolver->getByKeyId($statusList->getSigningKeyId());
         $keyPair = $signatureKeyPair->getKeyPair();
-        $identity = $this->identityFor($statusList->getKeyProfile(), $keyPair);
+        $identity = $this->identityFor($statusList, $keyPair);
 
         try {
             $list = $this->tokenStatusList->statusListFactory()->fromEntries(
@@ -304,23 +310,35 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
      * How the token says who signed it and with which key.
      *
      * The specification mandates no key resolution method, so this is the deployment's profile rather
-     * than anything derivable from the spec, and it is read from the list's own row so that changing the
-     * configured profile never alters a token wallets are already verifying.
+     * than anything derivable from the spec. The whole record is taken rather than the profile alone
+     * because the answer is assembled from the row and not from configuration -- both the profile and,
+     * under `did_web`, the identifier itself -- so that changing a setting never alters a token wallets
+     * are already verifying.
      *
      * @return array{issuer: string, keyId: string}
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
-    protected function identityFor(StatusListKeyProfileEnum $keyProfile, KeyPair $keyPair): array
+    protected function identityFor(StatusListRecord $statusList, KeyPair $keyPair): array
     {
-        if ($keyProfile === StatusListKeyProfileEnum::Jwks) {
-            return [
+        return match ($statusList->getKeyProfile()) {
+            StatusListKeyProfileEnum::Jwks => [
                 'issuer' => $this->moduleConfig->getIssuer(),
                 'keyId' => $keyPair->getKeyId(),
-            ];
-        }
+            ],
+            StatusListKeyProfileEnum::DidWeb => $this->didWebIdentityFor($statusList, $keyPair),
+            StatusListKeyProfileEnum::DidJwk => $this->didJwkIdentityFor($keyPair),
+        };
+    }
 
+
+    /**
+     * @return array{issuer: string, keyId: string}
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    protected function didJwkIdentityFor(KeyPair $keyPair): array
+    {
         try {
-            $didJwk = $this->did->didJwkResolver()->generateDidJwkFromJwk(
+            $didJwk = $this->didFactory->didJwkResolver()->generateDidJwkFromJwk(
                 $keyPair->getPublicKey()->jwk()->all(),
             );
         } catch (Throwable $throwable) {
@@ -337,6 +355,55 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         return [
             'issuer' => $didJwk,
             'keyId' => $didJwk . '#0',
+        ];
+    }
+
+
+    /**
+     * The identifier comes from the list's own row and is never re-derived from configuration, so a
+     * list keeps naming the issuer it was created under even after that setting changes or is cleared.
+     * The key is named through the same factory which builds the published DID document, so a token can
+     * not point at a verification method that document does not carry.
+     *
+     * @return array{issuer: string, keyId: string}
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    protected function didWebIdentityFor(StatusListRecord $statusList, KeyPair $keyPair): array
+    {
+        $didWeb = $statusList->getIssuerIdentifier();
+
+        if (is_null($didWeb)) {
+            // Only reachable for a row written by something other than the allocator, which refuses
+            // this profile without an identifier long before a list exists. Signing under a guessed
+            // identity would be worse than not signing: the token would name an issuer this list was
+            // never created under, and a wallet cannot tell the difference.
+            throw new StatusListException(
+                sprintf(
+                    'Status List "%s" is recorded under the "%s" key profile but carries no issuer ' .
+                    'identifier, so there is no issuer to sign it as.',
+                    $statusList->getId(),
+                    StatusListKeyProfileEnum::DidWeb->value,
+                ),
+            );
+        }
+
+        try {
+            $keyId = $this->didFactory->didDocumentFactory()->verificationMethodIdFor(
+                new DidUrl($didWeb),
+                $keyPair->getKeyId(),
+            )->getValue();
+        } catch (Throwable $throwable) {
+            throw new StatusListException(
+                'Unable to build the did:web verification method identifier for the Status List ' .
+                'signing key: ' . $throwable->getMessage(),
+                (int)$throwable->getCode(),
+                $throwable,
+            );
+        }
+
+        return [
+            'issuer' => $didWeb,
+            'keyId' => $keyId,
         ];
     }
 
