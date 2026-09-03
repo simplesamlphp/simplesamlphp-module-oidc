@@ -878,9 +878,7 @@ class CredentialIssuerCredentialController
                 $temp = [];
             }
 
-            if (!isset($temp[$key])) {
-                $temp[$key] = [];
-            }
+            $temp[$key] ??= [];
 
             $temp = &$temp[$key];
         }

@@ -495,10 +495,14 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
     /**
      * Which identities this deployment has actually issued credentials under.
      *
-     * Configuration cannot answer this, and it is the question which matters: a did:web identity that
-     * was issued under and is no longer published leaves those credentials unverifiable, and nothing
-     * else would report it. Only did:web is flagged, since a did:jwk credential carries its own key
-     * and an issuer URL keeps resolving through the published key set.
+     * Configuration cannot answer this, and it is the question which matters: an identity credentials
+     * were issued under which this deployment no longer publishes leaves them unverifiable, and
+     * nothing else would report it.
+     *
+     * A did:jwk is never flagged, since such a credential carries its own key and stays verifiable
+     * whatever is configured afterwards. A did:web is flagged once it is no longer the published
+     * identifier. An issuer URL is flagged once it is no longer this issuer, because the well-known
+     * metadata and the key set those credentials resolve through moved with it.
      */
     protected function buildIssuedIdentitiesRow(): Row
     {
@@ -507,6 +511,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         try {
             $used = $this->vciIssuerIdentityRepository->getAllUsed();
             $didWeb = $this->moduleConfig->getVciIssuerIdentifier()->getDidWeb();
+            $issuer = $this->moduleConfig->getIssuer();
         } catch (Throwable $exception) {
             $this->logger->error(
                 'Configuration overview could not read which issuer identities were issued under: ' .
@@ -542,8 +547,11 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         $noLongerPublished = array_keys(array_filter(
             $used,
-            static fn(string $mode, string $identifier): bool =>
-                $mode === VciIssuerIdentifierModeEnum::DidWeb->value && $identifier !== $didWeb,
+            static fn(string $mode, string $identifier): bool => match ($mode) {
+                VciIssuerIdentifierModeEnum::DidWeb->value => $identifier !== $didWeb,
+                VciIssuerIdentifierModeEnum::Https->value => $identifier !== $issuer,
+                default => false,
+            },
             ARRAY_FILTER_USE_BOTH,
         ));
 
@@ -557,10 +565,10 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 'unless a lifetime is configured for them.',
             ),
             $noLongerPublished === [] ? null : Translate::noop(
-                'A did:web identity listed here is no longer the configured one, so its DID document ' .
-                'is no longer published and every credential issued under it can no longer be ' .
-                'verified. Set it as the did:web identifier again to resume publishing it, or serve ' .
-                'the document it needs by other means.',
+                'An identity listed here is no longer one this deployment publishes - a did:web ' .
+                'whose document is no longer served, or an issuer URL which is no longer this ' .
+                'issuer - so every credential issued under it can no longer be verified. Restore ' .
+                'that identity to resume publishing it, or serve what it needs by other means.',
             ),
         );
     }

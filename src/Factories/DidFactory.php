@@ -7,7 +7,9 @@ namespace SimpleSAML\Module\oidc\Factories;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Did;
+use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Did\DidWebResolver;
+use SimpleSAML\OpenID\Did\Factories\DidDocumentFactory;
 
 /**
  * Builds the library entry point for Decentralized Identifier resolution.
@@ -28,6 +30,13 @@ class DidFactory
      * turning a single connection into one per collaborator.
      */
     protected ?Did $did = null;
+
+    /**
+     * A facade for the work which never leaves this host, kept apart from the one above.
+     *
+     * @see localDid()
+     */
+    protected ?Did $localDid = null;
 
 
     /**
@@ -72,12 +81,51 @@ class DidFactory
 
 
     /**
-     * @throws \SimpleSAML\Error\ConfigurationError
-     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     * Builds the DID document this deployment publishes for its own `did:web` identifier.
+     *
+     * Deliberately not reached through {@see build()}. Building that facade instantiates the
+     * configured cache adapter and resolves the DID outbound destination settings, neither of which
+     * this needs: the document is assembled from key material already on disk and nothing is fetched.
+     * Going through it would mean a malformed `vci_cache_adapter`, or an outbound option which only
+     * governs resolving *other people's* DIDs, stopping this document being served - and a credential
+     * issued under a `did:web` identity can only be verified by resolving that document, so an
+     * unrelated setting would make credentials already in wallets permanently unverifiable.
+     *
      * @throws \SimpleSAML\OpenID\Exceptions\DidException
-     * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException
-     * @throws \Exception
      */
+    public function didDocumentFactory(): DidDocumentFactory
+    {
+        return $this->localDid()->didDocumentFactory();
+    }
+
+
+    /**
+     * Derives a `did:jwk` from a key already in hand, which is likewise a local operation.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\DidException
+     */
+    public function didJwkResolver(): DidJwkResolver
+    {
+        return $this->localDid()->didJwkResolver();
+    }
+
+
+    /**
+     * A facade constructed from nothing but a logger, for the operations above.
+     *
+     * Every constructor argument the library takes is optional, so this reads no configuration at all
+     * and therefore cannot fail on any of it. The resolvers hanging off it are deliberately not
+     * exposed: its destination policy is the library's own default rather than this deployment's, so
+     * resolving through it would ignore the configured allowlist. That is why the two accessors above
+     * hand out the local factories rather than the facade itself, and why anything which resolves a
+     * DID supplied from outside must go through {@see build()}.
+     */
+    protected function localDid(): Did
+    {
+        return $this->localDid ??= new Did(logger: $this->loggerService);
+    }
+
+
     protected function buildDid(): Did
     {
         return new Did(

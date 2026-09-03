@@ -15,7 +15,6 @@ use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
-use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\Factories\DidDocumentFactory;
@@ -40,8 +39,6 @@ class VciIssuerIdentityResolverTest extends TestCase
 
     protected MockObject $didFactoryMock;
 
-    protected MockObject $didMock;
-
     protected MockObject $didJwkResolverMock;
 
     protected MockObject $didDocumentFactoryMock;
@@ -62,12 +59,9 @@ class VciIssuerIdentityResolverTest extends TestCase
             static fn(DidUrl $did, string $keyId): DidUrl => new DidUrl($did->getDid() . '#' . $keyId),
         );
 
-        $this->didMock = $this->createMock(Did::class);
-        $this->didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
-        $this->didMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
-
         $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->method('build')->willReturn($this->didMock);
+        $this->didFactoryMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+        $this->didFactoryMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
 
         $keyPairMock = $this->createMock(KeyPair::class);
         $keyPairMock->method('getKeyId')->willReturn(self::KEY_ID);
@@ -155,15 +149,33 @@ class VciIssuerIdentityResolverTest extends TestCase
     }
 
 
+    /**
+     * Both identifiers are minted from a key already in hand, so neither may depend on the facade
+     * whose construction reads the cache adapter and the outbound destination settings.
+     */
+    public function testMintingAnIdentityNeverBuildsTheResolvingFacade(): void
+    {
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->sut()->resolve(
+            new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::DidJwk),
+            $this->signatureKeyPair,
+        );
+
+        $this->sut()->resolve(
+            new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::DidWeb, self::DID_WEB),
+            $this->signatureKeyPair,
+        );
+    }
+
+
     public function testReportsAFailureToDeriveTheDidJwk(): void
     {
         $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')
             ->willThrowException(new RuntimeException('nope'));
-        $this->didMock = $this->createMock(Did::class);
-        $this->didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
         $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->method('build')->willReturn($this->didMock);
+        $this->didFactoryMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
 
         $this->expectException(OidcException::class);
         $this->expectExceptionMessage('did:jwk');
@@ -180,10 +192,8 @@ class VciIssuerIdentityResolverTest extends TestCase
         $this->didDocumentFactoryMock = $this->createMock(DidDocumentFactory::class);
         $this->didDocumentFactoryMock->method('verificationMethodIdFor')
             ->willThrowException(new RuntimeException('nope'));
-        $this->didMock = $this->createMock(Did::class);
-        $this->didMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
         $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->method('build')->willReturn($this->didMock);
+        $this->didFactoryMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
 
         $this->expectException(OidcException::class);
         $this->expectExceptionMessage('did:web');

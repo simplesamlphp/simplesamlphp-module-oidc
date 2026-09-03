@@ -524,10 +524,7 @@ class OidcServerException extends OAuthServerException
 
         $payload = $this->getPayload();
 
-        if ($this->responseMode === null) {
-            // Fallback to useFragment if responseMode is not set
-            $this->responseMode = $useFragment ? new FragmentResponseMode() : new QueryResponseMode();
-        }
+        $this->responseMode ??= $useFragment ? new FragmentResponseMode() : new QueryResponseMode();
 
         if ($this->redirectUri !== null) {
             return $this->responseMode->buildResponse($this->redirectUri, $payload)->generateHttpResponse($response);

@@ -65,7 +65,7 @@ class VciIssuerIdentityResolver
     protected function forDidJwk(SignatureKeyPair $signatureKeyPair): VciIssuerIdentity
     {
         try {
-            $didJwk = $this->didFactory->build()->didJwkResolver()->generateDidJwkFromJwk(
+            $didJwk = $this->didFactory->didJwkResolver()->generateDidJwkFromJwk(
                 $signatureKeyPair->getKeyPair()->getPublicKey()->jwk()->all(),
             );
         } catch (Throwable $throwable) {
@@ -89,7 +89,7 @@ class VciIssuerIdentityResolver
     protected function forDidWeb(string $didWeb, SignatureKeyPair $signatureKeyPair): VciIssuerIdentity
     {
         try {
-            $keyId = $this->didFactory->build()->didDocumentFactory()->verificationMethodIdFor(
+            $keyId = $this->didFactory->didDocumentFactory()->verificationMethodIdFor(
                 new DidUrl($didWeb),
                 $signatureKeyPair->getKeyPair()->getKeyId(),
             )->getValue();

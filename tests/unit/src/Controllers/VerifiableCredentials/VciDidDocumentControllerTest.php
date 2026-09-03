@@ -16,7 +16,6 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\VerificationMethodTypeEnum;
 use SimpleSAML\OpenID\Codebooks\VerificationRelationshipEnum;
-use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidDocument;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\Factories\DidDocumentFactory;
@@ -61,11 +60,8 @@ class VciDidDocumentControllerTest extends TestCase
         $this->didDocumentFactoryMock = $this->createMock(DidDocumentFactory::class);
         $this->didDocumentFactoryMock->method('forDidWeb')->willReturn($didDocumentMock);
 
-        $didMock = $this->createMock(Did::class);
-        $didMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
-
         $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->method('build')->willReturn($didMock);
+        $this->didFactoryMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
 
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
 
@@ -128,6 +124,26 @@ class VciDidDocumentControllerTest extends TestCase
             );
 
         $this->sut()->didDocument();
+    }
+
+
+    /**
+     * The document is assembled from key material already on disk, so it must not be able to fail on
+     * settings which exist to govern resolving other people's DIDs.
+     *
+     * Building the DID facade instantiates the configured cache adapter and resolves the outbound
+     * destination policy. Reaching the document factory through it would let a malformed
+     * `vci_cache_adapter`, or an outbound option this endpoint never uses, answer with a 500 - and a
+     * credential issued under a did:web identity can only be verified by resolving this document, so
+     * such a failure would make credentials already in wallets unverifiable.
+     */
+    public function testPublishingNeverBuildsTheResolvingFacade(): void
+    {
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $response = $this->sut()->didDocument();
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
     }
 
 
@@ -206,10 +222,8 @@ class VciDidDocumentControllerTest extends TestCase
         $this->didDocumentFactoryMock->method('forDidWeb')
             ->willThrowException(new RuntimeException('nope'));
 
-        $didMock = $this->createMock(Did::class);
-        $didMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
         $this->didFactoryMock = $this->createMock(DidFactory::class);
-        $this->didFactoryMock->method('build')->willReturn($didMock);
+        $this->didFactoryMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
 
         $this->loggerServiceMock->expects($this->once())->method('error');
 

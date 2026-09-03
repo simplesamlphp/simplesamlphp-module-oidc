@@ -33,6 +33,8 @@ class VciOverviewBuilderTest extends TestCase
 
     protected const string DID_WEB_WITH_PATH_URL = 'https://example.org/simplesaml/module.php/oidc/did.json';
 
+    protected const string ISSUER = 'https://issuer.example.org';
+
 
     /**
      * A minimal but realistic credential configuration, shaped like the one in the config template.
@@ -1387,20 +1389,21 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
-     * A did:jwk credential carries its own key and an issuer URL keeps resolving through the published
-     * key set, so neither is a reason to warn. Only a did:web identity which is no longer published is.
+     * A did:jwk credential carries its own key, so it stays verifiable whatever is configured later.
+     * The other two are only resolvable while the deployment still publishes them, and here it does.
      */
-    public function testDoesNotWarnAboutIdentitiesWhichStayResolvable(): void
+    public function testDoesNotWarnAboutIdentitiesWhichAreStillPublished(): void
     {
         $row = $this->findRowByLabel(
             $this->buildVciOverviewBuilder(
                 [
+                    ModuleConfig::OPTION_ISSUER => self::ISSUER,
                     ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
                     ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
                 ],
                 [
                     'did:jwk:retired' => VciIssuerIdentifierModeEnum::DidJwk->value,
-                    'https://issuer.example.org' => VciIssuerIdentifierModeEnum::Https->value,
+                    self::ISSUER => VciIssuerIdentifierModeEnum::Https->value,
                     self::DID_WEB_WITH_PATH => VciIssuerIdentifierModeEnum::DidWeb->value,
                 ],
                 self::DID_WEB_WITH_PATH_URL,
@@ -1410,7 +1413,7 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertSame(
-            ['did:jwk:retired', 'https://issuer.example.org', self::DID_WEB_WITH_PATH],
+            ['did:jwk:retired', self::ISSUER, self::DID_WEB_WITH_PATH],
             $row->getValue(),
         );
         $this->assertNull($row->getWarning());
@@ -1432,6 +1435,26 @@ class VciOverviewBuilderTest extends TestCase
         );
 
         $this->assertNotNull($row);
-        $this->assertStringContainsString('no longer published', (string)$row->getWarning());
+        $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
+    }
+
+
+    /**
+     * An issuer URL identity is no less perishable than a did:web one: credentials issued under it
+     * resolve their metadata and their signing key through that URL, so changing the issuer leaves
+     * them naming an identity this deployment no longer answers for.
+     */
+    public function testWarnsAboutAnIssuerUrlIdentityWhichIsNoLongerThisIssuer(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_ISSUER => self::ISSUER],
+                ['https://old-issuer.example.org' => VciIssuerIdentifierModeEnum::Https->value],
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
     }
 }

@@ -50,9 +50,9 @@ class VciDidDocumentController
 
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
-        // The factory rather than the facade: building one reads the DID resolution settings and
-        // instantiates the configured cache adapter, and nothing here resolves anything over the
-        // network. See CredentialIssuerCredentialController for the same reasoning.
+        // Asked only for its local document factory, never for a built facade: this document is
+        // assembled from key material already on disk, so it must not be able to fail on a cache
+        // adapter or an outbound setting which exists to govern resolving other people's DIDs.
         protected readonly DidFactory $didFactory,
         protected readonly Routes $routes,
         protected readonly LoggerService $loggerService,
@@ -82,7 +82,7 @@ class VciDidDocumentController
         }
 
         try {
-            $didDocument = $this->didFactory->build()->didDocumentFactory()->forDidWeb(
+            $didDocument = $this->didFactory->didDocumentFactory()->forDidWeb(
                 new DidUrl($didWeb),
                 // The whole key set rather than the pair which is currently signing. Every key which
                 // has signed a credential still in circulation has to be here, or the credentials it
