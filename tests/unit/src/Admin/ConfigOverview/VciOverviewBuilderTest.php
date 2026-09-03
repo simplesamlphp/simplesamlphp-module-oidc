@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
@@ -1455,6 +1456,225 @@ class VciOverviewBuilderTest extends TestCase
         );
 
         $this->assertNotNull($row);
+        $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
+    }
+
+
+    public function testSaysNoStatusListNamesADidWeb(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder()->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None recorded', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The lists name the identifier the deployment still publishes, so there is nothing to act on --
+     * only the standing obligation to keep publishing it, which the note states.
+     */
+    public function testDoesNotWarnAboutStatusListIdentitiesWhichAreStillPublished(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame([self::DID_WEB_WITH_PATH], $row->getValue());
+        $this->assertStringContainsString('has to stay', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The case M5c left unreported: credentials are issued under a did:jwk, so the deployment's
+     * did:web appears on no credential and the row which answers for credentials has never seen it.
+     * Only the lists know it, and only they can say its document is still needed.
+     */
+    public function testWarnsAboutAStatusListIdentityWhichIsNoLongerPublished(): void
+    {
+        $sections = $this->buildVciOverviewBuilder(
+            [
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+            ],
+            didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            statusListIssuerIdentifiers: ['did:web:retired.example.org'],
+        )->build();
+
+        $row = $this->findRowByLabel($sections, 'Identities Status Lists Are Signed Under');
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('not the configured did:web', (string)$row->getWarning());
+
+        // The credentials row is the one which cannot see this, which is why the new row exists.
+        $credentialsRow = $this->findRowByLabel($sections, 'Identities Credentials Were Issued Under');
+
+        $this->assertNotNull($credentialsRow);
+        $this->assertNull($credentialsRow->getWarning());
+    }
+
+
+    /**
+     * Clearing the identifier retires the identity and withdraws its document, which is exactly the
+     * change a list created under it can not follow: it keeps signing under what it recorded.
+     */
+    public function testWarnsAboutStatusListIdentitiesOnceTheIdentifierIsCleared(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('not the configured did:web', (string)$row->getWarning());
+    }
+
+
+    /**
+     * Lists which already exist keep being served whatever the switch says, so the obligation their
+     * identifiers carry does not go away with it.
+     */
+    public function testReportsStatusListIdentitiesWhileStatusListsAreDisabled(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                statusListIssuerIdentifiers: ['did:web:retired.example.org'],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['did:web:retired.example.org'], $row->getValue());
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * These screens are what an administrator opens when the database is already unhappy, so a read
+     * which fails has to leave the rest of the page standing.
+     */
+    public function testSurvivesAFailureToReadTheStatusListIdentities(): void
+    {
+        $sections = $this->buildVciOverviewBuilder(
+            statusListIssuerIdentifiers: new RuntimeException('No such column: issuer_identifier'),
+        )->build();
+
+        $row = $this->findRowByLabel($sections, 'Identities Status Lists Are Signed Under');
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertStringContainsString('could not be read', (string)$row->getWarning());
+        $this->assertNotEmpty($sections);
+    }
+
+
+    /**
+     * The identifiers come from storage and the configured did:web only decides whether to warn about
+     * them, so a malformed option must not cost the reader the list itself -- that option is reported
+     * on its own row, and this is the screen an administrator is on while fixing it.
+     */
+    public function testStillListsStatusListIdentitiesWhenTheConfiguredDidWebIsMalformed(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'not-a-did'],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame([self::DID_WEB_WITH_PATH], $row->getValue());
+        $this->assertStringContainsString('could not be read', (string)$row->getWarning());
+    }
+
+
+    /**
+     * Clearing the identifier while the mode still names did:web is the one pairing the two options
+     * can not be resolved into together -- and it is also precisely the state this row exists to
+     * report, since clearing the option is what withdraws the document the lists still name. Asking
+     * for the identifier alone, as the endpoint which publishes the document does, is what keeps the
+     * warning from being reported as an unreadable configuration.
+     */
+    public function testWarnsAboutStatusListIdentitiesWhenTheModeStillNamesAClearedDidWeb(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('not the configured did:web', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A malformed mode says nothing about which document is published, so it must not cost this row
+     * its comparison either.
+     */
+    public function testStillComparesStatusListIdentitiesWhenTheIssuerModeIsMalformed(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => 'not-a-mode',
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The same coupling, in the row which answers for credentials. It predates this change and is the
+     * identical defect: the state it has to report is the state the paired accessor refuses.
+     */
+    public function testWarnsAboutIssuedIdentitiesWhenTheModeStillNamesAClearedDidWeb(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                ['did:web:retired.example.org' => VciIssuerIdentifierModeEnum::DidWeb->value],
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['did:web:retired.example.org'], $row->getValue());
         $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
     }
 }

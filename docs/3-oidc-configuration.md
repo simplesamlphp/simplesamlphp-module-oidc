@@ -335,7 +335,8 @@ old identifier resolves to.
 The VCI configuration screen lists every identity this deployment has actually
 issued credentials under, and warns when one of them is a `did:web` it no longer
 publishes. Configuration alone cannot answer that question, which is why it is
-recorded as credentials are issued.
+recorded as credentials are issued. Status Lists carry the same obligation and
+are reported on their own row, described under [Key profile](#key-profile).
 
 ## Holder binding and the DIIP profile
 
@@ -882,11 +883,13 @@ credentials go to new lists, and the old lists go on naming the issuer they were
 The obligation that follows is the same one credentials carry. **Keep the DID document published for
 every identifier an unretired list still names**, not only for the one currently configured — a Relying
 Party checking a credential's status has to resolve the token's issuer, and a `404` there is
-indistinguishable from a revoked deployment. The Verifiable Credential configuration screen lists the
-identities **credentials** were issued under, which answers this too whenever credentials are issued
-under the same `did:web`. It does not cover the case where they are not — a deployment naming its
-credentials some other way while its Status Lists use `did:web` has to track the identifiers of its
-unretired lists itself.
+indistinguishable from a revoked deployment. The Verifiable Credential configuration screen answers this
+directly: separately from the identities credentials were issued under, it lists the ones the Status
+Lists still being served are signed under, and warns when any of them is no longer the configured
+`did:web`. The two are separate rows because they are separate questions — a deployment may identify its
+credentials by a `did:jwk` while its Status Lists use `did:web`, and then the credential row has never
+seen that identifier. An identifier leaves the Status List row once every list under it has been
+retired, and that is the point at which its document may finally be withdrawn.
 
 **Selecting `did_web` is a one-way upgrade.** Once a list has been created under it, the deployment can
 no longer be rolled back to a release that predates the profile: an older process reading that row

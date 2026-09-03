@@ -156,6 +156,94 @@ class StatusListRepositoryTest extends TestCase
 
 
     /**
+     * Which DID documents still have to resolve. Lists sharing an identifier ask for one document
+     * between them, and a list on another key profile asks for none, so both collapse away. The
+     * retired one is the case which matters: it answers 404, so nothing resolves its issuer any more
+     * and an operator is free to stop publishing it -- which is only true while nothing else names it.
+     *
+     * @throws \Exception
+     */
+    public function testReportsTheIssuerIdentifiersOfListsWhichAreStillServed(): void
+    {
+        $this->createList();
+        $this->createList(
+            id: 'first-under-one',
+            generation: 2,
+            keyProfile: StatusListKeyProfileEnum::DidWeb,
+            issuerIdentifier: 'did:web:one.example.org',
+        );
+        $this->createList(
+            id: 'second-under-one',
+            generation: 3,
+            keyProfile: StatusListKeyProfileEnum::DidWeb,
+            issuerIdentifier: 'did:web:one.example.org',
+        );
+        $this->createList(
+            id: 'only-under-two',
+            generation: 4,
+            keyProfile: StatusListKeyProfileEnum::DidWeb,
+            issuerIdentifier: 'did:web:two.example.org',
+        );
+
+        $this->assertSame(
+            ['did:web:one.example.org', 'did:web:two.example.org'],
+            $this->repository->getUnretiredIssuerIdentifiers(),
+        );
+
+        // Deactivation is not retirement. A deactivated list has stopped taking new credentials but
+        // is still served to the ones it already holds, so its document is still required.
+        $this->repository->deactivate('only-under-two');
+
+        $this->assertSame(
+            ['did:web:one.example.org', 'did:web:two.example.org'],
+            $this->repository->getUnretiredIssuerIdentifiers(),
+        );
+
+        $this->assertTrue($this->repository->retire('only-under-two', $this->spentBefore()));
+
+        $this->assertSame(
+            ['did:web:one.example.org'],
+            $this->repository->getUnretiredIssuerIdentifiers(),
+        );
+    }
+
+
+    /**
+     * Two identifiers differing only in case are two identifiers: a `did:web` carries path segments,
+     * and those are case sensitive. MySQL's usual collation is not, so leaving the deduplication to
+     * `SELECT DISTINCT` would fold these into one arbitrarily chosen row -- and the one dropped is an
+     * identity whose document is still required, reported to nobody.
+     *
+     * This runs on SQLite, which compares TEXT byte for byte and so would pass either way. It pins the
+     * contract rather than reproducing the collation, which is also why the deduplication is in PHP:
+     * there is no test here which could have caught it in SQL.
+     *
+     * @throws \Exception
+     */
+    public function testKeepsIssuerIdentifiersWhichDifferOnlyInCaseApart(): void
+    {
+        $this->createList(
+            id: 'lower',
+            keyProfile: StatusListKeyProfileEnum::DidWeb,
+            issuerIdentifier: 'did:web:example.org:issuers:alice',
+        );
+        $this->createList(
+            id: 'upper',
+            generation: 2,
+            keyProfile: StatusListKeyProfileEnum::DidWeb,
+            issuerIdentifier: 'did:web:example.org:issuers:Alice',
+        );
+
+        // Byte order, not the database's, which is the other half of the same promise: the display
+        // must not reshuffle because a deployment moved to another collation.
+        $this->assertSame(
+            ['did:web:example.org:issuers:Alice', 'did:web:example.org:issuers:alice'],
+            $this->repository->getUnretiredIssuerIdentifiers(),
+        );
+    }
+
+
+    /**
      * Deactivation is stamped with the moment it happened, which is now, and the retirement candidate
      * query looks for lists deactivated before a cut-off. Backdating the column is how a test says a
      * list has been sitting deactivated for a while.

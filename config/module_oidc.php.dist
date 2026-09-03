@@ -1933,9 +1933,11 @@ $config = [
      * OPTION_VCI_ISSUER_DID_IDENTIFIER routes new credentials to new lists
      * rather than changing the issuer of tokens already being verified. Keep the
      * DID document published for every identifier any unretired list still
-     * names. The administration screen lists the identities credentials were
-     * issued under, which covers these too unless credentials are issued under
-     * some other identity than the Status Lists are.
+     * names. The administration screen reports them, separately from the
+     * identities credentials were issued under, since a deployment may well
+     * identify its credentials some other way. An identifier leaves that row
+     * once every list under it has been retired, which is when its document may
+     * be withdrawn.
      *
      * Note that a deployment which creates a DidWeb list can not be rolled back
      * to a release without this profile: an older process reading such a row

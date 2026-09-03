@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
@@ -54,9 +55,9 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
 
     /**
-     * The repository is read only here, and the Configuration screens already resolve a database
+     * The repositories are read only here, and the Configuration screens already resolve a database
      * connection through DatabaseMigration, so this adds no failure mode they did not have. The rows
-     * which use it still catch for themselves, since these screens exist to be readable while
+     * which use them still catch for themselves, since these screens exist to be readable while
      * something is broken.
      */
     public function __construct(
@@ -65,6 +66,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         DateIntervalFormatter $dateIntervalFormatter,
         LoggerService $logger,
         protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
+        protected readonly StatusListRepository $statusListRepository,
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
@@ -182,6 +184,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->buildStatusListIdentitiesRow(),
             $this->guardRow(
                 Translate::noop('Status List Requests Per Minute'),
                 ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
@@ -290,6 +293,128 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         ];
 
         return new Section(Translate::noop('Status Lists'), 'statusLists', ...$rows);
+    }
+
+
+    /**
+     * Which issuer identities the Status Lists this deployment still serves are signed under.
+     *
+     * The configured did:web is one question and this is another. A list records the identifier it was
+     * created under and goes on signing its tokens with it, so an identifier which has since been
+     * changed is still being emitted, and its DID document has to stay resolvable for as long as that
+     * is true -- otherwise the tokens can not be verified and every credential pointing at those lists
+     * loses its status. Nothing else reports it: the deployment may well issue its credentials under a
+     * did:jwk or an issuer URL, in which case its did:web appears on no credential at all and the row
+     * above, which answers for credentials, has never seen it.
+     *
+     * Only lists which have not been retired are counted, and that is the point of the row. A retired
+     * list answers 404, so nothing resolves its issuer any more; once the last list under an old
+     * identifier retires, the identifier drops off here, and that is the signal that its document may
+     * finally be withdrawn. The credentials row can never say that, because a credential once issued
+     * can not be taken back.
+     *
+     * Shown whether or not Status Lists are enabled, since lists which already exist keep being served
+     * either way.
+     */
+    protected function buildStatusListIdentitiesRow(): Row
+    {
+        $label = Translate::noop('Identities Status Lists Are Signed Under');
+
+        try {
+            $used = $this->statusListRepository->getUnretiredIssuerIdentifiers();
+        } catch (Throwable $exception) {
+            $this->logger->error(
+                'Configuration overview could not read which identities Status Lists are signed ' .
+                'under: ' . $exception->getMessage(),
+                ['exceptionClass' => $exception::class],
+            );
+
+            return new Row(
+                $label,
+                Translate::noop('N/A'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                null,
+                Translate::noop(
+                    'This could not be read, so a change of issuer identity can not be reported here. ' .
+                    'The reason was written to the SimpleSAMLphp log.',
+                ),
+            );
+        }
+
+        if ($used === []) {
+            return new Row(
+                $label,
+                Translate::noop('None recorded'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                Translate::noop(
+                    'No Status List which is still served names a did:web, either because none was ' .
+                    'created under that key profile or because every one which was has been retired.',
+                ),
+            );
+        }
+
+        $note = Translate::noop(
+            'Status List Tokens are signed under these, so the DID document of each has to stay ' .
+            'resolvable for as long as the lists naming it are served. An identifier drops off ' .
+            'this row once every list under it has been retired, and only then may its document ' .
+            'be withdrawn.',
+        );
+
+        // The configured identifier decides only whether to warn, and reading it is a separate
+        // failure from reading the lists. Answering this question inside the same try would make it
+        // answerable only while an unrelated option is valid -- and a malformed did:web is reported
+        // on its own row already, so all that would achieve is hiding the identifiers from the one
+        // screen which can name them, in exactly the state where an administrator is looking for
+        // them.
+        //
+        // The did:web option is read on its own rather than through getVciIssuerIdentifier(), because
+        // what is being asked is which document VciDidDocumentController publishes, and that
+        // controller reads this option alone -- publication does not depend on the mode. Resolving the
+        // two together would throw on a malformed mode, and again on the one pairing which can not be
+        // honoured: a mode still naming did:web after the identifier was cleared. That second case is
+        // this row's whole reason to exist, since clearing the option is what withdraws the document
+        // the lists still name, and it would have been reported as unreadable rather than as the
+        // warning it is.
+        try {
+            $didWeb = $this->moduleConfig->getVciIssuerDidIdentifier();
+        } catch (Throwable $exception) {
+            $this->logger->error(
+                'Configuration overview could not read the configured issuer did:web while ' .
+                'reporting which identities Status Lists are signed under: ' . $exception->getMessage(),
+                ['exceptionClass' => $exception::class],
+            );
+
+            return new Row(
+                $label,
+                $used,
+                ConfigOverviewValueTypeEnum::StringList,
+                null,
+                $note,
+                Translate::noop(
+                    'This could not be read, so a change of issuer identity can not be reported here. ' .
+                    'The reason was written to the SimpleSAMLphp log.',
+                ),
+            );
+        }
+
+        $noLongerPublished = array_filter($used, static fn(string $identifier): bool => $identifier !== $didWeb);
+
+        return new Row(
+            $label,
+            $used,
+            ConfigOverviewValueTypeEnum::StringList,
+            null,
+            $note,
+            $noLongerPublished === [] ? null : Translate::noop(
+                'An identifier listed here is not the configured did:web, so this module no longer ' .
+                'publishes its DID document and nothing can verify the Status List Tokens signed ' .
+                'under it, leaving every credential in those lists without a resolvable status. Set ' .
+                'it as the issuer did:web identifier again, or serve its document by other means, ' .
+                'until those lists retire.',
+            ),
+        );
     }
 
 
@@ -510,7 +635,11 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
         try {
             $used = $this->vciIssuerIdentityRepository->getAllUsed();
-            $didWeb = $this->moduleConfig->getVciIssuerIdentifier()->getDidWeb();
+            // The did:web option alone, not the two resolved together: what is being asked is which
+            // document is published, and VciDidDocumentController reads this option by itself. See
+            // buildStatusListIdentitiesRow(), which explains at length why the pairing would throw in
+            // the very state this row has to report.
+            $didWeb = $this->moduleConfig->getVciIssuerDidIdentifier();
             $issuer = $this->moduleConfig->getIssuer();
         } catch (Throwable $exception) {
             $this->logger->error(
