@@ -6,15 +6,17 @@ namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\ProtocolOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Row;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 
@@ -262,7 +264,7 @@ class ProtocolOverviewBuilderTest extends TestCase
             $this->createMock(Routes::class),
             new DateIntervalFormatter(),
             $loggerMock,
-            $this->createMock(ClaimTranslatorExtractor::class),
+            $this->buildClaimTranslatorExtractorFactory(),
         );
 
         $row = $this->findRowForOption(
@@ -710,5 +712,169 @@ class ProtocolOverviewBuilderTest extends TestCase
             'Client Registration',
             $labels($this->buildProtocolOverviewBuilder([ModuleConfig::OPTION_DCR_ENABLED => true])->build()),
         );
+    }
+
+
+    /**
+     * A malformed option must be reported on its own row rather than take the screen down.
+     *
+     * Every one of these values throws out of the getter which reads it - SimpleSAMLphp asserts the
+     * type at read time, not at load time - and this screen is the one an administrator opens to find
+     * out which option is wrong. Building the row outside guardRow() therefore turned a typo into a
+     * 500 on the only page that could have explained it.
+     *
+     * The ACR options are deliberately absent below: ModuleConfig::validate() rejects those while the
+     * configuration is constructed, so a malformed value never reaches a builder at all and is
+     * reported by SimpleSAMLphp itself rather than on a row.
+     */
+    #[DataProvider('malformedOptionProvider')]
+    public function testReportsAMalformedOptionInPlace(string $option, mixed $value): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([$option => $value])->build();
+
+        $row = $this->findRowForOption($sections, $option);
+
+        $this->assertNotNull($row, sprintf('No row displays %s.', $option));
+        $this->assertNotNull($row->getWarning(), sprintf('%s is not reported on its row.', $option));
+    }
+
+
+    /**
+     * The claim translator must be built by this screen, not handed to it already built.
+     *
+     * ClaimTranslatorExtractorFactory::build() reads the translation table and the user identifier
+     * attributes, so a wrong type for either throws. While the builder took a built extractor, that
+     * throw happened as Symfony wired the controller up, and the screen 500'd before any row ran. The
+     * other tests here inject a mock factory and so could never have caught it; this one uses the real
+     * factory over the real configuration, which is the only shape that reproduces it.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('malformedClaimTranslatorOptionProvider')]
+    public function testBuildsTheClaimTranslatorBehindTheGuard(string $option, mixed $value): void
+    {
+        // A valid configuration first, so a row which warns unconditionally cannot pass this.
+        $healthyRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+        );
+        $this->assertNotNull($healthyRow);
+        $this->assertNull($healthyRow->getWarning());
+
+        $builder = new ProtocolOverviewBuilder(
+            $this->buildOverviewModuleConfig([$option => $value]),
+            $this->createMock(Routes::class),
+            new DateIntervalFormatter(),
+            $this->createMock(LoggerService::class),
+            new ClaimTranslatorExtractorFactory(
+                $this->buildOverviewModuleConfig([$option => $value]),
+                new ClaimSetEntityFactory(),
+            ),
+        );
+
+        $row = $this->findRowForOption(
+            $builder->build(),
+            ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: mixed}>
+     */
+    public static function malformedClaimTranslatorOptionProvider(): array
+    {
+        return [
+            'translation table is not an array' => [
+                ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                'not-an-array',
+            ],
+            'user identifier attributes are not an array' => [
+                ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
+                123,
+            ],
+        ];
+    }
+
+
+    /**
+     * The provider above names the options whose warning text is worth asserting; this covers every
+     * option the screen displays, including ones added after it was written.
+     */
+    public function testNoDisplayedOptionCanTakeTheScreenDown(): void
+    {
+        $this->assertNoDisplayedOptionCanThrow(
+            fn(array $overrides): ProtocolOverviewBuilder => $this->buildProtocolOverviewBuilder($overrides),
+        );
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: mixed}>
+     */
+    public static function malformedOptionProvider(): array
+    {
+        return [
+            'access token ttl is not a duration' => [
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL,
+                'not-a-duration',
+            ],
+            'authorization code ttl is not a duration' => [
+                ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL,
+                'not-a-duration',
+            ],
+            'refresh token ttl is not a duration' => [
+                ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL,
+                'not-a-duration',
+            ],
+            'timestamp leeway is not a duration' => [
+                ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
+                'not-a-duration',
+            ],
+            'auth source is not a string' => [ModuleConfig::OPTION_AUTH_SOURCE, 123],
+            'user identifier attributes are not an array' => [
+                ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
+                123,
+            ],
+            'auth proc filters are not an array' => [
+                ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS,
+                'not-an-array',
+            ],
+            'par request uri ttl is not a duration' => [
+                ModuleConfig::OPTION_PAR_REQUEST_URI_TTL,
+                'not-a-duration',
+            ],
+            'request uri fetch timeout is not an integer' => [
+                ModuleConfig::OPTION_REQUEST_URI_FETCH_TIMEOUT,
+                'soon',
+            ],
+            'request uri max size is not an integer' => [
+                ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES,
+                'big',
+            ],
+            'dcr enabled is not a boolean' => [ModuleConfig::OPTION_DCR_ENABLED, 'yes'],
+            'initial access tokens are not an array' => [
+                ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS,
+                'not-an-array',
+            ],
+            'cache adapter is not a string' => [ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER, 123],
+            'cache adapter arguments are not an array' => [
+                ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS,
+                'not-an-array',
+            ],
+            'http client options are not an array' => [
+                ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS,
+                'not-an-array',
+            ],
+            'back-channel logout client options are not an array' => [
+                ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS,
+                'not-an-array',
+            ],
+            'api enabled is not a boolean' => [ModuleConfig::OPTION_API_ENABLED, 'yes'],
+            'api tokens are not an array' => [ModuleConfig::OPTION_API_TOKENS, 'not-an-array'],
+        ];
     }
 }

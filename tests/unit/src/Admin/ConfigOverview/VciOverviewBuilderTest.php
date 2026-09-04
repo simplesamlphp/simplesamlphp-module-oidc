@@ -8,11 +8,15 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 #[CoversClass(VciOverviewBuilder::class)]
 #[CoversClass(AbstractOverviewBuilder::class)]
@@ -21,6 +25,16 @@ class VciOverviewBuilderTest extends TestCase
 {
     use OverviewTestTrait;
     use VciOverviewTestTrait;
+
+
+    /**
+     * A did:web whose document URL a stock module installation can actually serve, and that URL.
+     */
+    protected const string DID_WEB_WITH_PATH = 'did:web:example.org:simplesaml:module.php:oidc';
+
+    protected const string DID_WEB_WITH_PATH_URL = 'https://example.org/simplesaml/module.php/oidc/did.json';
+
+    protected const string ISSUER = 'https://issuer.example.org';
 
 
     /**
@@ -1054,5 +1068,613 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertNull($row->getValue());
         $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * Turning pinning off is the one DID setting which weakens a protection rather than merely
+     * widening it, so it has to stay visible to whoever opens this screen.
+     */
+    public function testWarnsWhenDidAddressPinningIsDisabled(): void
+    {
+        $requiredRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+        );
+
+        $this->assertNotNull($requiredRow);
+        $this->assertSame(AddressPinningModeEnum::Required->value, $requiredRow->getValue());
+        $this->assertNull($requiredRow->getWarning());
+
+        $disabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE => AddressPinningModeEnum::Disabled,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+        );
+
+        $this->assertNotNull($disabledRow);
+        $this->assertSame(AddressPinningModeEnum::Disabled->value, $disabledRow->getValue());
+        $this->assertNotNull($disabledRow->getWarning());
+    }
+
+
+    /**
+     * Preferred is refused when the configuration is read, and this screen is what an administrator
+     * opens to find out why, so the refusal has to be reported on the row rather than take the page
+     * down.
+     */
+    public function testReportsARefusedDidAddressPinningModeInPlace(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE => AddressPinningModeEnum::Preferred,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * Each exemption is a destination that whoever supplies a DID can send this deployment to.
+     */
+    public function testWarnsAboutDidDestinationExemptions(): void
+    {
+        $sections = $this->buildVciOverviewBuilder()->build();
+
+        $hostsRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+        );
+        $this->assertNotNull($hostsRow);
+        $this->assertSame([], $hostsRow->getValue());
+        $this->assertNull($hostsRow->getWarning());
+
+        $cidrsRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+        );
+        $this->assertNotNull($cidrsRow);
+        $this->assertSame([], $cidrsRow->getValue());
+        $this->assertNull($cidrsRow->getWarning());
+
+        $exemptedSections = $this->buildVciOverviewBuilder([
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => ['wallet.internal.example'],
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32'],
+        ])->build();
+
+        $exemptedHostsRow = $this->findRowForOption(
+            $exemptedSections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+        );
+        $this->assertNotNull($exemptedHostsRow);
+        $this->assertSame(['wallet.internal.example'], $exemptedHostsRow->getValue());
+        $this->assertNotNull($exemptedHostsRow->getWarning());
+
+        $exemptedCidrsRow = $this->findRowForOption(
+            $exemptedSections,
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+        );
+        $this->assertNotNull($exemptedCidrsRow);
+        $this->assertSame(['10.1.2.3/32'], $exemptedCidrsRow->getValue());
+        $this->assertNotNull($exemptedCidrsRow->getWarning());
+    }
+
+
+    /**
+     * An unusable range would otherwise be shown as a working exemption.
+     */
+    public function testReportsAnUnusableDidAddressRangeInPlace(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['not-a-range'],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    public function testNotesWhenNoVciCacheIsConfigured(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getNote());
+    }
+
+
+    /**
+     * A malformed cache option must be reported on its row rather than take the screen down. The
+     * getters only assert the value's type when it is read, and this screen is where an administrator
+     * goes to find out that a value is wrong.
+     */
+    #[DataProvider('malformedCacheOptionProvider')]
+    public function testReportsAMalformedCacheOptionInPlace(string $option, mixed $value): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([$option => $value])->build(),
+            $option,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    public static function malformedCacheOptionProvider(): array
+    {
+        return [
+            'adapter class is not a string' => [ModuleConfig::OPTION_VCI_CACHE_ADAPTER, 123],
+            'adapter arguments are not an array' => [
+                ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS,
+                'not-an-array',
+            ],
+            'cache duration is not a duration' => [
+                ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                'not-a-duration',
+            ],
+        ];
+    }
+
+
+    /**
+     * Adapter arguments can carry connection credentials, so the row counts them instead of showing
+     * them.
+     */
+    public function testDoesNotRenderVciCacheAdapterArguments(): void
+    {
+        $sections = $this->buildVciOverviewBuilder([
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER => ArrayAdapter::class,
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => ['openidVci', 'super-secret-dsn'],
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS);
+        $this->assertNotNull($row);
+        $this->assertSame('2', $row->getValue());
+
+        $this->assertStringNotContainsString('super-secret-dsn', $this->renderableContent($sections));
+    }
+
+
+    /**
+     * Covers every option this screen displays, including ones added after this was written.
+     */
+    public function testNoDisplayedOptionCanTakeTheScreenDown(): void
+    {
+        $this->assertNoDisplayedOptionCanThrow(
+            fn(array $overrides): VciOverviewBuilder => $this->buildVciOverviewBuilder($overrides),
+        );
+    }
+
+
+    public function testShowsTheIssuerIdentityModeAndSaysWhatItMeans(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(VciIssuerIdentifierModeEnum::DidJwk->value, $row->getValue());
+        $this->assertNotEmpty($row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The `https` mode is a deliberate way out for verifiers which will not take a DID, but the
+     * profile this module claims to follow requires one, so the screen has to say so.
+     */
+    public function testWarnsThatTheHttpsIssuerIdentityIsNotProfileConformant(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::Https,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('DIIP', (string)$row->getWarning());
+    }
+
+
+    public function testSaysWhenNoDidDocumentIsPublished(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Both URLs are shown, and no warning while they agree.
+     */
+    public function testShowsWhereTheDidWebIdentifierResolvesTo(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            [
+                'did' => self::DID_WEB_WITH_PATH,
+                'resolvesTo' => self::DID_WEB_WITH_PATH_URL,
+                'servedAt' => self::DID_WEB_WITH_PATH_URL,
+            ],
+            $row->getValue(),
+        );
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Comparing hosts alone would not catch this: the path segments decide the URL too, and the bare
+     * form asks for one at the web root which SimpleSAMLphp never serves.
+     */
+    public function testWarnsWhenTheDidWebIdentifierResolvesElsewhere(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:example.org',
+                ],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('map', (string)$row->getWarning());
+    }
+
+
+    /**
+     * The document stays published after the mode moves on, and the row says that is what is
+     * happening rather than leaving it looking like a stale setting.
+     */
+    public function testSaysADidWebDocumentIsStillPublishedAfterTheModeMovedOn(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('still', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    public function testSaysNothingHasBeenIssuedYet(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder()->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None recorded', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * A did:jwk credential carries its own key, so it stays verifiable whatever is configured later.
+     * The other two are only resolvable while the deployment still publishes them, and here it does.
+     */
+    public function testDoesNotWarnAboutIdentitiesWhichAreStillPublished(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_ISSUER => self::ISSUER,
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                [
+                    'did:jwk:retired' => VciIssuerIdentifierModeEnum::DidJwk->value,
+                    self::ISSUER => VciIssuerIdentifierModeEnum::Https->value,
+                    self::DID_WEB_WITH_PATH => VciIssuerIdentifierModeEnum::DidWeb->value,
+                ],
+                self::DID_WEB_WITH_PATH_URL,
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            ['did:jwk:retired', self::ISSUER, self::DID_WEB_WITH_PATH],
+            $row->getValue(),
+        );
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The whole point of recording what was issued under: configuration alone cannot tell anyone that
+     * credentials exist which nothing can resolve any more.
+     */
+    public function testWarnsAboutADidWebIdentityWhichIsNoLongerPublished(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [],
+                ['did:web:retired.example.org' => VciIssuerIdentifierModeEnum::DidWeb->value],
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
+    }
+
+
+    /**
+     * An issuer URL identity is no less perishable than a did:web one: credentials issued under it
+     * resolve their metadata and their signing key through that URL, so changing the issuer leaves
+     * them naming an identity this deployment no longer answers for.
+     */
+    public function testWarnsAboutAnIssuerUrlIdentityWhichIsNoLongerThisIssuer(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_ISSUER => self::ISSUER],
+                ['https://old-issuer.example.org' => VciIssuerIdentifierModeEnum::Https->value],
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
+    }
+
+
+    public function testSaysNoStatusListNamesADidWeb(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder()->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None recorded', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The lists name the identifier the deployment still publishes, so there is nothing to act on --
+     * only the standing obligation to keep publishing it, which the note states.
+     */
+    public function testDoesNotWarnAboutStatusListIdentitiesWhichAreStillPublished(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH],
+                didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame([self::DID_WEB_WITH_PATH], $row->getValue());
+        $this->assertStringContainsString('has to stay', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The case M5c left unreported: credentials are issued under a did:jwk, so the deployment's
+     * did:web appears on no credential and the row which answers for credentials has never seen it.
+     * Only the lists know it, and only they can say its document is still needed.
+     */
+    public function testWarnsAboutAStatusListIdentityWhichIsNoLongerPublished(): void
+    {
+        $sections = $this->buildVciOverviewBuilder(
+            [
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+            ],
+            didDocumentUrl: self::DID_WEB_WITH_PATH_URL,
+            statusListIssuerIdentifiers: ['did:web:retired.example.org'],
+        )->build();
+
+        $row = $this->findRowByLabel($sections, 'Identities Status Lists Are Signed Under');
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('not the configured did:web', (string)$row->getWarning());
+
+        // The credentials row is the one which cannot see this, which is why the new row exists.
+        $credentialsRow = $this->findRowByLabel($sections, 'Identities Credentials Were Issued Under');
+
+        $this->assertNotNull($credentialsRow);
+        $this->assertNull($credentialsRow->getWarning());
+    }
+
+
+    /**
+     * Clearing the identifier retires the identity and withdraws its document, which is exactly the
+     * change a list created under it can not follow: it keeps signing under what it recorded.
+     */
+    public function testWarnsAboutStatusListIdentitiesOnceTheIdentifierIsCleared(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('not the configured did:web', (string)$row->getWarning());
+    }
+
+
+    /**
+     * Lists which already exist keep being served whatever the switch says, so the obligation their
+     * identifiers carry does not go away with it.
+     */
+    public function testReportsStatusListIdentitiesWhileStatusListsAreDisabled(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                statusListIssuerIdentifiers: ['did:web:retired.example.org'],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['did:web:retired.example.org'], $row->getValue());
+        $this->assertNotNull($row->getWarning());
+    }
+
+
+    /**
+     * These screens are what an administrator opens when the database is already unhappy, so a read
+     * which fails has to leave the rest of the page standing.
+     */
+    public function testSurvivesAFailureToReadTheStatusListIdentities(): void
+    {
+        $sections = $this->buildVciOverviewBuilder(
+            statusListIssuerIdentifiers: new RuntimeException('No such column: issuer_identifier'),
+        )->build();
+
+        $row = $this->findRowByLabel($sections, 'Identities Status Lists Are Signed Under');
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertStringContainsString('could not be read', (string)$row->getWarning());
+        $this->assertNotEmpty($sections);
+    }
+
+
+    /**
+     * The identifiers come from storage and the configured did:web only decides whether to warn about
+     * them, so a malformed option must not cost the reader the list itself -- that option is reported
+     * on its own row, and this is the screen an administrator is on while fixing it.
+     */
+    public function testStillListsStatusListIdentitiesWhenTheConfiguredDidWebIsMalformed(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'not-a-did'],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame([self::DID_WEB_WITH_PATH], $row->getValue());
+        $this->assertStringContainsString('could not be read', (string)$row->getWarning());
+    }
+
+
+    /**
+     * Clearing the identifier while the mode still names did:web is the one pairing the two options
+     * can not be resolved into together -- and it is also precisely the state this row exists to
+     * report, since clearing the option is what withdraws the document the lists still name. Asking
+     * for the identifier alone, as the endpoint which publishes the document does, is what keeps the
+     * warning from being reported as an unreadable configuration.
+     */
+    public function testWarnsAboutStatusListIdentitiesWhenTheModeStillNamesAClearedDidWeb(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('not the configured did:web', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A malformed mode says nothing about which document is published, so it must not cost this row
+     * its comparison either.
+     */
+    public function testStillComparesStatusListIdentitiesWhenTheIssuerModeIsMalformed(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => 'not-a-mode',
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => self::DID_WEB_WITH_PATH,
+                ],
+                statusListIssuerIdentifiers: [self::DID_WEB_WITH_PATH],
+            )->build(),
+            'Identities Status Lists Are Signed Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The same coupling, in the row which answers for credentials. It predates this change and is the
+     * identical defect: the state it has to report is the state the paired accessor refuses.
+     */
+    public function testWarnsAboutIssuedIdentitiesWhenTheModeStillNamesAClearedDidWeb(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => null,
+                ],
+                ['did:web:retired.example.org' => VciIssuerIdentifierModeEnum::DidWeb->value],
+            )->build(),
+            'Identities Credentials Were Issued Under',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['did:web:retired.example.org'], $row->getValue());
+        $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
     }
 }

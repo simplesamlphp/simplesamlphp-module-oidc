@@ -176,6 +176,13 @@ msgstr ""
 msgid "Confidential"
 msgstr ""
 
+msgid ""
+"Configurations listed as 'proofless' issue credentials which are not bound "
+"to any wallet key, so nothing ties an issued credential to whoever presents "
+"it later. They advertise no binding methods and no proof types, and a key "
+"proof sent to them is refused."
+msgstr ""
+
 msgid "Configuration URL"
 msgstr ""
 
@@ -206,10 +213,40 @@ msgstr ""
 msgid "Description"
 msgstr ""
 
+msgid "DID Address Pinning"
+msgstr ""
+
+msgid "DID Document Cache Duration"
+msgstr ""
+
+msgid "DID Outbound Allowed Address Ranges"
+msgstr ""
+
+msgid "DID Outbound Allowed Hosts"
+msgstr ""
+
+msgid "DID resolution"
+msgstr ""
+
 msgid "Disabled"
 msgstr ""
 
 msgid "Discovery URL"
+msgstr ""
+
+msgid ""
+"Dynamically fetched Trust Marks could not be read, so they are not shown. "
+"Check that option below."
+msgstr ""
+
+msgid ""
+"Each of these is a destination that whoever supplies a DID can send this "
+"deployment to."
+msgstr ""
+
+msgid ""
+"Each of these is a range that whoever supplies a DID can send this "
+"deployment into."
 msgstr ""
 
 msgid "Edit"
@@ -261,6 +298,12 @@ msgid "Forced ACR For Cookie Authentication"
 msgstr ""
 
 msgid "Homepage URI"
+msgstr ""
+
+msgid ""
+"How long a resolved DID document is reused. A DID document states no expiry "
+"of its own, so this is the whole of its freshness rule: a holder rotating a "
+"key is not seen until it runs out."
 msgstr ""
 
 msgid "Identifier"
@@ -359,9 +402,25 @@ msgstr ""
 msgid "No entries."
 msgstr ""
 
+msgid "None, so a DID may only resolve to a public address."
+msgstr ""
+
+msgid ""
+"None, so a DID may only resolve to a public destination. Separate from the "
+"general outbound exemptions, which are never applied here."
+msgstr ""
+
 msgid ""
 "Note that this will first resolve Trust Chain between given entity and Trust "
 "Anchor, and only then do the Trust Mark validation."
+msgstr ""
+
+msgid ""
+"Not set, so every key proof naming a did:web identifier is another outbound "
+"fetch. Setting a cache adapter is recommended in production."
+msgstr ""
+
+msgid "Not used, since no VCI cache adapter is configured."
 msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/hooks/hook_adminmenu.php:24
@@ -380,6 +439,16 @@ msgid ""
 "One or more values from the list. If not selected, falls back to 'automatic'"
 msgstr ""
 
+msgid ""
+"Only the configurations which differ from the default are listed, with the "
+"policy each one uses. Under 'diip_proof_bound' the DIIP profile rules apply "
+"on top of the OpenID4VCI ones: a key proof must name its key in a 'kid' "
+"header which is an absolute did:jwk or did:web URL, resolved from the "
+"authentication relationship of that document. A key carried inline and a "
+"did:key holder are refused, though every other configuration keeps "
+"accepting both."
+msgstr ""
+
 msgid "OpenID Federation Related Properties"
 msgstr ""
 
@@ -387,6 +456,13 @@ msgid "Organization Name"
 msgstr ""
 
 msgid "Owner"
+msgstr ""
+
+msgid ""
+"Pinning is off, so a host named by a DID can resolve to a permitted address "
+"for the check and to another one for the fetch. Only sound where a forward "
+"proxy carries every DID destination; an exclusion list or a proxy set for "
+"plain http alone leaves some going direct."
 msgstr ""
 
 msgid "PKI"
@@ -412,6 +488,14 @@ msgid "Public"
 msgstr ""
 
 msgid "Public Key"
+msgstr ""
+
+msgid "Reachable alongside the public addresses."
+msgstr ""
+
+msgid ""
+"Reachable whatever they resolve to. The address check and the address "
+"pinning are both skipped for these."
 msgstr ""
 
 msgid "Redirect URI"
@@ -455,6 +539,11 @@ msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:44
 msgid "SimpleSAMLphp admin access required."
+msgstr ""
+
+msgid ""
+"Statically configured Trust Mark tokens could not be read, so they are not "
+"shown. Check that option below."
 msgstr ""
 
 msgid "Status"
@@ -538,6 +627,12 @@ msgstr ""
 
 #: /var/www/projects/simplesamlphp/simplesamlphp-2.3/modules/oidc/src/Admin/Authorization.php:61
 msgid "User not authorized."
+msgstr ""
+
+msgid ""
+"Whether a DID document must be fetched from the address that was validated, "
+"rather than the host being resolved a second time when the connection is "
+"made."
 msgstr ""
 
 msgid "Yes"
@@ -1602,7 +1697,6 @@ msgstr ""
 msgid "These pools are inert, since Status Lists are disabled."
 msgstr ""
 
-
 msgid "Status List Requests Per Minute"
 msgstr ""
 
@@ -2245,4 +2339,127 @@ msgstr ""
 msgid ""
 "You will be presented with a Credential Offer which you can use to test "
 "credential issuance."
+msgstr ""
+
+msgid "Credential Binding Policies"
+msgstr ""
+
+msgid "Every configuration requires a key proof"
+msgstr ""
+
+msgid ""
+"Every credential configuration binds its credentials to a key the wallet "
+"proves it holds, which is the default. Each one advertises the binding "
+"methods and proof types it accepts, and a Credential Request carrying no "
+"valid key proof is refused."
+msgstr ""
+
+msgid "Issuer Identity Mode"
+msgstr ""
+
+msgid ""
+"Credentials name a did:jwk derived from the active signing key, so they "
+"carry that key with them and verify without any lookup. Whoever verifies "
+"one must still bind the DID to this issuer by their own means."
+msgstr ""
+
+msgid ""
+"Credentials name the configured did:web below, and can be verified only "
+"while the DID document for it is published and reachable."
+msgstr ""
+
+msgid ""
+"Credentials name this issuer by its URL and their signing key by its key "
+"set identifier, which is what makes the JWT VC Issuer configuration "
+"meaningful."
+msgstr ""
+
+msgid ""
+"This mode is not DIIP conformant on its own: the profile requires the "
+"issuer to be identified by a Decentralized Identifier."
+msgstr ""
+
+msgid "Issuer did:web Identifier"
+msgstr ""
+
+msgid "No DID document is published."
+msgstr ""
+
+msgid ""
+"Newly issued credentials are issued under this identity, and the DID "
+"document for it is published."
+msgstr ""
+
+msgid ""
+"Nothing is issued under this identity any more, but its DID document is "
+"still published so that credentials issued under it earlier stay "
+"verifiable. Removing this option retires the identity and withdraws the "
+"document."
+msgstr ""
+
+msgid ""
+"The URL this identifier resolves to is not the one this module serves the "
+"document at, so something in front of it has to map the first to the "
+"second. Until it does, nothing can resolve this identity and credentials "
+"naming it can not be verified."
+msgstr ""
+
+msgid "Identities Credentials Were Issued Under"
+msgstr ""
+
+msgid ""
+"This could not be read, so a change of issuer identity can not be reported "
+"here. The reason was written to the SimpleSAMLphp log."
+msgstr ""
+
+msgid "None recorded"
+msgstr ""
+
+msgid ""
+"No credential has been issued yet, or every one of them was issued before "
+"this was recorded."
+msgstr ""
+
+msgid ""
+"Credentials naming any of these have been issued, and credentials do not "
+"expire unless a lifetime is configured for them."
+msgstr ""
+
+msgid ""
+"A did:web identity listed here is no longer the configured one, so its DID "
+"document is no longer published and every credential issued under it can no "
+"longer be verified. Set it as the did:web identifier again to resume "
+"publishing it, or serve the document it needs by other means."
+msgstr ""
+
+msgid ""
+"An identity listed here is no longer one this deployment publishes - a "
+"did:web whose document is no longer served, or an issuer URL which is no "
+"longer this issuer - so every credential issued under it can no longer be "
+"verified. Restore that identity to resume publishing it, or serve what it "
+"needs by other means."
+msgstr ""
+
+msgid "Identities Status Lists Are Signed Under"
+msgstr ""
+
+msgid ""
+"No Status List which is still served names a did:web, either because none "
+"was created under that key profile or because every one which was has been "
+"retired."
+msgstr ""
+
+msgid ""
+"Status List Tokens are signed under these, so the DID document of each has "
+"to stay resolvable for as long as the lists naming it are served. An "
+"identifier drops off this row once every list under it has been retired, "
+"and only then may its document be withdrawn."
+msgstr ""
+
+msgid ""
+"An identifier listed here is not the configured did:web, so this module no "
+"longer publishes its DID document and nothing can verify the Status List "
+"Tokens signed under it, leaving every credential in those lists without a "
+"resolvable status. Set it as the issuer did:web identifier again, or serve "
+"its document by other means, until those lists retire."
 msgstr ""

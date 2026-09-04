@@ -8,7 +8,9 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerConfigurationController;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -17,6 +19,7 @@ use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
@@ -65,15 +68,36 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
 
     protected MockObject $vciContextResolverMock;
 
+    protected MockObject $didMock;
+
+    protected MockObject $didFactoryMock;
+
     protected SignatureKeyPairBag $vciSignatureKeyPairBag;
+
+    protected VciCredentialBindingPolicyEnum $bindingPolicy;
+
+    /**
+     * What the resolver registry reports it can resolve, which is what the metadata is filtered from.
+     *
+     * @var list<string>
+     */
+    protected array $resolvableDidMethods;
 
 
     protected function setUp(): void
     {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
+        $this->resolvableDidMethods = ['did:jwk', 'did:key', 'did:web'];
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
+        $this->didMock = $this->createMock(Did::class);
+        $this->didFactoryMock = $this->createMock(DidFactory::class);
+
+        $this->didMock->method('supportedMethods')
+            ->willReturnCallback(fn(): array => $this->resolvableDidMethods);
+        $this->didFactoryMock->method('build')->willReturn($this->didMock);
 
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
@@ -82,6 +106,8 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
         $this->moduleConfigMock->method('getLogoUri')->willReturn('https://issuer.com/logo.png');
         $this->moduleConfigMock->method('getVciCredentialConfigurationsSupported')
             ->willReturn($this->credentialConfigurations());
+        $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
+            ->willReturnCallback(fn(): VciCredentialBindingPolicyEnum => $this->bindingPolicy);
 
         // Two pairs differing in algorithm, so that an assertion on the advertised algorithm can tell
         // the active signing key apart from merely "one of the configured ones".
@@ -140,6 +166,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
             $this->routesMock,
             $this->loggerServiceMock,
             $this->vciContextResolverMock,
+            $this->didFactoryMock,
         );
     }
 
@@ -192,13 +219,248 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
             [SignatureAlgorithmEnum::ES256->value],
             $configuration[ClaimsEnum::CredentialSigningAlgValuesSupported->value],
         );
+        // Every method the resolver registry reports, in its order, plus `jwk` - because a key proof
+        // may carry its key inline and this configuration accepts one. A wallet has no other way to
+        // find that out.
         $this->assertSame(
-            ['did:key', 'did:jwk'],
+            ['did:jwk', 'did:key', 'did:web', 'jwk'],
             $configuration[ClaimsEnum::CryptographicBindingMethodsSupported->value],
         );
         $this->assertArrayHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
         // What the operator configured is still there, with the above added rather than substituted.
         $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
+    }
+
+
+    /**
+     * A DIIP configuration accepts holders identified by the two methods that profile names, and the
+     * metadata has to say which those are rather than repeating what every other configuration accepts.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testADiipConfigurationAdvertisesOnlyTheMethodsItAccepts(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::DiipProofBound;
+
+        $metadata = $this->publishedMetadata();
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $metadata[ClaimsEnum::CredentialConfigurationsSupported->value];
+        $configuration = $configurations[self::CONFIGURATION_ID];
+
+        // No `jwk` here, unlike the default policy: this one refuses a key proof carrying its key
+        // inline, so advertising the value would invite a proof it would then turn away.
+        $this->assertSame(
+            ['did:jwk', 'did:web'],
+            $configuration[ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+        // It is a key-proof configuration like any other, so both binding fields are present and the
+        // batch size is advertised.
+        $this->assertArrayHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
+        $this->assertArrayHasKey(ClaimsEnum::BatchCredentialIssuance->value, $metadata);
+    }
+
+
+    /**
+     * The point of taking the list from the resolver registry rather than writing it out here.
+     *
+     * A DID method the library gains is one this deployment can resolve the moment it is upgraded, so
+     * the default policy accepts a holder using it and has to say so. The DIIP policy does not, and its
+     * advertisement must not widen along with the registry.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testAMethodTheRegistryGainsIsAdvertisedOnlyWhereItIsAccepted(): void
+    {
+        $this->resolvableDidMethods = ['did:jwk', 'did:key', 'did:web', 'did:example'];
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->publishedMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertSame(
+            ['did:jwk', 'did:key', 'did:web', 'did:example', 'jwk'],
+            $configurations[self::CONFIGURATION_ID][ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::DiipProofBound;
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->publishedMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertSame(
+            ['did:jwk', 'did:web'],
+            $configurations[self::CONFIGURATION_ID][ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+    }
+
+
+    /**
+     * A deployment binding nothing has no use for the resolver registry, and building it is what reads
+     * this deployment's DID settings and instantiates its cache adapter. Publishing this document must
+     * not depend on either, so the facade is never built for such a deployment.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testTheDidFacadeIsNotBuiltForAConfigurationWhichBindsNothing(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::Proofless;
+
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->publishedMetadata();
+    }
+
+
+    /**
+     * And it is built once for the whole document rather than once per credential configuration, since
+     * every one of them is filtered from the same registry.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testTheDidFacadeIsBuiltOnceHoweverManyConfigurationsBind(): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
+            ->willReturn(VciCredentialBindingPolicyEnum::ProofBound);
+        $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')
+            ->willReturnCallback(fn(): SignatureKeyPair => $this->vciSignatureKeyPairBag->getFirstOrFail());
+        $this->moduleConfigMock->method('getVciCredentialConfigurationsSupported')->willReturn([
+            self::CONFIGURATION_ID => [
+                ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            ],
+            'SecondCredential' => [
+                ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            ],
+        ]);
+
+        $this->didFactoryMock->expects($this->once())->method('build')->willReturn($this->didMock);
+
+        $this->publishedMetadata();
+    }
+
+
+    /**
+     * The other direction: a method the profile names but this deployment can not resolve is not
+     * advertised, because a wallet acting on it would have its proof refused at the Credential
+     * Endpoint.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testAMethodTheRegistryCanNotResolveIsNotAdvertised(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::DiipProofBound;
+        $this->resolvableDidMethods = ['did:jwk', 'did:key'];
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->publishedMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertSame(
+            ['did:jwk'],
+            $configurations[self::CONFIGURATION_ID][ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+    }
+
+
+    /**
+     * The credential endpoint refuses a `proofs` array longer than this, so a wallet has to be able to
+     * find out what the limit is before it builds one.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testPublishesTheBatchSizeItActuallyEnforces(): void
+    {
+        $metadata = $this->publishedMetadata();
+
+        $this->assertSame(
+            [ClaimsEnum::BatchSize->value => ModuleConfig::VCI_BATCH_SIZE],
+            $metadata[ClaimsEnum::BatchCredentialIssuance->value] ?? null,
+        );
+    }
+
+
+    /**
+     * A configuration issuing credentials which are not bound to a wallet key must advertise neither
+     * binding field, not just one of them.
+     *
+     * OpenID4VCI requires `proof_types_supported` wherever `cryptographic_binding_methods_supported`
+     * appears, and requires a Credential Request to carry `proofs` wherever `proof_types_supported`
+     * appears. So leaving either behind would either produce a malformed document or promise a binding
+     * this configuration does not perform, which is exactly the state this module used to publish.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testAProoflessConfigurationAdvertisesNoBindingAtAll(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::Proofless;
+
+        $metadata = $this->publishedMetadata();
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $metadata[ClaimsEnum::CredentialConfigurationsSupported->value];
+        $configuration = $configurations[self::CONFIGURATION_ID];
+
+        $this->assertArrayNotHasKey(ClaimsEnum::CryptographicBindingMethodsSupported->value, $configuration);
+        $this->assertArrayNotHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
+
+        // Batching is something key proofs do, so an issuer with nothing to prove against advertises no
+        // batch size either.
+        $this->assertArrayNotHasKey(ClaimsEnum::BatchCredentialIssuance->value, $metadata);
+
+        // The rest of the configuration is published exactly as before.
+        $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
+    }
+
+
+    /**
+     * A binding field the operator wrote into the credential configuration itself is republished
+     * verbatim, so a proofless configuration has to have it taken out rather than merely not added.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testAProoflessConfigurationDropsBindingFieldsTheOperatorWroteIn(): void
+    {
+        $moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $moduleConfigMock->method('getVciEnabled')->willReturn(true);
+        $moduleConfigMock->method('getVciCredentialBindingPolicyFor')
+            ->willReturn(VciCredentialBindingPolicyEnum::Proofless);
+        $moduleConfigMock->method('getActiveVciSignatureKeyPair')
+            ->willReturn($this->vciSignatureKeyPairBag->getFirstOrFail());
+        $moduleConfigMock->method('getVciCredentialConfigurationsSupported')->willReturn([
+            self::CONFIGURATION_ID => [
+                ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                ClaimsEnum::CryptographicBindingMethodsSupported->value => ['did:jwk'],
+                ClaimsEnum::ProofTypesSupported->value => ['jwt' => []],
+            ],
+        ]);
+
+        $controller = new CredentialIssuerConfigurationController(
+            $moduleConfigMock,
+            $this->routesMock,
+            $this->loggerServiceMock,
+            $this->vciContextResolverMock,
+            $this->didFactoryMock,
+        );
+
+        $content = $controller->configuration()->getContent();
+        $this->assertIsString($content);
+        /** @var array<array-key,mixed> $metadata */
+        $metadata = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $metadata[ClaimsEnum::CredentialConfigurationsSupported->value];
+        $configuration = $configurations[self::CONFIGURATION_ID];
+
+        $this->assertArrayNotHasKey(ClaimsEnum::CryptographicBindingMethodsSupported->value, $configuration);
+        $this->assertArrayNotHasKey(ClaimsEnum::ProofTypesSupported->value, $configuration);
     }
 
 
@@ -296,6 +558,7 @@ class CredentialIssuerConfigurationControllerTest extends TestCase
             $this->routesMock,
             $this->loggerServiceMock,
             $this->vciContextResolverMock,
+            $this->didFactoryMock,
         );
     }
 }

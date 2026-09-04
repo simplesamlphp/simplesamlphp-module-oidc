@@ -78,6 +78,8 @@ There you can see discovery URLs. Typical discovery endpoints are:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server](https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server)
 - JWT VC Issuer configuration:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/jwt-vc-issuer](https://yourserver/simplesaml/module.php/oidc/.well-known/jwt-vc-issuer)
+- DID document, when a `did:web` issuer identifier is configured:
+[https://yourserver/simplesaml/module.php/oidc/did.json](https://yourserver/simplesaml/module.php/oidc/did.json)
 
 You may publish these as ".well-known" URLs at the web root using your
 web server. For example, for `openid-configuration`:
@@ -170,6 +172,267 @@ not through an HTTP handler supplied by configuration.
 
 The current settings are shown in the admin area under `OIDC` > `Configuration`,
 in the Protocol screen's outbound HTTP section.
+
+### DID resolution has a policy of its own
+
+Resolving a holder's `did:web` identifier is also an outbound fetch, but it is
+the only one whose destination is named by whoever is being issued a credential:
+the identifier arrives inside a wallet's key proof and the URL is derived from
+it. It therefore gets its own settings, and **the `OPTION_OUTBOUND_*` options
+above are never applied to it.** Those exemptions were granted so the deployment
+could reach addresses it operates itself; sharing them here would let a wallet
+name any of them.
+
+```php
+ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => ['wallet.internal.example'],
+ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32'],
+```
+
+Both are empty by default, so a DID may only resolve to a public `https`
+destination. The usual reason to set either is a test environment in which the
+DID host resolves to a container address rather than to its public one.
+
+`OPTION_VCI_DID_ADDRESS_PINNING_MODE` works as described above with two
+differences: it defaults to `Required` rather than `Preferred`, and `Preferred`
+is **refused** when the configuration is read, since proceeding unpinned is
+exactly what should not happen on a fetch driven from outside.
+
+That leaves `Disabled` for the deployment that cannot pin and is not thereby
+unprotected — one reaching the internet through a forward proxy. The proxy
+resolves the destination itself, so there is nothing to pin, and the proxy is
+doing the egress control that pinning approximates:
+
+```php
+ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE =>
+    \SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum::Disabled,
+```
+
+**This is only honest while the proxy carries every DID destination.** An
+exclusion list (`NO_PROXY`, or a `no` entry) sends matching hosts direct, and a
+proxy configured for plain `http` alone is not used for the `https` fetch a
+`did:web` identifier resolves to. Wherever a fetch goes direct, turning pinning
+off removes the protection rather than delegating it. A deployment that simply
+lacks the cURL extension is not this case and should install the extension.
+
+Resolved documents are cached in the VCI cache, which is configured separately
+from the protocol and federation ones:
+
+```php
+ModuleConfig::OPTION_VCI_CACHE_ADAPTER => \Symfony\Component\Cache\Adapter\FilesystemAdapter::class,
+ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => ['openidVci', 60 * 60 * 6, '/path/to/cache'],
+```
+
+Without an adapter, every key proof naming a `did:web` identifier is another
+outbound fetch. `OPTION_VCI_DID_CACHE_MAX_DURATION` (default `PT6H`) is how long
+a document is reused; a DID document states no expiry of its own, so this is the
+whole of its freshness rule, and a holder rotating a key is not seen until it
+runs out.
+
+These settings are shown in the admin area under `OIDC` > `Configuration`, on
+the VCI screen.
+
+## Issuer identity and the DID document
+
+A credential says who issued it in its `iss` claim and which key signed it in its
+`kid` header, and whoever verifies it has to be able to resolve both.
+`OPTION_VCI_ISSUER_IDENTIFIER_MODE` decides how:
+
+- `did_jwk` (default): `iss` is a `did:jwk` derived from the active signing key
+  and `kid` is that DID with the `#0` fragment. The credential carries the key
+  with it, so it verifies with no lookup at all. Nothing ties the DID to this
+  deployment, though; a verifier has to establish that by other means.
+- `did_web`: `iss` is the identifier set in `OPTION_VCI_ISSUER_DID_IDENTIFIER`
+  and `kid` names one verification method inside the DID document this module
+  publishes. Resolvable by anyone and bound to a domain name, which is what the
+  DIIP profile asks of an issuer.
+- `https`: `iss` is this module's issuer URL and `kid` is the key's JWKS key ID,
+  so the key is resolved through the published key set. This is what makes the
+  `.well-known/jwt-vc-issuer` document meaningful, and a way out for verifiers
+  which will not accept a DID. **It is not DIIP conformant**, since the profile
+  requires the issuer to be identified by a DID.
+
+The mode is read when a credential is signed, so changing it reaches newly issued
+credentials only. Credentials already in wallets go on naming the identity they
+were issued under — which is what the retention rules below are about.
+
+### Keeping the `https` identity resolvable
+
+A verifier discovers the key set by inserting `.well-known/jwt-vc-issuer` into
+the `iss` value, so under this mode the issuer must resolve to an absolute
+`https` URL with no query and no fragment. `OPTION_ISSUER` guarantees none of
+that — left unset it is derived from the host of the current request, which is
+`http://` on a development deployment or behind a proxy forwarding the wrong
+scheme — so issuance is refused when it does not, rather than emitting a
+credential no verifier could check.
+
+Under `https` a credential names its signing key by its JWKS key ID, so it is
+verifiable only while that key is still published. Two endpoints therefore stop
+following `OPTION_VCI_ENABLED` while this mode is selected: the VCI keys stay in
+the published JWKS, and `.well-known/jwt-vc-issuer` — which is how an SD-JWT VC
+verifier finds that key set — keeps being served. Turning issuance off stops new
+credentials being issued without making the existing ones unverifiable, the same
+guarantee the Status List and DID document endpoints give.
+
+**Moving off `https` withdraws both.** Unlike `did:web`, there is no separate
+option to keep serving under: the identity is the issuer URL, which every mode
+has. Credentials issued under `https` therefore stop verifying when the mode
+changes, so make that change only once they have expired, or arrange to serve
+their key set by other means.
+
+### Serving the DID document
+
+The document is served at `.../module.php/oidc/did.json`, and lists **every** key
+configured under `OPTION_VCI_SIGNATURE_KEY_PAIRS` — not only the pair currently
+signing — under both `verificationMethod` and `assertionMethod`. That is the same
+reasoning as the JWKS document: a key which signed a credential still in
+circulation has to stay resolvable, so a pair displaced by a rollover must remain
+configured. Each verification method is named by its key ID, so the `kid` in a
+credential stays stable across restarts and reordering.
+
+The `did:web` method decides the document's URL from the identifier alone, which
+is why the identifier is configured rather than derived. `did:web:example.org`
+resolves to `https://example.org/.well-known/did.json`, at the web root, which
+SimpleSAMLphp does not serve; deriving one from the module URL would instead give
+`did:web:example.org:simplesaml:module.php:oidc`, which no deployment would
+choose to put into its credentials. Either way, whatever URL your identifier
+resolves to has to be made to reach `did.json`, the same way the well-known URLs
+above are:
+
+nginx:
+
+```nginx
+location = /.well-known/did.json {
+    rewrite ^(.*)$ /simplesaml/module.php/oidc/did.json break;
+    proxy_pass https://localhost;
+}
+```
+
+The VCI configuration screen shows both URLs — the one the identifier resolves to
+and the one this module serves — and says so when they differ.
+
+Like the Status List endpoint, this one is **not** gated on
+`OPTION_VCI_ENABLED`. Turning issuance off has to stop new credentials being
+issued, not make the existing ones unverifiable.
+
+### Changing or retiring a `did:web` identity
+
+A credential naming a `did:web` identity can only be verified by resolving that
+DID. If the document stops being served, the signature can never be checked
+again — the credential is unverifiable, not merely unbound — and credentials do
+not expire unless `OPTION_VCI_CREDENTIAL_TTLS` gives them a lifetime.
+
+So the document is published **whenever `OPTION_VCI_ISSUER_DID_IDENTIFIER` is
+set**, including when the mode has moved on to `did_jwk` or `https`. In that
+state nothing new is issued under the DID, but what was issued under it earlier
+keeps verifying. Removing the option is what retires the identity, and that is
+then a decision rather than a side effect of changing the mode.
+
+To move to a different `did:web` identity while keeping the old one resolvable,
+the old document has to be served by other means: it is a static JSON file, so
+fetch it from `did.json` before changing the option and park it at the URL the
+old identifier resolves to.
+
+The VCI configuration screen lists every identity this deployment has actually
+issued credentials under, and warns when one of them is a `did:web` it no longer
+publishes. Configuration alone cannot answer that question, which is why it is
+recorded as credentials are issued. Status Lists carry the same obligation and
+are reported on their own row, described under [Key profile](#key-profile).
+
+## Holder binding and the DIIP profile
+
+A credential configuration decides for itself whether the credentials it issues
+are bound to a key the wallet proves it holds, and under which rules. The choice
+is one option, because OpenID4VCI ties the metadata and the issuance together:
+`proof_types_supported` must be present wherever
+`cryptographic_binding_methods_supported` is, and a Credential Request must
+carry `proofs` wherever `proof_types_supported` is.
+
+```php
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+
+ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => [
+    'UniversityDegreeCredential' => VciCredentialBindingPolicyEnum::ProofBound,
+    'DiipCredential' => VciCredentialBindingPolicyEnum::DiipProofBound,
+    'EmployeeBadgeCredential' => VciCredentialBindingPolicyEnum::Proofless,
+],
+```
+
+`ProofBound` is the default and applies the OpenID4VCI rules: a key proof is
+required, its signature is verified, and the credential is issued to the holder
+identifier the proof resolves to. The proof may name its key in a `kid` header,
+as a DID URL of any method this deployment can resolve — `did:jwk`, `did:key`
+or `did:web` — or carry the key itself in a `jwk` header.
+
+### What `DiipProofBound` adds
+
+`DiipProofBound` applies the DIIP profile's identifier rules on top of those. The
+key proof must name its key in a `kid` header which is an **absolute `did:jwk` or
+`did:web` URL**, and that verification method must appear in the
+`authentication` relationship of the document the DID resolves to.
+
+Two consequences are worth knowing before switching a configuration to it, both
+about that header, since it is where this profile's holder binding lives:
+
+- **A key proof carrying its key inline is refused.** The requirement is written
+  in DID URLs, and an inline key names no verification method to point at.
+- **A `did:key` holder is refused**, since the profile names the other two.
+
+The `iss` claim is left to OpenID4VCI: the client the access token was issued to
+when there is one, and absent when there is not. A wallet identified by a DID
+works, but nothing requires one, and holder binding does not rest on it.
+
+None of this affects any other configuration. DIIP's requirements are additive,
+so a deployment can offer conformant configurations alongside ones which accept
+inline keys or `did:key` holders.
+
+The credential states which key it is held by in a `cnf` claim, in every format:
+`cnf.kid` naming the verification method the proof named, or `cnf.jwk` carrying
+the key itself when the proof sent one inline. `credentialSubject.id` is not
+equivalent to it — a verifier checking holder binding reads `cnf`.
+
+### Three interpretations this module makes
+
+**The `iss` claim is not required to be a DID.** DIIP v5 says implementations
+*"MUST support the `jwt` proof type with a `did:jwk` or `did:web` as the `iss`
+value"*. Read as a rule to reject anything else, that cannot hold at the same
+time as OpenID4VCI, which requires `iss` to be **absent** when the access token
+was obtained through an anonymous pre-authorized code — so a DIIP configuration
+could never be issued through that flow at all.
+
+[FIDEScommunity/DIIP#83](https://github.com/FIDEScommunity/DIIP/issues/83)
+proposes resolving this by dropping the requirement on `iss` and requiring an
+absolute DID URL in `kid` instead. **That issue was still open and unanswered at
+the time of writing, and DIIP v5 was approved without it**, so this is an
+implementation choice rather than a settled profile rule. Two things make it the
+right one: the requirement is worded as *"MUST support"*, a capability rather
+than a rejection rule, and this module does support a DID `iss` — it accepts one,
+it just does not demand it. And nothing about holder binding rests on that claim.
+What proves the holder is possession of a key their DID document lists under
+`authentication`, which is checked either way.
+
+**The `assertionMethod` sentence.** DIIP §5.1.1 puts the proof's `kid` under the
+`assertionMethod` relationship of the *Issuer's* DID document, while the next
+requirement puts holder binding under `authentication` of the *Holder's*. In
+OpenID4VCI the proof is produced by the wallet, so the two cannot both be read
+literally at once. This module reads it as: the proof JWT resolves against the
+**Holder's** DID under `authentication`, and the credential and Status List
+signatures are made with the **Issuer's** key under `assertionMethod`. If your
+conformance target reads it the other way, this is the place it differs.
+
+**Header-JWK proofs are a documented extension, not a DIIP feature.** They stay
+supported for every other configuration because they work and nothing in
+OpenID4VCI forbids them, but a credential issued against one is not DIIP
+conformant, which is why `DiipProofBound` refuses them.
+
+### What one request may spend
+
+A Credential Request may carry up to `batch_credential_issuance.batch_size`
+proofs (8), name at most **4 distinct DIDs which have to be fetched**, and has
+**15 seconds** in total for all of its fetches. `did:jwk` and `did:key` resolve
+without leaving the process, so they do not count against the fetch limit —
+under `did:jwk` every key is its own DID, and a batch of eight proofs is eight
+distinct DIDs. These are fixed limits on what a request may cost this issuer,
+not settings.
 
 ## Pushed Authorization Requests (PAR) and Request Objects
 
@@ -598,12 +861,40 @@ key it was signed with is a deployment choice:
 
 - `did_jwk` (default): `kid` is the issuer's `did:jwk:...#0` and `iss` is the same `did:jwk:...`. The
   token carries the key with it and verifies without any external lookup.
+- `did_web`: `iss` is the `did:web` set under `OPTION_VCI_ISSUER_DID_IDENTIFIER` and `kid` names the
+  signing key in the DID document this module publishes for it. This is the profile which makes a
+  credential and the Status List Token it points at name the same issuer under the same resolvable
+  identity. It requires that option to be set — a pool on this profile without one is a configuration
+  error rather than something discovered when a token is signed.
 - `jwks`: `iss` is this module's issuer URL and `kid` is a JWKS key ID, so the key is resolved through
   the published JWKS. Use this for Relying Parties which will not accept a `did:jwk` key identifier.
 
 Each list records the profile it was created under. Changing the setting therefore routes newly issued
 credentials to newly created lists, while existing lists keep being served under the profile their
 holders already resolved them by — so changing it never invalidates anything already in a wallet.
+
+**A `did_web` list also records the identifier, not just the profile.** It has to: unlike the other two,
+that identifier is a setting of its own which can be changed or cleared while lists created under it are
+still being served. Reading it afresh at signing time would silently rewrite the `iss` of every token
+those lists emit, leaving a wallet holding a credential naming one issuer and a status token naming
+another. Because the identifier is recorded, changing it behaves like every other policy change: new
+credentials go to new lists, and the old lists go on naming the issuer they were created under.
+
+The obligation that follows is the same one credentials carry. **Keep the DID document published for
+every identifier an unretired list still names**, not only for the one currently configured — a Relying
+Party checking a credential's status has to resolve the token's issuer, and a `404` there is
+indistinguishable from a revoked deployment. The Verifiable Credential configuration screen answers this
+directly: separately from the identities credentials were issued under, it lists the ones the Status
+Lists still being served are signed under, and warns when any of them is no longer the configured
+`did:web`. The two are separate rows because they are separate questions — a deployment may identify its
+credentials by a `did:jwk` while its Status Lists use `did:web`, and then the credential row has never
+seen that identifier. An identifier leaves the Status List row once every list under it has been
+retired, and that is the point at which its document may finally be withdrawn.
+
+**Selecting `did_web` is a one-way upgrade.** Once a list has been created under it, the deployment can
+no longer be rolled back to a release that predates the profile: an older process reading that row
+refuses it rather than guessing an identity, which takes that list's endpoint down. Roll the code
+forward everywhere before switching a pool onto it.
 
 **A signing key has to outlive every list signed with it.** Each list records the key it was created
 with and is re-signed from that key alone, never from whichever key is current. Rotating keys is
@@ -621,7 +912,9 @@ when the list matters most.
 Whether credentials stay verifiable in the meantime depends on the profile. A `did_jwk` token carries
 its own key, so tokens already published keep verifying. Under `jwks` the key is resolved through this
 module's published JWKS, which the same removal empties, so already published tokens stop verifying too
-once Relying Parties refetch it. A key is only safe to discard once every list it signed has been
+once Relying Parties refetch it. `did_web` behaves the same way as `jwks` here: the key is named in the
+published DID document, which is built from the configured keys, so removing one withdraws it there
+too. A key is only safe to discard once every list it signed has been
 retired, which the lifecycle below does only after the last credential in those lists has expired.
 
 ### Credential expiry

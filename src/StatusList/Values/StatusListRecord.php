@@ -33,6 +33,11 @@ class StatusListRecord
      * filters candidate lists on, so that a list holding credentials which never expire -- and which
      * therefore can never be retired -- never also holds credentials which do.
      * @param string $allowedStatuses Comma separated status values this list may carry.
+     * @param ?string $issuerIdentifier The issuer `did:web` this list was created under, or null
+     * under the key profiles which name the issuer some other way. Recorded rather than read from
+     * configuration when a token is signed, for the same reason the signing key is: a list has to keep
+     * naming the issuer its holders resolved it under, so changing the configured identity routes new
+     * credentials to new lists instead of altering what an existing list emits.
      * @param string $signedTokenContentHash Hash of the content the published token was signed over.
      * An empty string means there is no valid published token, whether because none was ever produced
      * or because a status change invalidated it. Never null, so that a compare-and-set can match it.
@@ -56,6 +61,7 @@ class StatusListRecord
         protected readonly int $refreshIntervalSeconds,
         protected readonly string $signingKeyId,
         protected readonly StatusListKeyProfileEnum $keyProfile,
+        protected readonly ?string $issuerIdentifier,
         protected readonly int $allocatedCount,
         protected readonly bool $isActive,
         protected readonly ?DateTimeImmutable $deactivatedAt,
@@ -185,6 +191,16 @@ class StatusListRecord
 
 
     /**
+     * The issuer `did:web` this list names, or null under a key profile which names the issuer some
+     * other way. Under `did_web` this is what the token's `iss` is, so it is never re-derived.
+     */
+    public function getIssuerIdentifier(): ?string
+    {
+        return $this->issuerIdentifier;
+    }
+
+
+    /**
      * Advisory count of allocated entries. Incrementing it is a separate statement from the allocation
      * itself, so it can undercount; it drives the decision to rotate, never a correctness decision.
      */
@@ -289,6 +305,11 @@ class StatusListRecord
             self::asInt($row, 'refresh_interval_seconds'),
             self::asString($row, 'signing_key_id'),
             self::asKeyProfile($row, 'key_profile'),
+            // Added by a later migration than the table, so a row read before that migration has run
+            // has no such column -- which reads the same as a list created under a key profile that
+            // does not use one. Only the `did_web` profile does, and no such list can exist before the
+            // migration which introduced both.
+            self::asNullableString($row, 'issuer_identifier'),
             self::asInt($row, 'allocated_count'),
             self::asBool($row, 'is_active'),
             self::asNullableDateTime($row, 'deactivated_at'),

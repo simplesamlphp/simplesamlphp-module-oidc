@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use SimpleSAML\OpenID\TokenStatusList\StatusList;
 use Throwable;
@@ -88,6 +89,10 @@ class StatusListPool
      * @param string[] $credentialConfigurationIds Credential configurations which allocate from this pool.
      * @param \SimpleSAML\OpenID\Codebooks\StatusTypeEnum[] $allowedStatuses Statuses this pool may
      * emit. Always includes Valid, since an entry has to be able to return to it.
+     * @param ?string $issuerIdentifier The deployment's issuer `did:web`, required by that key profile
+     * and unused by every other. Taken from the module wide issuer identity rather than configured per
+     * pool: a deployment has one such identity, and letting a pool name a second would leave one of
+     * them without the published DID document a Relying Party has to resolve.
      * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function __construct(
@@ -100,6 +105,7 @@ class StatusListPool
         protected readonly DateInterval $tokenValidity,
         protected readonly DateInterval $refreshInterval,
         protected readonly StatusListKeyProfileEnum $keyProfile,
+        protected readonly ?string $issuerIdentifier = null,
     ) {
         $this->validate();
     }
@@ -122,6 +128,23 @@ class StatusListPool
                     'should use it under "%s".',
                     $this->id,
                     self::KEY_CREDENTIAL_CONFIGURATIONS,
+                ),
+            );
+        }
+
+        // Refused while the pool is being built, rather than left to fail when a token is signed: by
+        // then the list exists and credentials already point at it. The option is named through its
+        // constant so that renaming it can not leave this message pointing at something gone.
+        if ($this->keyProfile === StatusListKeyProfileEnum::DidWeb && $this->issuerIdentifier === null) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Status List pool "%s" signs under the "%s" key profile, which names the issuer by ' .
+                    'a `did:web` identifier, but "%s" is not set. Set it, or move the pool to another ' .
+                    '"%s".',
+                    $this->id,
+                    StatusListKeyProfileEnum::DidWeb->value,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                    self::KEY_KEY_PROFILE,
                 ),
             );
         }
@@ -343,6 +366,16 @@ class StatusListPool
 
 
     /**
+     * The issuer `did:web` a list created from this pool is stamped with, or null under the profiles
+     * which identify the issuer some other way.
+     */
+    public function getIssuerIdentifier(): ?string
+    {
+        return $this->issuerIdentifier;
+    }
+
+
+    /**
      * Hash of the immutable part of this pool's policy, which allocation filters candidate lists on.
      *
      * Without it, changing a pool setting would leave lists created under the old settings eligible for
@@ -359,21 +392,27 @@ class StatusListPool
      */
     public function getPolicyFingerprint(string $signingKeyId): string
     {
-        return hash(
-            'sha256',
-            json_encode(
-                [
-                    'bits' => $this->bits,
-                    'capacity' => $this->capacity,
-                    'signing_key_id' => $signingKeyId,
-                    'allowed_statuses' => $this->getAllowedStatusesAsString(),
-                    'ttl_seconds' => $this->getTtlInSeconds(),
-                    'token_validity_seconds' => $this->getTokenValidityInSeconds(),
-                    'key_profile' => $this->keyProfile->value,
-                ],
-                JSON_THROW_ON_ERROR,
-            ),
-        );
+        $policy = [
+            'bits' => $this->bits,
+            'capacity' => $this->capacity,
+            'signing_key_id' => $signingKeyId,
+            'allowed_statuses' => $this->getAllowedStatusesAsString(),
+            'ttl_seconds' => $this->getTtlInSeconds(),
+            'token_validity_seconds' => $this->getTokenValidityInSeconds(),
+            'key_profile' => $this->keyProfile->value,
+        ];
+
+        // Included only under the profile which uses it, so that a pool on any other profile hashes
+        // the same bytes it hashed before this one existed. Adding the key unconditionally -- even as
+        // null -- would move every existing pool onto fresh lists at once, splitting herds which had
+        // no reason to split. Under `did_web` it has to be here: a list records the identifier it was
+        // created with, so changing that identifier must route new credentials to a new list rather
+        // than onto one whose tokens still name the issuer it was created under.
+        if ($this->keyProfile === StatusListKeyProfileEnum::DidWeb) {
+            $policy['issuer_identifier'] = $this->issuerIdentifier;
+        }
+
+        return hash('sha256', json_encode($policy, JSON_THROW_ON_ERROR));
     }
 
 
@@ -387,7 +426,10 @@ class StatusListPool
         string $id,
         array $config,
         StatusListKeyProfileEnum $defaultKeyProfile,
+        ?string $issuerIdentifier = null,
     ): self {
+        $keyProfile = self::resolveKeyProfile($id, $config, $defaultKeyProfile);
+
         return new self(
             $id,
             self::resolveCredentialConfigurationIds($id, $config),
@@ -397,7 +439,13 @@ class StatusListPool
             self::resolveInterval($id, $config, self::KEY_TTL, self::DEFAULT_TTL),
             self::resolveInterval($id, $config, self::KEY_TOKEN_VALIDITY, self::DEFAULT_TOKEN_VALIDITY),
             self::resolveInterval($id, $config, self::KEY_REFRESH_INTERVAL, self::DEFAULT_REFRESH_INTERVAL),
-            self::resolveKeyProfile($id, $config, $defaultKeyProfile),
+            $keyProfile,
+            // Carried only by the profile which uses it. The caller resolves the identifier as soon as
+            // any one pool needs it, and a deployment may well mix profiles, so handing it to the rest
+            // would have them stamp every list they create with an identity nothing will ever resolve
+            // from it -- and a later reader asking which DID documents still have to be published would
+            // read those rows and name one that was never needed.
+            $keyProfile === StatusListKeyProfileEnum::DidWeb ? $issuerIdentifier : null,
         );
     }
 

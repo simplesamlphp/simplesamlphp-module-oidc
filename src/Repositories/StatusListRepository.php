@@ -323,19 +323,20 @@ class StatusListRepository extends AbstractDatabaseRepository
         int $refreshIntervalSeconds,
         string $signingKeyId,
         StatusListKeyProfileEnum $keyProfile,
+        ?string $issuerIdentifier = null,
     ): void {
         $this->database->write(
             sprintf(
                 'INSERT INTO %s (
                     id, uri, pool_id, policy_fingerprint, expiry_lane, generation, bits, capacity,
                     allowed_statuses, ttl_seconds, token_validity_seconds, refresh_interval_seconds,
-                    signing_key_id, key_profile, allocated_count, is_active,
+                    signing_key_id, key_profile, issuer_identifier, allocated_count, is_active,
                     signed_token_content_hash, created_at
                 ) VALUES (
                     :id, :uri, :pool_id, :policy_fingerprint, :expiry_lane, :generation, :bits,
                     :capacity, :allowed_statuses, :ttl_seconds, :token_validity_seconds,
-                    :refresh_interval_seconds, :signing_key_id, :key_profile, :allocated_count,
-                    :is_active, :signed_token_content_hash, :created_at
+                    :refresh_interval_seconds, :signing_key_id, :key_profile, :issuer_identifier,
+                    :allocated_count, :is_active, :signed_token_content_hash, :created_at
                 )',
                 $this->getTableName(),
             ),
@@ -354,6 +355,9 @@ class StatusListRepository extends AbstractDatabaseRepository
                 'refresh_interval_seconds' => [$refreshIntervalSeconds, PDO::PARAM_INT],
                 'signing_key_id' => $signingKeyId,
                 'key_profile' => $keyProfile->value,
+                // Null under every profile but `did_web`, which is the only one naming the issuer by
+                // something a list has to remember rather than derive.
+                'issuer_identifier' => $issuerIdentifier,
                 'allocated_count' => [0, PDO::PARAM_INT],
                 // Created inactive, and activated only once every index has been seeded. Otherwise a
                 // concurrent request could select this list and probe indices which do not exist yet,
@@ -881,17 +885,72 @@ class StatusListRepository extends AbstractDatabaseRepository
 
 
     /**
+     * Every issuer identity the lists this deployment still serves are signed under.
+     *
+     * A list records the `did:web` it was created under and keeps signing its tokens with it, so this
+     * is the set of DID documents which still have to resolve -- and configuration can not answer it,
+     * since the configured identifier is only the one new lists are created under.
+     *
+     * Retired lists are left out, and that is the point of the query. Such a list answers 404, so
+     * nothing resolves its issuer any more; an identifier which appears on none of the remaining lists
+     * is one whose document may finally be withdrawn. Contrast VciIssuerIdentityRepository, which
+     * remembers every identity credentials were issued under for good, because a credential once
+     * issued can not be taken back.
+     *
+     * Read from the primary, in keeping with the rule above: this drives the decision to stop
+     * publishing a document, and a lagging secondary would omit a list created moments ago.
+     *
+     * Deliberately not filtered by key profile. Only the `did_web` profile records an identifier
+     * today, so the filter would be redundant, and the only thing it could ever do is drop a row --
+     * which on this query means an identity whose document is still needed going unreported. Naming
+     * one document too many costs an operator a file nobody fetches; naming one too few costs every
+     * credential in those lists its status. Nor is there an older state to worry about: the profile,
+     * this column and its migration all arrived together, and a `did_web` pool without an identifier
+     * is refused when the configuration is read, so no list can carry the one without the other.
+     *
+     * Deduplicated in PHP rather than by `SELECT DISTINCT`, because MySQL's usual collation is case
+     * insensitive and would fold two byte-distinct identifiers into one arbitrarily chosen row --
+     * `did:web` path segments are case sensitive, and the caller compares byte for byte. Sorted here
+     * for the same reason, so the display order does not depend on the database's collation either.
+     *
+     * @return string[] Ordered by identifier, so the display does not reshuffle between page loads.
+     */
+    public function getUnretiredIssuerIdentifiers(): array
+    {
+        $identifiers = array_values(
+            array_unique(
+                $this->readIdentifiers(
+                    sprintf(
+                        'SELECT issuer_identifier FROM %s WHERE issuer_identifier IS NOT NULL ' .
+                        'AND retired_at IS NULL',
+                        $this->getTableName(),
+                    ),
+                    [],
+                    'issuer_identifier',
+                ),
+                SORT_STRING,
+            ),
+        );
+
+        sort($identifiers, SORT_STRING);
+
+        return $identifiers;
+    }
+
+
+    /**
      * @param array<string,mixed> $params
+     * @param string $column Which column of the result set carries the identifier.
      * @return string[]
      */
-    protected function readIdentifiers(string $statement, array $params = []): array
+    protected function readIdentifiers(string $statement, array $params = [], string $column = 'id'): array
     {
         $identifiers = [];
 
         /** @var mixed $row */
         foreach ($this->readPrimary($statement, $params) as $row) {
             /** @var mixed $id */
-            $id = is_array($row) ? ($row['id'] ?? null) : null;
+            $id = is_array($row) ? ($row[$column] ?? null) : null;
 
             if (is_scalar($id)) {
                 $identifiers[] = (string)$id;

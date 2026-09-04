@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\GeneralOverviewBuilder;
@@ -223,6 +224,69 @@ class ConfigControllerTest extends TestCase
                 'trust-mark-type',
                 'issuer-id',
             );
+
+        $this->templateFactoryMock->expects($this->once())->method('build')
+            ->with('oidc:config/federation.twig');
+
+        $this->sut()->federationSettings();
+    }
+
+
+    /**
+     * These two options are read here rather than by a builder, so their guarded rows cannot protect
+     * them: a wrong top-level type threw on the way to the screen and returned a 500 from the one page
+     * able to explain it.
+     */
+    public function testSurvivesMalformedTrustMarkOptions(): void
+    {
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')
+            ->willThrowException(new ConfigurationError('Not an array.'));
+
+        $this->sessionMessagesServiceMock->expects($this->atLeastOnce())->method('addMessage');
+
+        $this->templateFactoryMock->expects($this->once())->method('build')
+            ->with('oidc:config/federation.twig');
+
+        $this->sut()->federationSettings();
+    }
+
+
+    /**
+     * The second read is behind the first, so a failure there must be caught just the same.
+     */
+    public function testSurvivesMalformedDynamicTrustMarkOptions(): void
+    {
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')->willReturn(null);
+        $this->moduleConfigMock->method('getFederationDynamicTrustMarks')
+            ->willThrowException(new ConfigurationError('Not an array.'));
+
+        $this->sessionMessagesServiceMock->expects($this->atLeastOnce())->method('addMessage');
+
+        $this->templateFactoryMock->expects($this->once())->method('build')
+            ->with('oidc:config/federation.twig');
+
+        $this->sut()->federationSettings();
+    }
+
+
+    /**
+     * One malformed Trust Mark option must not hide the other, readable one.
+     *
+     * A single catch around both reads would have skipped the static tokens when the dynamic option
+     * threw, and would have reported that nothing is shown while rendering marks the first read had
+     * already produced. Each source is guarded on its own for that reason.
+     */
+    public function testAMalformedTrustMarkOptionDoesNotHideTheOtherSource(): void
+    {
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')->willReturn(['token']);
+        $this->moduleConfigMock->method('getFederationDynamicTrustMarks')
+            ->willThrowException(new ConfigurationError('Not an array.'));
+
+        // The readable source is still resolved, rather than skipped along with the broken one.
+        $this->trustMarkFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->stringContains('token'));
+
+        $this->sessionMessagesServiceMock->expects($this->atLeastOnce())->method('addMessage');
 
         $this->templateFactoryMock->expects($this->once())->method('build')
             ->with('oidc:config/federation.twig');

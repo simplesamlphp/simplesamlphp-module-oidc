@@ -8,6 +8,7 @@ use DateInterval;
 use Defuse\Crypto\Key;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -18,10 +19,13 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\SupportedAlgorithms;
@@ -1039,6 +1043,199 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * The did:web key profile names the issuer by an identifier the pool does not carry itself, so the
+     * module wide one is handed to it. A deployment has one such identity, and a pool naming a second
+     * would leave one of them without the DID document a Relying Party has to resolve.
+     *
+     * @throws \Exception
+     */
+    public function testHandsTheIssuerIdentifierToAPoolOnTheDidWebKeyProfile(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:issuer.example.org',
+            ],
+        ));
+
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertSame(StatusListKeyProfileEnum::DidWeb, $pool?->getKeyProfile());
+        $this->assertSame('did:web:issuer.example.org', $pool->getIssuerIdentifier());
+    }
+
+
+    /**
+     * Answered without building the pools, so that a pool which cannot be built -- here a `did_web` one
+     * whose issuer identifier is missing -- cannot change the answer for one which can. The JWKS
+     * endpoint decides whether to keep publishing the credential signing key by asking this, and a
+     * `jwks` pool's already published tokens are verified through that key.
+     *
+     * @throws \Exception
+     */
+    public function testAnswersWhichKeyProfilesAreInUseEvenWhileAnotherPoolCanNotBeBuilt(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'TestCredential' => [],
+                    'OtherCredential' => [],
+                ],
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'published' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::Jwks,
+                    ],
+                    // No issuer did:web is configured, so building this one throws.
+                    'decentralised' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['OtherCredential'],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb,
+                    ],
+                ],
+            ],
+        ));
+
+        $this->assertTrue($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks));
+        $this->assertTrue($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::DidWeb));
+        $this->assertFalse($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::DidJwk));
+
+        // The pool bag itself is still refused, which is where that error belongs.
+        $this->expectException(ConfigurationError::class);
+
+        $sut->getVciStatusListPoolBag();
+    }
+
+
+    /**
+     * A pool which names no profile of its own takes the deployment default, so the answer has to
+     * follow that rather than only what each pool spells out.
+     *
+     * @throws \Exception
+     */
+    public function testAPoolWhichNamesNoKeyProfileCountsUnderTheDeploymentDefault(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::Jwks],
+        ));
+
+        $this->assertTrue($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks));
+        $this->assertFalse($sut->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::DidJwk));
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testNoPoolIsOnAnyKeyProfileWhenNonePoolIsConfigured(): void
+    {
+        $this->assertFalse(
+            $this->sut()->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks),
+        );
+    }
+
+
+    /**
+     * A pool may take the profile on its own while the deployment default is another, so whether the
+     * issuer identifier is needed cannot be answered from the default alone. Spelled as the string a
+     * hand written config would use, which is the other shape that has to be recognised.
+     *
+     * @throws \Exception
+     */
+    public function testHandsTheIssuerIdentifierToAPoolWhichTakesTheDidWebProfileOnItsOwn(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidJwk,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'default' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb->value,
+                    ],
+                ],
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:issuer.example.org',
+            ],
+        ));
+
+        $pool = $sut->getVciStatusListPoolBag()->getById('default');
+
+        $this->assertSame(StatusListKeyProfileEnum::DidWeb, $pool?->getKeyProfile());
+        $this->assertSame('did:web:issuer.example.org', $pool->getIssuerIdentifier());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRefusesAPoolOnTheDidWebKeyProfileWithNoIssuerIdentifier(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $sut->getVciStatusListPoolBag();
+    }
+
+
+    /**
+     * A pool on a profile which never looks at the issuer did:web must stay readable when that option
+     * is malformed. The JWKS endpoint decides whether to publish the credential signing key by reading
+     * the pools, so a failure here would withdraw the key that a `jwks` profile pool's already
+     * published tokens are verified through -- over a setting those tokens do not use.
+     *
+     * @throws \Exception
+     */
+    public function testAMalformedIssuerIdentifierDoesNotStopPoolsWhichDoNotUseOneFromResolving(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::Jwks,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:localhost',
+            ],
+        ));
+
+        $this->assertSame(
+            StatusListKeyProfileEnum::Jwks,
+            $sut->getVciStatusListPoolBag()->getById('default')?->getKeyProfile(),
+        );
+    }
+
+
+    /**
+     * The same option is still refused where it is actually used, so a malformed identifier cannot
+     * reach a list which would then be signed under it.
+     *
+     * @throws \Exception
+     */
+    public function testAMalformedIssuerIdentifierIsStillRefusedForAPoolWhichUsesOne(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withStatusListPool(true),
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb,
+                ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:localhost',
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $sut->getVciStatusListPoolBag();
+    }
+
+
+    /**
      * A pool whose credential configurations all lack a lifetime allocates only into the non-expiring
      * lane, so any list it has in the other one is no longer an allocation target and has to be
      * deactivated -- otherwise nothing would ever fill it, nothing would deactivate it, and it would be
@@ -1185,6 +1382,81 @@ class ModuleConfigTest extends TestCase
         $this->expectException(ConfigurationError::class);
 
         $this->sut(overrides: $this->withCredentialTtl('PT0S'))->getVciCredentialTtls();
+    }
+
+
+    /**
+     * The metadata this module publishes has always said a key proof is required, so requiring one is
+     * what an unlisted configuration keeps doing. Issuing credentials which are bound to nothing is the
+     * thing an operator opts into.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialsAreBoundToAHolderKeyUnlessConfiguredOtherwise(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame([], $sut->getVciCredentialBindingPolicies());
+        $this->assertSame(
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $sut->getVciCredentialBindingPolicyFor('TestCredential'),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheConfiguredCredentialBindingPolicy(): void
+    {
+        // Both the enum and its backing value, since the configuration file is PHP and an operator may
+        // reasonably write either.
+        foreach ([VciCredentialBindingPolicyEnum::Proofless, 'proofless'] as $configured) {
+            $sut = $this->sut(overrides: $this->withCredentialBindingPolicy($configured));
+
+            $this->assertSame(
+                VciCredentialBindingPolicyEnum::Proofless,
+                $sut->getVciCredentialBindingPolicyFor('TestCredential'),
+            );
+            // Configurations which are not listed keep requiring a key proof.
+            $this->assertSame(
+                VciCredentialBindingPolicyEnum::ProofBound,
+                $sut->getVciCredentialBindingPolicyFor('SomethingElse'),
+            );
+        }
+    }
+
+
+    /**
+     * A typo would otherwise be silent, and the configuration it was meant for would go on demanding
+     * key proofs the wallet was never going to send.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialBindingPoliciesRejectAnUnknownCredentialConfiguration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('NoSuchCredential');
+
+        $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['NoSuchCredential' => 'proofless'],
+            ],
+        ))->getVciCredentialBindingPolicies();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCredentialBindingPoliciesRejectAnUnknownPolicy(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withCredentialBindingPolicy('sometimes'))
+            ->getVciCredentialBindingPolicies();
     }
 
 
@@ -1449,6 +1721,21 @@ class ModuleConfigTest extends TestCase
     /**
      * @return array<string,mixed>
      */
+    protected function withCredentialBindingPolicy(mixed $bindingPolicy): array
+    {
+        return array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['TestCredential' => $bindingPolicy],
+            ],
+        );
+    }
+
+
+    /**
+     * @return array<string,mixed>
+     */
     protected function withOption(string $option, mixed $value): array
     {
         return array_merge($this->overrides, [$option => $value]);
@@ -1646,5 +1933,318 @@ class ModuleConfigTest extends TestCase
             ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
             $inverted,
         ))->getVciStatusListAuditRetention();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testVciCacheIsNotConfiguredByDefault(): void
+    {
+        $this->assertNull($this->sut()->getVciCacheAdapterClass());
+        $this->assertSame([], $this->sut()->getVciCacheAdapterArguments());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetVciCacheAdapterOptions(): void
+    {
+        $sut = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER => ArrayAdapter::class,
+            ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS => ['openidVci'],
+        ]));
+
+        $this->assertSame(ArrayAdapter::class, $sut->getVciCacheAdapterClass());
+        $this->assertSame(['openidVci'], $sut->getVciCacheAdapterArguments());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDidCacheMaxDurationDefaultsToSixHours(): void
+    {
+        $this->assertSame(6, $this->sut()->getVciDidCacheMaxDuration()->h);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetDidCacheMaxDuration(): void
+    {
+        $this->assertSame(
+            30,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                'PT30M',
+            ))->getVciDidCacheMaxDuration()->i,
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDidResolutionHasNoDestinationExemptionsByDefault(): void
+    {
+        $this->assertSame([], $this->sut()->getVciDidOutboundAllowedHosts());
+        $this->assertSame([], $this->sut()->getVciDidOutboundAllowedCidrs());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetDidDestinationExemptions(): void
+    {
+        $sut = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS => ['wallet.internal.example', 123],
+            ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS => ['10.1.2.3/32', null],
+        ]));
+
+        // Non-string entries are dropped rather than handed to the policy.
+        $this->assertSame(['wallet.internal.example'], $sut->getVciDidOutboundAllowedHosts());
+        $this->assertSame(['10.1.2.3/32'], $sut->getVciDidOutboundAllowedCidrs());
+    }
+
+
+    /**
+     * The general outbound exemptions exist so this deployment can reach addresses it operates itself.
+     * A DID names its own destination and is supplied by whoever is being authenticated, so inheriting
+     * them here would let that party send this deployment to any of them.
+     *
+     * @throws \Exception
+     */
+    public function testDidResolutionDoesNotInheritTheGeneralOutboundExemptions(): void
+    {
+        $sut = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_OUTBOUND_ALLOWED_HOSTS => ['rp.internal.example'],
+            ModuleConfig::OPTION_OUTBOUND_ALLOWED_CIDRS => ['10.0.0.0/8'],
+        ]));
+
+        $this->assertSame([], $sut->getVciDidOutboundAllowedHosts());
+        $this->assertSame([], $sut->getVciDidOutboundAllowedCidrs());
+    }
+
+
+    /**
+     * Stricter than the general outbound default, which is Preferred.
+     *
+     * @throws \Exception
+     */
+    public function testDidAddressPinningModeDefaultsToRequired(): void
+    {
+        $this->assertSame(
+            AddressPinningModeEnum::Required,
+            $this->sut()->getVciDidAddressPinningMode(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCanGetDidAddressPinningModeFromEnumOrString(): void
+    {
+        $this->assertSame(
+            AddressPinningModeEnum::Disabled,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                AddressPinningModeEnum::Disabled,
+            ))->getVciDidAddressPinningMode(),
+        );
+
+        $this->assertSame(
+            AddressPinningModeEnum::Disabled,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                AddressPinningModeEnum::Disabled->value,
+            ))->getVciDidAddressPinningMode(),
+        );
+    }
+
+
+    /**
+     * Preferred proceeds unpinned wherever pinning turns out to be unavailable, which is the one thing
+     * a fetch whose destination is chosen from outside must not do. Refused while the configuration is
+     * read, so the admin screens report it rather than an issuance failing later.
+     *
+     * @throws \Exception
+     */
+    public function testRejectsPreferredDidAddressPinningMode(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+            AddressPinningModeEnum::Preferred,
+        ))->getVciDidAddressPinningMode();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnUnknownDidAddressPinningMode(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+            'whenever-convenient',
+        ))->getVciDidAddressPinningMode();
+    }
+
+
+    /**
+     * The default is what the module did before the option existed.
+     *
+     * @throws \Exception
+     */
+    public function testIssuerIdentifierModeDefaultsToDidJwk(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame(VciIssuerIdentifierModeEnum::DidJwk, $sut->getVciIssuerIdentifierMode());
+        $this->assertNull($sut->getVciIssuerDidIdentifier());
+        $this->assertSame(VciIssuerIdentifierModeEnum::DidJwk, $sut->getVciIssuerIdentifier()->getMode());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testIssuerIdentifierModeAcceptsAnEnumCaseOrItsValue(): void
+    {
+        $this->assertSame(
+            VciIssuerIdentifierModeEnum::Https,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                VciIssuerIdentifierModeEnum::Https,
+            ))->getVciIssuerIdentifierMode(),
+        );
+
+        $this->assertSame(
+            VciIssuerIdentifierModeEnum::Https,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                'https',
+            ))->getVciIssuerIdentifierMode(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsAnUnknownIssuerIdentifierMode(): void
+    {
+        $this->expectException(ConfigurationError::class);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+            'did:sov',
+        ))->getVciIssuerIdentifierMode();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheConfiguredDidWebIdentifier(): void
+    {
+        $identifier = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb,
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:example.org',
+        ]))->getVciIssuerIdentifier();
+
+        $this->assertTrue($identifier->isIssuingUnderDidWeb());
+        $this->assertSame('did:web:example.org', $identifier->getDidWeb());
+    }
+
+
+    /**
+     * The state the publish-after-mode-change rule rests on: the identifier is still configured, so
+     * its document is still published, but nothing is issued under it any more.
+     *
+     * @throws \Exception
+     */
+    public function testKeepsADidWebIdentifierConfiguredUnderAnotherMode(): void
+    {
+        $identifier = $this->sut(overrides: array_merge($this->overrides, [
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidJwk,
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER => 'did:web:example.org',
+        ]))->getVciIssuerIdentifier();
+
+        $this->assertFalse($identifier->isIssuingUnderDidWeb());
+        $this->assertSame('did:web:example.org', $identifier->getDidWeb());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testRejectsDidWebModeWithoutAnIdentifierToIssueUnder(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+            VciIssuerIdentifierModeEnum::DidWeb,
+        ))->getVciIssuerIdentifier();
+    }
+
+
+    /**
+     * Refused where it is configured rather than after credentials have been issued under it. These
+     * are all syntactically DIDs; none of them is one this library could ever resolve.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unresolvableDidWebIdentifierDataProvider')]
+    public function testRejectsADidWebIdentifierWhichCouldNotBeResolved(string $identifier): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+            $identifier,
+        ))->getVciIssuerDidIdentifier();
+    }
+
+
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function unresolvableDidWebIdentifierDataProvider(): array
+    {
+        return [
+            'single label host' => ['did:web:localhost'],
+            'IPv4 literal' => ['did:web:127.0.0.1'],
+            'percent encoded segment' => ['did:web:example.org:%2Fetc'],
+            'another method' => ['did:key:z6Mk'],
+            'not a DID at all' => ['https://example.org'],
+            'carries a fragment' => ['did:web:example.org#0'],
+        ];
+    }
+
+
+    /**
+     * An option left as an empty string is the same as not setting it, since a deployment which
+     * cleared the value meant to stop publishing rather than to publish under nothing.
+     *
+     * @throws \Exception
+     */
+    public function testTreatsABlankDidWebIdentifierAsNoneAtAll(): void
+    {
+        $this->assertNull(
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER, '  '))
+                ->getVciIssuerDidIdentifier(),
+        );
     }
 }

@@ -13,6 +13,8 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\ValueAbstracts;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
+use stdClass;
+use Throwable;
 
 /**
  * Wiring shared by the configuration overview tests: a real ModuleConfig backed by
@@ -110,6 +112,67 @@ trait OverviewTestTrait
         }
 
         return null;
+    }
+
+
+    /**
+     * No option a screen displays may take that screen down when its value has the wrong type.
+     *
+     * SimpleSAMLphp asserts an option's type when the option is READ, not when the configuration is
+     * loaded, and nothing catches that on the way to the template. A row built outside guardRow()
+     * therefore turns a mistyped option into an HTTP 500 on the one screen able to explain it.
+     *
+     * Every option the screen displays is discovered from the rows themselves rather than listed
+     * here, so a row added later is covered without anyone remembering to extend a data provider.
+     * The value used is an object, which no getter on ModuleConfig accepts.
+     *
+     * Options rejected by ModuleConfig::validate() are skipped rather than asserted on: that runs
+     * from the constructor, so such a value never reaches a builder at all and is reported by
+     * SimpleSAMLphp itself.
+     *
+     * @param callable(array): object $buildBuilder Builds the screen's builder from config overrides.
+     */
+    protected function assertNoDisplayedOptionCanThrow(callable $buildBuilder): void
+    {
+        /** @var object $builder */
+        $builder = $buildBuilder([]);
+        /** @var \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[] $sections */
+        $sections = $builder->build();
+
+        $options = [];
+
+        foreach ($this->flattenRows($sections) as $row) {
+            $configOption = $row->getConfigOption();
+
+            if (!is_null($configOption)) {
+                $options[$configOption] = true;
+            }
+        }
+
+        $this->assertNotEmpty($options, 'No option is displayed, so this test proves nothing.');
+
+        foreach (array_keys($options) as $option) {
+            try {
+                /** @var object $builderWithBadOption */
+                $builderWithBadOption = $buildBuilder([$option => new stdClass()]);
+            } catch (Throwable) {
+                // Refused while the configuration was constructed, which is a report of its own.
+                continue;
+            }
+
+            try {
+                $builderWithBadOption->build();
+            } catch (Throwable $exception) {
+                $this->fail(
+                    sprintf(
+                        'A malformed "%s" escaped as %s ("%s") instead of being reported on its row.',
+                        $option,
+                        $exception::class,
+                        $exception->getMessage(),
+                    ),
+                );
+            }
+        }
     }
 
 

@@ -11,9 +11,11 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
+use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
@@ -25,8 +27,9 @@ use SimpleSAML\Module\oidc\StatusList\StatusListKeyResolver;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
-use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
+use SimpleSAML\OpenID\Did\DidUrl;
+use SimpleSAML\OpenID\Did\Factories\DidDocumentFactory;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
@@ -49,6 +52,8 @@ class DbStatusListTokenProviderTest extends TestCase
 
     protected const string DID_JWK = 'did:jwk:eyJrdHkiOiJFQyJ9';
 
+    protected const string DID_WEB = 'did:web:issuer.example.org';
+
     protected const string SIGNED_TOKEN = 'freshly.signed.token';
 
     protected const string PUBLISHED_TOKEN = 'already.published.token';
@@ -65,6 +70,10 @@ class DbStatusListTokenProviderTest extends TestCase
     protected MockObject $moduleConfigMock;
 
     protected MockObject $didJwkResolverMock;
+
+    protected MockObject $didDocumentFactoryMock;
+
+    protected MockObject $didFactoryMock;
 
     protected MockObject $loggerServiceMock;
 
@@ -95,6 +104,15 @@ class DbStatusListTokenProviderTest extends TestCase
 
         $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn(self::DID_JWK);
+
+        $this->didDocumentFactoryMock = $this->createMock(DidDocumentFactory::class);
+        $this->didDocumentFactoryMock->method('verificationMethodIdFor')->willReturnCallback(
+            static fn(DidUrl $did, string $keyId): DidUrl => new DidUrl($did->getDid() . '#' . $keyId),
+        );
+
+        $this->didFactoryMock = $this->createMock(DidFactory::class);
+        $this->didFactoryMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+        $this->didFactoryMock->method('didDocumentFactory')->willReturn($this->didDocumentFactoryMock);
     }
 
 
@@ -107,9 +125,6 @@ class DbStatusListTokenProviderTest extends TestCase
      */
     protected function sut(): DbStatusListTokenProvider
     {
-        $didMock = $this->createMock(Did::class);
-        $didMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
-
         $tokenStatusListMock = $this->createMock(TokenStatusList::class);
         $tokenStatusListMock->method('statusListFactory')
             ->willReturn(new StatusListFactory(new OpenIdHelpers()));
@@ -123,7 +138,7 @@ class DbStatusListTokenProviderTest extends TestCase
             $this->statusListKeyResolverMock,
             $tokenStatusListMock,
             $this->moduleConfigMock,
-            $didMock,
+            $this->didFactoryMock,
             $this->helpers,
             $this->loggerServiceMock,
         );
@@ -173,6 +188,7 @@ class DbStatusListTokenProviderTest extends TestCase
         ?string $retiredAt = null,
         StatusListKeyProfileEnum $keyProfile = StatusListKeyProfileEnum::DidJwk,
         int $invalidationCounter = 4,
+        ?string $issuerIdentifier = null,
     ): StatusListRecord {
         return new StatusListRecord(
             self::LIST_ID,
@@ -189,6 +205,7 @@ class DbStatusListTokenProviderTest extends TestCase
             3600,
             self::SIGNING_KEY_ID,
             $keyProfile,
+            $issuerIdentifier,
             0,
             true,
             null,
@@ -524,12 +541,120 @@ class DbStatusListTokenProviderTest extends TestCase
 
 
     /**
+     * Under the did:web profile the token names the identifier the list was created under, and the key
+     * by the verification method the published DID document gives it.
+     *
+     * @throws \Exception
+     */
+    public function testSignsWithTheRecordedDidWebIdentity(): void
+    {
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::DidWeb, self::DID_WEB);
+        $this->statusListTokenFactoryMock = $this->createMock(StatusListTokenFactory::class);
+
+        $this->statusListTokenFactoryMock->expects($this->once())->method('forStatusList')
+            ->with(
+                $this->anything(),
+                self::LIST_URI,
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                self::DID_WEB,
+                [],
+                ['kid' => self::DID_WEB . '#' . self::SIGNING_KEY_ID],
+            )
+            ->willReturn($this->signedTokenStub());
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * The configured identity is never consulted, so changing or clearing it leaves every list already
+     * being served naming the issuer its holders resolved it under.
+     *
+     * @throws \Exception
+     */
+    public function testTheConfiguredIssuerIdentityIsNeverReadWhenSigning(): void
+    {
+        $this->moduleConfigMock->expects($this->never())->method('getVciIssuerDidIdentifier');
+        $this->moduleConfigMock->expects($this->never())->method('getVciIssuerIdentifier');
+        $this->moduleConfigMock->expects($this->never())->method('getVciIssuerIdentifierMode');
+
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::DidWeb, self::DID_WEB);
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * Both identities are minted from key material already in hand, so neither may depend on the facade
+     * whose construction reads the cache adapter and the outbound destination settings -- neither of
+     * which signing a list has any use for.
+     *
+     * @throws \Exception
+     */
+    public function testSigningNeverBuildsTheResolvingFacade(): void
+    {
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::DidWeb, self::DID_WEB);
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * A key identifier which cannot be built is reported rather than worked around, since the only ways
+     * around it would be to sign with a `kid` the published document does not carry or to sign with
+     * none at all.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAFailureToMintTheDidWebVerificationMethodId(): void
+    {
+        $didDocumentFactoryMock = $this->createMock(DidDocumentFactory::class);
+        $didDocumentFactoryMock->method('verificationMethodIdFor')
+            ->willThrowException(new RuntimeException('nope'));
+
+        $this->didFactoryMock = $this->createMock(DidFactory::class);
+        $this->didFactoryMock->method('didDocumentFactory')->willReturn($didDocumentFactoryMock);
+
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::DidWeb, self::DID_WEB);
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('did:web');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * Signing under a guessed identity would be worse than not signing at all: the token would name an
+     * issuer the list was never created under, and a wallet cannot tell the difference.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToSignADidWebListWhichRecordedNoIdentifier(): void
+    {
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::DidWeb);
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('no issuer identifier');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
      * @throws \Exception
      */
     protected function givenAListWhichNeedsPublishing(
         StatusListKeyProfileEnum $keyProfile = StatusListKeyProfileEnum::DidJwk,
+        ?string $issuerIdentifier = null,
     ): void {
-        $record = $this->record(keyProfile: $keyProfile);
+        $record = $this->record(keyProfile: $keyProfile, issuerIdentifier: $issuerIdentifier);
 
         $this->statusListRepositoryMock->method('findById')->willReturn($record);
         $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);

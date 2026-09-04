@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Admin\ConfigOverview;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
@@ -573,5 +574,138 @@ class FederationOverviewBuilderTest extends TestCase
         $this->assertSame('N/A', $informationUriRow->getValue());
         // The placeholder is UI text, so it stays translatable.
         $this->assertSame(ConfigOverviewValueTypeEnum::Text, $informationUriRow->getValueType());
+    }
+
+
+    /**
+     * A malformed option must be reported on its own row rather than take the screen down.
+     *
+     * Every one of these values throws out of the getter which reads it - SimpleSAMLphp asserts the
+     * type at read time, not at load time - and this screen is the one an administrator opens to find
+     * out which option is wrong. Building the row outside guardRow() therefore turned a typo into a
+     * 500 on the only page that could have explained it.
+     */
+    #[DataProvider('malformedOptionProvider')]
+    public function testReportsAMalformedOptionInPlace(string $option, mixed $value): void
+    {
+        $sections = $this->buildFederationOverviewBuilder([$option => $value])->build();
+
+        $row = $this->findRowForOption($sections, $option);
+
+        $this->assertNotNull($row, sprintf('No row displays %s.', $option));
+        $this->assertNotNull($row->getWarning(), sprintf('%s is not reported on its row.', $option));
+    }
+
+
+    /**
+     * A malformed federation switch is one problem, not two.
+     *
+     * getFederationTrustAnchors() reads OPTION_FEDERATION_ENABLED to decide whether an empty list is
+     * an error, so it throws for a malformed switch as well. Attributing that to the Trust Anchors
+     * option would send an administrator looking for a second fault which does not exist.
+     */
+    public function testDoesNotBlameTrustAnchorsForAMalformedFederationSwitch(): void
+    {
+        $sections = $this->buildFederationOverviewBuilder([
+            ModuleConfig::OPTION_FEDERATION_ENABLED => 'yes',
+            ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS => [],
+        ])->build();
+
+        $switchRow = $this->findRowForOption($sections, ModuleConfig::OPTION_FEDERATION_ENABLED);
+        $this->assertNotNull($switchRow);
+        $this->assertNotNull($switchRow->getWarning(), 'The malformed switch is not reported.');
+
+        $trustAnchorsRow = $this->findRowForOption($sections, ModuleConfig::OPTION_FEDERATION_TRUST_ANCHORS);
+        $this->assertNotNull($trustAnchorsRow);
+        $this->assertNull(
+            $trustAnchorsRow->getWarning(),
+            'The malformed switch is reported a second time as a Trust Anchors failure.',
+        );
+    }
+
+
+    /**
+     * The provider above names the options whose warning text is worth asserting; this covers every
+     * option the screen displays, including ones added after it was written.
+     */
+    public function testNoDisplayedOptionCanTakeTheScreenDown(): void
+    {
+        $this->assertNoDisplayedOptionCanThrow(
+            fn(array $overrides): FederationOverviewBuilder => $this->buildFederationOverviewBuilder(
+                $overrides,
+            ),
+        );
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: mixed}>
+     */
+    public static function malformedOptionProvider(): array
+    {
+        return [
+            'federation enabled is not a boolean' => [ModuleConfig::OPTION_FEDERATION_ENABLED, 'yes'],
+            'keywords are not an array' => [ModuleConfig::OPTION_KEYWORDS, 'not-an-array'],
+            'contacts are not an array' => [ModuleConfig::OPTION_CONTACTS, 'not-an-array'],
+            'organization name is not a string' => [ModuleConfig::OPTION_ORGANIZATION_NAME, 123],
+            'logo uri is not a string' => [ModuleConfig::OPTION_LOGO_URI, 123],
+            'entity statement duration is not a duration' => [
+                ModuleConfig::OPTION_FEDERATION_ENTITY_STATEMENT_DURATION,
+                'not-a-duration',
+            ],
+            'authority hints are not an array' => [
+                ModuleConfig::OPTION_FEDERATION_AUTHORITY_HINTS,
+                'not-an-array',
+            ],
+            'trust mark tokens are not an array' => [
+                ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS,
+                'not-an-array',
+            ],
+            'dynamic trust marks are not an array' => [
+                ModuleConfig::OPTION_FEDERATION_DYNAMIC_TRUST_MARKS,
+                'not-an-array',
+            ],
+            'participation limits are not an array' => [
+                ModuleConfig::OPTION_FEDERATION_PARTICIPATION_LIMIT_BY_TRUST_MARKS,
+                'not-an-array',
+            ],
+            'max trust chain depth is not an integer' => [
+                ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_DEPTH,
+                'deep',
+            ],
+            'max authority hints is not an integer' => [
+                ModuleConfig::OPTION_FEDERATION_MAX_AUTHORITY_HINTS,
+                'many',
+            ],
+            'max trust chain fetches is not an integer' => [
+                ModuleConfig::OPTION_FEDERATION_MAX_TRUST_CHAIN_FETCHES,
+                'lots',
+            ],
+            'resolve timeout is not an integer' => [
+                ModuleConfig::OPTION_FEDERATION_TRUST_CHAIN_RESOLVE_TIMEOUT,
+                'soon',
+            ],
+            'max fetch size is not an integer' => [
+                ModuleConfig::OPTION_FEDERATION_MAX_FETCH_SIZE_BYTES,
+                'big',
+            ],
+            'cache adapter is not a string' => [ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER, 123],
+            'cache adapter arguments are not an array' => [
+                ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS,
+                'not-an-array',
+            ],
+            'fetched cache duration is not a duration' => [
+                ModuleConfig::OPTION_FEDERATION_CACHE_MAX_DURATION_FOR_FETCHED,
+                'not-a-duration',
+            ],
+            'produced cache duration is not a duration' => [
+                ModuleConfig::OPTION_FEDERATION_CACHE_DURATION_FOR_PRODUCED,
+                'not-a-duration',
+            ],
+            'http client options are not an array' => [
+                ModuleConfig::OPTION_FEDERATION_HTTP_CLIENT_OPTIONS,
+                'not-an-array',
+            ],
+        ];
     }
 }

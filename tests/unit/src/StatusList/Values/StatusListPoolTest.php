@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
@@ -21,6 +22,8 @@ class StatusListPoolTest extends TestCase
 
     protected const string KEY_ID = 'signing-key-1';
 
+    protected const string DID_WEB = 'did:web:issuer.example.org';
+
 
     /**
      * @param array<array-key,mixed> $overrides
@@ -29,6 +32,7 @@ class StatusListPoolTest extends TestCase
     protected function sut(
         array $overrides = [],
         StatusListKeyProfileEnum $defaultKeyProfile = StatusListKeyProfileEnum::DidJwk,
+        ?string $issuerIdentifier = null,
     ): StatusListPool {
         return StatusListPool::fromConfig(
             self::POOL_ID,
@@ -37,6 +41,7 @@ class StatusListPoolTest extends TestCase
                 $overrides,
             ),
             $defaultKeyProfile,
+            $issuerIdentifier,
         );
     }
 
@@ -86,6 +91,51 @@ class StatusListPoolTest extends TestCase
                 StatusListKeyProfileEnum::DidJwk,
             )->getKeyProfile(),
         );
+    }
+
+
+    /**
+     * Refused while the pool is built rather than when a token is signed, because by then the list
+     * exists and credentials already point at it.
+     */
+    public function testRejectsTheDidWebProfileWithNoIssuerIdentifier(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
+
+        $this->sut([StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb]);
+    }
+
+
+    public function testCarriesTheIssuerIdentifierUnderTheDidWebProfile(): void
+    {
+        $pool = $this->sut(
+            [StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb],
+            issuerIdentifier: self::DID_WEB,
+        );
+
+        $this->assertSame(StatusListKeyProfileEnum::DidWeb, $pool->getKeyProfile());
+        $this->assertSame(self::DID_WEB, $pool->getIssuerIdentifier());
+    }
+
+
+    /**
+     * The identifier is resolved once for the whole bag, as soon as any one pool needs it, so a mixed
+     * configuration hands it to pools which do not. They must not keep it: a list they create would
+     * otherwise record an identity nothing resolves from it, and whoever later asks which DID documents
+     * still have to be served would be told to keep one that was never needed.
+     */
+    #[DataProvider('profilesWhichDoNotUseTheIssuerIdentifierDataProvider')]
+    public function testDoesNotCarryTheIssuerIdentifierUnderTheOtherProfiles(
+        StatusListKeyProfileEnum $keyProfile,
+    ): void {
+        $pool = $this->sut(
+            [StatusListPool::KEY_KEY_PROFILE => $keyProfile],
+            issuerIdentifier: self::DID_WEB,
+        );
+
+        $this->assertSame($keyProfile, $pool->getKeyProfile());
+        $this->assertNull($pool->getIssuerIdentifier());
     }
 
 
@@ -380,6 +430,52 @@ class StatusListPoolTest extends TestCase
             $this->sut()->getPolicyFingerprint(self::KEY_ID),
             $this->sut()->getPolicyFingerprint('signing-key-2'),
         );
+    }
+
+
+    /**
+     * A list records the identifier it was created under, so a changed identifier has to route new
+     * credentials to a new list rather than onto one whose tokens still name the old issuer.
+     */
+    public function testPolicyFingerprintChangesWithTheIssuerIdentifier(): void
+    {
+        $didWeb = [StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb];
+
+        $this->assertNotSame(
+            $this->sut($didWeb, issuerIdentifier: self::DID_WEB)->getPolicyFingerprint(self::KEY_ID),
+            $this->sut($didWeb, issuerIdentifier: 'did:web:other.example.org')
+                ->getPolicyFingerprint(self::KEY_ID),
+        );
+    }
+
+
+    /**
+     * The identifier is part of the fingerprint only under the profile which uses it. Were it always
+     * included, every deployment's pools would fingerprint differently the moment this option existed
+     * and move onto fresh lists, splitting herds which had no reason to split.
+     */
+    #[DataProvider('profilesWhichDoNotUseTheIssuerIdentifierDataProvider')]
+    public function testPolicyFingerprintIgnoresTheIssuerIdentifierUnderTheOtherProfiles(
+        StatusListKeyProfileEnum $keyProfile,
+    ): void {
+        $config = [StatusListPool::KEY_KEY_PROFILE => $keyProfile];
+
+        $this->assertSame(
+            $this->sut($config)->getPolicyFingerprint(self::KEY_ID),
+            $this->sut($config, issuerIdentifier: self::DID_WEB)->getPolicyFingerprint(self::KEY_ID),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{\SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum}>
+     */
+    public static function profilesWhichDoNotUseTheIssuerIdentifierDataProvider(): array
+    {
+        return [
+            'did:jwk' => [StatusListKeyProfileEnum::DidJwk],
+            'jwks' => [StatusListKeyProfileEnum::Jwks],
+        ];
     }
 
 

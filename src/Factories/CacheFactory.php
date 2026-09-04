@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
+use SimpleSAML\Module\oidc\Utils\VciCache;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Psr16Cache;
 use Throwable;
@@ -66,6 +67,27 @@ class CacheFactory
         );
 
         return new FederationCache(new Psr16Cache($adapter));
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
+     * @throws \Exception
+     */
+    public function forVci(): ?VciCache
+    {
+        $class = $this->moduleConfig->getVciCacheAdapterClass();
+
+        if (is_null($class)) {
+            return null;
+        }
+
+        $adapter = $this->buildAdapterInstance(
+            $class,
+            $this->moduleConfig->getVciCacheAdapterArguments(),
+        );
+
+        return new VciCache(new Psr16Cache($adapter));
     }
 
 

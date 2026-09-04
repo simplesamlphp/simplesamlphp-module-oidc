@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers;
 
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Jwks;
@@ -36,7 +37,15 @@ class JwksController
         // which stops new credentials being issued -- credentials already in wallets point at those
         // lists and have to stay verifiable -- so withdrawing the key their tokens are signed with the
         // moment issuance is turned off would break exactly the guarantee that lifecycle rests on.
-        $vciPublicKeys = ($this->moduleConfig->getVciEnabled() || $this->isAnyStatusListKeyPublished())
+        //
+        // The issuer identity mode is asked for the same reason. Under it, a credential names its
+        // signing key by the identifier it carries here and nowhere else, so a credential already in a
+        // wallet is verifiable only while this key set still lists that key.
+        $isVciKeySetNeeded = $this->moduleConfig->getVciEnabled() ||
+        $this->isAnyStatusListKeyPublished() ||
+        $this->isCredentialKeyResolvedThroughThisKeySet();
+
+        $vciPublicKeys = $isVciKeySetNeeded
         ? $this->moduleConfig->getVciSignatureKeyPairBag()->getAllPublicKeys()
         : [];
 
@@ -61,6 +70,12 @@ class JwksController
      * the database did, taking down verification of every ID token and access token this issuer has
      * ever signed. That is a far larger failure than the one it would prevent.
      *
+     * Asked of the raw configured values rather than of the built pools, which matters for the same
+     * reason. Building them is all or nothing: one pool misconfigured in any way -- a bad bit count, or
+     * an issuer `did:web` which only another pool's profile even reads -- would make the whole bag
+     * unreadable, this question answer "no", and the key that a perfectly good `jwks` pool's already
+     * published tokens are verified through be withdrawn over a setting those tokens never used.
+     *
      * The gap this leaves is an operator removing a pool, or switching it to the other key profile,
      * while lists created under the old one are still being served. That is the same class of change as
      * removing the signing key itself, and it is caught where it can be acted on: publication resolves
@@ -69,19 +84,41 @@ class JwksController
     protected function isAnyStatusListKeyPublished(): bool
     {
         try {
-            foreach ($this->moduleConfig->getVciStatusListPoolBag()->getAll() as $pool) {
-                if ($pool->getKeyProfile() === StatusListKeyProfileEnum::Jwks) {
-                    return true;
-                }
-            }
+            return $this->moduleConfig->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::Jwks);
         } catch (Throwable) {
-            // A pool which can not be resolved is reported on the configuration overview screen, which
-            // owns that error. Here the conservative reading is that no pool needs its key published,
-            // which leaves the key set exactly as it was before Status Lists existed.
+            // Only a pool list or a default key profile which can not be read at all reaches here, and
+            // both are reported on the configuration overview screen, which owns that error. The
+            // conservative reading is that no pool needs its key published, which leaves the key set
+            // exactly as it was before Status Lists existed.
             return false;
         }
+    }
 
-        return false;
+
+    /**
+     * Whether credentials this deployment issues name their signing key by its identifier in this key
+     * set, rather than carrying the key with them.
+     *
+     * Answered from configuration alone, for the same reason the Status List question above is: a
+     * repository would open a database connection before this controller is entered, and a key set
+     * which has never needed a database would then fail whenever the database did, taking down
+     * verification of every token this issuer has ever signed.
+     *
+     * The gap that leaves is an operator moving the issuer identity off this mode while credentials
+     * issued under it are still being verified. That is reported where it can be acted on: the
+     * Verifiable Credential configuration screen lists the identities credentials were actually issued
+     * under, which is a question configuration cannot answer.
+     */
+    protected function isCredentialKeyResolvedThroughThisKeySet(): bool
+    {
+        try {
+            return $this->moduleConfig->getVciIssuerIdentifierMode() === VciIssuerIdentifierModeEnum::Https;
+        } catch (Throwable) {
+            // A mode which cannot be resolved is reported on the configuration overview screen, which
+            // owns that error. Here the conservative reading is the one which leaves this key set as it
+            // was before the issuer identity was configurable at all.
+            return false;
+        }
     }
 
 

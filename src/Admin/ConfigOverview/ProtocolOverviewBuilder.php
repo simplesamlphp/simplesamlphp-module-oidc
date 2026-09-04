@@ -7,9 +7,9 @@ namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
+use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
-use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
@@ -41,12 +41,19 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
     protected const string SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
 
 
+    /**
+     * Note the factory rather than the extractor itself. Building one reads the translation table and the
+     * user identifier attributes, and throws when either has the wrong type, so taking a built extractor
+     * here would make that throw happen while the container wires this screen up - the screen whose whole
+     * purpose is to report such an option. Deferred to the row that displays it, where guardRow() turns
+     * the failure into a warning in the right place.
+     */
     public function __construct(
         ModuleConfig $moduleConfig,
         Routes $routes,
         DateIntervalFormatter $dateIntervalFormatter,
         LoggerService $logger,
-        protected readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        protected readonly ClaimTranslatorExtractorFactory $claimTranslatorExtractorFactory,
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
@@ -139,7 +146,18 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ),
         ];
 
-        if ($this->moduleConfig->getDcrEnabled()) {
+        // These rows display URLs rather than options, so a bad OPTION_DCR_ENABLED is reported on its
+        // own row in the Dynamic Client Registration section instead of here. Resolved defensively
+        // only so that it cannot take this section down on the way past.
+        $isDcrEnabled = false;
+
+        try {
+            $isDcrEnabled = $this->moduleConfig->getDcrEnabled();
+        } catch (Throwable) {
+            // Reported on the Dynamic Client Registration Enabled row, where the option is named.
+        }
+
+        if ($isDcrEnabled) {
             $rows[] = new Row(
                 Translate::noop('Client Registration'),
                 $this->routes->urlRegistration(),
@@ -159,40 +177,60 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Tokens and cryptography'),
             'tokens',
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('Authorization Code TTL'),
-                $this->moduleConfig->getAuthCodeDuration(),
                 ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL,
-            ),
-            $this->buildDurationRow(
-                Translate::noop('Access Token TTL'),
-                $this->moduleConfig->getAccessTokenDuration(),
-                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL,
-            ),
-            $this->buildDurationRow(
-                Translate::noop('Refresh Token TTL'),
-                $this->moduleConfig->getRefreshTokenDuration(),
-                ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL,
-            ),
-            $this->buildDurationRow(
-                Translate::noop('Timestamp Validation Leeway'),
-                $this->moduleConfig->getTimestampValidationLeeway(),
-                ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
-                Translate::noop(
-                    'Tolerance allowed when validating timestamp claims (exp, iat, nbf) on JWS artifacts.',
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Authorization Code TTL'),
+                    $this->moduleConfig->getAuthCodeDuration(),
+                    ModuleConfig::OPTION_TOKEN_AUTHORIZATION_CODE_TTL,
                 ),
             ),
-            new Row(
+            $this->guardRow(
+                Translate::noop('Access Token TTL'),
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Access Token TTL'),
+                    $this->moduleConfig->getAccessTokenDuration(),
+                    ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_TTL,
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Refresh Token TTL'),
+                ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Refresh Token TTL'),
+                    $this->moduleConfig->getRefreshTokenDuration(),
+                    ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL,
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Timestamp Validation Leeway'),
+                ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Timestamp Validation Leeway'),
+                    $this->moduleConfig->getTimestampValidationLeeway(),
+                    ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
+                    Translate::noop(
+                        'Tolerance allowed when validating timestamp claims (exp, iat, nbf) on JWS artifacts.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
                 Translate::noop('Encryption Key'),
-                $this->moduleConfig->isEncryptionKeyConfigured() ?
-                Translate::noop('Dedicated encryption key configured') :
-                Translate::noop('Derived from the SimpleSAMLphp secret salt'),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_ENCRYPTION_KEY,
-                Translate::noop(
-                    'Protects issued authorization codes and refresh tokens. The value itself is a ' .
-                    'secret and is never shown here. Changing it invalidates all outstanding ' .
-                    'encrypted artifacts.',
+                fn(): Row => new Row(
+                    Translate::noop('Encryption Key'),
+                    $this->moduleConfig->isEncryptionKeyConfigured() ?
+                    Translate::noop('Dedicated encryption key configured') :
+                    Translate::noop('Derived from the SimpleSAMLphp secret salt'),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_ENCRYPTION_KEY,
+                    Translate::noop(
+                        'Protects issued authorization codes and refresh tokens. The value itself is ' .
+                        'a secret and is never shown here. Changing it invalidates all outstanding ' .
+                        'encrypted artifacts.',
+                    ),
                 ),
             ),
         );
@@ -243,32 +281,47 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Authentication'),
             'authentication',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Default Authentication Source'),
-                $this->moduleConfig->getDefaultAuthSourceId(),
-                ConfigOverviewValueTypeEnum::RawText,
                 ModuleConfig::OPTION_AUTH_SOURCE,
-                Translate::noop('Used for clients which do not have their own authentication source set.'),
-            ),
-            new Row(
-                Translate::noop('User Identifier Attributes'),
-                $this->moduleConfig->getUserIdentifierAttributes(),
-                ConfigOverviewValueTypeEnum::StringList,
-                ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
-                Translate::noop(
-                    'Consulted in the order shown. The first attribute actually present in the ' .
-                    'released attributes is used as the user identifier, and as the default source ' .
-                    "for the 'sub' claim.",
+                fn(): Row => new Row(
+                    Translate::noop('Default Authentication Source'),
+                    $this->moduleConfig->getDefaultAuthSourceId(),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_AUTH_SOURCE,
+                    Translate::noop(
+                        'Used for clients which do not have their own authentication source set.',
+                    ),
                 ),
             ),
-            new Row(
+            $this->guardRow(
+                Translate::noop('User Identifier Attributes'),
+                ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
+                fn(): Row => new Row(
+                    Translate::noop('User Identifier Attributes'),
+                    $this->moduleConfig->getUserIdentifierAttributes(),
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,
+                    Translate::noop(
+                        'Consulted in the order shown. The first attribute actually present in the ' .
+                        'released attributes is used as the user identifier, and as the default ' .
+                        "source for the 'sub' claim.",
+                    ),
+                ),
+            ),
+            $this->guardRow(
                 Translate::noop('Authentication Processing Filters'),
-                $this->buildAuthProcFilterList(),
-                ConfigOverviewValueTypeEnum::StringList,
                 ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS,
-                Translate::noop(
-                    'Run for every OIDC authentication, in the order shown, which is by priority. ' .
-                    'Per-client filters are merged into the same chain by priority as well.',
+                fn(): Row => new Row(
+                    Translate::noop('Authentication Processing Filters'),
+                    $this->buildAuthProcFilterList(),
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_AUTH_PROCESSING_FILTERS,
+                    Translate::noop(
+                        'Run for every OIDC authentication, in the order shown, which is by ' .
+                        'priority. Per-client filters are merged into the same chain by priority as ' .
+                        'well.',
+                    ),
                 ),
             ),
         );
@@ -280,37 +333,51 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildAcrSection(): Section
     {
-        $forcedAcrValue = $this->moduleConfig->getForcedAcrValueForCookieAuthentication();
-
         return new Section(
             Translate::noop('Authentication Context Class References (ACRs)'),
             'acrs',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Supported ACRs'),
-                $this->moduleConfig->getAcrValuesSupported(),
-                ConfigOverviewValueTypeEnum::StringList,
                 ModuleConfig::OPTION_AUTH_ACR_VALUES_SUPPORTED,
-                Translate::noop("Published in the OP discovery document as 'acr_values_supported'."),
+                fn(): Row => new Row(
+                    Translate::noop('Supported ACRs'),
+                    $this->moduleConfig->getAcrValuesSupported(),
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_AUTH_ACR_VALUES_SUPPORTED,
+                    Translate::noop("Published in the OP discovery document as 'acr_values_supported'."),
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Authentication Sources to ACRs Map'),
-                $this->moduleConfig->getAuthSourcesToAcrValuesMap(),
-                ConfigOverviewValueTypeEnum::StringMap,
                 ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP,
-                Translate::noop('ACRs are listed in order of importance, most important first.'),
+                fn(): Row => new Row(
+                    Translate::noop('Authentication Sources to ACRs Map'),
+                    $this->moduleConfig->getAuthSourcesToAcrValuesMap(),
+                    ConfigOverviewValueTypeEnum::StringMap,
+                    ModuleConfig::OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP,
+                    Translate::noop('ACRs are listed in order of importance, most important first.'),
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('Forced ACR for Cookie Authentication'),
-                $forcedAcrValue ?? Translate::noop('N/A'),
-                // A configured ACR is data, the 'N/A' placeholder is UI text.
-                is_null($forcedAcrValue) ?
-                ConfigOverviewValueTypeEnum::Text :
-                ConfigOverviewValueTypeEnum::RawText,
                 ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION,
-                is_null($forcedAcrValue) ? Translate::noop(
-                    'No specific ACR is forced, so the resulting ACR is one of those supported by ' .
-                    'the auth source used during session creation.',
-                ) : null,
+                function (): Row {
+                    $forcedAcrValue = $this->moduleConfig->getForcedAcrValueForCookieAuthentication();
+
+                    return new Row(
+                        Translate::noop('Forced ACR for Cookie Authentication'),
+                        $forcedAcrValue ?? Translate::noop('N/A'),
+                        // A configured ACR is data, the 'N/A' placeholder is UI text.
+                        is_null($forcedAcrValue) ?
+                        ConfigOverviewValueTypeEnum::Text :
+                        ConfigOverviewValueTypeEnum::RawText,
+                        ModuleConfig::OPTION_AUTH_FORCED_ACR_VALUE_FOR_COOKIE_AUTHENTICATION,
+                        is_null($forcedAcrValue) ? Translate::noop(
+                            'No specific ACR is forced, so the resulting ACR is one of those ' .
+                            'supported by the auth source used during session creation.',
+                        ) : null,
+                    );
+                },
             ),
         );
     }
@@ -348,25 +415,33 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ) : null,
                 $error,
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('SAML Attribute to OIDC Claim Translation'),
-                $this->claimTranslatorExtractor->getTranslationTable(),
-                ConfigOverviewValueTypeEnum::Json,
                 ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
-                Translate::noop(
-                    'The effective table: module defaults with the configured translation table ' .
-                    "merged over them, the user identifier attributes prepended to the 'sub' claim, " .
-                    'and any per-scope claim name prefixes already applied.',
+                fn(): Row => new Row(
+                    Translate::noop('SAML Attribute to OIDC Claim Translation'),
+                    $this->claimTranslatorExtractorFactory->build()->getTranslationTable(),
+                    ConfigOverviewValueTypeEnum::Json,
+                    ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                    Translate::noop(
+                        'The effective table: module defaults with the configured translation table ' .
+                        "merged over them, the user identifier attributes prepended to the 'sub' " .
+                        'claim, and any per-scope claim name prefixes already applied.',
+                    ),
                 ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop("Publish 'claims_supported' in Discovery"),
-                $this->yesNo($this->moduleConfig->getProtocolDiscoveryShowClaimsSupported()),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED,
-                Translate::noop(
-                    'When enabled, the discovery document lists all claims for which a translation ' .
-                    'is defined.',
+                fn(): Row => new Row(
+                    Translate::noop("Publish 'claims_supported' in Discovery"),
+                    $this->yesNo($this->moduleConfig->getProtocolDiscoveryShowClaimsSupported()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED,
+                    Translate::noop(
+                        'When enabled, the discovery document lists all claims for which a ' .
+                        'translation is defined.',
+                    ),
                 ),
             ),
         );
@@ -378,95 +453,142 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildRequestObjectSection(): Section
     {
-        $requestUriParameterSupported = $this->moduleConfig->getRequestUriParameterSupported();
-        $allowedPrefixes = $this->moduleConfig->getFederationRequestUriAllowedPrefixes();
-        // RequestParamsResolver only takes the federation by-reference path when federation is
-        // enabled, so without it the allowlist is never consulted.
-        $isFederationEnabled = $this->moduleConfig->getFederationEnabled();
+        // Both feed rows other than their own, so they are resolved defensively rather than left to
+        // take the section down. Each is reported on its own row, where the option is named.
+        $requestUriParameterSupported = false;
+        $isFederationEnabled = false;
 
-        // null means "allow any", an empty array means "deny all" (also the default), and a
-        // non-empty array is the actual allowlist.
-        $allowedPrefixesRow = new Row(
-            Translate::noop('Allowed Request URI Prefixes for Federation Candidates'),
-            match (true) {
-                is_null($allowedPrefixes) => Translate::noop('Any request URI is allowed'),
-                $allowedPrefixes === [] => Translate::noop('None, so no such request URI is fetched'),
-                default => $allowedPrefixes,
-            },
-            is_array($allowedPrefixes) && $allowedPrefixes !== [] ?
-            ConfigOverviewValueTypeEnum::StringList :
-            ConfigOverviewValueTypeEnum::Text,
-            ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
-            $isFederationEnabled ? Translate::noop(
-                'Applies only to OpenID Federation candidates, that is, clients which are not ' .
-                'registered in storage. For registered clients the request URI must match one of ' .
-                'their own registered request URIs exactly.',
-            ) : Translate::noop(
-                'Not used, since OpenID Federation is disabled and the by-reference fetch for ' .
-                'federation candidates therefore never runs.',
-            ),
-            ($isFederationEnabled && $requestUriParameterSupported && is_null($allowedPrefixes)) ?
-            Translate::noop(
-                'Any request URI supplied by an unregistered federation candidate will be fetched, ' .
-                'which is a server-side request forgery surface. Configure explicit prefixes instead.',
-            ) : null,
-        );
+        try {
+            $requestUriParameterSupported = $this->moduleConfig->getRequestUriParameterSupported();
+        } catch (Throwable) {
+            // Reported on the request_uri parameter row below.
+        }
+
+        try {
+            // RequestParamsResolver only takes the federation by-reference path when federation is
+            // enabled, so without it the allowlist is never consulted.
+            $isFederationEnabled = $this->moduleConfig->getFederationEnabled();
+        } catch (Throwable) {
+            // Reported on the federation screen, which owns OPTION_FEDERATION_ENABLED.
+        }
 
         return new Section(
             Translate::noop('Request Object and Pushed Authorization Requests'),
             'request-object',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Require Pushed Authorization Requests (PAR)'),
-                $this->yesNo($this->moduleConfig->getRequirePushedAuthorizationRequests()),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS,
-                Translate::noop(
-                    'When required, authorization requests which do not reference a previously ' .
-                    'pushed request are rejected.',
+                fn(): Row => new Row(
+                    Translate::noop('Require Pushed Authorization Requests (PAR)'),
+                    $this->yesNo($this->moduleConfig->getRequirePushedAuthorizationRequests()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS,
+                    Translate::noop(
+                        'When required, authorization requests which do not reference a previously ' .
+                        'pushed request are rejected.',
+                    ),
                 ),
             ),
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('PAR Request URI TTL'),
-                $this->moduleConfig->getParRequestUriTtl(),
                 ModuleConfig::OPTION_PAR_REQUEST_URI_TTL,
-            ),
-            new Row(
-                Translate::noop('Require Signed Request Object'),
-                $this->yesNo($this->moduleConfig->getRequireSignedRequestObject()),
-                ConfigOverviewValueTypeEnum::Text,
-                ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT,
-                Translate::noop(
-                    'Requires every Relying Party to sign its Request Objects, and the OP to have ' .
-                    'their signing keys available.',
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('PAR Request URI TTL'),
+                    $this->moduleConfig->getParRequestUriTtl(),
+                    ModuleConfig::OPTION_PAR_REQUEST_URI_TTL,
                 ),
             ),
-            new Row(
+            $this->guardRow(
+                Translate::noop('Require Signed Request Object'),
+                ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT,
+                fn(): Row => new Row(
+                    Translate::noop('Require Signed Request Object'),
+                    $this->yesNo($this->moduleConfig->getRequireSignedRequestObject()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_REQUIRE_SIGNED_REQUEST_OBJECT,
+                    Translate::noop(
+                        'Requires every Relying Party to sign its Request Objects, and the OP to ' .
+                        'have their signing keys available.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
                 Translate::noop("Support 'request_uri' Parameter"),
-                $this->yesNo($requestUriParameterSupported),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED,
-                $requestUriParameterSupported ?
-                Translate::noop(
-                    'The OP fetches Request Objects by reference, which means outbound HTTP requests ' .
-                    'to URIs supplied in authorization requests. Disable it to remove that surface ' .
-                    'entirely. Pushed Authorization Request URIs (urn form) are not affected.',
-                ) :
-                Translate::noop('Request Objects can only be passed by value, and through PAR.'),
+                fn(): Row => new Row(
+                    Translate::noop("Support 'request_uri' Parameter"),
+                    $this->yesNo($this->moduleConfig->getRequestUriParameterSupported()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_REQUEST_URI_PARAMETER_SUPPORTED,
+                    $requestUriParameterSupported ?
+                    Translate::noop(
+                        'The OP fetches Request Objects by reference, which means outbound HTTP ' .
+                        'requests to URIs supplied in authorization requests. Disable it to remove ' .
+                        'that surface entirely. Pushed Authorization Request URIs (urn form) are ' .
+                        'not affected.',
+                    ) :
+                    Translate::noop('Request Objects can only be passed by value, and through PAR.'),
+                ),
             ),
-            $allowedPrefixesRow,
-            new Row(
-                // The unit lives in the label so that it stays translatable, while the value itself
-                // is rendered as configured.
+            $this->guardRow(
+                Translate::noop('Allowed Request URI Prefixes for Federation Candidates'),
+                ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+                function () use ($requestUriParameterSupported, $isFederationEnabled): Row {
+                    // null means "allow any", an empty array means "deny all" (also the default),
+                    // and a non-empty array is the actual allowlist.
+                    $allowedPrefixes = $this->moduleConfig->getFederationRequestUriAllowedPrefixes();
+
+                    return new Row(
+                        Translate::noop('Allowed Request URI Prefixes for Federation Candidates'),
+                        match (true) {
+                            is_null($allowedPrefixes) => Translate::noop('Any request URI is allowed'),
+                            $allowedPrefixes === [] => Translate::noop(
+                                'None, so no such request URI is fetched',
+                            ),
+                            default => $allowedPrefixes,
+                        },
+                        is_array($allowedPrefixes) && $allowedPrefixes !== [] ?
+                        ConfigOverviewValueTypeEnum::StringList :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_FEDERATION_REQUEST_URI_ALLOWED_PREFIXES,
+                        $isFederationEnabled ? Translate::noop(
+                            'Applies only to OpenID Federation candidates, that is, clients which ' .
+                            'are not registered in storage. For registered clients the request URI ' .
+                            'must match one of their own registered request URIs exactly.',
+                        ) : Translate::noop(
+                            'Not used, since OpenID Federation is disabled and the by-reference ' .
+                            'fetch for federation candidates therefore never runs.',
+                        ),
+                        ($isFederationEnabled && $requestUriParameterSupported && is_null($allowedPrefixes)) ?
+                        Translate::noop(
+                            'Any request URI supplied by an unregistered federation candidate will ' .
+                            'be fetched, which is a server-side request forgery surface. Configure ' .
+                            'explicit prefixes instead.',
+                        ) : null,
+                    );
+                },
+            ),
+            $this->guardRow(
                 Translate::noop("'request_uri' Fetch Timeout (seconds)"),
-                (string)$this->moduleConfig->getRequestUriFetchTimeout(),
-                ConfigOverviewValueTypeEnum::RawText,
                 ModuleConfig::OPTION_REQUEST_URI_FETCH_TIMEOUT,
+                fn(): Row => new Row(
+                    // The unit lives in the label so that it stays translatable, while the value
+                    // itself is rendered as configured.
+                    Translate::noop("'request_uri' Fetch Timeout (seconds)"),
+                    (string)$this->moduleConfig->getRequestUriFetchTimeout(),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_REQUEST_URI_FETCH_TIMEOUT,
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop("'request_uri' Maximum Response Size (bytes)"),
-                $this->formatBytes($this->moduleConfig->getRequestUriMaxSizeBytes()),
-                ConfigOverviewValueTypeEnum::RawText,
                 ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES,
+                fn(): Row => new Row(
+                    Translate::noop("'request_uri' Maximum Response Size (bytes)"),
+                    $this->formatBytes($this->moduleConfig->getRequestUriMaxSizeBytes()),
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_REQUEST_URI_MAX_SIZE_BYTES,
+                ),
             ),
         );
     }
@@ -477,22 +599,147 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildDynamicClientRegistrationSection(): Section
     {
-        $isEnabled = $this->moduleConfig->getDcrEnabled();
-        $registrationAuth = $this->moduleConfig->getDcrRegistrationAuth();
-        $initialAccessTokenCount = count($this->moduleConfig->getDcrInitialAccessTokens());
-        $isImpersonationProtectionEnabled = $this->moduleConfig->getDcrImpersonationProtectionEnabled();
-        $areDefaultScopesConfigured = $this->moduleConfig->config()
-            ->hasValue(ModuleConfig::OPTION_DCR_DEFAULT_SCOPES);
+        // Each of these decides a warning on a row other than its own, so they are resolved
+        // defensively here and resolved again inside the guard of the row which displays them - that
+        // second read is what reports a malformed value in the place an administrator will look.
+        $isEnabled = false;
+        $registrationAuth = null;
+        $initialAccessTokenCount = 0;
+
+        try {
+            $isEnabled = $this->moduleConfig->getDcrEnabled();
+        } catch (Throwable) {
+            // Reported on the Enabled row below.
+        }
+
+        try {
+            $registrationAuth = $this->moduleConfig->getDcrRegistrationAuth();
+        } catch (Throwable) {
+            // Reported on the Registration Access Control row below.
+        }
+
+        try {
+            $initialAccessTokenCount = count($this->moduleConfig->getDcrInitialAccessTokens());
+        } catch (Throwable) {
+            // Reported on the Initial Access Tokens row below.
+        }
+
         $hasUnusableInitialAccessTokenMode = $isEnabled &&
         $registrationAuth === DcrRegistrationAuthEnum::InitialAccessToken &&
         $initialAccessTokenCount === 0;
 
+        return new Section(
+            Translate::noop('Dynamic Client Registration'),
+            'dynamic-client-registration',
+            $this->guardRow(
+                Translate::noop('Enabled'),
+                ModuleConfig::OPTION_DCR_ENABLED,
+                function (): Row {
+                    $isEnabled = $this->moduleConfig->getDcrEnabled();
+
+                    return new Row(
+                        Translate::noop('Enabled'),
+                        $this->yesNo($isEnabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_DCR_ENABLED,
+                        $isEnabled ? null : Translate::noop(
+                            'The registration and client configuration endpoints are not served, ' .
+                            "and the 'registration_endpoint' claim is not advertised in OP metadata.",
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Registration Access Control'),
+                ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
+                function () use ($isEnabled): Row {
+                    $registrationAuth = $this->moduleConfig->getDcrRegistrationAuth();
+
+                    return new Row(
+                        Translate::noop('Registration Access Control'),
+                        $this->describeRegistrationAuth($registrationAuth),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
+                        null,
+                        ($isEnabled && $registrationAuth === DcrRegistrationAuthEnum::Open) ?
+                        Translate::noop(
+                            'Registration is open, so anyone can register a client without ' .
+                            'authenticating. Protect the endpoint from abuse using rate limiting at ' .
+                            'the web server level.',
+                        ) : null,
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Initial Access Tokens'),
+                ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS,
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Initial Access Tokens'),
+                    count($this->moduleConfig->getDcrInitialAccessTokens()),
+                    ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS,
+                    Translate::noop('The tokens themselves are secrets and are never shown here.'),
+                    $hasUnusableInitialAccessTokenMode ? Translate::noop(
+                        'Registration requires an Initial Access Token, but none are configured, so ' .
+                        'every registration attempt will be rejected.',
+                    ) : null,
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Impersonation Protection'),
+                ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED,
+                function () use ($isEnabled): Row {
+                    $isProtectionEnabled = $this->moduleConfig->getDcrImpersonationProtectionEnabled();
+
+                    return new Row(
+                        Translate::noop('Impersonation Protection'),
+                        $this->yesNo($isProtectionEnabled),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED,
+                        Translate::noop(
+                            "When enabled, the host of a client's logo_uri, policy_uri and tos_uri " .
+                            'must match the host of one of its redirect URIs.',
+                        ),
+                        ($isEnabled && !$isProtectionEnabled) ? Translate::noop(
+                            'Disabled, so a rogue client can reuse the branding and links of a ' .
+                            'legitimate one during registration.',
+                        ) : null,
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Registered Clients Are Enabled'),
+                ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED,
+                fn(): Row => new Row(
+                    Translate::noop('Registered Clients Are Enabled'),
+                    $this->yesNo($this->moduleConfig->getDcrRegisteredClientsEnabled()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED,
+                    Translate::noop(
+                        'When disabled, dynamically registered clients must be reviewed and enabled ' .
+                        'by an administrator before they can obtain tokens.',
+                    ),
+                ),
+            ),
+            $this->buildDcrDefaultScopesRow(),
+        );
+    }
+
+
+    /**
+     * The default scopes row keeps the try/catch shape rather than guardRow(), because it still shows
+     * the option's own note alongside the failure instead of replacing the whole row with 'N/A'.
+     */
+    protected function buildDcrDefaultScopesRow(): Row
+    {
         // Falls back to every supported scope when unset, which walks the same Verifiable Credential
         // scope resolution that can throw on a malformed credential configuration.
         $defaultScopes = [];
         $defaultScopesError = null;
+        $areDefaultScopesConfigured = false;
 
         try {
+            $areDefaultScopesConfigured = $this->moduleConfig->config()
+                ->hasValue(ModuleConfig::OPTION_DCR_DEFAULT_SCOPES);
             $defaultScopes = $this->moduleConfig->getDcrDefaultScopes();
         } catch (Throwable $exception) {
             $defaultScopesError = $this->describeResolutionError(
@@ -501,78 +748,19 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             );
         }
 
-        return new Section(
-            Translate::noop('Dynamic Client Registration'),
-            'dynamic-client-registration',
-            new Row(
-                Translate::noop('Enabled'),
-                $this->yesNo($isEnabled),
-                ConfigOverviewValueTypeEnum::Text,
-                ModuleConfig::OPTION_DCR_ENABLED,
-                $isEnabled ? null : Translate::noop(
-                    'The registration and client configuration endpoints are not served, and the ' .
-                    "'registration_endpoint' claim is not advertised in OP metadata.",
-                ),
+        return new Row(
+            Translate::noop('Default Scopes for Scope-less Registrations'),
+            $defaultScopes,
+            ConfigOverviewValueTypeEnum::StringList,
+            ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
+            // Suppressed on failure: the fallback set could not be resolved, so claiming it
+            // contains every supported scope would contradict the warning and the empty value.
+            ($areDefaultScopesConfigured || !is_null($defaultScopesError)) ? null : Translate::noop(
+                'Not configured, so this falls back to every scope this OP supports, meaning a ' .
+                "client which registers without a 'scope' may request any of them, including " .
+                "'offline_access'.",
             ),
-            new Row(
-                Translate::noop('Registration Access Control'),
-                $this->describeRegistrationAuth($registrationAuth),
-                ConfigOverviewValueTypeEnum::Text,
-                ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
-                null,
-                ($isEnabled && $registrationAuth === DcrRegistrationAuthEnum::Open) ? Translate::noop(
-                    'Registration is open, so anyone can register a client without authenticating. ' .
-                    'Protect the endpoint from abuse using rate limiting at the web server level.',
-                ) : null,
-            ),
-            $this->buildSecretCountRow(
-                Translate::noop('Initial Access Tokens'),
-                $initialAccessTokenCount,
-                ModuleConfig::OPTION_DCR_INITIAL_ACCESS_TOKENS,
-                Translate::noop('The tokens themselves are secrets and are never shown here.'),
-                $hasUnusableInitialAccessTokenMode ? Translate::noop(
-                    'Registration requires an Initial Access Token, but none are configured, so ' .
-                    'every registration attempt will be rejected.',
-                ) : null,
-            ),
-            new Row(
-                Translate::noop('Impersonation Protection'),
-                $this->yesNo($isImpersonationProtectionEnabled),
-                ConfigOverviewValueTypeEnum::Text,
-                ModuleConfig::OPTION_DCR_IMPERSONATION_PROTECTION_ENABLED,
-                Translate::noop(
-                    "When enabled, the host of a client's logo_uri, policy_uri and tos_uri must " .
-                    'match the host of one of its redirect URIs.',
-                ),
-                ($isEnabled && !$isImpersonationProtectionEnabled) ? Translate::noop(
-                    'Disabled, so a rogue client can reuse the branding and links of a legitimate ' .
-                    'one during registration.',
-                ) : null,
-            ),
-            new Row(
-                Translate::noop('Registered Clients Are Enabled'),
-                $this->yesNo($this->moduleConfig->getDcrRegisteredClientsEnabled()),
-                ConfigOverviewValueTypeEnum::Text,
-                ModuleConfig::OPTION_DCR_REGISTERED_CLIENTS_ENABLED,
-                Translate::noop(
-                    'When disabled, dynamically registered clients must be reviewed and enabled by ' .
-                    'an administrator before they can obtain tokens.',
-                ),
-            ),
-            new Row(
-                Translate::noop('Default Scopes for Scope-less Registrations'),
-                $defaultScopes,
-                ConfigOverviewValueTypeEnum::StringList,
-                ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
-                // Suppressed on failure: the fallback set could not be resolved, so claiming it
-                // contains every supported scope would contradict the warning and the empty value.
-                ($areDefaultScopesConfigured || !is_null($defaultScopesError)) ? null : Translate::noop(
-                    'Not configured, so this falls back to every scope this OP supports, meaning a ' .
-                    "client which registers without a 'scope' may request any of them, including " .
-                    "'offline_access'.",
-                ),
-                $defaultScopesError,
-            ),
+            $defaultScopesError,
         );
     }
 
@@ -582,9 +770,16 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildCacheSection(): Section
     {
-        $adapterClass = $this->moduleConfig->getProtocolCacheAdapterClass();
-        $adapterArgumentCount = count($this->moduleConfig->getProtocolCacheAdapterArguments());
-        $isCachingActive = !is_null($adapterClass);
+        // Only asserted to be a string when it is read, so a value of another type throws here. This
+        // screen is where an administrator goes to find that out, so it must not take it down.
+        $isCachingActive = false;
+
+        try {
+            $isCachingActive = !is_null($this->moduleConfig->getProtocolCacheAdapterClass());
+        } catch (Throwable) {
+            // Reported on its own row below, where the option which failed to resolve is named.
+        }
+
         $isUserEntityCacheDurationConfigured = $this->moduleConfig->config()
             ->hasValue(ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION);
 
@@ -606,36 +801,60 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Cache'),
             'cache',
-            new Row(
+            $this->guardRow(
                 Translate::noop('Cache Adapter'),
-                $adapterClass ?? Translate::noop('N/A'),
-                // A configured adapter class is data, the 'N/A' placeholder is UI text.
-                $isCachingActive ? ConfigOverviewValueTypeEnum::RawText : ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER,
-                $isCachingActive ? null : Translate::noop(
-                    'Not set, so no protocol caching is performed. Setting a cache adapter is ' .
-                    'recommended in production.',
-                ),
+                function () use ($isCachingActive): Row {
+                    $adapterClass = $this->moduleConfig->getProtocolCacheAdapterClass();
+
+                    return new Row(
+                        Translate::noop('Cache Adapter'),
+                        $adapterClass ?? Translate::noop('N/A'),
+                        // A configured adapter class is data, the 'N/A' placeholder is UI text.
+                        $isCachingActive ?
+                        ConfigOverviewValueTypeEnum::RawText :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER,
+                        $isCachingActive ? null : Translate::noop(
+                            'Not set, so no protocol caching is performed. Setting a cache adapter ' .
+                            'is recommended in production.',
+                        ),
+                    );
+                },
             ),
-            $this->buildSecretCountRow(
+            $this->guardRow(
                 Translate::noop('Cache Adapter Arguments'),
-                $adapterArgumentCount,
                 ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS,
-                Translate::noop(
-                    'Values are not shown, since adapter arguments can carry connection credentials.',
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Cache Adapter Arguments'),
+                    count($this->moduleConfig->getProtocolCacheAdapterArguments()),
+                    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS,
+                    Translate::noop(
+                        'Values are not shown, since adapter arguments can carry connection credentials.',
+                    ),
                 ),
             ),
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('User Entity Cache Duration'),
-                $this->moduleConfig->getProtocolUserEntityCacheDuration(),
                 ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION,
-                $userEntityCacheDurationNote,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('User Entity Cache Duration'),
+                    $this->moduleConfig->getProtocolUserEntityCacheDuration(),
+                    ModuleConfig::OPTION_PROTOCOL_USER_ENTITY_CACHE_DURATION,
+                    $userEntityCacheDurationNote,
+                ),
             ),
-            $this->buildDurationRow(
+            $this->guardRow(
                 Translate::noop('Client Entity Cache Duration'),
-                $this->moduleConfig->getProtocolClientEntityCacheDuration(),
                 ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION,
-                $isCachingActive ? null : Translate::noop('Not used, since no cache adapter is configured.'),
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Client Entity Cache Duration'),
+                    $this->moduleConfig->getProtocolClientEntityCacheDuration(),
+                    ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION,
+                    $isCachingActive ?
+                    null :
+                    Translate::noop('Not used, since no cache adapter is configured.'),
+                ),
             ),
         );
     }
@@ -649,30 +868,38 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return new Section(
             Translate::noop('Outbound HTTP requests'),
             'outbound-http',
-            $this->buildHttpClientOptionsRow(
+            $this->guardRow(
                 Translate::noop('Protocol HTTP Client Options'),
-                $this->moduleConfig->getProtocolHttpClientOptions(),
                 ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS,
-                Translate::noop(
-                    "Applied to protocol-layer fetches, such as a client's 'jwks_uri' or a 'request_uri'.",
-                ),
-                Translate::noop(
-                    "Applied to protocol-layer fetches, such as a client's 'jwks_uri' or a " .
-                    "'request_uri'. Not set, so the library defaults apply, including TLS verification.",
+                fn(): Row => $this->buildHttpClientOptionsRow(
+                    Translate::noop('Protocol HTTP Client Options'),
+                    $this->moduleConfig->getProtocolHttpClientOptions(),
+                    ModuleConfig::OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS,
+                    Translate::noop(
+                        "Applied to protocol-layer fetches, such as a client's 'jwks_uri' or a 'request_uri'.",
+                    ),
+                    Translate::noop(
+                        "Applied to protocol-layer fetches, such as a client's 'jwks_uri' or a " .
+                        "'request_uri'. Not set, so the library defaults apply, including TLS verification.",
+                    ),
                 ),
             ),
-            $this->buildHttpClientOptionsRow(
+            $this->guardRow(
                 Translate::noop('Back-Channel Logout HTTP Client Options'),
-                $this->moduleConfig->getBackChannelLogoutHttpClientOptions(),
                 ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS,
-                Translate::noop(
-                    "Applied to Back-Channel Logout requests sent to a client's " .
-                    "'backchannel_logout_uri'. Merged over a 3 second connect and total timeout.",
-                ),
-                Translate::noop(
-                    "Applied to Back-Channel Logout requests sent to a client's " .
-                    "'backchannel_logout_uri'. Merged over a 3 second connect and total timeout. " .
-                    'Not set, so TLS verification stays enabled.',
+                fn(): Row => $this->buildHttpClientOptionsRow(
+                    Translate::noop('Back-Channel Logout HTTP Client Options'),
+                    $this->moduleConfig->getBackChannelLogoutHttpClientOptions(),
+                    ModuleConfig::OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS,
+                    Translate::noop(
+                        "Applied to Back-Channel Logout requests sent to a client's " .
+                        "'backchannel_logout_uri'. Merged over a 3 second connect and total timeout.",
+                    ),
+                    Translate::noop(
+                        "Applied to Back-Channel Logout requests sent to a client's " .
+                        "'backchannel_logout_uri'. Merged over a 3 second connect and total timeout. " .
+                        'Not set, so TLS verification stays enabled.',
+                    ),
                 ),
             ),
             ...$this->buildDestinationPolicyRows(),
@@ -809,23 +1036,52 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildApiSection(): Section
     {
-        $isApiEnabled = $this->moduleConfig->getApiEnabled();
-        $isIntrospectionEnabled = $this->moduleConfig->getApiOAuth2TokenIntrospectionEndpointEnabled();
-        $apiTokenCount = count($this->moduleConfig->getApiTokens() ?? []);
+        // All three decide something on a row other than their own - whether the endpoint row below is
+        // shown at all, in the first two cases - so they are resolved defensively and resolved again
+        // inside the guard of the row which displays them.
+        $isApiEnabled = false;
+        $isIntrospectionEnabled = false;
+        $apiTokenCount = 0;
+
+        try {
+            $isApiEnabled = $this->moduleConfig->getApiEnabled();
+        } catch (Throwable) {
+            // Reported on the API Enabled row below.
+        }
+
+        try {
+            $isIntrospectionEnabled = $this->moduleConfig->getApiOAuth2TokenIntrospectionEndpointEnabled();
+        } catch (Throwable) {
+            // Reported on the Token Introspection Endpoint Enabled row below.
+        }
+
+        try {
+            $apiTokenCount = count($this->moduleConfig->getApiTokens() ?? []);
+        } catch (Throwable) {
+            // Reported on the API Tokens row below.
+        }
 
         $rows = [
-            new Row(
+            $this->guardRow(
                 Translate::noop('API Enabled'),
-                $this->yesNo($isApiEnabled),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_API_ENABLED,
-                Translate::noop('Master switch for the module specific (non-protocol) API endpoints.'),
+                fn(): Row => new Row(
+                    Translate::noop('API Enabled'),
+                    $this->yesNo($this->moduleConfig->getApiEnabled()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_API_ENABLED,
+                    Translate::noop('Master switch for the module specific (non-protocol) API endpoints.'),
+                ),
             ),
-            new Row(
+            $this->guardRow(
                 Translate::noop('OAuth2 Token Introspection Endpoint Enabled'),
-                $this->yesNo($isIntrospectionEnabled),
-                ConfigOverviewValueTypeEnum::Text,
                 ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED,
+                fn(): Row => new Row(
+                    Translate::noop('OAuth2 Token Introspection Endpoint Enabled'),
+                    $this->yesNo($this->moduleConfig->getApiOAuth2TokenIntrospectionEndpointEnabled()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED,
+                ),
             ),
             $this->guardRow(
                 Translate::noop('Token Introspection Resource Servers'),
@@ -853,16 +1109,20 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
-            $this->buildSecretCountRow(
+            $this->guardRow(
                 Translate::noop('API Tokens'),
-                $apiTokenCount,
                 ModuleConfig::OPTION_API_TOKENS,
-                Translate::noop('The tokens themselves are secrets and are never shown here.'),
-                ($isApiEnabled && $apiTokenCount === 0) ? Translate::noop(
-                    'The API is enabled, but no API tokens are configured, so it can only be used ' .
-                    'by a logged in SimpleSAMLphp administrator. Token authenticated callers will ' .
-                    'be rejected.',
-                ) : null,
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('API Tokens'),
+                    count($this->moduleConfig->getApiTokens() ?? []),
+                    ModuleConfig::OPTION_API_TOKENS,
+                    Translate::noop('The tokens themselves are secrets and are never shown here.'),
+                    ($isApiEnabled && $apiTokenCount === 0) ? Translate::noop(
+                        'The API is enabled, but no API tokens are configured, so it can only be ' .
+                        'used by a logged in SimpleSAMLphp administrator. Token authenticated ' .
+                        'callers will be rejected.',
+                    ) : null,
+                ),
             ),
         ];
 

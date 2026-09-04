@@ -9,14 +9,19 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Configuration;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\Factories\CacheFactory;
 use SimpleSAML\Module\oidc\Factories\DestinationPolicyFactory;
 use SimpleSAML\Module\oidc\Factories\FederationFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\ClassInstanceBuilder;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\SupportedAlgorithms;
+use Throwable;
 
 #[CoversClass(FederationFactory::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -56,28 +61,105 @@ class FederationFactoryTest extends TestCase
             $this->moduleConfigMock,
             $this->loggerServiceMock,
             $destinationPolicyFactory,
+            $this->createMock(CacheFactory::class),
         );
     }
 
 
     /**
-     * The destination policy must not be built until a Federation is.
+     * Neither collaborator may be built until a Federation is.
      *
-     * Building one throws when the outbound configuration is malformed, and the container reaches this
-     * factory while wiring up the admin Configuration screens - the screens whose whole purpose is to
-     * report such an option. Taking the policy as a constructor dependency made a bad outbound option
-     * take those screens down instead of showing up on them, which is how this regressed once already.
+     * Building either throws when the configuration behind it is malformed, and the container reaches
+     * this factory while wiring up the admin Configuration screens - the screens whose whole purpose is
+     * to report such an option. Taking a built one as a constructor dependency made a bad option take
+     * those screens down instead of showing up on them. That happened twice: first with the destination
+     * policy, then again with the cache, which was left injected when the policy was moved behind its
+     * factory.
      */
-    public function testDoesNotBuildTheDestinationPolicyUntilItBuilds(): void
+    public function testDoesNotBuildItsCollaboratorsUntilItBuilds(): void
     {
         $destinationPolicyFactory = $this->createMock(DestinationPolicyFactory::class);
         $destinationPolicyFactory->expects($this->never())->method('build');
+
+        $cacheFactory = $this->createMock(CacheFactory::class);
+        $cacheFactory->expects($this->never())->method('forFederation');
 
         new FederationFactory(
             $this->moduleConfigMock,
             $this->loggerServiceMock,
             $destinationPolicyFactory,
+            $cacheFactory,
         );
+    }
+
+
+    /**
+     * Constructing this factory must not read the cache configuration at all.
+     *
+     * Uses a real CacheFactory over a real ModuleConfig carrying a malformed adapter option, which is
+     * the shape the container produces and the only one that reproduces the fault: mocked collaborators
+     * never read configuration, so every other test here would pass with the cache injected as before.
+     *
+     * @throws \Exception
+     */
+    public function testAMalformedCacheAdapterDoesNotBreakConstruction(): void
+    {
+        $moduleConfig = new ModuleConfig(
+            ModuleConfig::DEFAULT_FILE_NAME,
+            [ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER => 123],
+            $this->createMock(Configuration::class),
+        );
+
+        $cacheFactory = new CacheFactory(
+            $moduleConfig,
+            $this->loggerServiceMock,
+            new ClassInstanceBuilder(),
+        );
+
+        // The container reaches this constructor while wiring the admin Configuration screens up, so a
+        // throw here would take down the screen that exists to report exactly this option.
+        $sut = new FederationFactory(
+            $moduleConfig,
+            $this->loggerServiceMock,
+            $this->createMock(DestinationPolicyFactory::class),
+            $cacheFactory,
+        );
+
+        // And the deferred read still fails, where the caller catches it rather than the container.
+        $this->expectException(Throwable::class);
+
+        $sut->build();
+    }
+
+
+    /**
+     * A cache adapter which cannot be built must surface from build(), where the one caller that has to
+     * survive it - the federation configuration screen - already catches it.
+     */
+    public function testACacheWhichCannotBeBuiltSurfacesFromBuild(): void
+    {
+        $this->moduleConfigMock->method('getFederationMaxTrustChainDepth')->willReturn(9);
+        $this->moduleConfigMock->method('getFederationMaxAuthorityHints')->willReturn(6);
+        $this->moduleConfigMock->method('getFederationMaxTrustChainFetches')->willReturn(100);
+        $this->moduleConfigMock->method('getFederationTrustChainResolveTimeout')->willReturn(30);
+
+        $destinationPolicyFactory = $this->createMock(DestinationPolicyFactory::class);
+        $destinationPolicyFactory->method('build')->willReturn(new DestinationPolicy());
+
+        $cacheFactory = $this->createMock(CacheFactory::class);
+        $cacheFactory->method('forFederation')
+            ->willThrowException(new OidcException('Unusable cache adapter.'));
+
+        $sut = new FederationFactory(
+            $this->moduleConfigMock,
+            $this->loggerServiceMock,
+            $destinationPolicyFactory,
+            $cacheFactory,
+        );
+
+        $this->expectException(OidcException::class);
+
+        $sut->build();
     }
 
 

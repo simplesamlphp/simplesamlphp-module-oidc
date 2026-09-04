@@ -31,6 +31,7 @@ use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCre
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialJsonLdContextController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\JwtVcIssuerConfigurationController;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\NonceController;
+use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\VciDidDocumentController;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -184,6 +185,17 @@ return function (RoutingConfigurator $routes): void {
 
     $routes->add(RoutesEnum::JwtVcIssuerConfiguration->name, RoutesEnum::JwtVcIssuerConfiguration->value)
         ->controller([JwtVcIssuerConfigurationController::class, 'configuration'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    /*****************************************************************************************************************
+     * Decentralized Identifiers
+     ****************************************************************************************************************/
+
+    // Not registered under the Verifiable Credential Issuance switch, on purpose: a credential issued
+    // under a did:web identity names its signing key inside this document, so it stays verifiable only
+    // while this keeps answering.
+    $routes->add(RoutesEnum::VciDidDocument->name, RoutesEnum::VciDidDocument->value)
+        ->controller([VciDidDocumentController::class, 'didDocument'])
         ->methods([HttpMethodsEnum::GET->value]);
 
     /*****************************************************************************************************************

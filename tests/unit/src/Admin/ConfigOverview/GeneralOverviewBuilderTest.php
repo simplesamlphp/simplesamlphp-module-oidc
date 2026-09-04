@@ -493,4 +493,15 @@ class GeneralOverviewBuilderTest extends TestCase
         $this->assertSame('N/A', $row->getValue());
         $this->assertStringContainsString('could not be resolved', (string)$row->getWarning());
     }
+
+
+    /**
+     * Covers every option this screen displays, including ones added after this was written.
+     */
+    public function testNoDisplayedOptionCanTakeTheScreenDown(): void
+    {
+        $this->assertNoDisplayedOptionCanThrow(
+            fn(array $overrides): GeneralOverviewBuilder => $this->buildGeneralOverviewBuilder($overrides),
+        );
+    }
 }

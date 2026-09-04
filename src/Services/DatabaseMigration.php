@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Repositories\StatusAuditRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 
 class DatabaseMigration
@@ -265,6 +266,16 @@ class DatabaseMigration
         if (!in_array('20260801000005', $versions, true)) {
             $this->version20260801000005();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260801000005')");
+        }
+
+        if (!in_array('20260902000001', $versions, true)) {
+            $this->version20260902000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260902000001')");
+        }
+
+        if (!in_array('20260903000001', $versions, true)) {
+            $this->version20260903000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260903000001')");
         }
     }
 
@@ -1129,6 +1140,55 @@ EOT
             $entryTableName,
             'subject_ref',
         );
+    }
+
+
+    private function version20260902000001(): void
+    {
+        $issuerIdentityTableName = $this->database->applyPrefix(VciIssuerIdentityRepository::TABLE_NAME);
+        $dateTimeColumnType = $this->dateTimeColumnType();
+
+        // Keyed on a hash of the identifier rather than on the identifier itself: a did:jwk carries a
+        // whole public key, and an RSA one is longer than MySQL will accept in an index.
+        $this->database->write(<<< EOT
+        CREATE TABLE IF NOT EXISTS $issuerIdentityTableName (
+            identifier_hash CHAR(64) PRIMARY KEY NOT NULL,
+            identifier TEXT NOT NULL,
+            mode VARCHAR(32) NOT NULL,
+            first_used_at $dateTimeColumnType NOT NULL
+        )
+EOT
+            ,);
+    }
+
+
+    /**
+     * The issuer identifier a Status List was created under.
+     *
+     * Only the `did_web` key profile fills it in, and only that profile needs it: a `did:jwk` is
+     * derived from the signing key the row already records, and the `jwks` profile names the issuer by
+     * a URL which cannot move without the key set moving with it. A `did:web` identifier is neither --
+     * it is a setting of its own, which an operator can change or clear while lists created under it
+     * are still being served. Recording it is what keeps such a change from rewriting the `iss` of
+     * every token those lists emit, which would leave a wallet holding a credential naming one issuer
+     * and a Status List Token naming another.
+     *
+     * Nullable, so it can be added to a table which already has rows: every existing list is on a
+     * profile which does not use it.
+     */
+    private function version20260903000001(): void
+    {
+        $statusListTableName = $this->database->applyPrefix(StatusListRepository::TABLE_NAME);
+
+        if ($this->hasColumn($statusListTableName, 'issuer_identifier')) {
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$statusListTableName}
+            ADD issuer_identifier TEXT NULL
+EOT
+            ,);
     }
 
 

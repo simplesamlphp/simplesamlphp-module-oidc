@@ -7,12 +7,22 @@ namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 use DateInterval;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
+use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
+use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
+use SimpleSAML\OpenID\Did\DidWebResolver;
+use SimpleSAML\OpenID\Network\DestinationPolicy;
 use Stringable;
 use Throwable;
 
@@ -45,6 +55,24 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
 
     /**
+     * The repositories are read only here, and the Configuration screens already resolve a database
+     * connection through DatabaseMigration, so this adds no failure mode they did not have. The rows
+     * which use them still catch for themselves, since these screens exist to be readable while
+     * something is broken.
+     */
+    public function __construct(
+        ModuleConfig $moduleConfig,
+        Routes $routes,
+        DateIntervalFormatter $dateIntervalFormatter,
+        LoggerService $logger,
+        protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
+        protected readonly StatusListRepository $statusListRepository,
+    ) {
+        parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
+    }
+
+
+    /**
      * @return \SimpleSAML\Module\oidc\Admin\ConfigOverview\Section[]
      * @throws \Exception
      */
@@ -57,6 +85,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildCredentialConfigurationsSection(),
             $this->buildNonRegisteredClientsSection(),
             $this->buildStatusListsSection(),
+            $this->buildDidResolutionSection(),
+            $this->buildCacheSection(),
             $this->buildDurationsSection(),
             $this->buildCredentialOfferSection(),
         ];
@@ -154,6 +184,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->buildStatusListIdentitiesRow(),
             $this->guardRow(
                 Translate::noop('Status List Requests Per Minute'),
                 ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
@@ -266,6 +297,128 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
 
     /**
+     * Which issuer identities the Status Lists this deployment still serves are signed under.
+     *
+     * The configured did:web is one question and this is another. A list records the identifier it was
+     * created under and goes on signing its tokens with it, so an identifier which has since been
+     * changed is still being emitted, and its DID document has to stay resolvable for as long as that
+     * is true -- otherwise the tokens can not be verified and every credential pointing at those lists
+     * loses its status. Nothing else reports it: the deployment may well issue its credentials under a
+     * did:jwk or an issuer URL, in which case its did:web appears on no credential at all and the row
+     * above, which answers for credentials, has never seen it.
+     *
+     * Only lists which have not been retired are counted, and that is the point of the row. A retired
+     * list answers 404, so nothing resolves its issuer any more; once the last list under an old
+     * identifier retires, the identifier drops off here, and that is the signal that its document may
+     * finally be withdrawn. The credentials row can never say that, because a credential once issued
+     * can not be taken back.
+     *
+     * Shown whether or not Status Lists are enabled, since lists which already exist keep being served
+     * either way.
+     */
+    protected function buildStatusListIdentitiesRow(): Row
+    {
+        $label = Translate::noop('Identities Status Lists Are Signed Under');
+
+        try {
+            $used = $this->statusListRepository->getUnretiredIssuerIdentifiers();
+        } catch (Throwable $exception) {
+            $this->logger->error(
+                'Configuration overview could not read which identities Status Lists are signed ' .
+                'under: ' . $exception->getMessage(),
+                ['exceptionClass' => $exception::class],
+            );
+
+            return new Row(
+                $label,
+                Translate::noop('N/A'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                null,
+                Translate::noop(
+                    'This could not be read, so a change of issuer identity can not be reported here. ' .
+                    'The reason was written to the SimpleSAMLphp log.',
+                ),
+            );
+        }
+
+        if ($used === []) {
+            return new Row(
+                $label,
+                Translate::noop('None recorded'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                Translate::noop(
+                    'No Status List which is still served names a did:web, either because none was ' .
+                    'created under that key profile or because every one which was has been retired.',
+                ),
+            );
+        }
+
+        $note = Translate::noop(
+            'Status List Tokens are signed under these, so the DID document of each has to stay ' .
+            'resolvable for as long as the lists naming it are served. An identifier drops off ' .
+            'this row once every list under it has been retired, and only then may its document ' .
+            'be withdrawn.',
+        );
+
+        // The configured identifier decides only whether to warn, and reading it is a separate
+        // failure from reading the lists. Answering this question inside the same try would make it
+        // answerable only while an unrelated option is valid -- and a malformed did:web is reported
+        // on its own row already, so all that would achieve is hiding the identifiers from the one
+        // screen which can name them, in exactly the state where an administrator is looking for
+        // them.
+        //
+        // The did:web option is read on its own rather than through getVciIssuerIdentifier(), because
+        // what is being asked is which document VciDidDocumentController publishes, and that
+        // controller reads this option alone -- publication does not depend on the mode. Resolving the
+        // two together would throw on a malformed mode, and again on the one pairing which can not be
+        // honoured: a mode still naming did:web after the identifier was cleared. That second case is
+        // this row's whole reason to exist, since clearing the option is what withdraws the document
+        // the lists still name, and it would have been reported as unreadable rather than as the
+        // warning it is.
+        try {
+            $didWeb = $this->moduleConfig->getVciIssuerDidIdentifier();
+        } catch (Throwable $exception) {
+            $this->logger->error(
+                'Configuration overview could not read the configured issuer did:web while ' .
+                'reporting which identities Status Lists are signed under: ' . $exception->getMessage(),
+                ['exceptionClass' => $exception::class],
+            );
+
+            return new Row(
+                $label,
+                $used,
+                ConfigOverviewValueTypeEnum::StringList,
+                null,
+                $note,
+                Translate::noop(
+                    'This could not be read, so a change of issuer identity can not be reported here. ' .
+                    'The reason was written to the SimpleSAMLphp log.',
+                ),
+            );
+        }
+
+        $noLongerPublished = array_filter($used, static fn(string $identifier): bool => $identifier !== $didWeb);
+
+        return new Row(
+            $label,
+            $used,
+            ConfigOverviewValueTypeEnum::StringList,
+            null,
+            $note,
+            $noLongerPublished === [] ? null : Translate::noop(
+                'An identifier listed here is not the configured did:web, so this module no longer ' .
+                'publishes its DID document and nothing can verify the Status List Tokens signed ' .
+                'under it, leaving every credential in those lists without a resolvable status. Set ' .
+                'it as the issuer did:web identifier again, or serve its document by other means, ' .
+                'until those lists retire.',
+            ),
+        );
+    }
+
+
+    /**
      * @return array<string,array<string,mixed>>
      */
     protected function describeStatusListPools(StatusListPoolBag $poolBag): array
@@ -340,6 +493,9 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'the OP is reached, which breaks already issued credential offers.',
                 ),
             ),
+            $this->buildIssuerIdentityModeRow(),
+            $this->buildIssuerDidIdentifierRow(),
+            $this->buildIssuedIdentitiesRow(),
             new Row(
                 Translate::noop('Credential Issuer Configuration URL'),
                 $this->routes->urlCredentialIssuerConfiguration(),
@@ -349,6 +505,199 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 Translate::noop('JWT VC Issuer Configuration URL'),
                 $this->routes->urlJwtVcIssuerConfiguration(),
                 ConfigOverviewValueTypeEnum::Url,
+            ),
+        );
+    }
+
+
+    /**
+     * Which identity newly issued credentials are signed under.
+     */
+    protected function buildIssuerIdentityModeRow(): Row
+    {
+        $label = Translate::noop('Issuer Identity Mode');
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+            function () use ($label): Row {
+                $mode = $this->moduleConfig->getVciIssuerIdentifierMode();
+
+                return new Row(
+                    $label,
+                    $mode->value,
+                    ConfigOverviewValueTypeEnum::RawText,
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                    match ($mode) {
+                        VciIssuerIdentifierModeEnum::DidJwk => Translate::noop(
+                            'Credentials name a did:jwk derived from the active signing key, so they ' .
+                            'carry that key with them and verify without any lookup. Whoever verifies ' .
+                            'one must still bind the DID to this issuer by their own means.',
+                        ),
+                        VciIssuerIdentifierModeEnum::DidWeb => Translate::noop(
+                            'Credentials name the configured did:web below, and can be verified only ' .
+                            'while the DID document for it is published and reachable.',
+                        ),
+                        VciIssuerIdentifierModeEnum::Https => Translate::noop(
+                            'Credentials name this issuer by its URL and their signing key by its key ' .
+                            'set identifier, which is what makes the JWT VC Issuer configuration ' .
+                            'meaningful.',
+                        ),
+                    },
+                    $mode === VciIssuerIdentifierModeEnum::Https ? Translate::noop(
+                        'This mode is not DIIP conformant on its own: the profile requires the issuer ' .
+                        'to be identified by a Decentralized Identifier.',
+                    ) : null,
+                );
+            },
+        );
+    }
+
+
+    /**
+     * The did:web this deployment publishes a document for, and where that document has to be served.
+     *
+     * Both URLs are shown rather than only the module's own, because the did:web method decides the
+     * first one from the identifier alone: a deployment whose DID carries no path is asking for a URL
+     * at the web root, which SimpleSAMLphp never serves, so something in front has to map one to the
+     * other. Comparing hosts would not catch it, since the path segments decide the URL too.
+     */
+    protected function buildIssuerDidIdentifierRow(): Row
+    {
+        $label = Translate::noop('Issuer did:web Identifier');
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+            function () use ($label): Row {
+                $identifier = $this->moduleConfig->getVciIssuerIdentifier();
+                $didWeb = $identifier->getDidWeb();
+
+                if (is_null($didWeb)) {
+                    return new Row(
+                        $label,
+                        Translate::noop('None configured'),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                        Translate::noop('No DID document is published.'),
+                    );
+                }
+
+                $documentUrl = DidWebResolver::documentUrlFor($didWeb);
+                $servedAt = $this->routes->urlVciDidDocument();
+
+                return new Row(
+                    $label,
+                    [
+                        'did' => $didWeb,
+                        'resolvesTo' => $documentUrl,
+                        'servedAt' => $servedAt,
+                    ],
+                    ConfigOverviewValueTypeEnum::Json,
+                    ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                    $identifier->isIssuingUnderDidWeb() ?
+                    Translate::noop(
+                        'Newly issued credentials are issued under this identity, and the DID document ' .
+                        'for it is published.',
+                    ) :
+                    Translate::noop(
+                        'Nothing is issued under this identity any more, but its DID document is still ' .
+                        'published so that credentials issued under it earlier stay verifiable. ' .
+                        'Removing this option retires the identity and withdraws the document.',
+                    ),
+                    $documentUrl === $servedAt ? null : Translate::noop(
+                        'The URL this identifier resolves to is not the one this module serves the ' .
+                        'document at, so something in front of it has to map the first to the second. ' .
+                        'Until it does, nothing can resolve this identity and credentials naming it ' .
+                        'can not be verified.',
+                    ),
+                );
+            },
+        );
+    }
+
+
+    /**
+     * Which identities this deployment has actually issued credentials under.
+     *
+     * Configuration cannot answer this, and it is the question which matters: an identity credentials
+     * were issued under which this deployment no longer publishes leaves them unverifiable, and
+     * nothing else would report it.
+     *
+     * A did:jwk is never flagged, since such a credential carries its own key and stays verifiable
+     * whatever is configured afterwards. A did:web is flagged once it is no longer the published
+     * identifier. An issuer URL is flagged once it is no longer this issuer, because the well-known
+     * metadata and the key set those credentials resolve through moved with it.
+     */
+    protected function buildIssuedIdentitiesRow(): Row
+    {
+        $label = Translate::noop('Identities Credentials Were Issued Under');
+
+        try {
+            $used = $this->vciIssuerIdentityRepository->getAllUsed();
+            // The did:web option alone, not the two resolved together: what is being asked is which
+            // document is published, and VciDidDocumentController reads this option by itself. See
+            // buildStatusListIdentitiesRow(), which explains at length why the pairing would throw in
+            // the very state this row has to report.
+            $didWeb = $this->moduleConfig->getVciIssuerDidIdentifier();
+            $issuer = $this->moduleConfig->getIssuer();
+        } catch (Throwable $exception) {
+            $this->logger->error(
+                'Configuration overview could not read which issuer identities were issued under: ' .
+                $exception->getMessage(),
+                ['exceptionClass' => $exception::class],
+            );
+
+            return new Row(
+                $label,
+                Translate::noop('N/A'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                null,
+                Translate::noop(
+                    'This could not be read, so a change of issuer identity can not be reported here. ' .
+                    'The reason was written to the SimpleSAMLphp log.',
+                ),
+            );
+        }
+
+        if ($used === []) {
+            return new Row(
+                $label,
+                Translate::noop('None recorded'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                Translate::noop(
+                    'No credential has been issued yet, or every one of them was issued before this ' .
+                    'was recorded.',
+                ),
+            );
+        }
+
+        $noLongerPublished = array_keys(array_filter(
+            $used,
+            static fn(string $mode, string $identifier): bool => match ($mode) {
+                VciIssuerIdentifierModeEnum::DidWeb->value => $identifier !== $didWeb,
+                VciIssuerIdentifierModeEnum::Https->value => $identifier !== $issuer,
+                default => false,
+            },
+            ARRAY_FILTER_USE_BOTH,
+        ));
+
+        return new Row(
+            $label,
+            array_keys($used),
+            ConfigOverviewValueTypeEnum::StringList,
+            null,
+            Translate::noop(
+                'Credentials naming any of these have been issued, and credentials do not expire ' .
+                'unless a lifetime is configured for them.',
+            ),
+            $noLongerPublished === [] ? null : Translate::noop(
+                'An identity listed here is no longer one this deployment publishes - a did:web ' .
+                'whose document is no longer served, or an issuer URL which is no longer this ' .
+                'issuer - so every credential issued under it can no longer be verified. Restore ' .
+                'that identity to resume publishing it, or serve what it needs by other means.',
             ),
         );
     }
@@ -557,6 +906,66 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 ) : null,
                 $error,
             ),
+            $this->guardRow(
+                Translate::noop('Credential Binding Policies'),
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                function (): Row {
+                    // Only the exceptions are listed, each with the policy it runs under. Requiring a
+                    // key proof under the OpenID4VCI rules is the default, so naming every
+                    // configuration which does would bury the ones which do something else, and it is
+                    // those an administrator needs to recognise on sight. One row rather than one per
+                    // policy, because a screen shows a given option exactly once.
+                    $exceptions = array_filter(
+                        $this->moduleConfig->getVciCredentialBindingPolicies(),
+                        static fn(VciCredentialBindingPolicyEnum $bindingPolicy): bool =>
+                            $bindingPolicy !== VciCredentialBindingPolicyEnum::ProofBound,
+                    );
+
+                    if ($exceptions === []) {
+                        return new Row(
+                            Translate::noop('Credential Binding Policies'),
+                            Translate::noop('Every configuration requires a key proof'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                            Translate::noop(
+                                'Every credential configuration binds its credentials to a key the ' .
+                                'wallet proves it holds, which is the default. Each one advertises ' .
+                                'the binding methods and proof types it accepts, and a Credential ' .
+                                'Request carrying no valid key proof is refused.',
+                            ),
+                        );
+                    }
+
+                    $listed = [];
+
+                    foreach ($exceptions as $credentialConfigurationId => $bindingPolicy) {
+                        $listed[] = sprintf('%s: %s', $credentialConfigurationId, $bindingPolicy->value);
+                    }
+
+                    return new Row(
+                        Translate::noop('Credential Binding Policies'),
+                        $listed,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                        Translate::noop(
+                            'Only the configurations which differ from the default are listed, with ' .
+                            'the policy each one uses. Under \'diip_proof_bound\' the DIIP profile ' .
+                            'rules apply on top of the OpenID4VCI ones: a key proof must name its ' .
+                            'key in a \'kid\' header which is an absolute did:jwk or did:web URL, ' .
+                            'resolved from the authentication relationship of that document. A key ' .
+                            'carried inline and a did:key holder are refused, though every other ' .
+                            'configuration keeps accepting both.',
+                        ),
+                        in_array(VciCredentialBindingPolicyEnum::Proofless, $exceptions, true) ?
+                        Translate::noop(
+                            'Configurations listed as \'proofless\' issue credentials which are not ' .
+                            'bound to any wallet key, so nothing ties an issued credential to ' .
+                            'whoever presents it later. They advertise no binding methods and no ' .
+                            'proof types, and a key proof sent to them is refused.',
+                        ) : null,
+                    );
+                },
+            ),
             new Row(
                 Translate::noop('Attribute to Claim Path Mappings'),
                 $attributeMap,
@@ -685,6 +1094,181 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'them specific: a loose prefix defeats the check.',
                 ) : null,
                 $allowedPrefixesError ?? $prefixesWarning,
+            ),
+        );
+    }
+
+
+    /**
+     * Where resolving a holder's Decentralized Identifier is allowed to send this deployment.
+     *
+     * Every row here describes a destination chosen by whoever presents the identifier, not by this
+     * deployment, which is why these settings exist separately from the general outbound ones and never
+     * inherit from them.
+     *
+     * @throws \Exception
+     */
+    protected function buildDidResolutionSection(): Section
+    {
+        return new Section(
+            Translate::noop('DID resolution'),
+            'did-resolution',
+            $this->guardRow(
+                Translate::noop('DID Outbound Allowed Hosts'),
+                ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+                function (): Row {
+                    $allowedHosts = $this->moduleConfig->getVciDidOutboundAllowedHosts();
+                    // The getter only establishes that these are strings; whether they are usable is the
+                    // policy's own judgement, made in its constructor. Built bare rather than through
+                    // DidWebResolver::buildDestinationPolicy(), which would also log the notice that
+                    // belongs to the resolution path rather than to rendering this screen.
+                    new DestinationPolicy(allowedHosts: $allowedHosts);
+
+                    return new Row(
+                        Translate::noop('DID Outbound Allowed Hosts'),
+                        $allowedHosts,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS,
+                        $allowedHosts === [] ?
+                        Translate::noop(
+                            'None, so a DID may only resolve to a public destination. Separate from the ' .
+                            'general outbound exemptions, which are never applied here.',
+                        ) :
+                        Translate::noop(
+                            'Reachable whatever they resolve to. The address check and the address ' .
+                            'pinning are both skipped for these.',
+                        ),
+                        $allowedHosts === [] ?
+                        null :
+                        Translate::noop(
+                            'Each of these is a destination that whoever supplies a DID can send this ' .
+                            'deployment to.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('DID Outbound Allowed Address Ranges'),
+                ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+                function (): Row {
+                    $allowedCidrs = $this->moduleConfig->getVciDidOutboundAllowedCidrs();
+                    // A range that can never match would otherwise be shown as a working exemption.
+                    new DestinationPolicy(allowedCidrs: $allowedCidrs);
+
+                    return new Row(
+                        Translate::noop('DID Outbound Allowed Address Ranges'),
+                        $allowedCidrs,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS,
+                        $allowedCidrs === [] ?
+                        Translate::noop('None, so a DID may only resolve to a public address.') :
+                        Translate::noop('Reachable alongside the public addresses.'),
+                        $allowedCidrs === [] ?
+                        null :
+                        Translate::noop(
+                            'Each of these is a range that whoever supplies a DID can send this ' .
+                            'deployment into.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('DID Address Pinning'),
+                ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                function (): Row {
+                    $pinningMode = $this->moduleConfig->getVciDidAddressPinningMode();
+
+                    return new Row(
+                        Translate::noop('DID Address Pinning'),
+                        $pinningMode->value,
+                        ConfigOverviewValueTypeEnum::RawText,
+                        ModuleConfig::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                        Translate::noop(
+                            'Whether a DID document must be fetched from the address that was ' .
+                            'validated, rather than the host being resolved a second time when the ' .
+                            'connection is made.',
+                        ),
+                        $pinningMode === AddressPinningModeEnum::Disabled ?
+                        Translate::noop(
+                            'Pinning is off, so a host named by a DID can resolve to a permitted ' .
+                            'address for the check and to another one for the fetch. Only sound where a ' .
+                            'forward proxy carries every DID destination; an exclusion list or a ' .
+                            'proxy set for plain http alone leaves some going direct.',
+                        ) :
+                        null,
+                    );
+                },
+            ),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function buildCacheSection(): Section
+    {
+        $isCachingActive = false;
+
+        try {
+            $isCachingActive = !is_null($this->moduleConfig->getVciCacheAdapterClass());
+        } catch (Throwable) {
+            // Reported on its own row below, where the option which failed to resolve is named.
+        }
+
+        return new Section(
+            Translate::noop('Cache'),
+            'cache',
+            $this->guardRow(
+                Translate::noop('Cache Adapter'),
+                ModuleConfig::OPTION_VCI_CACHE_ADAPTER,
+                function () use ($isCachingActive): Row {
+                    // Resolved inside the guard: the option is only asserted to be a string when it is
+                    // read, so a value of another type throws, and this screen is where an administrator
+                    // goes to find that out.
+                    $adapterClass = $this->moduleConfig->getVciCacheAdapterClass();
+
+                    return new Row(
+                        Translate::noop('Cache Adapter'),
+                        $adapterClass ?? Translate::noop('N/A'),
+                        $isCachingActive ?
+                        ConfigOverviewValueTypeEnum::RawText :
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_CACHE_ADAPTER,
+                        $isCachingActive ? null : Translate::noop(
+                            'Not set, so every key proof naming a did:web identifier is another ' .
+                            'outbound fetch. Setting a cache adapter is recommended in production.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Cache Adapter Arguments'),
+                ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS,
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Cache Adapter Arguments'),
+                    count($this->moduleConfig->getVciCacheAdapterArguments()),
+                    ModuleConfig::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS,
+                    Translate::noop(
+                        'Values are not shown, since adapter arguments can carry connection credentials.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('DID Document Cache Duration'),
+                ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('DID Document Cache Duration'),
+                    $this->moduleConfig->getVciDidCacheMaxDuration(),
+                    ModuleConfig::OPTION_VCI_DID_CACHE_MAX_DURATION,
+                    $isCachingActive ?
+                    Translate::noop(
+                        'How long a resolved DID document is reused. A DID document states no expiry ' .
+                        'of its own, so this is the whole of its freshness rule: a holder rotating a ' .
+                        'key is not seen until it runs out.',
+                    ) :
+                    Translate::noop('Not used, since no VCI cache adapter is configured.'),
+                ),
             ),
         );
     }

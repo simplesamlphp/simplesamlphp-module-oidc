@@ -54,6 +54,12 @@ services:
   SimpleSAML\Module\oidc\StatusList\StatusListLifecycle:
     public: true
 
+  # Verifiable Credential Issuance. Values carry what a validated request resolved to rather than being
+  # autowired, so they are excluded the same way the Token Status List ones are.
+  SimpleSAML\Module\oidc\VerifiableCredentials\:
+    resource: '../../src/VerifiableCredentials/*'
+    exclude: '../../src/VerifiableCredentials/{Values}'
+
   SimpleSAML\Module\oidc\Factories\:
     resource: '../../src/Factories/*'
 
@@ -141,6 +147,8 @@ services:
     factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forFederation'] # Can return null
   SimpleSAML\Module\oidc\Utils\ProtocolCache:
     factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forProtocol'] # Can return null
+  SimpleSAML\Module\oidc\Utils\VciCache:
+    factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forVci'] # Can return null
 
   # Use Nyholm\Psr7 package as PSR HTTP Factories.
   Nyholm\Psr7\Factory\Psr17Factory: ~
@@ -164,7 +172,10 @@ services:
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~
-  SimpleSAML\OpenID\Did: ~
+  # Resolution is driven by identifiers supplied from outside, so this gets a destination policy of its
+  # own rather than the shared one above.
+  SimpleSAML\OpenID\Did:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\DidFactory', 'build' ]
   SimpleSAML\OpenID\Jws:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwsFactory', 'build' ]
   SimpleSAML\OpenID\RequestObject:

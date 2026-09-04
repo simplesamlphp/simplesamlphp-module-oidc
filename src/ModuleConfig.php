@@ -15,9 +15,12 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
@@ -29,6 +32,7 @@ use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
+use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
@@ -73,6 +77,17 @@ class ModuleConfig
      * already in flight, and nothing here can serialise the two instead.
      */
     final public const int MINIMUM_STATUS_LIST_RETIREMENT_GRACE_SECONDS = 3600;
+
+    /**
+     * The most Key Proofs one Credential Request may carry.
+     *
+     * Each proof issues a credential of its own and claims a Status List entry of its own, so an
+     * uncapped `proofs` array lets a single authenticated request spend an arbitrary amount of storage
+     * and signing work. Fixed rather than configurable: the number is published in Credential Issuer
+     * metadata as `batch_credential_issuance.batch_size`, and a wallet which read it there has to be
+     * able to rely on it.
+     */
+    final public const int VCI_BATCH_SIZE = 8;
 
     final public const string OPTION_PKI_PRIVATE_KEY_PASSPHRASE = 'pass_phrase';
 
@@ -250,6 +265,10 @@ class ModuleConfig
 
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
 
+    final public const string OPTION_VCI_ISSUER_IDENTIFIER_MODE = 'vci_issuer_identifier_mode';
+
+    final public const string OPTION_VCI_ISSUER_DID_IDENTIFIER = 'vci_issuer_did_identifier';
+
     final public const string OPTION_VCI_CREDENTIAL_JSON_LD_CONTEXT = 'vci_credential_json_ld_context';
 
     final public const string OPTION_VCI_STATUS_LIST_ENABLED = 'vci_status_list_enabled';
@@ -265,6 +284,20 @@ class ModuleConfig
     final public const string OPTION_VCI_STATUS_LIST_AUDIT_RETENTION = 'vci_status_list_audit_retention';
 
     final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
+
+    final public const string OPTION_VCI_CREDENTIAL_BINDING_POLICIES = 'vci_credential_binding_policies';
+
+    final public const string OPTION_VCI_CACHE_ADAPTER = 'vci_cache_adapter';
+
+    final public const string OPTION_VCI_CACHE_ADAPTER_ARGUMENTS = 'vci_cache_adapter_arguments';
+
+    final public const string OPTION_VCI_DID_CACHE_MAX_DURATION = 'vci_did_cache_max_duration';
+
+    final public const string OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS = 'vci_did_outbound_allowed_hosts';
+
+    final public const string OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS = 'vci_did_outbound_allowed_cidrs';
+
+    final public const string OPTION_VCI_DID_ADDRESS_PINNING_MODE = 'vci_did_address_pinning_mode';
 
     final public const string OPTION_DCR_ENABLED = 'dcr_enabled';
 
@@ -348,6 +381,12 @@ class ModuleConfig
 
     /** @var ?array<string,\DateInterval> Credential configuration ID to how long its credentials live. */
     protected ?array $vciCredentialTtls = null;
+
+    /**
+     * @var ?array<string,\SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum> Credential
+     * configuration ID to whether its credentials are bound to a holder key.
+     */
+    protected ?array $vciCredentialBindingPolicies = null;
 
 
     /**
@@ -1791,6 +1830,67 @@ class ModuleConfig
 
 
     /**
+     * Whether any configured Status List pool signs under the given key profile.
+     *
+     * Answered from the raw configured values rather than by building the pools, and that is the point
+     * of it. The JWKS endpoint asks this to decide whether the credential signing key still has to be
+     * published, and a pool misconfigured in any way at all would otherwise make the whole bag
+     * unreadable and the answer "no" - withdrawing the key that a different, perfectly good pool's
+     * already published tokens are verified through. A question about one pool must not be answerable
+     * only while every pool is valid.
+     *
+     * The pool bag asks it too, before resolving the issuer `did:web`, so that an option only the
+     * `did_web` profile reads is not consulted for a deployment which has no pool on it.
+     *
+     * A value which is not a valid profile at all counts as "no": the pool is about to be refused by
+     * name, which is a better error than one about whichever profile was being asked about.
+     *
+     * @param array<array-key,mixed> $pools
+     */
+    protected function isAnyStatusListPoolOnKeyProfileIn(
+        array $pools,
+        StatusListKeyProfileEnum $keyProfile,
+        StatusListKeyProfileEnum $defaultKeyProfile,
+    ): bool {
+        /** @var mixed $poolConfig */
+        foreach ($pools as $poolConfig) {
+            if (!is_array($poolConfig) || !array_key_exists(StatusListPool::KEY_KEY_PROFILE, $poolConfig)) {
+                if ($defaultKeyProfile === $keyProfile) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            /** @var mixed $configured */
+            $configured = $poolConfig[StatusListPool::KEY_KEY_PROFILE];
+
+            if ($configured === $keyProfile || $configured === $keyProfile->value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
+     * Whether any configured Status List pool signs under the given key profile.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError On a malformed default key profile, which is the one
+     *         value this cannot be answered without.
+     */
+    public function isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum $keyProfile): bool
+    {
+        return $this->isAnyStatusListPoolOnKeyProfileIn(
+            $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []),
+            $keyProfile,
+            $this->getVciStatusListKeyProfile(),
+        );
+    }
+
+
+    /**
      * The configured Status List pools.
      *
      * Deliberately a separate top-level option rather than something nested inside the credential
@@ -1805,9 +1905,27 @@ class ModuleConfig
             return $this->vciStatusListPoolBag;
         }
 
+        $pools = $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []);
+        $defaultKeyProfile = $this->getVciStatusListKeyProfile();
+
         $poolBag = StatusListPoolBag::fromConfig(
-            $this->config()->getOptionalArray(self::OPTION_VCI_STATUS_LIST_POOLS, []),
-            $this->getVciStatusListKeyProfile(),
+            $pools,
+            $defaultKeyProfile,
+            // The module wide issuer identity, which the `did_web` key profile stamps onto every list
+            // it creates. Taken from here rather than configured per pool, so that a deployment cannot
+            // end up with two issuer identities of which only one has a published DID document.
+            //
+            // Resolved only when some pool is actually on that profile. Reading it unconditionally
+            // would mean a malformed did:web identifier -- an option no other profile looks at -- also
+            // stopping the pools from being read, and the JWKS endpoint answers "does any pool need its
+            // key published?" by reading them. A pool on the `jwks` profile would then have the key its
+            // already published tokens are verified through quietly withdrawn, over a setting it does
+            // not use.
+            $this->isAnyStatusListPoolOnKeyProfileIn(
+                $pools,
+                StatusListKeyProfileEnum::DidWeb,
+                $defaultKeyProfile,
+            ) ? $this->getVciIssuerDidIdentifier() : null,
         );
 
         $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
@@ -1959,6 +2077,110 @@ class ModuleConfig
     public function getVciCredentialTtlFor(string $credentialConfigurationId): ?DateInterval
     {
         return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
+    }
+
+
+    /**
+     * Whether each credential configuration binds its credentials to a key the wallet proves it holds.
+     *
+     * A top-level option for the same reason the lifetimes are: the credential configurations are
+     * published wholesale as Credential Issuer metadata, so anything placed among them becomes visible
+     * to every wallet.
+     *
+     * Configurations absent from this map are proof-bound, which is what the metadata this module
+     * publishes has always claimed. A deployment which relies on issuing without a Key Proof names its
+     * configurations here, and their metadata then stops advertising a binding they never performed.
+     *
+     * @return array<string,\SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialBindingPolicies(): array
+    {
+        if (is_array($this->vciCredentialBindingPolicies)) {
+            return $this->vciCredentialBindingPolicies;
+        }
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+        $bindingPolicies = [];
+
+        /** @var mixed $value */
+        foreach (
+            $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES, []) as $key => $value
+        ) {
+            $credentialConfigurationId = (string)$key;
+
+            if (!in_array($credentialConfigurationId, $supportedIds, true)) {
+                // Silently ignoring this would leave a configuration meant to issue without a Key Proof
+                // demanding one, and nothing would say so.
+                throw new ConfigurationError(
+                    sprintf(
+                        'Option "%s" sets a binding policy for the credential configuration "%s", which ' .
+                        'is not one of the configurations declared under "%s".',
+                        self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                        $credentialConfigurationId,
+                        self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $bindingPolicies[$credentialConfigurationId] = $this->resolveCredentialBindingPolicy(
+                $credentialConfigurationId,
+                $value,
+            );
+        }
+
+        return $this->vciCredentialBindingPolicies = $bindingPolicies;
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveCredentialBindingPolicy(
+        string $credentialConfigurationId,
+        mixed $value,
+    ): VciCredentialBindingPolicyEnum {
+        if ($value instanceof VciCredentialBindingPolicyEnum) {
+            return $value;
+        }
+
+        if (
+            is_string($value) &&
+            ($bindingPolicy = VciCredentialBindingPolicyEnum::tryFrom($value)) instanceof
+            VciCredentialBindingPolicyEnum
+        ) {
+            return $bindingPolicy;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Option "%s" gives "%s" a binding policy which is not one of: %s.',
+                self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                $credentialConfigurationId,
+                implode(
+                    ', ',
+                    array_map(
+                        fn(VciCredentialBindingPolicyEnum $case): string => $case->value,
+                        VciCredentialBindingPolicyEnum::cases(),
+                    ),
+                ),
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+    }
+
+
+    /**
+     * Whether this credential configuration binds its credentials to a key the wallet proves it holds.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialBindingPolicyFor(
+        string $credentialConfigurationId,
+    ): VciCredentialBindingPolicyEnum {
+        return $this->getVciCredentialBindingPolicies()[$credentialConfigurationId] ??
+        VciCredentialBindingPolicyEnum::ProofBound;
     }
 
 
@@ -2190,6 +2412,121 @@ class ModuleConfig
     }
 
 
+    /**
+     * Which kind of identity newly issued credentials are signed under.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerIdentifierMode(): VciIssuerIdentifierModeEnum
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_ISSUER_IDENTIFIER_MODE, null);
+
+        if (is_null($configured)) {
+            return VciIssuerIdentifierModeEnum::DidJwk;
+        }
+
+        if ($configured instanceof VciIssuerIdentifierModeEnum) {
+            return $configured;
+        }
+
+        if (is_string($configured) && (($mode = VciIssuerIdentifierModeEnum::tryFrom($configured)) !== null)) {
+            return $mode;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Option "%s" must be one of: %s.',
+                self::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                implode(
+                    ', ',
+                    array_map(
+                        static fn(VciIssuerIdentifierModeEnum $case): string => $case->value,
+                        VciIssuerIdentifierModeEnum::cases(),
+                    ),
+                ),
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+    }
+
+
+    /**
+     * The did:web this deployment publishes a DID document for, or null when it publishes none.
+     *
+     * Configured rather than derived, deliberately. Deriving it from the module URL would produce
+     * something like did:web:example.org:simplesaml:module.php:oidc, which is a name no deployment
+     * would choose to put into credentials, and the clean did:web:example.org resolves to a URL at the
+     * web root which SimpleSAMLphp does not serve at all - so either way the deployment has to say
+     * which name it is publishing under and arrange for that URL to reach this module.
+     *
+     * Validated through the library's own did:web rules rather than by pattern here, so that an
+     * identifier which is syntactically a DID but could never be resolved - an IP literal host, a
+     * single label one, a percent encoded segment - is refused where it is configured rather than
+     * after credentials have been issued under it.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerDidIdentifier(): ?string
+    {
+        $configured = $this->config()->getOptionalString(self::OPTION_VCI_ISSUER_DID_IDENTIFIER, null);
+
+        if (is_null($configured) || trim($configured) === '') {
+            return null;
+        }
+
+        $configured = trim($configured);
+
+        try {
+            DidWebResolver::assertIdentifierIsResolvable($configured);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is not a did:web identifier which could be resolved: %s',
+                    self::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                    $throwable->getMessage(),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $configured;
+    }
+
+
+    /**
+     * The two issuer identity options, resolved together.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerIdentifier(): VciIssuerIdentifier
+    {
+        $mode = $this->getVciIssuerIdentifierMode();
+        $didWeb = $this->getVciIssuerDidIdentifier();
+
+        // The one combination which can not be honoured. Every other pairing means something: the DID
+        // set under another mode keeps its document published for credentials issued earlier, and no
+        // DID at all under another mode is simply a deployment which never used one.
+        if ($mode === VciIssuerIdentifierModeEnum::DidWeb && is_null($didWeb)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is set to "%s", so option "%s" must name the did:web to issue under.',
+                    self::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                    VciIssuerIdentifierModeEnum::DidWeb->value,
+                    self::OPTION_VCI_ISSUER_DID_IDENTIFIER,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        try {
+            return new VciIssuerIdentifier($mode, $didWeb);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError($throwable->getMessage(), self::DEFAULT_FILE_NAME);
+        }
+    }
+
+
     public function getVciCredentialConfigurationsSupported(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED, []);
@@ -2387,6 +2724,139 @@ class ModuleConfig
             self::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
             ['openid-credential-offer://',],
         );
+    }
+
+
+    /**
+     * Cache adapter class for the Verifiable Credential Issuance layer. Kept apart from the protocol and
+     * federation caches, since what is kept here is fetched from destinations named by whoever is being
+     * issued a credential rather than by this deployment.
+     *
+     * @throws \Exception
+     */
+    public function getVciCacheAdapterClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_VCI_CACHE_ADAPTER, null);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function getVciCacheAdapterArguments(): array
+    {
+        return $this->config()->getOptionalArray(self::OPTION_VCI_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+
+    /**
+     * How long a resolved DID document may be reused.
+     *
+     * A DID document carries no expiry of its own, so unlike a fetched federation artifact there is
+     * nothing for this to be a ceiling over - it is the whole of the freshness rule. Lowering it makes a
+     * holder's key rotation take effect sooner, at the cost of a fetch per resolution.
+     *
+     * @throws \Exception
+     */
+    public function getVciDidCacheMaxDuration(): DateInterval
+    {
+        return new DateInterval(
+            $this->config()->getOptionalString(self::OPTION_VCI_DID_CACHE_MAX_DURATION, 'PT6H'),
+        );
+    }
+
+
+    /**
+     * Hosts DID resolution may reach whatever they resolve to.
+     *
+     * Deliberately separate from OPTION_OUTBOUND_ALLOWED_HOSTS, and never read from it. Those exemptions
+     * are granted so this deployment can reach addresses it operates itself for federation; a DID names
+     * its own destination and is supplied by whoever is being authenticated, so handing them over would
+     * let that party send this deployment to any of them.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getVciDidOutboundAllowedHosts(): array
+    {
+        $hosts = $this->config()->getOptionalArray(self::OPTION_VCI_DID_OUTBOUND_ALLOWED_HOSTS, []);
+
+        return array_values(array_filter($hosts, 'is_string'));
+    }
+
+
+    /**
+     * Address ranges DID resolution may reach alongside the public ones, as CIDR. Separate from
+     * OPTION_OUTBOUND_ALLOWED_CIDRS on the same reasoning as the hosts above.
+     *
+     * @return list<string>
+     * @throws \Exception
+     */
+    public function getVciDidOutboundAllowedCidrs(): array
+    {
+        $cidrs = $this->config()->getOptionalArray(self::OPTION_VCI_DID_OUTBOUND_ALLOWED_CIDRS, []);
+
+        return array_values(array_filter($cidrs, 'is_string'));
+    }
+
+
+    /**
+     * How strictly DID resolution insists on connecting to the address that was validated.
+     *
+     * Required by default, rather than the Preferred which the general outbound option defaults to, and
+     * Preferred is refused outright here. Preferred proceeds unpinned wherever the cURL handler is
+     * unavailable, which leaves the DNS rebinding window open on precisely the fetches whose destination
+     * is chosen by whoever supplies the DID.
+     *
+     * Refused while the configuration is read rather than when the resolver is built, so that an
+     * unusable value is reported by the admin Configuration screens instead of surfacing later as a
+     * failed credential issuance.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciDidAddressPinningMode(): AddressPinningModeEnum
+    {
+        /** @psalm-suppress MixedAssignment */
+        $mode = $this->config()->getOptionalValue(
+            self::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+            AddressPinningModeEnum::Required,
+        );
+
+        $case = $mode instanceof AddressPinningModeEnum ? $mode : null;
+
+        // Accepting the backing value as well keeps a configuration written as a plain string working,
+        // which is easy to reach for when every neighbouring option in the file is a scalar.
+        if (is_null($case) && is_string($mode)) {
+            $case = AddressPinningModeEnum::tryFrom($mode);
+        }
+
+        if (!$case instanceof AddressPinningModeEnum) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid value for %s. Expected a %s case or one of "%s", got "%s".',
+                    self::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                    AddressPinningModeEnum::class,
+                    implode('", "', array_column(AddressPinningModeEnum::cases(), 'value')),
+                    var_export($mode, true),
+                ),
+            );
+        }
+
+        if ($case === AddressPinningModeEnum::Preferred) {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s can not be %s, which proceeds unpinned whenever pinning turns out to be ' .
+                    'unavailable. Use %s, or %s where a forward proxy is doing the egress control that ' .
+                    'pinning would otherwise approximate.',
+                    self::OPTION_VCI_DID_ADDRESS_PINNING_MODE,
+                    AddressPinningModeEnum::Preferred->value,
+                    AddressPinningModeEnum::Required->value,
+                    AddressPinningModeEnum::Disabled->value,
+                ),
+            );
+        }
+
+        return $case;
     }
 
 

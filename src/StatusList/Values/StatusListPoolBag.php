@@ -116,8 +116,11 @@ class StatusListPoolBag
      * @param array<array-key,mixed> $config Pool identifier to that pool's settings.
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public static function fromConfig(array $config, StatusListKeyProfileEnum $defaultKeyProfile): self
-    {
+    public static function fromConfig(
+        array $config,
+        StatusListKeyProfileEnum $defaultKeyProfile,
+        ?string $issuerIdentifier = null,
+    ): self {
         $pools = [];
 
         /** @var mixed $poolConfig */
@@ -138,7 +141,12 @@ class StatusListPoolBag
                 );
             }
 
-            $pools[] = StatusListPool::fromConfig($poolId, $poolConfig, $defaultKeyProfile);
+            $pools[] = StatusListPool::fromConfig(
+                $poolId,
+                $poolConfig,
+                $defaultKeyProfile,
+                $issuerIdentifier,
+            );
         }
 
         return new self(...$pools);
