@@ -87,24 +87,40 @@ class AuthSimpleFactoryTest extends TestCase
 
 
     /**
-     * Pins current behaviour, which is not what the method sets out to do.
+     * A client may name the authentication source its users are sent to, which is the whole point of the
+     * value being stored on the client rather than only in configuration.
      *
-     * `resolveAuthSourceId()` reads the client's own authentication source and then discards the result:
-     * the expression on that line is evaluated and assigned to nothing, so the configured default is
-     * returned whatever the client says. Every authorization request therefore authenticates against the
-     * default source, and the per-client value - stored on the client, editable in the administration
-     * interface, and carried through client registration - reaches nothing.
-     *
-     * Making it take effect is a change in who authenticates where, on deployments which may have set
-     * that value years ago and never seen it used, so it is left to the user rather than fixed while
-     * writing a test. This test is what will fail when it is fixed, and its name is what says so.
+     * This was a regression on the version 7 branch, and this test is what would have caught it. When
+     * `resolveAuthSourceId()` was widened to accept a plain OAuth2 client, the narrowing added for this
+     * module's own entity lost its `return`: the client's authentication source was read and the result
+     * discarded, so the configured default was returned whatever the client said. Released 6.4.x
+     * resolves it correctly, so shipping it would have moved every client onto the default source
+     * without anything saying so.
      */
-    public function testAClientsOwnAuthSourceIsCurrentlyIgnored(): void
+    public function testUsesTheAuthSourceTheClientNames(): void
     {
         $clientMock = $this->createMock(ClientEntityInterface::class);
         $clientMock->method('getAuthSourceId')->willReturn(self::CLIENT_AUTH_SOURCE_ID);
 
-        $this->assertSame(self::DEFAULT_AUTH_SOURCE_ID, $this->sut()->resolveAuthSourceId($clientMock));
+        $this->assertSame(self::CLIENT_AUTH_SOURCE_ID, $this->sut()->resolveAuthSourceId($clientMock));
+    }
+
+
+    /**
+     * And the source it names is the one a `Simple` is built for, since that is what `build()` hands to
+     * everything which authenticates.
+     *
+     * @throws \Exception
+     */
+    public function testBuildsAnAuthSourceForTheClientsOwnSource(): void
+    {
+        $clientMock = $this->createMock(ClientEntityInterface::class);
+        $clientMock->method('getAuthSourceId')->willReturn(self::CLIENT_AUTH_SOURCE_ID);
+
+        $this->assertSame(
+            self::CLIENT_AUTH_SOURCE_ID,
+            $this->authSourceIdOf($this->sut()->build($clientMock)),
+        );
     }
 
 

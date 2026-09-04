@@ -46,13 +46,13 @@ class AuthSimpleFactory
      */
     public function resolveAuthSourceId(OAuth2ClientEntityInterface $client): string
     {
-        $defaultAuthSourceId = $this->moduleConfig->getDefaultAuthSourceId();
-
+        // Only this module's own client entity carries an authentication source; a plain OAuth2 client
+        // has nowhere to state one, so it authenticates against the configured default.
         if ($client instanceof ClientEntityInterface) {
-            $client->getAuthSourceId() ?? $this->moduleConfig->getDefaultAuthSourceId();
+            return $client->getAuthSourceId() ?? $this->moduleConfig->getDefaultAuthSourceId();
         }
 
-        return $defaultAuthSourceId;
+        return $this->moduleConfig->getDefaultAuthSourceId();
     }
 
 
