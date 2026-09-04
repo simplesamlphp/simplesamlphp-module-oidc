@@ -283,14 +283,17 @@ class FederationTestController
             }
         }
 
-        $logMessages = $this->arrayLogger->getEntries();
-
         try {
             $trustAnchorIds = $this->moduleConfig->getFederationTrustAnchorIds();
         } catch (Throwable $exception) {
             $this->arrayLogger->error('Module config error: ' . $exception->getMessage());
             $trustAnchorIds = [];
         }
+
+        // Read after everything which logs, not before: a configuration error reported above this line
+        // would otherwise be logged into a set of entries the page had already taken a copy of, leaving
+        // an administrator looking at an empty log on the page which exists to show them one.
+        $logMessages = $this->arrayLogger->getEntries();
 
         $entityTypeOptions = array_map(fn (EntityTypesEnum $enum) => $enum->value, EntityTypesEnum::cases());
 
