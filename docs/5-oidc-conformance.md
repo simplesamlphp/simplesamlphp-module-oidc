@@ -186,3 +186,14 @@ RFC 9126 (PAR) and related `request` / `request_uri` MUST-level requirements are
 tracked, and mapped to the unit tests that cover them, in
 `conformance-tests/rfc9126-par-compliance.md`. Keep that checklist in sync when
 changing PAR or request-object behaviour.
+
+## Verifiable Credentials are not covered by these plans
+
+The certification profiles above are OpenID Connect ones, and nothing in them
+exercises OpenID4VCI, Token Status Lists or the DIIP profile. No equivalent
+certification programme exists to run against those, so what the module claims
+there is a self-assessment against the specification text rather than a test
+result, and it is backed by unit tests instead. The claim and the roles it
+covers are in [OIDC Module](1-oidc.md#note-on-the-diip-profile); the readings
+this module makes of individual profile requirements are in
+[Configuration](3-oidc-configuration.md#three-interpretations-this-module-makes).

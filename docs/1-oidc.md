@@ -63,6 +63,12 @@ Drafts / experimental (see the notes below for scope and caveats):
 - OpenID Federation — automatic client registration and related features
 - OpenID for Verifiable Credential Issuance, OpenID4VCI (experimental,
   not for production)
+- [Token Status List](https://datatracker.ietf.org/doc/draft-ietf-oauth-status-list/)
+  — what makes an issued credential revocable and suspendable; off by default.
+  See [Configuration](3-oidc-configuration.md#token-status-lists-credential-revocation)
+- [Decentralized Identity Interop Profile, DIIP v5](https://FIDEScommunity.github.io/DIIP)
+  — the **Issuer Agent** role only. See the [DIIP note](#note-on-the-diip-profile)
+  below
 
 ## Note on Dynamic Client Registration (DCR)
 
@@ -132,6 +138,15 @@ Currently implemented OpenID4VCI features:
   or reinstates an issued credential through its Token Status List entry.
   - JSON-LD Context | `credential-issuer/context/{credentialConfigurationId}` -
   Serves custom JSON-LD contexts for `vc+sd-jwt` credentials.
+  - Status List | `statuslist/{statusListId}` - Serves the signed Token Status
+  List that an issued credential's `status` claim points at.
+  - DID Document | `did.json` - Serves this issuer's `did:web` document, so a
+  verifier can resolve the key a credential was signed with. Served whenever a
+  `did:web` identifier is configured — but at the module's own URL, so the URL
+  that identifier resolves to still has to be routed here by the web server.
+  See [Configuration](3-oidc-configuration.md#serving-the-did-document).
+  - JWT VC Issuer Metadata | `.well-known/jwt-vc-issuer` - Points an SD-JWT VC
+  verifier at this issuer's key set.
 - Supported Flows & Grant Types
   - Authorization Code Flow: Fully supported
   - Pre-Authorized Code Flow: Fully supported
@@ -149,13 +164,112 @@ Currently implemented OpenID4VCI features:
   - Cryptographic Binding Methods:
     - `did:key`: Supported for proof validation and subject binding.
     - `did:jwk`: Supported for proof validation and subject binding.
+    - `did:web`: Supported for proof validation and subject binding. The
+    document is fetched over the network, so DID resolution has a destination
+    policy of its own, separate from the federation one.
+    - A key proof may also carry its key inline in a `jwk` header. That is a
+    documented extension rather than a profile feature.
   - Nonce Validation for mandatory `c_nonce` validation in proofs.
+  - Holder binding is stated in a `cnf` claim, in every credential format.
+  - Each credential configuration decides for itself whether a key proof is
+  required and which identifier rules apply to it. See
+  [Configuration](3-oidc-configuration.md#holder-binding-and-the-diip-profile).
+- Issuer Identity: a `did:jwk` derived from the signing key (default), a
+configured `did:web` whose document this module publishes, or the issuer URL
+with the key resolved through the published key set. See
+[Configuration](3-oidc-configuration.md#issuer-identity-and-the-did-document).
+- Credential Status: a Token Status List entry allocated at issuance, and
+withdraw / suspend / reinstate through the admin UI or the API. See
+[Configuration](3-oidc-configuration.md#token-status-lists-credential-revocation).
 - JSON-LD Support: Ability to host and reference custom JSON-LD contexts for
 enhanced semantic interoperability
 - API for credential offer fetching
 
 OpenID4VCI is also implemented using the
 [SimpleSAMLphp OpenID library](https://github.com/simplesamlphp/openid).
+
+## Note on the DIIP profile
+
+The [Decentralized Identity Interop Profile (DIIP)](https://FIDEScommunity.github.io/DIIP),
+release v5, sits on top of OpenID4VCI and names three roles: Issuer, Holder and
+Verifier. This module implements the **Issuer Agent** role, and what is claimed
+here is scoped to that role rather than to "DIIP conformance" unqualified:
+
+- **Issuer — in scope.** The module can be identified by a `did:jwk` or a
+  `did:web`, and publishes a DID document for the latter. A Status List Token is
+  signed under an identity of its own, chosen by the pool's key profile rather
+  than by the credential issuer mode — so having a credential and the status
+  token it points at name the same `did:web` means setting both. See [Key
+  profile](3-oidc-configuration.md#key-profile).
+- **Holder — in scope, as a consumer of holder identifiers.** The module holds
+  no credentials of its own, but it accepts a holder's `did:jwk` or `did:web` in
+  an OpenID4VCI key proof, verifies the proof against the key that DID resolves
+  to, and binds the issued credential to it.
+- **Verifier — out of scope.** There is no OpenID4VP surface here at all: no
+  `vp_token`, no `presentation_definition`, no request object endpoint for
+  presentation. The profile's `did` Client Identifier Scheme requirement belongs
+  to that surface, so it does not apply to this module. If OpenID4VP
+  verification is ever added, verifier identifiers come back into scope and
+  nothing below covers them.
+
+**Nothing certifies this, and it is not a claim about the whole profile.** There
+is no DIIP conformance suite of the kind the OpenID Foundation runs for OpenID
+Connect (see [Conformance testing](#conformance-testing) below for what is
+actually tested), so this is a self-assessment. What has been worked through
+against the profile text is its identifier half: that Issuers and Holders can be
+identified by `did:jwk` and `did:web`, and the two identifier-dependent issuance
+requirements, the `jwt` proof type and the `cnf` holder binding claim. Two
+readings this module makes along the way — what the profile's `iss` requirement
+can mean alongside OpenID4VCI, and which party's DID document its
+`assertionMethod` sentence is about — are written out under [Three
+interpretations this module makes](3-oidc-configuration.md#three-interpretations-this-module-makes),
+so a deployment which reads them differently knows where it differs.
+
+Only one of those rules is a **per credential configuration** choice, and it is
+the one about the *holder's* identifier: the `DiipProofBound` binding policy
+requires the key proof to name its key in a `kid` header which is an absolute
+`did:jwk` or `did:web` URL, so inline keys and `did:key` holders are refused. It
+applies to the configurations that ask for it and to no others, because DIIP's
+requirements are additive. The rest are not per configuration at all — the
+*issuer's* identity is deployment wide, and a `cnf` claim is emitted by every
+proof-bound configuration rather than only by the DIIP ones.
+
+**Choosing that policy is therefore not by itself a conformant deployment**, and
+neither is any single setting. The profile also places requirements on the
+deployment as a whole — credential formats, signature algorithm, the issuance
+flows, revocation — and those were not traced through one at a time here. The
+one most easily missed is a setting rather than a feature: DIIP requires the
+Issuer's authorization server to require pushed authorization requests and to
+advertise `require_pushed_authorization_requests` as `true`, which here means
+setting `OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS` — off by default. See
+[Configuration](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects).
+
+Most of the profile's requirements are worded as *"MUST support"* — capabilities
+an implementation has to have, rather than a list of things it may not otherwise
+do, which is the same reading applied to the `iss` claim above. So the question
+worth asking of a deployment is not whether some setting disqualifies it, but
+whether a given credential comes out carrying the properties a DIIP verifier
+expects. Several independently configured things decide that, and the binding
+policy is only one of them:
+
+- the **issuer identity mode** — under `https` a credential names its issuer by
+  a URL rather than by a DID;
+- the **credential format** — the profile's are the SD-JWT ones, so
+  `jwt_vc_json` is not among them;
+- the **algorithm of the active signing key** — the profile names ES256, and
+  this module permits RSA and the larger EC curves too;
+- and the **binding policy** — `DiipProofBound` is what *guarantees* the
+  `cnf.kid` names a `did:jwk` or `did:web` verification method, because it
+  refuses everything else. `ProofBound` produces the same binding when a wallet
+  happens to send such a proof, but it will bind to an inline key or a `did:key`
+  holder just as readily, and `Proofless` does not bind at all.
+
+A credential carries the profile's properties where all four line up for it —
+the format and the binding policy from its own credential configuration, the
+issuer identity and the signing key from the deployment. Only the first three
+are settled by configuration alone: under `ProofBound` the binding a credential
+ends up with is whichever one the wallet's proof asked for, which is the reason
+`DiipProofBound` exists.
 
 ## Conformance testing
 
