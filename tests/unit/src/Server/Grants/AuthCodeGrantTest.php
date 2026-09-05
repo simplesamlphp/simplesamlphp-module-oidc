@@ -78,11 +78,11 @@ use SimpleSAML\OpenID\Core\IdTokenHint;
 use Stringable;
 
 /**
- * Token endpoint behavior of the authorization code grant.
+ * The authorization code grant, at both of the endpoints it takes part in.
  *
- * Covers the code redemption half of the grant: everything reachable from respondToAccessTokenRequest(),
- * including validateAuthorizationCode(). The authorization request half
- * (validateAuthorizationRequestWithRequestRules(), completeOidcAuthorizationRequest()) is not covered here.
+ * Covers both halves of the grant: the code redemption reachable from respondToAccessTokenRequest(),
+ * including validateAuthorizationCode(), and the authorization request half
+ * (validateAuthorizationRequestWithRequestRules(), completeOidcAuthorizationRequest()).
  *
  * Most of what this class does on redemption is reject things, and each rejection is a security control:
  * PKCE verification, the redirect URI and client bindings, authorization code expiry and replay. Those are
