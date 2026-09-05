@@ -25,6 +25,12 @@ trait VciOverviewTestTrait
      * @param string[]|\Throwable $statusListIssuerIdentifiers The did:web identifiers the Status Lists
      *                                                         which are still served were created
      *                                                         under, or what reading them throws.
+     * @param array<string,string> $routeUrls Route method name to the URL it should return. Every
+     *                                        endpoint row is built the same way from this one
+     *                                        Routes instance, so distinct URLs are what lets a
+     *                                        test tell one endpoint row from another. Does not
+     *                                        cover urlVciDidDocument, which has its own
+     *                                        parameter above.
      * @throws \Exception
      */
     protected function buildVciOverviewBuilder(
@@ -32,6 +38,7 @@ trait VciOverviewTestTrait
         array $usedIssuerIdentities = [],
         ?string $didDocumentUrl = null,
         array|Throwable $statusListIssuerIdentifiers = [],
+        array $routeUrls = [],
     ): VciOverviewBuilder {
         $vciIssuerIdentityRepository = $this->createMock(VciIssuerIdentityRepository::class);
         $vciIssuerIdentityRepository->method('getAllUsed')->willReturn($usedIssuerIdentities);
@@ -47,6 +54,10 @@ trait VciOverviewTestTrait
 
         $routes = $this->createMock(Routes::class);
         $routes->method('urlVciDidDocument')->willReturn($didDocumentUrl ?? '');
+
+        foreach ($routeUrls as $routeMethod => $url) {
+            $routes->method($routeMethod)->willReturn($url);
+        }
 
         return new VciOverviewBuilder(
             $this->buildOverviewModuleConfig($overrides),

@@ -13,11 +13,25 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
+use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
+use stdClass;
+use Stringable;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
+/**
+ * One line is deliberately left uncovered here: the `continue` in `hasMappingFlag()`, which skips
+ * a credential configuration carrying no `attributeMappings` array. Neither of its two conditions
+ * is reachable through `build()`. The list that method receives is always the one
+ * `buildCredentialConfigurationList()` produced, every entry of which is an array, and each of
+ * those entries carries whatever `buildAttributeMappings()` returned, which is always an array.
+ * The guard is defensive depth against a caller which does not exist.
+ */
 #[CoversClass(VciOverviewBuilder::class)]
 #[CoversClass(AbstractOverviewBuilder::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -1676,5 +1690,758 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame(['did:web:retired.example.org'], $row->getValue());
         $this->assertStringContainsString('can no longer be verified', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A Status List pool with every knob set away from its default, so a value which reached the
+     * screen from the wrong pool field shows up rather than being coincidentally right. The module
+     * level key profile stays at its own default, which the pool then overrides.
+     *
+     * @return array<string,mixed>
+     */
+    protected static function statusListPoolOverrides(bool $areStatusListsEnabled = true): array
+    {
+        return [
+            ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => $areStatusListsEnabled,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                'default' => [
+                    StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                    StatusListPool::KEY_BITS => 2,
+                    StatusListPool::KEY_CAPACITY => 1024,
+                    StatusListPool::KEY_ALLOWED_STATUSES => [StatusTypeEnum::Suspended],
+                    StatusListPool::KEY_TTL => 'PT6H',
+                    StatusListPool::KEY_TOKEN_VALIDITY => 'P2D',
+                    StatusListPool::KEY_REFRESH_INTERVAL => 'PT2H',
+                    StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::Jwks->value,
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * A redirect URI prefix which is not a string but does have a string form.
+     */
+    protected function stringablePrefix(string $value): Stringable
+    {
+        return new readonly class ($value) implements Stringable {
+            public function __construct(protected string $value)
+            {
+            }
+
+
+            public function __toString(): string
+            {
+                return $this->value;
+            }
+        };
+    }
+
+
+    /**
+     * A redirect URI prefix whose string form can not be produced at all.
+     */
+    protected function throwingStringablePrefix(): Stringable
+    {
+        return new class implements Stringable {
+            public function __toString(): string
+            {
+                throw new RuntimeException('This prefix has no string form.');
+            }
+        };
+    }
+
+
+    /**
+     * Both notes have to be there, because the switch does less than its name suggests: turning it
+     * off stops new credentials getting an entry, it does not stop lists already published being
+     * served, so it can not be read as a way to make revocation go away.
+     */
+    public function testSaysWhatEnablingStatusListsDoes(): void
+    {
+        // Configured with a pool, so what the enabled note promises is a deployment which does
+        // allocate entries. Without one nothing allocates, which the pools row says for itself.
+        $enabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(self::statusListPoolOverrides(true))->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED,
+        );
+        $this->assertNotNull($enabledRow);
+        $this->assertSame('Yes', $enabledRow->getValue());
+        $this->assertStringContainsString('can be revoked and suspended', (string)$enabledRow->getNote());
+
+        $disabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(self::statusListPoolOverrides(false))->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED,
+        );
+        $this->assertNotNull($disabledRow);
+        $this->assertSame('No', $disabledRow->getValue());
+        $this->assertStringContainsString('keep being served', (string)$disabledRow->getNote());
+    }
+
+
+    /**
+     * Every field of a pool decides something an administrator can not see anywhere else: the bit
+     * width fixes which statuses the lists can ever carry, the capacity fixes how many credentials
+     * share one list and so how large the group each credential hides in is, and the key profile
+     * decides how the tokens name their signing key. So the row is asserted field by field, against
+     * a pool configured away from every default.
+     */
+    public function testDescribesEveryFieldOfAConfiguredStatusListPool(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(self::statusListPoolOverrides())->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::Json, $row->getValueType());
+        $this->assertSame(
+            [
+                'default' => [
+                    StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['TestCredential'],
+                    StatusListPool::KEY_BITS => 2,
+                    StatusListPool::KEY_CAPACITY => 1024,
+                    // Valid is allowed whether or not it was configured, since a revoked entry has to
+                    // be able to be reinstated.
+                    StatusListPool::KEY_ALLOWED_STATUSES => ['Valid', 'Suspended'],
+                    StatusListPool::KEY_TTL => 'PT6H',
+                    StatusListPool::KEY_TOKEN_VALIDITY => 'P2D',
+                    StatusListPool::KEY_REFRESH_INTERVAL => 'PT2H',
+                    // The pool's own profile, not the module level default, which is did_jwk.
+                    StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::Jwks->value,
+                ],
+            ],
+            $row->getValue(),
+        );
+    }
+
+
+    /**
+     * Pools are readable while the capability is off, and they are then inert. Saying so matters:
+     * the configuration looks complete, and nothing else on the screen would explain why no
+     * credential being issued gets an entry.
+     */
+    public function testSaysConfiguredPoolsAreInertWhileStatusListsAreDisabled(): void
+    {
+        $enabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(self::statusListPoolOverrides(true))->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+        );
+        $this->assertNotNull($enabledRow);
+        $this->assertStringContainsString('smaller group each credential hides in', (string)$enabledRow->getNote());
+
+        $disabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(self::statusListPoolOverrides(false))->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+        );
+        $this->assertNotNull($disabledRow);
+        // Still described in full, so what is configured stays visible: the switch changes the note,
+        // and nothing else about the row.
+        $this->assertSame($enabledRow->getValue(), $disabledRow->getValue());
+        $this->assertStringContainsString('inert', (string)$disabledRow->getNote());
+    }
+
+
+    /**
+     * With no pool configured nothing allocates, so no issued credential can be revoked. That is a
+     * different statement from the capability being off, and the screen has to make it.
+     */
+    public function testSaysNoPoolIsConfigured(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true])->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        // The placeholder is UI text, where a configured pool is structured data.
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $row->getValueType());
+        $this->assertStringContainsString(
+            'No credential configuration allocates a Status List entry',
+            (string)$row->getNote(),
+        );
+        $this->assertStringContainsString('no issued credential can be revoked', (string)$row->getNote());
+    }
+
+
+    /**
+     * The limit is applied per address as the request appears to arrive, which behind a proxy is the
+     * proxy. An administrator who does not know that configures one shared bucket for every client.
+     */
+    public function testSaysWhatARequestLimitIsAppliedTo(): void
+    {
+        $limitedRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE => 60,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+        );
+        $this->assertNotNull($limitedRow);
+        $this->assertSame('60', $limitedRow->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::RawText, $limitedRow->getValueType());
+        $this->assertStringContainsString('reverse proxy', (string)$limitedRow->getNote());
+
+        $unlimitedRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE,
+        );
+        $this->assertNotNull($unlimitedRow);
+        $this->assertSame('No limit', $unlimitedRow->getValue());
+        // The placeholder is UI text, the number is data.
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $unlimitedRow->getValueType());
+        $this->assertStringContainsString('unauthenticated', (string)$unlimitedRow->getNote());
+    }
+
+
+    /**
+     * The endpoint and the capability are separate switches, and the combination which does nothing
+     * useful is the endpoint being served while nothing allocates entries any more.
+     */
+    public function testWarnsWhenTheCredentialStatusEndpointIsServedWhileStatusListsAreOff(): void
+    {
+        $withoutStatusLists = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                // VciCredentialStatusApiController refuses every request while the module API is off,
+                // so the endpoint is only really served with both switches on.
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+            ])->build(),
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+        );
+        $this->assertNotNull($withoutStatusLists);
+        $this->assertSame('Yes', $withoutStatusLists->getValue());
+        // Which credential it authenticates as is the part an administrator has to know.
+        $this->assertStringContainsString('bearer token', (string)$withoutStatusLists->getNote());
+        $this->assertStringContainsString('no entry to change', (string)$withoutStatusLists->getWarning());
+
+        $withStatusLists = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+            ])->build(),
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+        );
+        $this->assertNotNull($withStatusLists);
+        $this->assertSame('Yes', $withStatusLists->getValue());
+        $this->assertStringContainsString('bearer token', (string)$withStatusLists->getNote());
+        $this->assertNull($withStatusLists->getWarning());
+
+        $disabledEndpoint = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+            ])->build(),
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+        );
+        $this->assertNotNull($disabledEndpoint);
+        $this->assertSame('No', $disabledEndpoint->getValue());
+        $this->assertStringContainsString('administration screens', (string)$disabledEndpoint->getNote());
+        // Nothing is served, so there is nothing to warn about.
+        $this->assertNull($disabledEndpoint->getWarning());
+    }
+
+
+    /**
+     * Pinned rather than endorsed, and queued as a production fix.
+     *
+     * The credential offer row warns when its endpoint is enabled while the module API is off. The
+     * credential status row has no such warning, and the one warning it does have is decided by its
+     * own switch alone. So with the API off it reports that credentials being issued have no entry
+     * to change, about an endpoint VciCredentialStatusApiController refuses to serve at all, and
+     * never mentions the switch which is actually stopping it.
+     */
+    public function testTheCredentialStatusRowDoesNotYetNoticeTheModuleApiIsOff(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => false,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
+            ])->build(),
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+        );
+
+        $this->assertNotNull($row);
+        // Warns about an endpoint which is not served at all.
+        $this->assertStringContainsString('no entry to change', (string)$row->getWarning());
+        // And says nothing about the switch which is the reason it is not served.
+        $this->assertStringNotContainsString('module API', (string)$row->getWarning());
+    }
+
+
+    /**
+     * The audit trail records who asked for which status change, so what it says about retention is
+     * a privacy statement as much as a storage one.
+     */
+    public function testSaysHowLongTheStatusAuditTrailIsKept(): void
+    {
+        $configuredRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION => 'P90D',
+            ])->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+        );
+        $this->assertNotNull($configuredRow);
+        $this->assertSame('P90D', $configuredRow->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::RawText, $configuredRow->getValueType());
+        $this->assertStringContainsString('pruned', (string)$configuredRow->getNote());
+
+        $indefiniteRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_STATUS_LIST_AUDIT_RETENTION,
+        );
+        $this->assertNotNull($indefiniteRow);
+        $this->assertSame('Kept indefinitely', $indefiniteRow->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $indefiniteRow->getValueType());
+        // Says what is actually retained, since keeping it for good is the default.
+        $this->assertStringContainsString('kept for', (string)$indefiniteRow->getNote());
+        $this->assertStringContainsString('actor', (string)$indefiniteRow->getNote());
+    }
+
+
+    /**
+     * Every row which shows a URL has to carry its own. They are all built the same way from the one
+     * Routes instance, so a row pointing at a neighbouring route would look entirely normal. Covers
+     * the four endpoint rows and the two configuration URLs on the entity section.
+     */
+    public function testEachUrlRowPointsAtItsOwnRoute(): void
+    {
+        $urls = [
+            'Credential' => 'https://op.example.org/credential',
+            'Nonce' => 'https://op.example.org/nonce',
+            'Credential Offer (API)' => 'https://op.example.org/api/credential-offer',
+            'Credential Status (API)' => 'https://op.example.org/api/credential-status',
+            'Credential Issuer Configuration URL' => 'https://op.example.org/credential-issuer-config',
+            'JWT VC Issuer Configuration URL' => 'https://op.example.org/jwt-vc-issuer-config',
+        ];
+
+        $sections = $this->buildVciOverviewBuilder(
+            [
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+            ],
+            routeUrls: [
+                'urlCredentialIssuerCredential' => $urls['Credential'],
+                'urlCredentialIssuerNonce' => $urls['Nonce'],
+                'urlApiVciCredentialOffer' => $urls['Credential Offer (API)'],
+                'urlApiVciCredentialStatus' => $urls['Credential Status (API)'],
+                'urlCredentialIssuerConfiguration' => $urls['Credential Issuer Configuration URL'],
+                'urlJwtVcIssuerConfiguration' => $urls['JWT VC Issuer Configuration URL'],
+            ],
+        )->build();
+
+        foreach ($urls as $label => $url) {
+            $row = $this->findRowByLabel($sections, $label);
+
+            $this->assertNotNull($row, "Missing row for $label");
+            $this->assertSame($url, $row->getValue(), "Row \"$label\" does not point at its own route");
+            $this->assertSame(ConfigOverviewValueTypeEnum::Url, $row->getValueType());
+        }
+    }
+
+
+    /**
+     * The credential status endpoint needs the module API and its own switch, and deliberately not
+     * the issuance switch: credentials already in wallets stay revocable while issuance is off, and
+     * hiding the URL of a live endpoint during the incident which made someone turn issuance off is
+     * exactly the wrong moment to do it.
+     */
+    public function testListsTheCredentialStatusApiEndpointOnlyWhenItIsServed(): void
+    {
+        $labels = fn(array $sections): array => array_map(
+            fn($row): string => $row->getLabel(),
+            $this->flattenRows($sections),
+        );
+
+        $this->assertNotContains(
+            'Credential Status (API)',
+            $labels($this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
+            ])->build()),
+        );
+
+        $this->assertNotContains(
+            'Credential Status (API)',
+            $labels($this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => false,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+            ])->build()),
+        );
+
+        $this->assertContains(
+            'Credential Status (API)',
+            $labels($this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => false,
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+            ])->build()),
+            'The credential status endpoint is served while issuance is off, so it must stay listed',
+        );
+    }
+
+
+    /**
+     * A malformed api_enabled belongs to the protocol screen. Here the conservative reading is that
+     * the endpoint is not served, rather than the section failing over an option it does not own.
+     */
+    public function testDoesNotListTheOfferEndpointWhenTheApiSwitchIsMalformed(): void
+    {
+        $labels = array_map(
+            fn($row): string => $row->getLabel(),
+            $this->flattenRows($this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_API_ENABLED => 'nope',
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => true,
+            ])->build()),
+        );
+
+        $this->assertNotContains('Credential Offer (API)', $labels);
+        // The section itself still renders.
+        $this->assertContains('Credential', $labels);
+    }
+
+
+    /**
+     * Requiring a key proof is the default, so listing every configuration which does would bury the
+     * ones which do something else, and it is those an administrator needs to recognise on sight.
+     */
+    public function testListsOnlyTheCredentialConfigurationsWhichDepartFromTheDefault(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'DefaultOne' => [],
+                    'DiipOne' => [],
+                ],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => [
+                    'DefaultOne' => VciCredentialBindingPolicyEnum::ProofBound->value,
+                    'DiipOne' => VciCredentialBindingPolicyEnum::DiipProofBound->value,
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringList, $row->getValueType());
+        $this->assertSame(
+            ['DiipOne: ' . VciCredentialBindingPolicyEnum::DiipProofBound->value],
+            $row->getValue(),
+        );
+        $this->assertStringContainsString(
+            VciCredentialBindingPolicyEnum::DiipProofBound->value,
+            (string)$row->getNote(),
+        );
+        // Nothing here issues without a key proof.
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * With no exception configured the row says so rather than listing everything.
+     */
+    public function testSaysEveryCredentialConfigurationRequiresAKeyProof(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['DefaultOne' => []],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('Every configuration requires a key proof', $row->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $row->getValueType());
+        $this->assertStringContainsString('which is the default', (string)$row->getNote());
+        $this->assertStringContainsString('no valid key proof is refused', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * A proofless configuration issues credentials bound to no wallet key at all, so nothing ties an
+     * issued credential to whoever presents it later. That is not a detail of a listing, it is a
+     * warning.
+     */
+    public function testWarnsAboutCredentialConfigurationsWhichIssueWithoutAKeyProof(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'DefaultOne' => [],
+                    'ProoflessOne' => [],
+                ],
+                // Proofless is the only exception, so the warning can only be attributable to it and
+                // not to some other configuration merely departing from the default.
+                ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => [
+                    'ProoflessOne' => VciCredentialBindingPolicyEnum::Proofless->value,
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(
+            ['ProoflessOne: ' . VciCredentialBindingPolicyEnum::Proofless->value],
+            $row->getValue(),
+        );
+        $this->assertStringContainsString('not bound to any wallet key', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A configuration with no lifetime issues credentials which never expire, so listing only the
+     * ones which have one is the whole content of this row.
+     */
+    public function testShowsTheLifetimeOfEachCredentialConfigurationWhichHasOne(): void
+    {
+        $configuredRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'ShortLived' => [],
+                    'Forever' => [],
+                ],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS => ['ShortLived' => 'P30D'],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+        );
+
+        $this->assertNotNull($configuredRow);
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringMap, $configuredRow->getValueType());
+        $this->assertSame(['ShortLived' => ['P30D']], $configuredRow->getValue());
+        $this->assertStringContainsString('not listed', (string)$configuredRow->getNote());
+
+        $noneRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_TTLS,
+        );
+        $this->assertNotNull($noneRow);
+        $this->assertSame('None configured', $noneRow->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $noneRow->getValueType());
+        // Says what those lists cost, since they can never be retired.
+        $this->assertStringContainsString('never expire', (string)$noneRow->getNote());
+        $this->assertStringContainsString('never be retired', (string)$noneRow->getNote());
+    }
+
+
+    public function testNotesTheConfiguredNonceTtl(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT2M'])->build(),
+            ModuleConfig::OPTION_VCI_NONCE_TTL,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('2 minutes (PT2M)', $row->getValue());
+        $this->assertStringContainsString('nonce stays valid', (string)$row->getNote());
+        $this->assertStringNotContainsString('falls back', (string)$row->getNote());
+    }
+
+
+    /**
+     * ClientRedirectUriRule casts with (string), which an object implementing Stringable survives.
+     * The prefix it becomes is what the runtime will match on, so that is what is shown.
+     */
+    public function testShowsAStringableRedirectPrefixAsTheRuntimeCastsIt(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => true,
+                ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS => [
+                    // Deliberately not 'openid-credential-offer://', which is what the option falls
+                    // back to when it is not configured at all, and so proves nothing about the cast.
+                    $this->stringablePrefix('custom-wallet-app://'),
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['custom-wallet-app://'], $row->getValue());
+        // It does match at runtime, but it is not what anyone means to configure.
+        $this->assertStringContainsString('not a string', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A prefix with no string form at all is a different failure: at runtime the cast raises rather
+     * than matching, so the check fails instead of letting anything through. Two shapes reach it,
+     * an object which is not Stringable and one whose __toString() throws.
+     */
+    public function testWarnsAboutARedirectPrefixWhichCannotBeCastAtAll(): void
+    {
+        $prefixes = [
+            'not stringable' => new stdClass(),
+            'throws while being cast' => $this->throwingStringablePrefix(),
+        ];
+
+        foreach ($prefixes as $description => $prefix) {
+            $row = $this->findRowForOption(
+                $this->buildVciOverviewBuilder([
+                    ModuleConfig::OPTION_VCI_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => true,
+                    ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS => [$prefix],
+                ])->build(),
+                ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
+            );
+
+            $this->assertNotNull($row, "No row for a prefix which $description");
+            // Nothing to show, since there is no prefix it becomes.
+            $this->assertSame([], $row->getValue(), "A prefix which $description was shown as something");
+            $this->assertStringContainsString(
+                'cannot be turned into a string',
+                (string)$row->getWarning(),
+                "A prefix which $description was not warned about",
+            );
+        }
+    }
+
+
+    /**
+     * The display block carries one entry per locale, and a malformed entry among them must cost
+     * only its own name.
+     */
+    public function testSkipsDisplayEntriesWhichAreNotArrays(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'PartlyMalformed' => [
+                        'format' => 'jwt_vc_json',
+                        'credential_metadata' => [
+                            'display' => [
+                                'not-an-array',
+                                ['name' => 'Readable Name', 'locale' => 'en-US'],
+                                // No name at all, so it contributes none.
+                                ['locale' => 'hr-HR'],
+                            ],
+                        ],
+                    ],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertSame(['Readable Name'], $configurations[0]['displayNames']);
+        // Dropped quietly: nothing about the surviving configuration is wrong.
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * ModuleConfig keeps any truthy 'path' a claim declares, including one written as a dotted
+     * string. Issuance matches a mapping against these verbatim, so a path which is not an array
+     * matches nothing and is not a claim path this configuration has.
+     */
+    public function testSkipsDeclaredClaimPathsWhichAreNotArrays(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'PartlyMalformed' => [
+                        'format' => 'jwt_vc_json',
+                        'credential_metadata' => [
+                            'claims' => [
+                                ['path' => 'written.as.a.string'],
+                                ['path' => ['credentialSubject', 'mail']],
+                            ],
+                        ],
+                    ],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertSame(['credentialSubject.mail'], $configurations[0]['claimPaths']);
+        // Dropped quietly, as above.
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The attribute map is a list of single pair entries. One which is not a pair at all is dropped
+     * rather than taking the rest of the configuration's mappings with it.
+     */
+    public function testSkipsMappingEntriesWhichAreNotArrays(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::credentialConfiguration(),
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                    'ResearchAndScholarshipCredentialJwtVcJson' => [
+                        'not-an-array',
+                        ['mail' => ['credentialSubject', 'mail']],
+                    ],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+
+        $mappings = $configurations[0]['attributeMappings'];
+        $this->assertCount(1, $mappings);
+        $this->assertSame('mail', $mappings[0]['attribute']);
+        $this->assertTrue($mappings[0]['isEffective']);
+        // The entry is dropped quietly: nothing about the surviving configuration is wrong.
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Issuance requires the configured path to be an array before it looks for it among the declared
+     * claim paths, so a path written as a dotted string is applied to nothing. It is shown as
+     * configured, since that is what has to be corrected, and marked ineffective.
+     */
+    public function testMarksAMappingWhoseClaimPathIsNotAnArrayAsIneffective(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::credentialConfiguration(),
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                    'ResearchAndScholarshipCredentialJwtVcJson' => [
+                        ['mail' => 'credentialSubject.mail'],
+                    ],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+
+        $mapping = $configurations[0]['attributeMappings'][0];
+        $this->assertSame('mail', $mapping['attribute']);
+        $this->assertSame('credentialSubject.mail', $mapping['path']);
+        $this->assertFalse($mapping['isEffective']);
+        $this->assertSame('notDeclared', $mapping['ineffectiveReason']);
+
+        $this->assertStringContainsString('never reaches the credential', (string)$row->getWarning());
     }
 }
