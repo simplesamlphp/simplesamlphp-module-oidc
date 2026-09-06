@@ -17,7 +17,7 @@ use SimpleSAML\Module\oidc\Exceptions\StatusListException;
  * settings must not change what an existing list emits: new settings route new credentials to new
  * lists, and the old lists keep being served under the policy they were created with.
  *
- * @see \SimpleSAML\Test\Module\oidc\unit\StatusList\StatusListRecordTest
+ * @see \SimpleSAML\Test\Module\oidc\unit\StatusList\Values\StatusListRecordTest
  */
 class StatusListRecord
 {
