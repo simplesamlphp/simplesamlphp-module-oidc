@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use DateTimeZone;
+use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -19,11 +21,24 @@ use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListAllocationTarget;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListReconciliationCandidate;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 /**
- * The lifecycle end of the Status List repository: the states a list moves through once nothing is
- * being allocated into it any more.
+ * Storage for Status Lists themselves: the whole of a list's life, from the moment a request is still
+ * preparing one through to the moment its entries are purged.
+ *
+ * Everything here runs against a real SQLite database with the real migrations applied, because most of
+ * what this class does is expressed in SQL rather than in PHP. A guard written into a WHERE clause is
+ * not observable through a mocked connection at all -- the compare-and-set which publishes a token, the
+ * conditions which decide whether a list may be deleted or retired, the cursor which pages past rows
+ * which left the result set -- so a mocked one would only ever confirm which statement was sent.
+ *
+ * Two tests are the exception and mock the connection deliberately, and they are the two about which
+ * connection is read. This database has no secondary, so `read()` and `readPrimary()` reach the same
+ * rows, and a repository which had lost the distinction entirely would return exactly what one which
+ * kept it returns.
  */
 #[CoversClass(StatusListRepository::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -106,6 +121,8 @@ class StatusListRepositoryTest extends TestCase
         StatusListExpiryLaneEnum $expiryLane = StatusListExpiryLaneEnum::Expiring,
         StatusListKeyProfileEnum $keyProfile = StatusListKeyProfileEnum::DidJwk,
         ?string $issuerIdentifier = null,
+        bool $activate = true,
+        int $bits = 1,
     ): void {
         $this->repository->create(
             $id,
@@ -114,7 +131,7 @@ class StatusListRepositoryTest extends TestCase
             $policyFingerprint,
             $expiryLane,
             $generation,
-            1,
+            $bits,
             self::CAPACITY,
             implode(',', [StatusTypeEnum::Valid->value, StatusTypeEnum::Invalid->value]),
             43200,
@@ -124,7 +141,10 @@ class StatusListRepositoryTest extends TestCase
             $keyProfile,
             $issuerIdentifier,
         );
-        $this->repository->activate($id);
+
+        if ($activate) {
+            $this->repository->activate($id);
+        }
     }
 
 
@@ -1039,5 +1059,684 @@ class StatusListRepositoryTest extends TestCase
         $this->entryRepository->seed(self::LIST_ID, self::CAPACITY);
 
         $this->assertSame([], $this->repository->findRetiredWithEntries(10, $this->spentBefore()));
+    }
+
+
+    /**
+     * A raw row as the database actually holds it, for the tests which stand a mocked connection in
+     * front of the repository. Hand written column lists drift; this one cannot say anything the schema
+     * does not.
+     *
+     * @return array<string,mixed>
+     * @throws \Exception
+     */
+    protected function rawRow(string $id): array
+    {
+        /** @var array<array-key,mixed> $rows */
+        $rows = Database::getInstance()->readPrimary(
+            sprintf('SELECT * FROM %s WHERE id = :id', $this->repository->getTableName()),
+            ['id' => $id],
+        )->fetchAll();
+
+        $this->assertArrayHasKey(0, $rows);
+        $this->assertIsArray($rows[0]);
+
+        return $rows[0];
+    }
+
+
+    /**
+     * @param array<array-key,mixed> $rows
+     */
+    protected function statementReturning(array $rows): PDOStatement&MockObject
+    {
+        $statementMock = $this->createMock(PDOStatement::class);
+        $statementMock->method('fetchAll')->willReturn($rows);
+
+        return $statementMock;
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function repositoryOver(Database $database): StatusListRepository
+    {
+        return new StatusListRepository($this->moduleConfigMock, $database, null, $this->helpers);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function countEntryRows(string $statusListId): int
+    {
+        /** @var array<array-key,mixed> $rows */
+        $rows = Database::getInstance()->readPrimary(
+            sprintf(
+                'SELECT COUNT(*) AS row_count FROM %s WHERE status_list_id = :status_list_id',
+                $this->entryRepository->getTableName(),
+            ),
+            ['status_list_id' => $statusListId],
+        )->fetchAll();
+
+        $this->assertArrayHasKey(0, $rows);
+        $this->assertIsArray($rows[0]);
+
+        return (int)$rows[0]['row_count'];
+    }
+
+
+    /**
+     * Stamps a list as retired while leaving its published token where it is, which retirement itself
+     * never does. The test which uses it explains why that state is worth constructing.
+     *
+     * @throws \Exception
+     */
+    protected function stampRetirement(string $id, string $retiredAt): void
+    {
+        Database::getInstance()->write(
+            sprintf('UPDATE %s SET retired_at = :retired_at WHERE id = :id', $this->repository->getTableName()),
+            [
+                'retired_at' => $retiredAt,
+                'id' => $id,
+            ],
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function publish(
+        string $contentHash,
+        string $observedContentHash = '',
+        int $observedInvalidationCounter = 0,
+        string $issuedAt = '2026-08-01 09:00:00',
+        string $id = self::LIST_ID,
+    ): bool {
+        return $this->repository->publishToken(
+            $id,
+            $observedContentHash,
+            $observedInvalidationCounter,
+            $contentHash,
+            'a.signed.token.for.' . $contentHash,
+            // Zoned explicitly. The repository converts a moment to UTC on the way in and the record
+            // reads it back as UTC, so a fixture left to the process default would round trip only
+            // where that default is already UTC, and the assertions below on an exact issuance time
+            // would be off by the offset anywhere else.
+            new DateTimeImmutable($issuedAt, new DateTimeZone('UTC')),
+            new DateTimeImmutable('2026-08-08 09:00:00', new DateTimeZone('UTC')),
+        );
+    }
+
+
+    /**
+     * The endpoint reads a secondary, and a secondary is allowed to be behind. Being behind can only
+     * ever cost a token some staleness the `ttl` claim already sanctions, with one exception: a list
+     * created moments ago is missing rather than stale, and answering "no such list" would 404 a
+     * credential which was issued and does exist. So a miss, and only a miss, is asked again of the
+     * primary.
+     *
+     * The connection is mocked here because a real one cannot show this. Both reads reach the same
+     * SQLite database, so a repository which had lost the second read entirely would return exactly
+     * what one which kept it returns.
+     *
+     * @throws \Exception
+     */
+    public function testAListMissingFromASecondaryIsLookedForAgainOnThePrimary(): void
+    {
+        $this->createList();
+
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('read')->willReturn($this->statementReturning([]));
+        $databaseMock->expects($this->once())
+            ->method('readPrimary')
+            ->willReturn($this->statementReturning([$this->rawRow(self::LIST_ID)]));
+
+        $this->assertSame(
+            self::LIST_ID,
+            $this->repositoryOver($databaseMock)->findById(self::LIST_ID)?->getId(),
+        );
+    }
+
+
+    /**
+     * The other half of the same decision, and the half which stops the fix for staleness from being
+     * "read the primary always". This read is the one the status list endpoint serves every wallet
+     * from, and it is on a secondary deliberately; a second read on the way past would put the whole of
+     * that traffic back on the primary while changing nothing a wallet can observe.
+     *
+     * @throws \Exception
+     */
+    public function testAListFoundOnASecondaryIsNotLookedForAgainOnThePrimary(): void
+    {
+        $this->createList();
+
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('read')->willReturn(
+            $this->statementReturning([$this->rawRow(self::LIST_ID)]),
+        );
+        $databaseMock->expects($this->never())->method('readPrimary');
+
+        $this->assertSame(
+            self::LIST_ID,
+            $this->repositoryOver($databaseMock)->findById(self::LIST_ID)?->getId(),
+        );
+    }
+
+
+    /**
+     * A request which finds no list to allocate into creates one, and before it does it looks for a
+     * list another request created a moment ago and has not opened yet, so that the two do not both
+     * create one. This is that query returning something.
+     *
+     * @throws \Exception
+     */
+    public function testOffersAListWhichAnotherRequestIsStillPreparing(): void
+    {
+        $this->createList(activate: false);
+
+        $beingPrepared = $this->repository->findBeingPreparedForPolicy(
+            self::POOL_ID,
+            self::POLICY,
+            StatusListExpiryLaneEnum::Expiring,
+            new DateTimeImmutable('2000-01-01 00:00:00'),
+        );
+
+        $this->assertCount(1, $beingPrepared);
+        $this->assertSame(self::LIST_ID, $beingPrepared[0]->getId());
+    }
+
+
+    /**
+     * Once a list is open it is no longer something to stand down for: it is found by the query which
+     * looks for lists to allocate into, and a request which adopted it here as well would be counting
+     * the same list twice.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotOfferAListWhichHasAlreadyBeenOpened(): void
+    {
+        $this->createList();
+
+        $this->assertSame(
+            [],
+            $this->repository->findBeingPreparedForPolicy(
+                self::POOL_ID,
+                self::POLICY,
+                StatusListExpiryLaneEnum::Expiring,
+                new DateTimeImmutable('2000-01-01 00:00:00'),
+            ),
+        );
+    }
+
+
+    /**
+     * The cap is how a request which has already claimed a generation asks only about generations below
+     * its own. Without it two requests which each created a list would each adopt the other's and both
+     * abandon their own, leaving the pool with no open list at all.
+     *
+     * @throws \Exception
+     */
+    public function testOffersOnlyListsBelowTheGenerationAskedAbout(): void
+    {
+        $this->createList(self::LIST_ID, 1, activate: false);
+        $this->createList(self::OTHER_LIST_ID, 2, activate: false);
+
+        $this->assertSame(
+            [self::LIST_ID],
+            array_map(
+                static fn(StatusListRecord $record): string => $record->getId(),
+                $this->repository->findBeingPreparedForPolicy(
+                    self::POOL_ID,
+                    self::POLICY,
+                    StatusListExpiryLaneEnum::Expiring,
+                    new DateTimeImmutable('2000-01-01 00:00:00'),
+                    2,
+                ),
+            ),
+        );
+    }
+
+
+    /**
+     * With no cap the caller is asking what is being prepared at all, which is a different question
+     * from what it may stand down for.
+     *
+     * @throws \Exception
+     */
+    public function testOffersEveryGenerationWhenNoneIsNamed(): void
+    {
+        $this->createList(self::LIST_ID, 1, activate: false);
+        $this->createList(self::OTHER_LIST_ID, 2, activate: false);
+
+        $this->assertCount(
+            2,
+            $this->repository->findBeingPreparedForPolicy(
+                self::POOL_ID,
+                self::POLICY,
+                StatusListExpiryLaneEnum::Expiring,
+                new DateTimeImmutable('2000-01-01 00:00:00'),
+            ),
+        );
+    }
+
+
+    /**
+     * The entries are removed explicitly rather than left to the foreign key. The constraint is declared
+     * ON DELETE CASCADE, but SQLite only enforces foreign keys when the connection asks it to and this
+     * module's wrapper does not ask, so a repository which relied on the cascade would leave every entry
+     * behind on one of the three supported drivers. That is the assertion on the entry count below: on
+     * this connection it is the cascade which is absent, not the rows.
+     *
+     * @throws \Exception
+     */
+    public function testDeletesAnUnopenedListTogetherWithTheEntriesItSeeded(): void
+    {
+        $this->createList(activate: false);
+        $this->entryRepository->seed(self::LIST_ID, self::CAPACITY);
+
+        $this->assertTrue($this->repository->deleteUnopened(self::LIST_ID));
+        $this->assertNull($this->repository->findByIdOnPrimary(self::LIST_ID));
+        $this->assertSame(0, $this->countEntryRows(self::LIST_ID));
+    }
+
+
+    /**
+     * A list's URI is handed out the moment it is opened, so an open list may already be named by a
+     * credential somewhere. Nothing this method does is allowed to reach one.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToDeleteAListWhichHasBeenOpened(): void
+    {
+        $this->createList();
+        $this->entryRepository->seed(self::LIST_ID, self::CAPACITY);
+
+        $this->assertFalse($this->repository->deleteUnopened(self::LIST_ID));
+        $this->assertNotNull($this->repository->findByIdOnPrimary(self::LIST_ID));
+        $this->assertSame(self::CAPACITY, $this->countEntryRows(self::LIST_ID));
+    }
+
+
+    /**
+     * A deactivated list was open once, which is the whole of the reason: it is not active now, so the
+     * active check alone would let it through, and it may well be named by credentials issued while it
+     * was.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToDeleteAListWhichWasOpenedAndThenDeactivated(): void
+    {
+        $this->createList();
+        $this->entryRepository->seed(self::LIST_ID, self::CAPACITY);
+        $this->repository->deactivate(self::LIST_ID);
+
+        $this->assertFalse($this->repository->deleteUnopened(self::LIST_ID));
+        $this->assertNotNull($this->repository->findByIdOnPrimary(self::LIST_ID));
+        $this->assertSame(self::CAPACITY, $this->countEntryRows(self::LIST_ID));
+    }
+
+
+    /**
+     * Which is also what a second call sees, so the operation is safe to repeat.
+     *
+     * @throws \Exception
+     */
+    public function testReportsNothingDeletedForAListWhichIsNotThere(): void
+    {
+        $this->assertFalse($this->repository->deleteUnopened(self::LIST_ID));
+    }
+
+
+    /**
+     * The counter is per list, and advisory: it decides when a pool is worth considering for rotation.
+     * A count which leaked between lists would rotate pools which had issued nothing.
+     *
+     * @throws \Exception
+     */
+    public function testCountsAnAllocationAgainstTheListItWasMadeIn(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+
+        $this->repository->incrementAllocatedCount(self::LIST_ID);
+        $this->repository->incrementAllocatedCount(self::LIST_ID);
+
+        $this->assertSame(2, $this->repository->findByIdOnPrimary(self::LIST_ID)?->getAllocatedCount());
+        $this->assertSame(0, $this->repository->findByIdOnPrimary(self::OTHER_LIST_ID)?->getAllocatedCount());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testInvalidatingAPublishedTokenClearsItsHashAndMovesTheCounter(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('a-content-hash'));
+
+        $this->repository->invalidatePublishedToken(self::LIST_ID);
+
+        $statusList = $this->repository->findByIdOnPrimary(self::LIST_ID);
+
+        $this->assertSame('', $statusList?->getSignedTokenContentHash());
+        $this->assertSame(1, $statusList?->getInvalidationCounter());
+    }
+
+
+    /**
+     * The counter moves even when there was nothing published to clear, and that is the point of it.
+     * Clearing an already empty hash says nothing, so a signer which read that empty hash before this
+     * call would still match it afterwards and publish a token built before the change -- and with this
+     * writer finished, nothing would clear it again. The counter is what that signer fails against.
+     *
+     * @throws \Exception
+     */
+    public function testInvalidatingMovesTheCounterEvenWithNothingPublished(): void
+    {
+        $this->createList();
+
+        $this->repository->invalidatePublishedToken(self::LIST_ID);
+
+        // Only the counter is asserted. A list is created with an empty hash, so an assertion that the
+        // hash is empty afterwards would hold whether or not this statement touched the row at all.
+        $this->assertSame(
+            1,
+            $this->repository->findByIdOnPrimary(self::LIST_ID)?->getInvalidationCounter(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testPublishesATokenWhoseSnapshotIsStillTheCurrentContent(): void
+    {
+        $this->createList();
+
+        $this->assertTrue($this->publish('a-content-hash'));
+
+        $statusList = $this->repository->findByIdOnPrimary(self::LIST_ID);
+
+        $this->assertSame('a.signed.token.for.a-content-hash', $statusList?->getSignedToken());
+        $this->assertSame('a-content-hash', $statusList?->getSignedTokenContentHash());
+        $this->assertSame(
+            '2026-08-01 09:00:00',
+            $statusList?->getSignedTokenIssuedAt()?->format('Y-m-d H:i:s'),
+        );
+    }
+
+
+    /**
+     * Two requests both found the token stale and both signed one. The first to arrive matches the hash
+     * it observed and publishes; the second no longer does, and must re-read rather than overwrite a
+     * token which is newer than the snapshot it signed over.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesATokenWhoseObservedContentHasSinceBeenReplaced(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('the-first-hash'));
+
+        // The second signer publishes against the empty hash it read before the first one arrived.
+        $this->assertFalse($this->publish('a-later-hash'));
+        $this->assertSame(
+            'a.signed.token.for.the-first-hash',
+            $this->repository->findByIdOnPrimary(self::LIST_ID)?->getSignedToken(),
+        );
+    }
+
+
+    /**
+     * The case the counter exists for, and the one the hash cannot decide on its own.
+     *
+     * An empty hash means both "never published" and "invalidated since". A signer which took its
+     * snapshot of an unpublished list, and had a revocation land while it was signing, observes the
+     * same empty hash afterwards as it did before -- so on the hash alone it would publish a token
+     * which predates the revocation, over a list which has just been revoked in.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesATokenWhoseSnapshotWasSupersededWhileTheHashStayedEmpty(): void
+    {
+        $this->createList();
+
+        // The signer reads an unpublished list: no hash, no invalidations yet. It begins signing.
+        // A revocation lands while it does, which leaves the hash exactly as the signer found it.
+        $this->repository->invalidatePublishedToken(self::LIST_ID);
+
+        $this->assertFalse($this->publish('a-content-hash', observedInvalidationCounter: 0));
+        $this->assertNull($this->repository->findByIdOnPrimary(self::LIST_ID)?->getSignedToken());
+    }
+
+
+    /**
+     * Re-signing content which has not changed compares a hash against itself, which settles nothing:
+     * two nodes refreshing the same unchanged list would both match, and both publish. Requiring the
+     * new issuance time to be strictly later leaves one winner.
+     *
+     * The guard is on this path only. Applied to publications which change the content, a node whose
+     * clock ran behind another's could not publish a revocation until its clock caught up.
+     *
+     * @throws \Exception
+     */
+    public function testRepublishingUnchangedContentNeedsAStrictlyLaterIssuanceTime(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('a-content-hash', issuedAt: '2026-08-01 09:00:00'));
+
+        $this->assertFalse(
+            $this->publish('a-content-hash', 'a-content-hash', 0, '2026-08-01 08:59:59'),
+            'A token issued before the published one replaced it.',
+        );
+        $this->assertFalse(
+            $this->publish('a-content-hash', 'a-content-hash', 0, '2026-08-01 09:00:00'),
+            'A token issued at the same moment as the published one replaced it.',
+        );
+        $this->assertTrue(
+            $this->publish('a-content-hash', 'a-content-hash', 0, '2026-08-01 09:00:01'),
+            'A token issued after the published one did not replace it.',
+        );
+
+        $this->assertSame(
+            '2026-08-01 09:00:01',
+            $this->repository->findByIdOnPrimary(self::LIST_ID)?->getSignedTokenIssuedAt()?->format('Y-m-d H:i:s'),
+        );
+    }
+
+
+    /**
+     * A list with nothing published has nothing for the reconciler to check.
+     *
+     * @throws \Exception
+     */
+    public function testOffersOnlyListsWhichHaveSomethingPublished(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+        $this->assertTrue($this->publish('a-content-hash'));
+
+        $published = $this->repository->findPublished(10);
+
+        $this->assertCount(1, $published);
+        $this->assertSame(self::LIST_ID, $published[0]->getId());
+    }
+
+
+    /**
+     * A retired list keeps being served until its entries are purged, but its content can no longer
+     * change, so there is nothing for the reconciler to find and re-checking it every pass is waste.
+     *
+     * The row is put into this state directly rather than by retiring a list, and that is the whole
+     * point of the test. Retirement clears the published token on its way past, so a list retired
+     * through the repository is already excluded by its empty hash, and a test which went that way
+     * could not tell whether the retirement condition does any work of its own. This one can.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotOfferListsWhichHaveBeenRetired(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('a-content-hash'));
+        $this->stampRetirement(self::LIST_ID, '2026-08-02 09:00:00');
+
+        $this->assertSame([], $this->repository->findPublished(10));
+    }
+
+
+    /**
+     * Paged by the last identifier seen rather than by an offset, because the caller invalidates some
+     * of the rows it is given and that removes them from this result set. An offset would step over
+     * exactly as many unexamined lists as were invalidated.
+     *
+     * @throws \Exception
+     */
+    public function testPagesPublishedListsByTheLastIdentifierSeen(): void
+    {
+        $ids = ['list-a', 'list-b', 'list-c'];
+
+        foreach ($ids as $generation => $id) {
+            $this->createList($id, $generation + 1);
+            $this->assertTrue($this->publish('a-content-hash', id: $id));
+        }
+
+        $firstPage = $this->repository->findPublished(2);
+        $this->assertSame(
+            ['list-a', 'list-b'],
+            array_map(static fn(StatusListReconciliationCandidate $c): string => $c->getId(), $firstPage),
+        );
+
+        $secondPage = $this->repository->findPublished(2, $firstPage[1]->getId());
+        $this->assertSame(
+            ['list-c'],
+            array_map(static fn(StatusListReconciliationCandidate $c): string => $c->getId(), $secondPage),
+        );
+
+        // The cursor resumes strictly after the identifier it was given, so the reconciler cannot be
+        // handed the same list twice and cannot loop on it.
+        $this->assertSame([], $this->repository->findPublished(2, 'list-c'));
+    }
+
+
+    /**
+     * The limit reaches the statement interpolated rather than bound, because MySQL rejects a bound
+     * LIMIT while PDO emulates prepared statements. It is clamped on the way past, so a caller which
+     * asked for nothing gets nothing rather than a statement which will not parse.
+     *
+     * @throws \Exception
+     */
+    public function testAsksTheDatabaseForNothingWhenNothingWasAskedFor(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('a-content-hash'));
+
+        $this->assertSame([], $this->repository->findPublished(0));
+        $this->assertSame([], $this->repository->findPublished(-1));
+    }
+
+
+    /**
+     * Only the columns the reconciler compares are read. A row carries its published token, which for
+     * an eight bit list at the default capacity is a couple of hundred kilobytes, and reading whole
+     * rows would move tens of megabytes a batch for a check which never looks at one.
+     *
+     * @throws \Exception
+     */
+    public function testCarriesEveryColumnTheReconcilerComparesAgainst(): void
+    {
+        // Three of the columns this statement names are integers: bits, capacity and the
+        // invalidation counter. The row holds nine integer columns counting the active flag, so each
+        // of the three is given a value none of the rest holds -- a statement naming the wrong column
+        // reads exactly like one naming the right column for as long as the two agree. Four bits
+        // rather than the usual one is what that costs here, the active flag of an opened list being
+        // stored as 1 and bits having been 1 as well.
+        $this->createList(self::LIST_ID, 7, bits: 4);
+        $this->assertTrue($this->publish('a-content-hash'));
+        $this->repository->invalidatePublishedToken(self::LIST_ID);
+        $this->repository->invalidatePublishedToken(self::LIST_ID);
+        $this->assertTrue($this->publish('a-later-hash', observedInvalidationCounter: 2));
+
+        $candidate = $this->repository->findPublished(10)[0];
+
+        $this->assertSame(self::LIST_ID, $candidate->getId());
+        $this->assertSame(4, $candidate->getBits());
+        $this->assertSame(self::CAPACITY, $candidate->getCapacity());
+        $this->assertSame('a-later-hash', $candidate->getSignedTokenContentHash());
+        $this->assertSame(2, $candidate->getInvalidationCounter());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testClearsAPublishedTokenWhichIsStillTheOneThatWasExamined(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('a-content-hash'));
+
+        $this->assertTrue(
+            $this->repository->invalidatePublishedTokenIfUnchanged(self::LIST_ID, 'a-content-hash', 0),
+        );
+
+        $statusList = $this->repository->findByIdOnPrimary(self::LIST_ID);
+
+        $this->assertSame('', $statusList?->getSignedTokenContentHash());
+        // Moved for the reason the unconditional invalidation moves it: a signer which read the token
+        // this call just cleared must not match the row it has been left with.
+        $this->assertSame(1, $statusList?->getInvalidationCounter());
+    }
+
+
+    /**
+     * The case the counter decides, and the one the hash cannot.
+     *
+     * Between the reconciler's read and its decision, a revocation cleared the token it examined and a
+     * signer published a new one over the same content. The hash on the row is therefore the hash the
+     * reconciler saw, while what it saw is two publications out of date -- so on the hash alone it
+     * would clear a token which is correct, and could go on defeating an in-flight signer indefinitely.
+     *
+     * @throws \Exception
+     */
+    public function testLeavesAPublishedTokenWhoseContentCameBackAfterAnInvalidation(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('the-examined-hash'));
+
+        $this->repository->invalidatePublishedToken(self::LIST_ID);
+        $this->assertTrue($this->publish('the-examined-hash', observedInvalidationCounter: 1));
+
+        $this->assertFalse(
+            $this->repository->invalidatePublishedTokenIfUnchanged(self::LIST_ID, 'the-examined-hash', 0),
+        );
+        $this->assertSame(
+            'the-examined-hash',
+            $this->repository->findByIdOnPrimary(self::LIST_ID)?->getSignedTokenContentHash(),
+        );
+    }
+
+
+    /**
+     * The same decision made on the hash, which is the half a replaced token trips.
+     *
+     * @throws \Exception
+     */
+    public function testLeavesAPublishedTokenWhichWasReplacedSinceItWasExamined(): void
+    {
+        $this->createList();
+        $this->assertTrue($this->publish('the-examined-hash'));
+
+        // A signer publishes between the reconciler's read and its decision.
+        $this->assertTrue($this->publish('a-newer-hash', observedContentHash: 'the-examined-hash'));
+
+        $this->assertFalse(
+            $this->repository->invalidatePublishedTokenIfUnchanged(self::LIST_ID, 'the-examined-hash', 0),
+        );
+        $this->assertSame(
+            'a-newer-hash',
+            $this->repository->findByIdOnPrimary(self::LIST_ID)?->getSignedTokenContentHash(),
+        );
     }
 }
