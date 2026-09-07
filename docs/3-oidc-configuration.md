@@ -119,7 +119,7 @@ $config = [
             'description' => 'private scope',
             'claim_name_prefix' => '',
             'are_multiple_claim_values_allowed' => false,
-            'attributes' => ['national_document_id'],
+            'claims' => ['national_document_id'],
         ],
     ],
 ];
@@ -154,6 +154,10 @@ $config = [
     ],
 ];
 ```
+
+To expose newly created or custom claims in the UserInfo endpoint or ID token,
+they must also be assigned to a custom scope in `OPTION_AUTH_CUSTOM_SCOPES`,
+enabled for the client, and requested by the client.
 
 ## Auth Proc filters (OIDC)
 
