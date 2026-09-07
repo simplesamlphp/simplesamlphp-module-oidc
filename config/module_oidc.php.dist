@@ -307,6 +307,13 @@ $config = [
     /**
      * The default translate table from SAML attributes to OIDC claims. If you
      * don't want to support a specific default claim, set it to an empty array.
+     *
+     * Note: Standard claims are automatically associated with standard scopes
+     * (e.g. 'profile', 'email'). If you define custom (non-standard) claims
+     * here, you must also assign them to a custom scope in
+     * `ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES`, enable that scope for the
+     * client, and have the client request it in order to expose them in the
+     * UserInfo endpoint or ID token.
      */
     ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
         /*
@@ -408,7 +415,9 @@ $config = [
 //            'attributes' => [],
 //        ],
         /*
-         * Optional scopes attributes
+         * Custom / non-standard claims.
+         * To expose these claims, assign them to a custom scope in `OPTION_AUTH_CUSTOM_SCOPES` below,
+         * enable that scope on the client, and request it in the authorization request.
          */
 //        'national_document_id' => [
 //            'schacPersonalUniqueId',

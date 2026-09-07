@@ -603,6 +603,10 @@ $config = [
 ];
 ```
 
+To expose newly created or custom claims in the UserInfo endpoint or ID token,
+they must also be assigned to a custom scope in `OPTION_AUTH_CUSTOM_SCOPES`,
+enabled for the client, and requested by the client.
+
 ## Authentication Processing filters (OIDC)
 
 Standard SAML Auth Proc Filters do not run during OIDC authN because not
