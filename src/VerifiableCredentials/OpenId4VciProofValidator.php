@@ -621,10 +621,12 @@ class OpenId4VciProofValidator
                 // authenticate with, which is the whole point of the relationship existing. Passing no
                 // relationship is not the looser option either: it searches the document's own
                 // `verificationMethod` entries only, so it would newly reject a key embedded inline
-                // under `authentication`, which DID Core permits and real documents use. And no wallet
-                // is affected, because the only method this can turn away is `did:web` - the locally
-                // built `did:jwk` and `did:key` documents list a signing key under `authentication`
-                // already - and `did:web` is not accepted at all before this step.
+                // under `authentication`, which DID Core permits and real documents use. And the
+                // holders it does turn away are the ones it should: only a `did:web` holder can be,
+                // since the locally built `did:jwk` and `did:key` documents list a signature key
+                // under `authentication` already, and the `did:web` one refused is the one whose own
+                // document declines to say that key authenticates. Refusing it under every
+                // proof-bound policy rather than only the DIIP one is the point, not a side effect.
                 VerificationRelationshipEnum::Authentication,
             );
         } catch (Throwable $throwable) {
