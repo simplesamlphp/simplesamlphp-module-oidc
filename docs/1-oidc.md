@@ -244,6 +244,22 @@ advertise `require_pushed_authorization_requests` as `true`, which here means
 setting `OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS` — off by default. See
 [Configuration](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects).
 
+A second setting off by default decides whether credentials expire at all. The
+profile's requirement here is on *checking* `validFrom` and `validUntil`, which
+is a verifier's action and so outside this module's role, but it also recommends
+that issuers set an expiration wherever they can — and
+`OPTION_VCI_CREDENTIAL_TTLS` names no credential configuration until one is
+added, so by default nothing issued carries an expiry. Each format states the
+window in the vocabulary of its own data model: `vc+sd-jwt` uses `validFrom` and
+`validUntil`, `jwt_vc_json` declares the VCDM 1.1 context and so uses
+`issuanceDate` and `expirationDate`, and `dc+sd-jwt` uses the JWT `nbf`; all
+three carry `exp` once a lifetime is set. A `jwt_vc_json` or `dc+sd-jwt`
+credential will therefore never carry `validUntil`, which is its data model
+rather than a gap — but one issued from a configuration with no lifetime carries
+no expiry at all, in any of the three. See [Credential
+expiry](3-oidc-configuration.md#credential-expiry), which also covers why a
+credential that never expires holds its Status List open for good.
+
 Most of the profile's requirements are worded as *"MUST support"* — capabilities
 an implementation has to have, rather than a list of things it may not otherwise
 do, which is the same reading applied to the `iss` claim above. So the question
