@@ -16,7 +16,7 @@ use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
  * has expired, is the link back to it -- the credential ID, its hash, the subject reference and the
  * configuration -- leaving behind only the index and its status.
  *
- * @see \SimpleSAML\Test\Module\oidc\unit\StatusList\StatusListEntryRecordTest
+ * @see \SimpleSAML\Test\Module\oidc\unit\StatusList\Values\StatusListEntryRecordTest
  */
 class StatusListEntryRecord
 {

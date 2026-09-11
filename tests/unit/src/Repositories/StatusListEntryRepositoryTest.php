@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use PDO;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -173,6 +175,19 @@ class StatusListEntryRepositoryTest extends TestCase
             $expiresAt,
             $issuedAt ?? new DateTimeImmutable('2026-08-07 12:00:00'),
         );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function updateStatus(
+        int $idx,
+        StatusTypeEnum $observed,
+        StatusTypeEnum $new,
+        string $statusListId = self::LIST_ID,
+    ): bool {
+        return $this->repository->updateStatus($statusListId, $idx, $observed->value, $new->value);
     }
 
 
@@ -758,6 +773,285 @@ class StatusListEntryRepositoryTest extends TestCase
 
 
     /**
+     * The lookup every status change begins with: `CredentialStatusService` is handed a credential
+     * identifier, hashes it, and asks for the entry -- and the entry has to carry everything the service
+     * then acts on, including the expiry which decides whether it still can.
+     *
+     * @throws \Exception
+     */
+    public function testFindsAnAllocatedEntryByTheHashOfItsCredentialIdentifier(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $issuedAt = new DateTimeImmutable('2026-01-01 09:00:00');
+        $expiresAt = new DateTimeImmutable('2027-06-01 09:00:00');
+        $this->allocate(5, 'urn:vc:one', 'a-subject-ref', $issuedAt, $expiresAt);
+        $this->allocate(6, 'urn:vc:two', 'another-subject-ref', $issuedAt, $expiresAt);
+
+        $entry = $this->repository->findByCredentialIdHash($this->repository->hashCredentialId('urn:vc:one'));
+
+        $this->assertInstanceOf(StatusListEntryRecord::class, $entry);
+        $this->assertSame(self::LIST_ID, $entry->getStatusListId());
+        $this->assertSame(5, $entry->getIdx());
+        $this->assertTrue($entry->isAllocated());
+        $this->assertSame(StatusTypeEnum::Valid->value, $entry->getStatus());
+        $this->assertSame('urn:vc:one', $entry->getCredentialId());
+        $this->assertSame($this->repository->hashCredentialId('urn:vc:one'), $entry->getCredentialIdHash());
+        $this->assertSame(self::CONFIGURATION_ID, $entry->getCredentialConfigurationId());
+        $this->assertSame('a-subject-ref', $entry->getSubjectRef());
+        $this->assertSame($issuedAt->getTimestamp(), $entry->getIssuedAt()?->getTimestamp());
+        $this->assertSame($expiresAt->getTimestamp(), $entry->getExpiresAt()?->getTimestamp());
+    }
+
+
+    /**
+     * The column carrying the identifier itself is unindexed text which nothing looks up by, so the
+     * identifier finds nothing where its hash finds the entry. A caller which forgot to hash gets a
+     * miss, not a slow hit.
+     *
+     * @throws \Exception
+     */
+    public function testFindsNothingByAHashWhichNoEntryCarries(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:one');
+
+        $this->assertNull($this->repository->findByCredentialIdHash('urn:vc:one'));
+        $this->assertNull($this->repository->findByCredentialIdHash($this->repository->hashCredentialId('urn:vc:two')));
+    }
+
+
+    /**
+     * Once the linkage is cleared there is no hash left to find the entry by, and that is the bargain:
+     * the record of who was issued what lasts exactly as long as the credential can be presented. The
+     * entry itself is still there under its list and index, still allocated, and still carries the
+     * status it ended on -- which the published list goes on reporting.
+     *
+     * @throws \Exception
+     */
+    public function testNoLongerFindsAnEntryByHashOnceItsLinkageHasBeenCleared(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->allocate(
+            2,
+            'urn:vc:expired',
+            'a-subject-ref',
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2026-06-01 09:00:00'),
+        );
+        $this->updateStatus(2, StatusTypeEnum::Valid, StatusTypeEnum::Invalid);
+        $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $this->assertNull(
+            $this->repository->findByCredentialIdHash($this->repository->hashCredentialId('urn:vc:expired')),
+        );
+
+        $entry = $this->repository->findByListAndIdx(self::LIST_ID, 2);
+
+        $this->assertInstanceOf(StatusListEntryRecord::class, $entry);
+        $this->assertTrue($entry->isAllocated());
+        $this->assertSame(StatusTypeEnum::Invalid->value, $entry->getStatus());
+        $this->assertNull($entry->getCredentialId());
+        $this->assertNull($entry->getCredentialIdHash());
+        $this->assertNull($entry->getCredentialConfigurationId());
+        $this->assertNull($entry->getSubjectRef());
+        $this->assertSame(
+            [2 => StatusTypeEnum::Invalid->value],
+            $this->repository->findNonValidStatuses(self::LIST_ID),
+        );
+    }
+
+
+    /**
+     * The index is only unique within its list, so the same index in another list is another entry.
+     *
+     * @throws \Exception
+     */
+    public function testFindsAnEntryByItsListAndIndex(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+        $this->allocate(3, 'urn:vc:one', 'a-subject-ref');
+        $this->allocate(3, 'urn:vc:other', null, null, null, self::OTHER_LIST_ID);
+
+        $entry = $this->repository->findByListAndIdx(self::LIST_ID, 3);
+
+        $this->assertInstanceOf(StatusListEntryRecord::class, $entry);
+        $this->assertSame(self::LIST_ID, $entry->getStatusListId());
+        $this->assertSame(3, $entry->getIdx());
+        $this->assertTrue($entry->isAllocated());
+        $this->assertSame('urn:vc:one', $entry->getCredentialId());
+        $this->assertSame(self::CONFIGURATION_ID, $entry->getCredentialConfigurationId());
+        $this->assertSame('a-subject-ref', $entry->getSubjectRef());
+        $this->assertTrue($entry->isNonExpiring());
+
+        $this->assertSame(
+            'urn:vc:other',
+            $this->repository->findByListAndIdx(self::OTHER_LIST_ID, 3)?->getCredentialId(),
+        );
+    }
+
+
+    /**
+     * Every index exists as a row from the moment the list is created, so an index nothing was issued
+     * at is found, and found unallocated. An index the list does not have at all is not found, and
+     * `DbStatusUpdater::requireAllocatedEntry()` reports the two differently.
+     *
+     * @throws \Exception
+     */
+    public function testFindsANeverAllocatedIndexAsAnUnallocatedEntry(): void
+    {
+        $this->createList();
+
+        $entry = $this->repository->findByListAndIdx(self::LIST_ID, self::CAPACITY - 1);
+
+        $this->assertInstanceOf(StatusListEntryRecord::class, $entry);
+        $this->assertSame(self::CAPACITY - 1, $entry->getIdx());
+        $this->assertFalse($entry->isAllocated());
+        $this->assertSame(StatusTypeEnum::Valid->value, $entry->getStatus());
+        $this->assertNull($entry->getCredentialId());
+        $this->assertNull($entry->getCredentialIdHash());
+        $this->assertNull($entry->getCredentialConfigurationId());
+        $this->assertNull($entry->getSubjectRef());
+        $this->assertNull($entry->getIssuedAt());
+        $this->assertNull($entry->getUpdatedAt());
+        $this->assertTrue($entry->isNonExpiring());
+
+        $this->assertNull($this->repository->findByListAndIdx(self::LIST_ID, self::CAPACITY));
+        $this->assertNull($this->repository->findByListAndIdx('no-such-list', 0));
+    }
+
+
+    /**
+     * Conditioned on the status the caller observed. The second of two changes racing each other finds
+     * the status is no longer what it read and gets false back, rather than overwriting the first; a
+     * caller which observed what is there now gets through.
+     *
+     * @throws \Exception
+     */
+    public function testChangesAStatusOnlyFromTheStatusTheCallerObserved(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:one');
+
+        $this->assertTrue($this->updateStatus(0, StatusTypeEnum::Valid, StatusTypeEnum::Invalid));
+        $this->assertSame(StatusTypeEnum::Invalid->value, (int)$this->readEntry(0)['status']);
+
+        $this->assertFalse($this->updateStatus(0, StatusTypeEnum::Valid, StatusTypeEnum::Suspended));
+        $this->assertSame(StatusTypeEnum::Invalid->value, (int)$this->readEntry(0)['status']);
+
+        $this->assertTrue($this->updateStatus(0, StatusTypeEnum::Invalid, StatusTypeEnum::Suspended));
+        $this->assertSame(StatusTypeEnum::Suspended->value, (int)$this->readEntry(0)['status']);
+    }
+
+
+    /**
+     * An index nothing was issued at has a status too -- Valid, from the seed -- and it has to stay out
+     * of reach: a status written there would be published for a credential which does not exist.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToChangeTheStatusOfAnUnallocatedIndex(): void
+    {
+        $this->createList();
+
+        $this->assertFalse($this->updateStatus(0, StatusTypeEnum::Valid, StatusTypeEnum::Invalid));
+        $this->assertSame(StatusTypeEnum::Valid->value, (int)$this->readEntry(0)['status']);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testStampsTheMomentOfAStatusChange(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:one', null, new DateTimeImmutable('2026-01-01 09:00:00'));
+
+        $before = $this->helpers->dateTime()->getUtc()->getTimestamp();
+        $this->updateStatus(0, StatusTypeEnum::Valid, StatusTypeEnum::Invalid);
+        $after = $this->helpers->dateTime()->getUtc()->getTimestamp();
+
+        $updatedAt = $this->repository->findByListAndIdx(self::LIST_ID, 0)?->getUpdatedAt()?->getTimestamp();
+
+        $this->assertGreaterThanOrEqual($before, $updatedAt);
+        $this->assertLessThanOrEqual($after, $updatedAt);
+    }
+
+
+    /**
+     * What a published list is rebuilt from. Every index the answer leaves out is Valid, which includes
+     * the ones never allocated, so the answer names only the exceptions -- in index order, which is the
+     * query's promise. The content hasher sorts for itself rather than rely on it, so what is pinned
+     * here is the query, not anything downstream.
+     *
+     * @throws \Exception
+     */
+    public function testReportsTheNonValidStatusesByIndexInIndexOrder(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+
+        for ($idx = 0; $idx < 6; $idx++) {
+            $this->allocate($idx, 'urn:vc:' . $idx);
+        }
+
+        $this->allocate(0, 'urn:vc:other', null, null, null, self::OTHER_LIST_ID);
+
+        $this->assertSame([], $this->repository->findNonValidStatuses(self::LIST_ID));
+
+        // Changed out of index order, so that the order of the answer is the query's doing.
+        $this->updateStatus(5, StatusTypeEnum::Valid, StatusTypeEnum::Invalid);
+        $this->updateStatus(1, StatusTypeEnum::Valid, StatusTypeEnum::Suspended);
+        $this->updateStatus(3, StatusTypeEnum::Valid, StatusTypeEnum::Invalid);
+        $this->updateStatus(0, StatusTypeEnum::Valid, StatusTypeEnum::Invalid, self::OTHER_LIST_ID);
+
+        $this->assertSame(
+            [
+                1 => StatusTypeEnum::Suspended->value,
+                3 => StatusTypeEnum::Invalid->value,
+                5 => StatusTypeEnum::Invalid->value,
+            ],
+            $this->repository->findNonValidStatuses(self::LIST_ID),
+        );
+    }
+
+
+    /**
+     * The count is of indices handed out, per list, and it does not go down when a credential expires
+     * and its linkage is cleared: the index stays taken, which is the whole reason rows are kept.
+     *
+     * @throws \Exception
+     */
+    public function testCountsTheAllocatedIndicesOfOneList(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->createList(self::OTHER_LIST_ID, 2);
+
+        $this->assertSame(0, $this->repository->countAllocated(self::LIST_ID));
+
+        for ($idx = 0; $idx < 3; $idx++) {
+            $this->allocate(
+                $idx,
+                'urn:vc:' . $idx,
+                null,
+                new DateTimeImmutable('2026-01-01 09:00:00'),
+                new DateTimeImmutable('2026-06-01 09:00:00'),
+            );
+        }
+
+        $this->allocate(0, 'urn:vc:other', null, null, null, self::OTHER_LIST_ID);
+
+        $this->assertSame(3, $this->repository->countAllocated(self::LIST_ID));
+        $this->assertSame(1, $this->repository->countAllocated(self::OTHER_LIST_ID));
+        $this->assertSame(0, $this->repository->countAllocated('no-such-list'));
+
+        $this->assertSame(3, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10));
+
+        $this->assertSame(3, $this->repository->countAllocated(self::LIST_ID));
+    }
+
+
+    /**
      * A repository whose statements are collected instead of run.
      *
      * The tests above use a real SQLite, which has allowed 32766 bound variables since 3.32 -- so a
@@ -769,7 +1063,8 @@ class StatusListEntryRepositoryTest extends TestCase
      * checked as well: a method which returned the count of only its last statement would be caught.
      *
      * @param list<array<string,mixed>> $bindings Filled with the parameters of every statement written.
-     * @param array<array<string,mixed>> $selected Rows the repository is told it selected.
+     * @param array<array-key,mixed> $selected Rows the repository is told it selected -- or whatever else a
+     * driver might hand back, since the tests of the malformed-row guards pass things which are not rows.
      */
     protected function repositoryCollectingStatements(
         array &$bindings,
@@ -861,5 +1156,137 @@ class StatusListEntryRepositoryTest extends TestCase
         // The rows are in several statements only because of how many one can bind, so they are still
         // one clearing and still carry one moment.
         $this->assertCount(1, array_unique($moments));
+    }
+
+
+    /**
+     * A bound of nothing is honoured before anything is asked of the database: no select to find rows
+     * which will not be touched, and no statement naming none of them.
+     *
+     * @throws \Exception
+     */
+    public function testALimitBelowOneIssuesNoStatementAtAll(): void
+    {
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->expects($this->never())->method('readPrimary');
+        $databaseMock->expects($this->never())->method('write');
+
+        $repository = new StatusListEntryRepository($this->moduleConfigMock, $databaseMock, null, $this->helpers);
+        $now = new DateTimeImmutable('2026-08-07 12:00:00');
+
+        $this->assertSame(0, $repository->clearExpiredLinkage($now, 0));
+        $this->assertSame(0, $repository->clearExpiredLinkage($now, -1));
+        $this->assertSame(0, $repository->deleteRetiredEntries(self::LIST_ID, 0));
+        $this->assertSame(0, $repository->deleteRetiredEntries(self::LIST_ID, -1));
+    }
+
+
+    /**
+     * The select is the repository's own, so a row it cannot identify is not something production
+     * produces; the guard is for a driver returning a shape nothing here expects. What it must not do
+     * is name a row it cannot identify, so only the rows carrying a list and a numeric index reach the
+     * update, and the numeric one may be a string, as some drivers return it.
+     *
+     * @throws \Exception
+     */
+    public function testClearsOnlyTheLinkageOfRowsItCanIdentify(): void
+    {
+        $selected = [
+            ['status_list_id' => self::LIST_ID, 'idx' => 0],
+            'not a row',
+            ['status_list_id' => self::LIST_ID],
+            ['status_list_id' => self::LIST_ID, 'idx' => 'three'],
+            ['status_list_id' => ['not', 'scalar'], 'idx' => 4],
+            ['status_list_id' => null, 'idx' => 5],
+            ['status_list_id' => self::LIST_ID, 'idx' => '6'],
+        ];
+
+        $bindings = [];
+        $cleared = $this->repositoryCollectingStatements($bindings, $selected)
+            ->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $this->assertSame(2, $cleared);
+        $this->assertCount(1, $bindings);
+        $this->assertSame(self::LIST_ID, $bindings[0]['list_0']);
+        $this->assertSame([0, PDO::PARAM_INT], $bindings[0]['idx_0']);
+        $this->assertSame(self::LIST_ID, $bindings[0]['list_1']);
+        $this->assertSame([6, PDO::PARAM_INT], $bindings[0]['idx_1']);
+        $this->assertArrayNotHasKey('idx_2', $bindings[0]);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testClearsNothingAndWritesNothingWhenNoSelectedRowCanBeIdentified(): void
+    {
+        $bindings = [];
+        $cleared = $this->repositoryCollectingStatements($bindings, ['not a row', ['idx' => 'three']])
+            ->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $this->assertSame(0, $cleared);
+        $this->assertSame([], $bindings);
+    }
+
+
+    /**
+     * The same guard on the read which rebuilds a list: a row without a numeric index and a numeric
+     * status is left out rather than written into the list at whatever `(int)` makes of it, and a
+     * driver returning both as strings is read as the integers it means.
+     *
+     * @throws \Exception
+     */
+    public function testReportsOnlyTheNonValidStatusesItCanRead(): void
+    {
+        $selected = [
+            ['idx' => 3, 'status' => 1],
+            'not a row',
+            ['idx' => 4],
+            ['status' => 2],
+            ['idx' => 'five', 'status' => 1],
+            ['idx' => 6, 'status' => 'two'],
+            ['idx' => '7', 'status' => '2'],
+        ];
+
+        $bindings = [];
+
+        $this->assertSame(
+            [3 => 1, 7 => 2],
+            $this->repositoryCollectingStatements($bindings, $selected)->findNonValidStatuses(self::LIST_ID),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{array<array-key,mixed>,int}>
+     */
+    public static function allocatedTotalProvider(): array
+    {
+        return [
+            'an integer' => [[['allocated_total' => 3]], 3],
+            'a string of digits, as PDO returns one' => [[['allocated_total' => '3']], 3],
+            'no rows' => [[], 0],
+            'a row without the column' => [[['entry_total' => 3]], 0],
+            'a total which is not a number' => [[['allocated_total' => 'three']], 0],
+            'a null total' => [[['allocated_total' => null]], 0],
+        ];
+    }
+
+
+    /**
+     * A count which cannot be read is zero rather than an error, which is the reading every count in
+     * this repository makes.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('allocatedTotalProvider')]
+    public function testReadsTheAllocatedTotalAsTheDriverReturnsIt(array $selected, int $expected): void
+    {
+        $bindings = [];
+
+        $this->assertSame(
+            $expected,
+            $this->repositoryCollectingStatements($bindings, $selected)->countAllocated(self::LIST_ID),
+        );
     }
 }
