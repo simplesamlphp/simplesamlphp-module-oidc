@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList\Values;
 
+use DateInterval;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -46,17 +47,84 @@ class StatusListPoolTest extends TestCase
     }
 
 
+    /**
+     * The refusals are written for the operator, most of them naming the key to raise, lower or set,
+     * so the reason is pinned whole rather than the refusal alone.
+     *
+     * @param callable(): \SimpleSAML\Module\oidc\StatusList\Values\StatusListPool $build
+     */
+    protected function assertRefusedBecause(string $reason, callable $build): void
+    {
+        try {
+            $build();
+        } catch (ConfigurationError $e) {
+            $this->assertSame($reason, $e->getReason());
+            return;
+        }
+
+        $this->fail('A ConfigurationError was expected.');
+    }
+
+
     public function testAppliesDefaultsForEverythingNotConfigured(): void
     {
         $pool = $this->sut();
 
         $this->assertSame(StatusListPool::DEFAULT_BITS, $pool->getBits());
         $this->assertSame(StatusListPool::DEFAULT_CAPACITY, $pool->getCapacity());
+        $this->assertSame([StatusTypeEnum::Valid, StatusTypeEnum::Invalid], $pool->getAllowedStatuses());
+        $this->assertSame('0,1', $pool->getAllowedStatusesAsString());
+        $this->assertEquals(new DateInterval(StatusListPool::DEFAULT_TTL), $pool->getTtl());
         $this->assertSame(43200, $pool->getTtlInSeconds());
+        $this->assertEquals(new DateInterval(StatusListPool::DEFAULT_TOKEN_VALIDITY), $pool->getTokenValidity());
         $this->assertSame(604800, $pool->getTokenValidityInSeconds());
+        $this->assertEquals(new DateInterval(StatusListPool::DEFAULT_REFRESH_INTERVAL), $pool->getRefreshInterval());
         $this->assertSame(3600, $pool->getRefreshIntervalInSeconds());
         $this->assertSame(StatusListKeyProfileEnum::DidJwk, $pool->getKeyProfile());
-        $this->assertSame(['SomeCredential'], $pool->getCredentialConfigurationIds());
+        $this->assertNull($pool->getIssuerIdentifier());
+    }
+
+
+    public function testExposesTheConfiguredValuesAsGiven(): void
+    {
+        $pool = $this->sut([
+            StatusListPool::KEY_BITS => 2,
+            StatusListPool::KEY_CAPACITY => 1024,
+            StatusListPool::KEY_TTL => 'PT6H',
+            StatusListPool::KEY_TOKEN_VALIDITY => 'P14D',
+            StatusListPool::KEY_REFRESH_INTERVAL => 'PT30M',
+        ]);
+
+        $this->assertSame(self::POOL_ID, $pool->getId());
+        $this->assertSame(2, $pool->getBits());
+        $this->assertSame(1024, $pool->getCapacity());
+        $this->assertEquals(new DateInterval('PT6H'), $pool->getTtl());
+        $this->assertSame(21600, $pool->getTtlInSeconds());
+        $this->assertEquals(new DateInterval('P14D'), $pool->getTokenValidity());
+        $this->assertSame(1209600, $pool->getTokenValidityInSeconds());
+        $this->assertEquals(new DateInterval('PT30M'), $pool->getRefreshInterval());
+        $this->assertSame(1800, $pool->getRefreshIntervalInSeconds());
+    }
+
+
+    public function testKeepsTheAllowedStatusesValidFirstThenAsConfiguredEachOnce(): void
+    {
+        $pool = $this->sut([
+            StatusListPool::KEY_BITS => 2,
+            StatusListPool::KEY_ALLOWED_STATUSES => [
+                StatusTypeEnum::Suspended,
+                StatusTypeEnum::Valid,
+                StatusTypeEnum::Invalid,
+                StatusTypeEnum::Invalid,
+            ],
+        ]);
+
+        $this->assertSame(
+            [StatusTypeEnum::Valid, StatusTypeEnum::Suspended, StatusTypeEnum::Invalid],
+            $pool->getAllowedStatuses(),
+        );
+        // The persisted form sorts them regardless of that order.
+        $this->assertSame('0,1,2', $pool->getAllowedStatusesAsString());
     }
 
 
@@ -100,10 +168,14 @@ class StatusListPoolTest extends TestCase
      */
     public function testRejectsTheDidWebProfileWithNoIssuerIdentifier(): void
     {
-        $this->expectException(ConfigurationError::class);
-        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER);
-
-        $this->sut([StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb]);
+        $this->assertRefusedBecause(
+            'Status List pool "default" signs under the "did_web" key profile, which names the issuer by ' .
+            'a `did:web` identifier, but "' . ModuleConfig::OPTION_VCI_ISSUER_DID_IDENTIFIER . '" is not ' .
+            'set. Set it, or move the pool to another "key_profile".',
+            fn (): StatusListPool => $this->sut(
+                [StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::DidWeb],
+            ),
+        );
     }
 
 
@@ -141,19 +213,75 @@ class StatusListPoolTest extends TestCase
 
     public function testRejectsAnUnknownKeyProfile(): void
     {
-        $this->expectException(ConfigurationError::class);
-        $this->expectExceptionMessage(StatusListPool::KEY_KEY_PROFILE);
+        $this->assertRefusedBecause(
+            'Status List pool "default" has a "key_profile" which is not one of: did_jwk, did_web, jwks.',
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_KEY_PROFILE => 'x509']),
+        );
+    }
 
-        $this->sut([StatusListPool::KEY_KEY_PROFILE => 'x509']);
+
+    public function testRejectsAnEmptyPoolIdentifier(): void
+    {
+        $this->assertRefusedBecause(
+            'Status List pool identifier must not be empty.',
+            fn (): StatusListPool => StatusListPool::fromConfig(
+                '',
+                [StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['SomeCredential']],
+                StatusListKeyProfileEnum::DidJwk,
+            ),
+        );
     }
 
 
     public function testRejectsAPoolWithNoCredentialConfigurations(): void
     {
-        $this->expectException(ConfigurationError::class);
-        $this->expectExceptionMessage(StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS);
+        $this->assertRefusedBecause(
+            'Status List pool "default" lists no credential configurations, so nothing would ever ' .
+            'allocate from it. Remove the pool, or add the credential configuration IDs which should use ' .
+            'it under "credential_configurations".',
+            fn (): StatusListPool => StatusListPool::fromConfig(
+                self::POOL_ID,
+                [],
+                StatusListKeyProfileEnum::DidJwk,
+            ),
+        );
+    }
 
-        StatusListPool::fromConfig(self::POOL_ID, [], StatusListKeyProfileEnum::DidJwk);
+
+    public function testRejectsCredentialConfigurationsWhichAreNotAnArray(): void
+    {
+        $this->assertRefusedBecause(
+            'Status List pool "default" has a "credential_configurations" which is not an array.',
+            fn (): StatusListPool => $this->sut(
+                [StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => 'SomeCredential'],
+            ),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{array<array-key,mixed>}>
+     */
+    public static function credentialConfigurationIdWhichIsNotANonEmptyStringProvider(): array
+    {
+        return [
+            'an integer' => [[42]],
+            'an empty string beside a proper one' => [['SomeCredential', '']],
+        ];
+    }
+
+
+    /**
+     * @param array<array-key,mixed> $ids
+     */
+    #[DataProvider('credentialConfigurationIdWhichIsNotANonEmptyStringProvider')]
+    public function testRejectsACredentialConfigurationIdWhichIsNotANonEmptyString(array $ids): void
+    {
+        $this->assertRefusedBecause(
+            'Status List pool "default" lists a credential configuration ID which is not a non-empty ' .
+            'string.',
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => $ids]),
+        );
     }
 
 
@@ -162,30 +290,71 @@ class StatusListPoolTest extends TestCase
      */
     public static function invalidBitsProvider(): array
     {
-        return ['zero' => [0], 'three' => [3], 'five' => [5], 'sixteen' => [16], 'negative' => [-1]];
+        return [
+            'below the floor' => [0],
+            'negative' => [-1],
+            'between two allowed values' => [3],
+            'the next power of two' => [16],
+        ];
     }
 
 
     #[DataProvider('invalidBitsProvider')]
     public function testRejectsBitsWhichAreNotOneOfTheAllowedValues(int $bits): void
     {
-        $this->expectException(ConfigurationError::class);
-
-        $this->sut([StatusListPool::KEY_BITS => $bits]);
+        $this->assertRefusedBecause(
+            sprintf(
+                'Status List pool "default" is configured with %d bit(s) per Referenced Token, expected ' .
+                'one of: 1, 2, 4, 8.',
+                $bits,
+            ),
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_BITS => $bits]),
+        );
     }
 
 
-    public function testRejectsACapacityWhichIsNotAPositiveMultipleOfEight(): void
+    /**
+     * @return array<string,array{int}>
+     */
+    public static function invalidCapacityProvider(): array
     {
-        $this->expectException(ConfigurationError::class);
-        $this->sut([StatusListPool::KEY_CAPACITY => 100]);
+        return ['not a multiple of eight' => [100], 'zero' => [0], 'negative' => [-8]];
     }
 
 
-    public function testRejectsANonPositiveCapacity(): void
+    #[DataProvider('invalidCapacityProvider')]
+    public function testRejectsACapacityWhichIsNotAPositiveMultipleOfEight(int $capacity): void
     {
-        $this->expectException(ConfigurationError::class);
-        $this->sut([StatusListPool::KEY_CAPACITY => 0]);
+        $this->assertRefusedBecause(
+            sprintf(
+                'Status List pool "default" is configured with a capacity of %d, which must be a ' .
+                'positive multiple of 8.',
+                $capacity,
+            ),
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_CAPACITY => $capacity]),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{string,mixed,string}>
+     */
+    public static function nonIntegerSettingProvider(): array
+    {
+        return [
+            'bits as a string' => [StatusListPool::KEY_BITS, '2', 'string'],
+            'capacity as a float' => [StatusListPool::KEY_CAPACITY, 1024.0, 'float'],
+        ];
+    }
+
+
+    #[DataProvider('nonIntegerSettingProvider')]
+    public function testRejectsANonIntegerValue(string $key, mixed $value, string $typeGiven): void
+    {
+        $this->assertRefusedBecause(
+            sprintf('Status List pool "default" has a "%s" which is not an integer, %s given.', $key, $typeGiven),
+            fn (): StatusListPool => $this->sut([$key => $value]),
+        );
     }
 
 
@@ -195,13 +364,15 @@ class StatusListPoolTest extends TestCase
      */
     public function testRejectsAStatusWhichDoesNotFitTheConfiguredBits(): void
     {
-        $this->expectException(ConfigurationError::class);
-        $this->expectExceptionMessage('Suspended');
-
-        $this->sut([
-            StatusListPool::KEY_BITS => 1,
-            StatusListPool::KEY_ALLOWED_STATUSES => [StatusTypeEnum::Suspended],
-        ]);
+        $this->assertRefusedBecause(
+            'Status List pool "default" allows the status Suspended (0x02), which can not be represented ' .
+            'using 1 bit(s) per Referenced Token (largest is 0x01). Raise "bits" to at least 2, or ' .
+            'remove the status.',
+            fn (): StatusListPool => $this->sut([
+                StatusListPool::KEY_BITS => 1,
+                StatusListPool::KEY_ALLOWED_STATUSES => [StatusTypeEnum::Suspended],
+            ]),
+        );
     }
 
 
@@ -225,6 +396,7 @@ class StatusListPoolTest extends TestCase
         $pool = $this->sut([StatusListPool::KEY_ALLOWED_STATUSES => [StatusTypeEnum::Invalid]]);
 
         $this->assertTrue($pool->isStatusAllowed(StatusTypeEnum::Valid));
+        $this->assertFalse($pool->isStatusAllowed(StatusTypeEnum::Suspended));
         $this->assertSame('0,1', $pool->getAllowedStatusesAsString());
     }
 
@@ -236,6 +408,7 @@ class StatusListPoolTest extends TestCase
             StatusListPool::KEY_ALLOWED_STATUSES => [1, 2],
         ]);
 
+        $this->assertTrue($pool->isStatusAllowed(StatusTypeEnum::Invalid));
         $this->assertTrue($pool->isStatusAllowed(StatusTypeEnum::Suspended));
         $this->assertSame('0,1,2', $pool->getAllowedStatusesAsString());
     }
@@ -247,17 +420,53 @@ class StatusListPoolTest extends TestCase
      */
     public function testRejectsAStatusGivenAsAString(): void
     {
-        $this->expectException(ConfigurationError::class);
-
-        $this->sut([StatusListPool::KEY_ALLOWED_STATUSES => ['invalid']]);
+        $this->assertRefusedBecause(
+            'Status List pool "default" allows a status which is not a ' . StatusTypeEnum::class .
+            " case: 'invalid'.",
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_ALLOWED_STATUSES => ['invalid']]),
+        );
     }
 
 
     public function testRejectsAnUnregisteredStatusValue(): void
     {
-        $this->expectException(ConfigurationError::class);
+        $this->assertRefusedBecause(
+            'Status List pool "default" allows a status which is not a ' . StatusTypeEnum::class . ' case: 7.',
+            fn (): StatusListPool => $this->sut([
+                StatusListPool::KEY_BITS => 4,
+                StatusListPool::KEY_ALLOWED_STATUSES => [7],
+            ]),
+        );
+    }
 
-        $this->sut([StatusListPool::KEY_BITS => 4, StatusListPool::KEY_ALLOWED_STATUSES => [7]]);
+
+    public function testRejectsAllowedStatusesWhichAreNotAnArray(): void
+    {
+        $this->assertRefusedBecause(
+            'Status List pool "default" has an "allowed_statuses" which is not an array.',
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_ALLOWED_STATUSES => 1]),
+        );
+    }
+
+
+    public function testRejectsANonPositiveTtl(): void
+    {
+        $this->assertRefusedBecause(
+            'Status List pool "default" must have a positive "ttl".',
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_TTL => 'PT0S']),
+        );
+    }
+
+
+    /**
+     * Refused by its own rule, before the headroom rule gets to compare it with the token validity.
+     */
+    public function testRejectsANonPositiveRefreshInterval(): void
+    {
+        $this->assertRefusedBecause(
+            'Status List pool "default" must have a positive "refresh_interval".',
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_REFRESH_INTERVAL => 'PT0S']),
+        );
     }
 
 
@@ -267,25 +476,32 @@ class StatusListPoolTest extends TestCase
      */
     public function testRejectsARefreshIntervalWhichDoesNotFitInsideTheTokenValidity(): void
     {
-        $this->expectException(ConfigurationError::class);
-        $this->expectExceptionMessage(StatusListPool::KEY_TOKEN_VALIDITY);
-
-        $this->sut([
-            StatusListPool::KEY_REFRESH_INTERVAL => 'PT1H',
-            StatusListPool::KEY_TOKEN_VALIDITY => 'PT1H',
-        ]);
+        $this->assertRefusedBecause(
+            'Status List pool "default" refreshes every 3600 second(s) but its tokens are only valid for ' .
+            '3600 second(s). The refresh interval plus the 900 second safety margin must stay below the ' .
+            'token validity, otherwise a published token expires before its replacement is produced. ' .
+            'Raise "token_validity" or lower "refresh_interval".',
+            fn (): StatusListPool => $this->sut([
+                StatusListPool::KEY_REFRESH_INTERVAL => 'PT1H',
+                StatusListPool::KEY_TOKEN_VALIDITY => 'PT1H',
+            ]),
+        );
     }
 
 
     public function testRejectsARefreshIntervalLeavingLessThanTheSafetyMargin(): void
     {
-        $this->expectException(ConfigurationError::class);
-
         // Ten minutes of headroom, where the safety margin asks for fifteen.
-        $this->sut([
-            StatusListPool::KEY_REFRESH_INTERVAL => 'PT50M',
-            StatusListPool::KEY_TOKEN_VALIDITY => 'PT1H',
-        ]);
+        $this->assertRefusedBecause(
+            'Status List pool "default" refreshes every 3000 second(s) but its tokens are only valid for ' .
+            '3600 second(s). The refresh interval plus the 900 second safety margin must stay below the ' .
+            'token validity, otherwise a published token expires before its replacement is produced. ' .
+            'Raise "token_validity" or lower "refresh_interval".',
+            fn (): StatusListPool => $this->sut([
+                StatusListPool::KEY_REFRESH_INTERVAL => 'PT50M',
+                StatusListPool::KEY_TOKEN_VALIDITY => 'PT1H',
+            ]),
+        );
     }
 
 
@@ -300,29 +516,62 @@ class StatusListPoolTest extends TestCase
     }
 
 
+    /**
+     * The wording after the colon is PHP's, so only the pool's part of the reason and the offending
+     * value are pinned.
+     */
     public function testRejectsAnUnparsableDuration(): void
     {
-        $this->expectException(ConfigurationError::class);
+        try {
+            $this->sut([StatusListPool::KEY_TTL => 'twelve hours']);
+        } catch (ConfigurationError $e) {
+            $this->assertStringStartsWith(
+                'Status List pool "default" has a "ttl" which is not a valid duration: ',
+                (string)$e->getReason(),
+            );
+            $this->assertStringContainsString('twelve hours', (string)$e->getReason());
+            return;
+        }
 
-        $this->sut([StatusListPool::KEY_TTL => 'twelve hours']);
+        $this->fail('A ConfigurationError was expected.');
     }
 
 
-    public function testRejectsANonIntegerBitsValue(): void
+    /**
+     * @return array<string,array{string,int}>
+     */
+    public static function durationKeyProvider(): array
     {
-        $this->expectException(ConfigurationError::class);
+        return [
+            'ttl' => [StatusListPool::KEY_TTL, 43200],
+            'token validity' => [StatusListPool::KEY_TOKEN_VALIDITY, 604800],
+            'refresh interval' => [StatusListPool::KEY_REFRESH_INTERVAL, 3600],
+        ];
+    }
 
-        $this->sut([StatusListPool::KEY_BITS => '2']);
+
+    /**
+     * A number of seconds is not accepted in place of a duration string, and the refusal names the key.
+     */
+    #[DataProvider('durationKeyProvider')]
+    public function testRejectsADurationWhichIsNotAString(string $key, int $seconds): void
+    {
+        $this->assertRefusedBecause(
+            sprintf('Status List pool "default" has a "%s" which is not a duration string, int given.', $key),
+            fn (): StatusListPool => $this->sut([$key => $seconds]),
+        );
     }
 
 
     public function testTellsWhichCredentialConfigurationsItServes(): void
     {
         $pool = $this->sut([
-            StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['A', 'B', 'A'],
+            StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['A', 'A', 'B', 'A'],
         ]);
 
+        // Each once, and re-indexed as a list rather than with the gaps array_unique() leaves.
         $this->assertSame(['A', 'B'], $pool->getCredentialConfigurationIds());
+        $this->assertTrue($pool->hasCredentialConfigurationId('A'));
         $this->assertTrue($pool->hasCredentialConfigurationId('B'));
         $this->assertFalse($pool->hasCredentialConfigurationId('C'));
     }
@@ -350,6 +599,7 @@ class StatusListPoolTest extends TestCase
         try {
             $seenTtl = [];
             $seenValidity = [];
+            $seenRefresh = [];
 
             // Zones on both sides of UTC, one of which is deep in a daylight saving change window.
             foreach (['UTC', 'Europe/Zagreb', 'America/Santiago', 'Pacific/Chatham'] as $timezone) {
@@ -358,10 +608,12 @@ class StatusListPoolTest extends TestCase
                 $pool = $this->sut();
                 $seenTtl[] = $pool->getTtlInSeconds();
                 $seenValidity[] = $pool->getTokenValidityInSeconds();
+                $seenRefresh[] = $pool->getRefreshIntervalInSeconds();
             }
 
             $this->assertSame([43200, 43200, 43200, 43200], $seenTtl);
             $this->assertSame([604800, 604800, 604800, 604800], $seenValidity);
+            $this->assertSame([3600, 3600, 3600, 3600], $seenRefresh);
         } finally {
             date_default_timezone_set($originalTimezone);
         }
@@ -399,10 +651,8 @@ class StatusListPoolTest extends TestCase
             'capacity' => [[StatusListPool::KEY_CAPACITY => 256]],
             'ttl' => [[StatusListPool::KEY_TTL => 'PT6H']],
             'token validity' => [[StatusListPool::KEY_TOKEN_VALIDITY => 'P14D']],
-            'allowed statuses' => [[
-                StatusListPool::KEY_BITS => 2,
-                StatusListPool::KEY_ALLOWED_STATUSES => [StatusTypeEnum::Suspended],
-            ]],
+            // Valid alone, which fits the default bits, so that only the statuses differ.
+            'allowed statuses' => [[StatusListPool::KEY_ALLOWED_STATUSES => []]],
             'key profile' => [[StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::Jwks]],
         ];
     }
