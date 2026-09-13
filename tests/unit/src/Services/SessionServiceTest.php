@@ -8,13 +8,16 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Session;
+use SimpleSAML\SessionHandler;
 
 /**
- * `getSessionById()` is deliberately not covered: it reaches SimpleSAMLphp's session store statically, so
- * a unit test can neither stand in for that store nor exercise it without one.
+ * `getSessionById()` reaches SimpleSAMLphp's session store statically, through the one SessionHandler it
+ * caches behind Session's own cache of loaded sessions; those tests empty that cache and install a handler
+ * double, and tearDown() clears both again.
  */
 #[CoversClass(SessionService::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -54,9 +57,36 @@ class SessionServiceTest extends TestCase
     }
 
 
+    protected function tearDown(): void
+    {
+        Session::clearInternalState();
+        self::setSessionHandler(null);
+    }
+
+
     protected function sut(): SessionService
     {
         return new SessionService($this->sessionMock);
+    }
+
+
+    /**
+     * A double behind the session handler SimpleSAMLphp caches, which is what Session::getSession() asks
+     * for a session by ID once its own cache of loaded sessions, emptied here, has no answer.
+     */
+    protected function installSessionHandler(): MockObject
+    {
+        Session::clearInternalState();
+        $sessionHandlerMock = $this->createMock(SessionHandler::class);
+        self::setSessionHandler($sessionHandlerMock);
+
+        return $sessionHandlerMock;
+    }
+
+
+    protected static function setSessionHandler(?SessionHandler $sessionHandler): void
+    {
+        (new ReflectionProperty(SessionHandler::class, 'sessionHandler'))->setValue(null, $sessionHandler);
     }
 
 
@@ -306,5 +336,24 @@ class SessionServiceTest extends TestCase
                 ),
             );
         }
+    }
+
+
+    public function testFindsAnotherSessionInTheStoreById(): void
+    {
+        $storedSession = $this->createStub(Session::class);
+        $this->installSessionHandler()->expects($this->once())->method('loadSession')
+            ->with('other-session')->willReturn($storedSession);
+
+        $this->assertSame($storedSession, $this->sut()->getSessionById('other-session'));
+    }
+
+
+    public function testAnswersNullForASessionIdTheStoreDoesNotHold(): void
+    {
+        $this->installSessionHandler()->expects($this->once())->method('loadSession')
+            ->with('other-session')->willReturn(null);
+
+        $this->assertNull($this->sut()->getSessionById('other-session'));
     }
 }
