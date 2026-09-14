@@ -156,9 +156,12 @@ Currently implemented OpenID4VCI features:
   registered client, and credentials which do not verify are refused with
   `invalid_client`; it may identify itself with a bare `client_id`, which a
   non-registered wallet is taken at its word for; or it may send neither and
-  redeem the code anonymously. Whatever identified the wallet is what the `iss`
-  claim of its key proof is checked against at the credential endpoint, and an
-  anonymous wallet has to omit that claim.
+  redeem the code anonymously. A registered wallet gets the access token issued
+  to itself (its `client_id` is the token's audience); a non-registered or
+  anonymous wallet gets a token issued to the generic VCI client. Whatever
+  identified the wallet is what the `iss` claim of its key proof is checked
+  against at the credential endpoint, and an anonymous wallet has to omit that
+  claim.
   - Authorization Details: Support for `openid_credential` type in authorization
   and token requests.
 - Supported Credential Formats

@@ -129,9 +129,10 @@ class CredentialOfferUriFactory
             ['openid', ...$credentialConfigurationIds],
         );
 
-        // Currently, we need a dedicated client for which the PreAuthZed code will be bound to.
-        // TODO mivanci: Remove requirement for dedicated client for (pre-)authorization codes once the dynamic
-        // client registration is enabled.
+        // A code has to belong to a client, and no wallet is known when the offer is made, so the code is
+        // created for the generic VCI client. That client only ends up on the access token when the wallet
+        // redeeming the code is not a registered one: a registered wallet gets the token issued to itself
+        // (see PreAuthCodeGrant).
         $client = $this->clientRepository->getGenericForVci();
 
         $userId = null;

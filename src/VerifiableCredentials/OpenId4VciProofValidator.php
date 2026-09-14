@@ -8,6 +8,7 @@ use JsonException;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -428,14 +429,19 @@ class OpenId4VciProofValidator
     protected function validateIssuer(OpenId4VciProof $proof, AccessTokenEntity $accessToken): void
     {
         $proofIssuer = $proof->getIssuer();
+        $client = $accessToken->getClient();
 
         // A pre-authorized code redeemed anonymously - no client credentials and no `client_id` - identifies
         // no wallet at all, so there is nothing an `iss` claim could be checked against, and OpenID4VCI has
-        // the wallet omit it. Recognised from the flow plus the absence of a bound client id rather than
-        // from the stored client entity, which names the client the offer was created for either way.
+        // the wallet omit it. Its token is the one issued to the generic VCI client, the stand-in for every
+        // wallet which is not a registered one, with no identifier bound to it: a non-registered wallet's
+        // token names the wallet through the binding, and a registered wallet's token is issued to the
+        // wallet itself.
         if (
             $accessToken->getFlowTypeEnum() === FlowTypeEnum::VciPreAuthorizedCode &&
-            $accessToken->getBoundClientId() === null
+            $accessToken->getBoundClientId() === null &&
+            $client instanceof ClientEntityInterface &&
+            $client->isGeneric()
         ) {
             if ($proofIssuer !== null) {
                 throw new CredentialRequestException(
@@ -457,7 +463,7 @@ class OpenId4VciProofValidator
 
         // The identifier a non-registered wallet is actually known by travels separately from the client
         // entity, which in those flows is a stand-in shared by every such wallet.
-        $clientId = $accessToken->getBoundClientId() ?? $accessToken->getClient()->getIdentifier();
+        $clientId = $accessToken->getBoundClientId() ?? $client->getIdentifier();
 
         if ($proofIssuer !== $clientId) {
             throw new CredentialRequestException(

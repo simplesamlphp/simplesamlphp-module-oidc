@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -32,15 +33,16 @@ use Stringable;
  * The client half of a token request redeeming a pre-authorized code, where client authentication is optional.
  *
  * The rule has four answers, and each has its test: nobody (an anonymous request gives no result), a
- * self-declared identifier (a `client_id` naming no registered client is taken at its word), an authenticated
- * client (credentials, or a `client_id` naming a registered client, go through the resolver and the result is
- * that client's identifier) and a refusal (credentials the resolver cannot verify, a registered client the
- * resolver will not accept as presented, or a `client_id` which contradicts the credentials, each `invalid_client`).
- * What separates the second from the third is a registry lookup by the identifier presented, and what keeps a
- * disabled or expired registration from being taken on trust is that only an active one is handed to the
- * resolver as pre-fetched.
+ * self-declared identifier (a `client_id` naming no registered client is taken at its word, and the result
+ * carries the identifier and no client), an authenticated client (credentials, or a `client_id` naming a
+ * registered client, go through the resolver and the result carries the client the resolver answered with) and
+ * a refusal (credentials the resolver cannot verify, a registered client the resolver will not accept as
+ * presented, or a `client_id` which contradicts the credentials, each `invalid_client`). What separates the
+ * second from the third is a registry lookup by the identifier presented, and what keeps a disabled or expired
+ * registration from being taken on trust is that only an active one is handed to the resolver as pre-fetched.
  */
 #[CoversClass(PreAuthorizedCodeClientRule::class)]
+#[UsesClass(PreAuthorizedCodeClient::class)]
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -143,7 +145,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
             ->willReturn(null);
         $this->authenticatedOAuth2ClientResolverMock->expects($this->never())->method('forAnySupportedMethod');
 
-        $this->assertResolvedTo(self::CLIENT_ID, $this->check());
+        $this->assertResolvedToSelfDeclared(self::CLIENT_ID, $this->check());
         $this->assertLogged(
             'debug',
             'PreAuthorizedCodeClientRule: non-registered client identified by `client_id` alone.',
@@ -165,7 +167,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
             ->with($this->identicalTo($this->requestMock), $this->isNull())
             ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::PrivateKeyJwt));
 
-        $this->assertResolvedTo(self::CLIENT_ID, $this->check());
+        $this->assertResolvedToTheRegisteredClient($this->check());
         $this->assertLogged(
             'debug',
             'PreAuthorizedCodeClientRule: client resolved.',
@@ -230,7 +232,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
         $this->authenticatedOAuth2ClientResolverMock->expects($this->once())->method('forAnySupportedMethod')
             ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::PrivateKeyJwt));
 
-        $this->assertResolvedTo(self::CLIENT_ID, $this->check());
+        $this->assertResolvedToTheRegisteredClient($this->check());
         $this->assertLogged(
             'debug',
             'PreAuthorizedCodeClientRule: client resolved.',
@@ -253,7 +255,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
             ->with($this->identicalTo($this->requestMock), $this->identicalTo($this->clientMock))
             ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::None));
 
-        $this->assertResolvedTo(self::CLIENT_ID, $this->check());
+        $this->assertResolvedToTheRegisteredClient($this->check());
     }
 
 
@@ -270,7 +272,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
             ->with($this->identicalTo($this->requestMock), $this->identicalTo($this->clientMock))
             ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::ClientSecretBasic));
 
-        $this->assertResolvedTo(self::CLIENT_ID, $this->check());
+        $this->assertResolvedToTheRegisteredClient($this->check());
         $this->assertLogged(
             'debug',
             'PreAuthorizedCodeClientRule: client resolved.',
@@ -371,11 +373,38 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
     }
 
 
-    private function assertResolvedTo(string $clientId, ?Result $result): void
+    /**
+     * The answer for a registered client is the entity the resolver answered with, the one the token is then
+     * issued to, not a copy or a lookup of it.
+     */
+    private function assertResolvedToTheRegisteredClient(?Result $result): void
+    {
+        $walletClient = $this->walletClientOf($result);
+
+        $this->assertTrue($walletClient->isRegistered());
+        $this->assertSame($this->clientMock, $walletClient->getRegisteredClient());
+        $this->assertSame(self::CLIENT_ID, $walletClient->getIdentifier());
+    }
+
+
+    private function assertResolvedToSelfDeclared(string $clientId, ?Result $result): void
+    {
+        $walletClient = $this->walletClientOf($result);
+
+        $this->assertFalse($walletClient->isRegistered());
+        $this->assertNull($walletClient->getRegisteredClient());
+        $this->assertSame($clientId, $walletClient->getIdentifier());
+    }
+
+
+    private function walletClientOf(?Result $result): PreAuthorizedCodeClient
     {
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame(PreAuthorizedCodeClientRule::class, $result->getKey());
-        $this->assertSame($clientId, $result->getValue());
+        $walletClient = $result->getValue();
+        $this->assertInstanceOf(PreAuthorizedCodeClient::class, $walletClient);
+
+        return $walletClient;
     }
 
 

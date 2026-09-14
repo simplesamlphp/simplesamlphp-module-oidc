@@ -110,9 +110,11 @@ class PreAuthCodeGrant extends AuthCodeGrant
      * Client authentication is optional for this grant (OpenID4VCI 1.0, section 6.1), so the wallet is not put
      * through ClientAuthenticationRule, which refuses a request presenting no method. PreAuthorizedCodeClientRule
      * authenticates the wallet when it presents credentials, takes a bare `client_id` as the self-declared
-     * identifier of a non-registered wallet, and identifies nobody for an anonymous request. Whatever it
-     * resolves is what the access token is bound to; the token itself is issued to the client the code was
-     * created for, which is the generic VCI client either way.
+     * identifier of a non-registered wallet, and identifies nobody for an anonymous request. A registered
+     * wallet gets the access token issued to itself. The code is created for the generic VCI client, since no
+     * wallet is known when the offer is made, and that is the client a non-registered wallet's token is issued
+     * to, with the identifier the wallet declared bound to the token in the way the authorization code flow
+     * binds one; an anonymous request gets the same token with nothing bound.
      *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface $responseType
@@ -193,7 +195,14 @@ class PreAuthCodeGrant extends AuthCodeGrant
         );
 
         // Null for an anonymous request.
-        $boundClientId = $resultBag->get(PreAuthorizedCodeClientRule::class)?->getValue();
+        $walletClient = $resultBag->get(PreAuthorizedCodeClientRule::class)?->getValue();
+        $registeredClient = $walletClient?->getRegisteredClient();
+
+        // The token goes to the registered wallet when there is one, and to the code's client, the generic
+        // VCI stand-in, otherwise, bound to the identifier a non-registered wallet declared - nothing, for an
+        // anonymous request. The binding stands in for a registration, so a registered wallet gets none.
+        $tokenClient = $registeredClient ?? $client;
+        $boundClientId = $registeredClient === null ? $walletClient?->getIdentifier() : null;
 
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
 
@@ -210,7 +219,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
-            $client,
+            $tokenClient,
             $preAuthorizedCode->getUserIdentifier() ? (string) $preAuthorizedCode->getUserIdentifier() : null,
             [], // TODO mivanci handle scopes
             $preAuthorizedCodeId,
@@ -224,7 +233,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         $this->loggerService->notice(
             'Pre-authorized code redeemed; access token issued.',
-            ['client_id' => $client->getIdentifier(), 'bound_client_id' => $boundClientId],
+            ['client_id' => $tokenClient->getIdentifier(), 'bound_client_id' => $boundClientId],
         );
 
         return $responseType;

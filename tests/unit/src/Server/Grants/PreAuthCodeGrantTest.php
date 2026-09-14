@@ -47,6 +47,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Stringable;
@@ -71,12 +72,14 @@ use Stringable;
  * error type and hint, and its log line where the grant writes one, what the issued token is made of, and
  * the closed hooks. Client authentication is optional for this grant and lives in
  * PreAuthorizedCodeClientRule, with its own tests; here the rule is a result in the bag, and what is pinned is
- * that the grant runs it, binds the token to whatever it answered, and binds it to nobody when it answered
- * nothing. The token is issued to the code's client either way.
+ * that the grant runs it and acts on its answer: a registered wallet gets the token issued to itself, a
+ * non-registered one gets it issued to the code's client with the identifier it declared bound to it, and an
+ * anonymous request gets the code's client with nothing bound.
  */
 #[CoversClass(PreAuthCodeGrant::class)]
 #[UsesClass(AuthCodeEntity::class)]
 #[UsesClass(AuthorizationRequest::class)]
+#[UsesClass(PreAuthorizedCodeClient::class)]
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -516,27 +519,37 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
-     * The token is made for the code's client and holder, with no scopes yet, expiring after the lifetime
-     * given, marked as issued through the pre-authorized code flow, tied to the code, bound to the client the
-     * client rule identified - nobody, for an anonymous request - and carrying whatever the authorization
-     * details rule read from the request. The request is put through those two rules, the client one first,
-     * with the token endpoint's method, and the issued token is announced through the emitter with the
-     * request it answered. The client the token is issued to is the code's whether or not a wallet was
-     * identified: the rule's answer is a binding, not a reassignment.
+     * The token is made for the code's holder, with no scopes yet, expiring after the lifetime given, marked
+     * as issued through the pre-authorized code flow, tied to the code, and carrying whatever the
+     * authorization details rule read from the request. Which client it is issued to, and which identifier
+     * is bound to it, follow the client rule's answer: a registered wallet gets the token issued to itself,
+     * the entity the rule answered with, and nothing bound, since the binding stands in for a registration;
+     * a non-registered wallet gets it issued to the code's client with the identifier it declared bound to
+     * it; an anonymous request gets the code's client with nothing bound. The request is put through the
+     * two rules, the client one first, with the token endpoint's method, and the issued token is announced
+     * through the emitter with the request it answered.
      */
-    #[DataProvider('holderProvider')]
-    public function testIssuesTheAccessTokenForTheCodeHolderBoundToTheClientAndTheAuthorizationDetails(
+    #[DataProvider('walletProvider')]
+    public function testIssuesTheAccessTokenForTheCodeHolderToTheWalletOrTheCodesClient(
         ?string $holder,
         ?array $authorizationDetails,
+        string $wallet,
         ?string $boundClientId,
     ): void {
+        $walletClientMock = $this->createMock(ClientEntity::class);
+        $walletClientMock->method('getIdentifier')->willReturn(self::WALLET_CLIENT_ID);
+        [$walletClient, $expectedClient] = match ($wallet) {
+            'registered' => [PreAuthorizedCodeClient::registered($walletClientMock), $walletClientMock],
+            'non-registered' => [PreAuthorizedCodeClient::selfDeclared(self::WALLET_CLIENT_ID), $this->clientMock],
+            'anonymous' => [null, $this->clientMock],
+        };
         $this->configureRequestParameters(null);
         $this->requestRulesManagerMock->expects($this->once())->method('check')->with(
             $this->identicalTo($this->requestMock),
             [PreAuthorizedCodeClientRule::class, AuthorizationDetailsRule::class],
             $this->isInstanceOf(QueryResponseMode::class),
             [HttpMethodsEnum::POST],
-        )->willReturn($this->resultBagWith($authorizationDetails, $boundClientId));
+        )->willReturn($this->resultBagWith($authorizationDetails, $walletClient));
         $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode(holder: $holder));
         $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
         $accessToken = $this->createMock(AccessTokenEntity::class);
@@ -597,7 +610,7 @@ class PreAuthCodeGrantTest extends TestCase
         );
 
         $this->assertNotSame('', $tokenData['id']);
-        $this->assertSame($this->clientMock, $tokenData['clientEntity']);
+        $this->assertSame($expectedClient, $tokenData['clientEntity']);
         $this->assertSame([], $tokenData['scopes']);
         $this->assertEqualsWithDelta(time() + 300, $tokenData['expiryDateTime']->getTimestamp(), 2);
         $this->assertSame($holder, $tokenData['userIdentifier']);
@@ -613,20 +626,27 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertLogged(
             'notice',
             'Pre-authorized code redeemed; access token issued.',
-            ['client_id' => self::CLIENT_ID, 'bound_client_id' => $boundClientId],
+            ['client_id' => $expectedClient->getIdentifier(), 'bound_client_id' => $boundClientId],
         );
     }
 
 
-    public static function holderProvider(): array
+    public static function walletProvider(): array
     {
         return [
-            'a code with a holder and authorization details, redeemed by an identified wallet' => [
+            'a code with a holder and authorization details, redeemed by a registered wallet' => [
                 self::USER_ID,
                 self::AUTHORIZATION_DETAILS,
+                'registered',
+                null,
+            ],
+            'a code with a holder and authorization details, redeemed by a non-registered wallet' => [
+                self::USER_ID,
+                self::AUTHORIZATION_DETAILS,
+                'non-registered',
                 self::WALLET_CLIENT_ID,
             ],
-            'a code with neither, redeemed anonymously' => [null, null, null],
+            'a code with neither, redeemed anonymously' => [null, null, 'anonymous', null],
         ];
     }
 
@@ -785,11 +805,13 @@ class PreAuthCodeGrantTest extends TestCase
      * What the two rules leave in the bag: each of them nothing when it had nothing to say - no authorization
      * details parameter, an anonymous request - and its value otherwise.
      */
-    private function resultBagWith(?array $authorizationDetails, ?string $boundClientId = null): ResultBag
-    {
+    private function resultBagWith(
+        ?array $authorizationDetails,
+        ?PreAuthorizedCodeClient $walletClient = null,
+    ): ResultBag {
         $resultBag = new ResultBag();
-        if ($boundClientId !== null) {
-            $resultBag->add(new Result(PreAuthorizedCodeClientRule::class, $boundClientId));
+        if ($walletClient !== null) {
+            $resultBag->add(new Result(PreAuthorizedCodeClientRule::class, $walletClient));
         }
         if ($authorizationDetails !== null) {
             $resultBag->add(new Result(AuthorizationDetailsRule::class, $authorizationDetails));

@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials;
 
-use League\OAuth2\Server\Entities\ClientEntityInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -49,6 +50,9 @@ class OpenId4VciProofValidatorTest extends TestCase
     protected const string ISSUER = 'https://issuer.com';
 
     protected const string CLIENT_ID = 'https://wallet.example.org';
+
+    /** The stand-in every wallet which is not a registered client gets its pre-authorized token issued to. */
+    protected const string GENERIC_CLIENT_ID = 'vci-generic-client';
 
     protected const string HOLDER_DID = 'did:jwk:eyJrdHkiOiJFQyJ9';
 
@@ -138,6 +142,27 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciAuthorizationCode);
         $this->accessTokenMock->method('getBoundClientId')->willReturn(null);
+        $this->accessTokenMock->method('getClient')->willReturn($clientMock);
+    }
+
+
+    /**
+     * The access token of a pre-authorized code, issued to the client given and bound to an identifier or to
+     * none. A registered wallet gets the token issued to itself and nothing bound; a wallet which is not a
+     * registered client gets it issued to the generic VCI client, with the identifier it declared bound to
+     * it, or nothing when it declared none.
+     */
+    protected function preAuthorizedTokenIssuedTo(
+        string $clientId,
+        bool $isGeneric,
+        ?string $boundClientId = null,
+    ): void {
+        $clientMock = $this->createMock(ClientEntityInterface::class);
+        $clientMock->method('getIdentifier')->willReturn($clientId);
+        $clientMock->method('isGeneric')->willReturn($isGeneric);
+        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
+        $this->accessTokenMock->method('getBoundClientId')->willReturn($boundClientId);
         $this->accessTokenMock->method('getClient')->willReturn($clientMock);
     }
 
@@ -875,12 +900,7 @@ class OpenId4VciProofValidatorTest extends TestCase
      */
     public function testComparesTheIssuerClaimAgainstTheBoundClientId(): void
     {
-        $clientMock = $this->createMock(ClientEntityInterface::class);
-        $clientMock->method('getIdentifier')->willReturn('generic-vci-client');
-        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
-        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
-        $this->accessTokenMock->method('getBoundClientId')->willReturn(self::CLIENT_ID);
-        $this->accessTokenMock->method('getClient')->willReturn($clientMock);
+        $this->preAuthorizedTokenIssuedTo(self::GENERIC_CLIENT_ID, isGeneric: true, boundClientId: self::CLIENT_ID);
 
         $validatedProofs = $this->sut()->validateRequest(
             $this->requestWith(),
@@ -893,16 +913,85 @@ class OpenId4VciProofValidatorTest extends TestCase
 
 
     /**
-     * A pre-authorized code redeemed without a `client_id` identifies no wallet, so there is nothing an
-     * `iss` claim could be checked against and OpenID4VCI has the wallet leave it out.
+     * A registered wallet gets its pre-authorized token issued to itself, with nothing bound, so the claim is
+     * compared against the token's client. Nothing bound is what an anonymous token has too; what sets the
+     * two apart is the client, and taking a registered wallet's token for an anonymous one would refuse
+     * every proof that wallet correctly signs as itself.
+     *
+     * @throws \Throwable
      */
-    public function testRefusesAnIssuerClaimWhenTheAccessTokenIdentifiesNoClient(): void
+    public function testComparesTheIssuerClaimAgainstTheRegisteredWalletAPreAuthorizedTokenWasIssuedTo(): void
     {
-        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
-        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
-        $this->accessTokenMock->method('getBoundClientId')->willReturn(null);
+        $this->preAuthorizedTokenIssuedTo(self::CLIENT_ID, isGeneric: false);
 
-        $this->assertRefusedWith('invalid_proof', $this->requestWith());
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+    }
+
+
+    public function testRefusesAnIssuerClaimNamingAnotherClientThanTheRegisteredWalletOfAPreAuthorizedToken(): void
+    {
+        $this->preAuthorizedTokenIssuedTo(self::CLIENT_ID, isGeneric: false);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith(['getIssuer' => 'https://another-wallet.example.org']),
+            expectedMessageFragment: 'does not name the client',
+        );
+    }
+
+
+    /**
+     * The claim stays optional for a registered wallet redeeming a pre-authorized code, as it is everywhere
+     * but the anonymous case (OpenID4VCI 1.0, Appendix F.1): a registered wallet is identified by its token,
+     * so it is neither made to name itself nor forbidden to.
+     *
+     * @throws \Throwable
+     */
+    public function testARegisteredWalletMayOmitTheIssuerClaimFromAPreAuthorizedProof(): void
+    {
+        $this->preAuthorizedTokenIssuedTo(self::CLIENT_ID, isGeneric: false);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith(['getIssuer' => null]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+    }
+
+
+    /**
+     * A pre-authorized code redeemed without credentials and without a `client_id` identifies no wallet, so
+     * there is nothing an `iss` claim could be checked against and OpenID4VCI has the wallet leave it out.
+     * Its token is the generic VCI client's with nothing bound, and that client's identifier is no wallet's
+     * either: a proof naming it is refused for carrying the claim at all, not for naming the wrong client.
+     */
+    #[DataProvider('issuerClaimOfAnAnonymousWalletProvider')]
+    public function testRefusesAnIssuerClaimWhenTheAccessTokenIdentifiesNoClient(string $issuer): void
+    {
+        $this->preAuthorizedTokenIssuedTo(self::GENERIC_CLIENT_ID, isGeneric: true);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith(['getIssuer' => $issuer]),
+            expectedMessageFragment: 'must not carry an "iss" claim',
+        );
+    }
+
+
+    public static function issuerClaimOfAnAnonymousWalletProvider(): array
+    {
+        return [
+            'naming a wallet' => [self::CLIENT_ID],
+            'naming the generic client the token was issued to' => [self::GENERIC_CLIENT_ID],
+        ];
     }
 
 
@@ -1138,9 +1227,7 @@ class OpenId4VciProofValidatorTest extends TestCase
      */
     public function testTheDiipRulesAreMetThroughAnAnonymousPreAuthorizedCode(): void
     {
-        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
-        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
-        $this->accessTokenMock->method('getBoundClientId')->willReturn(null);
+        $this->preAuthorizedTokenIssuedTo(self::GENERIC_CLIENT_ID, isGeneric: true);
 
         $validatedProofs = $this->sut()->validateRequest(
             $this->requestWith(['getIssuer' => null, 'getKeyId' => self::HOLDER_DID_WEB_URL]),
@@ -1162,9 +1249,11 @@ class OpenId4VciProofValidatorTest extends TestCase
      */
     public function testAPreAuthorizedCodeIdentifyingItsWalletSatisfiesTheDiipRules(): void
     {
-        $this->accessTokenMock = $this->createMock(AccessTokenEntity::class);
-        $this->accessTokenMock->method('getFlowTypeEnum')->willReturn(FlowTypeEnum::VciPreAuthorizedCode);
-        $this->accessTokenMock->method('getBoundClientId')->willReturn(self::HOLDER_DID_WEB);
+        $this->preAuthorizedTokenIssuedTo(
+            self::GENERIC_CLIENT_ID,
+            isGeneric: true,
+            boundClientId: self::HOLDER_DID_WEB,
+        );
 
         $validatedProofs = $this->sut()->validateRequest(
             $this->requestWith([

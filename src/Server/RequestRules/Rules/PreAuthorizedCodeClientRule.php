@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -24,24 +25,31 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *
  * For the pre-authorized code grant OpenID4VCI 1.0 (section 6.1) makes client authentication OPTIONAL and wants
  * `client_id` only where the authentication method relies on it, while keeping RFC 6749 section 3.2.1 in force.
- * A wallet can therefore turn up in one of four ways, and the result is the identifier the access token is
- * bound to, which the key proof's `iss` claim is later checked against at the credential endpoint:
+ * A wallet can therefore turn up in one of four ways, and the result says which client the access token is
+ * issued to or bound to, which is also what the key proof's `iss` claim is later checked against at the
+ * credential endpoint:
  *
  * - With credentials (a client assertion, a Basic Authorization header or a client secret): the client they
  *   name has to be registered and the credentials have to verify, or the request is refused with
  *   `invalid_client` (RFC 7521 section 4.2.1). Credentials which cannot be checked are a refusal, not a case
  *   of anonymous access, and a `client_id` sent alongside has to name the same client (RFC 7521 section 4.2).
+ *   The result is that registered client.
  * - With a `client_id` naming a registered client and no credentials: accepted as that client only where its
  *   registration allows it, so a confidential client is refused (RFC 6749 section 3.2.1), as is a public
- *   client registered with another `token_endpoint_auth_method`.
+ *   client registered with another `token_endpoint_auth_method`. The result is that registered client.
  * - With a `client_id` naming no registered client: the self-declared identifier of a non-registered wallet.
- *   Nothing can authenticate it, and nothing depends on it beyond that `iss` check.
+ *   Nothing can authenticate it, and nothing depends on it beyond that `iss` check. The result carries the
+ *   identifier alone.
  * - With neither: anonymous access, and no result.
+ *
+ * A registered client is not checked against its registered `grant_types`: the pre-authorized code grant is an
+ * OP capability rather than a per-client registrable grant type (see OpMetadataService), so no registration
+ * could name it.
  *
  * ClientAuthenticationRule is not reused here because it takes the absence of any method for a refusal, which
  * for this grant it is not.
  *
- * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<string>
+ * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<\SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient>
  */
 class PreAuthorizedCodeClientRule extends AbstractRule
 {
@@ -119,7 +127,7 @@ class PreAuthorizedCodeClientRule extends AbstractRule
                 ],
             );
 
-            return new Result($this->getKey(), $resolvedClientId);
+            return new Result($this->getKey(), PreAuthorizedCodeClient::registered($resolved->getClient()));
         }
 
         if ($clientId !== null) {
@@ -128,7 +136,7 @@ class PreAuthorizedCodeClientRule extends AbstractRule
                 ['client_id' => $clientId],
             );
 
-            return new Result($this->getKey(), $clientId);
+            return new Result($this->getKey(), PreAuthorizedCodeClient::selfDeclared($clientId));
         }
 
         $loggerService->debug('PreAuthorizedCodeClientRule: anonymous access, no client identified.');
