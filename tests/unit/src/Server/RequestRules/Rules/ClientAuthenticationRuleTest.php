@@ -9,6 +9,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -207,6 +208,33 @@ class ClientAuthenticationRuleTest extends TestCase
             ->willReturn(null);
 
         $this->expectException(OidcServerException::class);
+
+        $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+    }
+
+
+    /**
+     * A failure of the OP's own while the client is authenticated - the database did not answer - is not a
+     * denial, and is not made into one: it passes through as it came, for the endpoint to answer as
+     * `server_error`.
+     *
+     * @throws \Throwable
+     */
+    public function testAFailureWhileAuthenticatingTheClientIsNotADenial(): void
+    {
+        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn(null);
+        $databaseFailure = new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused');
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willThrowException($databaseFailure);
+
+        $this->expectExceptionObject($databaseFailure);
 
         $this->sut()->checkRule(
             $this->requestStub,

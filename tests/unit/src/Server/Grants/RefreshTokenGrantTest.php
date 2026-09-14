@@ -24,6 +24,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionMethod;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
@@ -392,6 +393,31 @@ class RefreshTokenGrantTest extends TestCase
             $this->callValidateClient($this->sut());
         } finally {
             $this->assertSame([RequestEvent::CLIENT_AUTHENTICATION_FAILED], $this->emittedEventNames);
+        }
+    }
+
+
+    /**
+     * A failure of the OP's own while the client is authenticated - the database did not answer - is not a
+     * refusal: it passes through as it came, for the endpoint to answer as `server_error`, and is not
+     * announced as a failed authentication, which a listener counting those would otherwise be misled by.
+     *
+     * @throws \ReflectionException
+     */
+    public function testValidateClientLetsAFailureOfTheOpsOwnThrough(): void
+    {
+        $databaseFailure = new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused');
+        $this->clientResolverMock->expects($this->once())
+            ->method('forAnySupportedMethod')
+            ->with($this->serverRequestMock)
+            ->willThrowException($databaseFailure);
+
+        $this->expectExceptionObject($databaseFailure);
+
+        try {
+            $this->callValidateClient($this->sut());
+        } finally {
+            $this->assertSame([], $this->emittedEventNames);
         }
     }
 

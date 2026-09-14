@@ -7,23 +7,25 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\AccessTokenController;
 use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Throwable;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Controllers\AccessTokenController
- */
+#[CoversClass(AccessTokenController::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AccessTokenControllerTest extends TestCase
 {
@@ -146,6 +148,43 @@ class AccessTokenControllerTest extends TestCase
             ->with('Access-Control-Allow-Origin', '*');
 
         $this->mock()->token($this->symfonyRequestMock);
+    }
+
+
+    public function testTokenAnswersAnOAuthErrorThroughTheErrorResponder(): void
+    {
+        $exception = OidcServerException::accessDenied('Client authentication failed.');
+        $this->authorizationServerMock->method('respondToAccessTokenRequest')->willThrowException($exception);
+        $this->errorResponderMock->expects($this->once())->method('forException')
+            ->with($exception)
+            ->willReturn($this->symfonyResponseMock);
+
+        $this->assertSame($this->symfonyResponseMock, $this->mock()->token($this->symfonyRequestMock));
+    }
+
+
+    /**
+     * A failure of the OP's own - the database did not answer while the client was being authenticated -
+     * is answered as `server_error` in the token error format, not left to SimpleSAMLphp's HTML error page.
+     * The client is told nothing of the cause, which travels only as the previous exception, for the log.
+     */
+    public function testTokenAnswersAFailureOfTheOpsOwnAsAServerError(): void
+    {
+        $failure = new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused');
+        $this->authorizationServerMock->method('respondToAccessTokenRequest')->willThrowException($failure);
+        $this->errorResponderMock->expects($this->once())->method('forException')
+            ->with($this->callback(
+                static fn(Throwable $exception): bool =>
+                    $exception instanceof OidcServerException &&
+                    $exception->getErrorType() === 'server_error' &&
+                    $exception->getHttpStatusCode() === 500 &&
+                    $exception->getPrevious() === $failure &&
+                    !str_contains($exception->getMessage(), 'Connection refused') &&
+                    $exception->getHint() === null,
+            ))
+            ->willReturn($this->symfonyResponseMock);
+
+        $this->assertSame($this->symfonyResponseMock, $this->mock()->token($this->symfonyRequestMock));
     }
 
 

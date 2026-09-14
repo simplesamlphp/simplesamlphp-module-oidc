@@ -31,9 +31,10 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *
  * - With credentials (a client assertion, a Basic Authorization header or a client secret): the client they
  *   name has to be registered and the credentials have to verify, or the request is refused with
- *   `invalid_client` (RFC 7521 section 4.2.1). Credentials which cannot be checked are a refusal, not a case
- *   of anonymous access, and a `client_id` sent alongside has to name the same client (RFC 7521 section 4.2).
- *   The result is that registered client.
+ *   `invalid_client` (RFC 7521 section 4.2.1). Credentials which cannot be used are a refusal, not a case of
+ *   anonymous access, and a `client_id` sent alongside has to name the same client (RFC 7521 section 4.2).
+ *   The result is that registered client. A failure of the OP's own while checking them, a database which
+ *   does not answer, is neither, and passes through to be answered as `server_error`.
  * - With a `client_id` naming a registered client and no credentials: accepted as that client only where its
  *   registration allows it, so a confidential client is refused (RFC 6749 section 3.2.1), as is a public
  *   client registered with another `token_endpoint_auth_method`. The result is that registered client.
@@ -69,7 +70,7 @@ class PreAuthorizedCodeClientRule extends AbstractRule
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface $responseMode
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \Throwable
      */
     public function checkRule(
         ServerRequestInterface $request,

@@ -67,6 +67,19 @@ class TokenIntrospectionController
                 description: $e->getMessage(),
                 httpCode: Response::HTTP_UNAUTHORIZED,
             );
+        } catch (Throwable $e) {
+            // Not a verdict on the caller: a database or cache which did not answer while the caller was being
+            // authenticated. Answering 401 would tell a caller with valid credentials that they are invalid
+            // (RFC 7662 section 2.3 reserves it for that), so this is the OP's failure, and says so.
+            $this->loggerService->error(
+                'TokenIntrospectionController::invoke: error while authenticating the caller: ' . $e->getMessage(),
+                ['exception' => $e::class],
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Unable to process the introspection request.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
         }
 
         $allowedMethods = [HttpMethodsEnum::POST];

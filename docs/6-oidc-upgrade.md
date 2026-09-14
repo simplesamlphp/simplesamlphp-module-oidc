@@ -488,6 +488,18 @@ call for `invalid_client`). A public client which sends only its `client_id` is
 unaffected. In the same place, the `Basic` scheme name in the `Authorization`
 header is now matched case-insensitively, as HTTP defines it (RFC 9110 section
 11.1); previously a `basic` or `BASIC` header was skipped as if absent.
+- A failure of the OP while a client is being authenticated - a database
+or cache which does not answer during the client lookup or the
+`client_assertion` reuse check - is now answered with `server_error` (HTTP 500)
+at the token endpoint, the PAR endpoint and the token introspection endpoint.
+Previously it was answered as if the credentials were wrong (`invalid_client`,
+`access_denied` or `unauthorized`, HTTP 401), which told a client with valid
+credentials to doubt them and hid the outage behind a 401. Credentials which do
+not verify are answered as before. In the same place, the token endpoint now
+answers any unexpected failure while processing a request in the token error
+format (`{"error": "server_error", ...}`, HTTP 500, with the cause in the OP
+log rather than in the response) instead of with SimpleSAMLphp's HTML error
+page.
 - Client property `is_federated` has been removed, as the OP implementation
 can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to

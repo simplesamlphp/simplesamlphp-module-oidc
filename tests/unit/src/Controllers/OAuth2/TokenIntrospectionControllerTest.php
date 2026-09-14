@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -166,6 +167,35 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->routesMock->expects($this->once())
             ->method('newJsonErrorResponse')
             ->with('unauthorized', 'Unauthorized client.', 401)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A failure of the OP's own while the caller is being authenticated - the database did not answer - is
+     * not a 401, which RFC 7662 section 2.3 has mean invalid credentials, and the API token is not tried
+     * instead: the request is answered as the OP's failure, and logged as one.
+     */
+    public function testInvokeAnswersAFailureWhileAuthenticatingTheCallerAsAServerError(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willThrowException(new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused'));
+        $this->apiAuthorizationMock->expects($this->never())->method('requireTokenForAnyOfScope');
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->stringContains('Connection refused'),
+                ['exception' => RuntimeException::class],
+            );
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));

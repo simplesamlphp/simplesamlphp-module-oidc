@@ -59,6 +59,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
      * authenticated client matches the client the refresh token was issued to.
      *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Throwable
      */
     protected function validateClient(ServerRequestInterface $request): ClientEntityInterface
     {

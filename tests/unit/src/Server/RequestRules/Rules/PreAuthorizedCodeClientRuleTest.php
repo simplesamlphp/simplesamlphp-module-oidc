@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
@@ -193,6 +194,25 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
             'Token request rejected: the client could not be authenticated.',
             ['client_id' => null, 'presents_credentials' => true],
         );
+    }
+
+
+    /**
+     * A failure of the OP's own while the credentials are checked - the database did not answer - is not a
+     * refusal, and is not made into one: it passes through as it came, for the endpoint to answer as
+     * `server_error`.
+     */
+    public function testAFailureWhileCheckingTheCredentialsIsNotARefusal(): void
+    {
+        $this->withClientId(null);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(true);
+        $databaseFailure = new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused');
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willThrowException($databaseFailure);
+
+        $this->expectExceptionObject($databaseFailure);
+
+        $this->check();
     }
 
 

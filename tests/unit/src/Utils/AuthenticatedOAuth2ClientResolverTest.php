@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use InvalidArgumentException;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -36,6 +37,8 @@ use SimpleSAML\OpenID\Core\ClientAssertion;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\Request;
+use Throwable;
+use TypeError;
 
 #[CoversClass(AuthenticatedOAuth2ClientResolver::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -506,6 +509,82 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
 
+    /**
+     * An assertion the parser refuses (malformed, a claim missing, expired) is the client's doing, so it is
+     * refused as one, with the parser's exception kept as the cause, rather than let out for
+     * forAnySupportedMethod() to mistake for a failure of the OP's own. Parsing reads nothing but the
+     * assertion, so that holds whatever the parser throws, the library's exception or a PHP error.
+     */
+    #[DataProvider('unparsableAssertionProvider')]
+    public function testForPrivateKeyJwtRefusesAnAssertionWhichDoesNotParse(Throwable $thrown): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willThrowException($thrown);
+        $this->clientRepositoryMock->expects($this->never())->method('findById');
+
+        try {
+            $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
+            $this->fail('An assertion which does not parse was not refused.');
+        } catch (AuthorizationException $exception) {
+            $this->assertStringContainsString($thrown->getMessage(), $exception->getMessage());
+            $this->assertSame($thrown, $exception->getPrevious());
+        }
+    }
+
+
+    public static function unparsableAssertionProvider(): array
+    {
+        return [
+            'a token which does not parse' => [new JwsException('Unable to parse token.')],
+            'a header the JOSE library chokes on' => [
+                new TypeError('AlgorithmManager::get(): Argument #1 ($algorithm) must be of type string'),
+            ],
+        ];
+    }
+
+
+    /**
+     * The same for key material the JWKS resolver cannot make a key set of: a Signed JWKS which does not parse
+     * or verify comes out as one of the library's exceptions, key data missing what a key needs as the JWK
+     * library's InvalidArgumentException, a Signed JWKS header the JOSE library cannot take as a PHP error. All
+     * are the client's registration at fault - the fetcher answers null, not an exception, for a URI it cannot
+     * reach - so each is a refusal.
+     */
+    #[DataProvider('unusableJwksProvider')]
+    public function testForPrivateKeyJwtRefusesAnAssertionWhoseClientJwksCannotBeUsed(Throwable $thrown): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($this->clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willThrowException($thrown);
+        $this->clientAssertionMock->expects($this->never())->method('verifyWithKeySet');
+
+        try {
+            $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
+            $this->fail('An assertion whose client JWKS cannot be used was not refused.');
+        } catch (AuthorizationException $exception) {
+            $this->assertStringContainsString('client JWKS not usable', $exception->getMessage());
+            $this->assertSame($thrown, $exception->getPrevious());
+        }
+    }
+
+
+    public static function unusableJwksProvider(): array
+    {
+        return [
+            'a Signed JWKS which does not verify' => [new JwsException('Signed JWKS signature is not valid.')],
+            'key data without a key type' => [new InvalidArgumentException('The parameter "kty" is mandatory.')],
+            'a Signed JWKS whose alg header is an array' => [
+                new TypeError('AlgorithmManager::get(): Argument #1 ($algorithm) must be of type string'),
+            ],
+        ];
+    }
+
+
     public function testForPrivateKeyJwtThrowsWhenJtiAlreadyUsed(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -643,6 +722,53 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
 
+    /**
+     * An assertion is judged once, when parsed. Its expiration accessor checks the clock on every call, so an
+     * assertion which expires while its JWKS is fetched would throw the library's exception from the reuse
+     * cache bookkeeping further down, past the conversion into a refusal, and become a server fault. It was
+     * valid when judged, so it is accepted, and the cache is given the expiration read at that moment.
+     */
+    public function testForPrivateKeyJwtAcceptsAnAssertionWhichExpiresAfterItWasJudged(): void
+    {
+        $expirationTime = time() + 1;
+        $expired = false;
+        $clientAssertionMock = $this->createMock(ClientAssertion::class);
+        $clientAssertionMock->method('getIssuer')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getSubject')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getAudience')->willReturn([self::TOKEN_ENDPOINT]);
+        $clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
+        $clientAssertionMock->method('getExpirationTime')->willReturnCallback(
+            static function () use (&$expired, $expirationTime): int {
+                if ($expired) {
+                    throw new JwsException('Expiration Time claim is lesser than current time.');
+                }
+                $expired = true;
+
+                return $expirationTime;
+            },
+        );
+
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $this->dateTimeHelperMock->expects($this->once())->method('getSecondsToExpirationTime')
+            ->with($expirationTime)
+            ->willReturn(1);
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('has')->willReturn(false);
+        $protocolCacheMock->expects($this->once())->method('set')
+            ->with('unique-jti-value', 1, 'client_assertion_jti', 'unique-jti-value');
+
+        $result = $this->sut($protocolCacheMock)->forPrivateKeyJwt($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($this->clientEntityMock, $result->getClient());
+    }
+
+
     public function testForPrivateKeyJwtReturnsResolvedResultOnSuccess(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
@@ -719,17 +845,68 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
 
-    public function testForAnySupportedMethodReturnsNullAndLogsErrorOnException(): void
+    /**
+     * A refusal by one of the methods - here a wrong secret - is the null answer, logged with its reason as
+     * the client failure it is, not as an error of the OP's.
+     */
+    public function testForAnySupportedMethodAnswersNullForARefusalAndLogsItsReason(): void
     {
-        // Trigger a hard exception to verify the catch-all swallows it and logs.
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':wrong-secret')]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+        $this->clientEntityMock->method('isConfidential')->willReturn(true);
+        $this->clientEntityMock->method('getSecret')->willReturn(self::CLIENT_SECRET);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->loggerServiceMock->expects($this->once())->method('warning')
+            ->with($this->stringContains('Client secret is not valid'));
+        $this->loggerServiceMock->expects($this->never())->method('error');
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock));
+    }
+
+
+    /**
+     * A failure of the OP's own is no verdict on the client and is not turned into one: the client lookup
+     * failing - the database did not answer - comes out as the exception it was, for the endpoint to answer
+     * as `server_error`, instead of as the null which would have the client told its credentials are wrong.
+     */
+    public function testForAnySupportedMethodLetsAFailureOfTheClientLookupThrough(): void
+    {
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':' . self::CLIENT_SECRET)]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+        $databaseFailure = new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused');
+        $this->clientRepositoryMock->method('findById')->willThrowException($databaseFailure);
+
+        $this->expectExceptionObject($databaseFailure);
+
+        $this->sut()->forAnySupportedMethod($this->serverRequestMock);
+    }
+
+
+    /**
+     * The same for the assertion reuse check: a cache which cannot say whether the `jti` was seen before is
+     * not a refusal either, and not a pass.
+     */
+    public function testForAnySupportedMethodLetsAFailureOfTheReuseCheckThrough(): void
+    {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
-            ->willThrowException(new RuntimeException('Unexpected error'));
+            ->willReturnCallback(static fn(string $paramKey): ?string => match ($paramKey) {
+                ParamsEnum::ClientAssertion->value => 'some-assertion-token',
+                ParamsEnum::ClientAssertionType->value => ClientAssertionTypesEnum::JwtBaerer->value,
+                default => null,
+            });
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($this->clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $cacheFailure = new RuntimeException('Cache backend unavailable.');
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('has')->willThrowException($cacheFailure);
 
-        $this->loggerServiceMock->expects($this->once())->method('error');
+        $this->expectExceptionObject($cacheFailure);
 
-        $result = $this->sut()->forAnySupportedMethod($this->serverRequestMock);
-
-        $this->assertNull($result);
+        $this->sut($protocolCacheMock)->forAnySupportedMethod($this->serverRequestMock);
     }
 
 
@@ -809,7 +986,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             );
         $this->clientEntityMock->method('isConfidential')->willReturn(false);
         $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
-        $this->loggerServiceMock->expects($this->once())->method('error')
+        $this->loggerServiceMock->expects($this->once())->method('warning')
             ->with($this->stringContains('none of them could be used to authenticate the client'));
 
         $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock));
@@ -868,8 +1045,10 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':' . self::CLIENT_SECRET)]);
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
         $this->clientRepositoryMock->expects($this->never())->method('findById');
-        // Logged where the mismatch is found and again where the exception is caught.
-        $this->loggerServiceMock->expects($this->exactly(2))->method('error')
+        // Logged where the mismatch is found and again, as the refusal, where the exception is caught.
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('Client ID does not match'));
+        $this->loggerServiceMock->expects($this->once())->method('warning')
             ->with($this->stringContains('Client ID does not match'));
 
         $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock, $preFetchedClient));

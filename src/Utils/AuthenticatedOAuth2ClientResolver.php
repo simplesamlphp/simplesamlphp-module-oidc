@@ -40,6 +40,20 @@ class AuthenticatedOAuth2ClientResolver
     }
 
 
+    /**
+     * The client the request authenticates as, or null when it authenticates as none: either no supported
+     * method was presented, or one was and the client was refused (unknown, not active, wrong secret, an
+     * assertion which does not verify, credentials which do not fit the registration). A refusal is an
+     * AuthorizationException from one of the methods and is logged here with its reason; the caller answers
+     * `invalid_client` (RFC 6749 section 5.2, RFC 7521 section 4.2.1), which both cases deserve.
+     *
+     * Anything else thrown is not a verdict on the client and propagates: a database or cache failure while
+     * looking the client up or checking assertion reuse is the OP's own fault, and answering it as
+     * `invalid_client` would tell a client with valid credentials that they are wrong, and hide an outage
+     * behind a 401. The endpoint answers such a failure as `server_error` instead.
+     *
+     * @throws \Throwable
+     */
     public function forAnySupportedMethod(
         Request|ServerRequestInterface $request,
         ?ClientEntityInterface $preFetchedClient = null,
@@ -57,10 +71,9 @@ class AuthenticatedOAuth2ClientResolver
             }
 
             return $resolved;
-        } catch (Throwable $exception) {
-            $this->loggerService->error(
-                'Error while trying to resolve authenticated client: ' .
-                    $exception->getMessage(),
+        } catch (AuthorizationException $exception) {
+            $this->loggerService->warning(
+                'Client authentication refused: ' . $exception->getMessage(),
             );
             return null;
         }
@@ -143,7 +156,7 @@ class AuthenticatedOAuth2ClientResolver
      * to accept. That is a failed authentication - invalid_client under RFC 7521 section 4.2.1 for an
      * assertion and RFC 6749 section 5.2 otherwise - not an unauthenticated public client, so it is refused
      * here rather than let through as `none`. Throwing makes forAnySupportedMethod() answer null, as for
-     * any other failure.
+     * any other refusal.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      */
@@ -383,8 +396,13 @@ class AuthenticatedOAuth2ClientResolver
 
 
     /**
-     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
-     * @throws \SimpleSAML\OpenID\Exceptions\ClientAssertionException
+     * A refused assertion is an AuthorizationException whatever refused it: one which does not parse, is
+     * missing a claim or has expired, one the client's JWKS cannot be obtained or used for, and one which
+     * does not verify are all the client's doing (RFC 7521 section 4.2.1). The exceptions the parser and the
+     * JWKS resolver throw are converted here so that forAnySupportedMethod() can tell such a refusal from a
+     * failure of the OP's own. The client lookup and the reuse cache are left to throw as themselves: a
+     * database or cache which cannot answer is a server fault, not a verdict.
+     *
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      * @throws \Psr\SimpleCache\InvalidArgumentException
      */
@@ -429,11 +447,37 @@ class AuthenticatedOAuth2ClientResolver
             return null;
         }
 
-        $clientAssertion = $this->requestParamsResolver->parseClientAssertionToken($clientAssertionParam);
+        // Parsing reads nothing but the assertion, so whatever it throws - the library's exceptions for a token
+        // which does not parse, a claim missing, of the wrong type or expired - is the assertion's fault. The
+        // expiration time is read here too, at the one moment the assertion is judged: its accessor checks the
+        // clock again on every call, and an assertion which expires while its JWKS is fetched would otherwise
+        // throw the library's exception further down, past this conversion, as if the OP had failed.
+        try {
+            $clientAssertion = $this->requestParamsResolver->parseClientAssertionToken($clientAssertionParam);
+            $clientAssertionExpirationTime = $clientAssertion->getExpirationTime();
+        } catch (Throwable $exception) {
+            throw new AuthorizationException(
+                'Client Assertion could not be parsed: ' . $exception->getMessage(),
+                previous: $exception,
+            );
+        }
 
         $client = $this->resolveClientOrFail($clientAssertion->getIssuer(), $preFetchedClient);
 
-        ($jwks = $this->jwksResolver->forClient($client)) || throw new AuthorizationException(
+        // The fetcher answers null for a URI it cannot reach and keeps its cache troubles to itself, so what it
+        // throws is about the material it got: a Signed JWKS which does not parse or verify, key data the JWK
+        // library will not build a key set from, a header it chokes on. Each is the client's registration at
+        // fault, whichever exception it comes out as - a TypeError from the JOSE library included.
+        try {
+            $jwks = $this->jwksResolver->forClient($client);
+        } catch (Throwable $exception) {
+            throw new AuthorizationException(
+                'Can not validate Client Assertion, client JWKS not usable: ' . $exception->getMessage(),
+                previous: $exception,
+            );
+        }
+
+        $jwks || throw new AuthorizationException(
             'Can not validate Client Assertion, client JWKS not available.',
         );
 
@@ -478,7 +522,7 @@ class AuthenticatedOAuth2ClientResolver
         // Everything seems ok. Save it in a cache so we can check for reuse.
         $this->protocolCache?->set(
             $clientAssertion->getJwtId(),
-            $this->helpers->dateTime()->getSecondsToExpirationTime($clientAssertion->getExpirationTime()),
+            $this->helpers->dateTime()->getSecondsToExpirationTime($clientAssertionExpirationTime),
             self::KEY_CLIENT_ASSERTION_JTI,
             $clientAssertion->getJwtId(),
         );

@@ -11,9 +11,11 @@ use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class AccessTokenController
 {
@@ -65,6 +67,14 @@ class AccessTokenController
             return $response;
         } catch (OAuthServerException $exception) {
             return $this->errorResponder->forException($exception);
+        } catch (Throwable $exception) {
+            // A failure of the OP's own - a database or cache which did not answer while the client was being
+            // authenticated or the grant redeemed - is answered as `server_error` in the token error format,
+            // rather than left to SimpleSAMLphp's HTML error page. The client is told nothing of the cause; the
+            // ErrorResponder logs it.
+            return $this->errorResponder->forException(
+                OidcServerException::serverError('Unable to process the token request.', $exception),
+            );
         }
     }
 }
