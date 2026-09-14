@@ -52,6 +52,7 @@ class AuthenticatedOAuth2ClientResolver
             $this->forPublicClient($request, $preFetchedClient);
 
             if ($resolved !== null) {
+                $this->refuseCredentialsWhichWentUnused($request, $resolved);
                 $this->enforceRegisteredTokenEndpointAuthMethod($resolved);
             }
 
@@ -62,6 +63,101 @@ class AuthenticatedOAuth2ClientResolver
                     $exception->getMessage(),
             );
             return null;
+        }
+    }
+
+
+    /**
+     * Whether the request carries client credentials for any of the supported authentication methods: a client
+     * assertion (private_key_jwt), a Basic Authorization header (client_secret_basic) or a client secret in the
+     * POST body (client_secret_post). A bare client_id identifies the client without authenticating it, so it
+     * does not count. What counts is an attempt, not a usable one: an empty assertion, which forPrivateKeyJwt()
+     * goes on to refuse, a malformed Basic header, which forClientSecretBasic() skips, and a client_assertion_type
+     * without an assertion, which nothing reads, are all presented credentials here. The exception is an empty
+     * client secret, which forClientSecretPost() treats as absent, and so does this.
+     *
+     * For a caller which requires authentication, forAnySupportedMethod() answering null is refusal enough. A
+     * caller for whom authentication is optional needs to tell a client that chose not to authenticate apart
+     * from one that tried and failed, which that null does not; this does. forAnySupportedMethod() itself
+     * uses it to keep a failed attempt from falling through to the public client (see
+     * refuseCredentialsWhichWentUnused()).
+     */
+    public function presentsClientCredentials(Request|ServerRequestInterface $request): bool
+    {
+        if ($request instanceof Request) {
+            $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
+        }
+
+        foreach ([ParamsEnum::ClientAssertion->value, ParamsEnum::ClientAssertionType->value] as $assertionParam) {
+            if (
+                is_string($this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+                    $assertionParam,
+                    $request,
+                    [HttpMethodsEnum::POST],
+                ))
+            ) {
+                return true;
+            }
+        }
+
+        if ($this->basicAuthorizationCredentials($request) !== null) {
+            return true;
+        }
+
+        $clientSecret = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            ParamsEnum::ClientSecret->value,
+            $request,
+            [HttpMethodsEnum::POST],
+        );
+
+        return is_string($clientSecret) && $clientSecret !== '';
+    }
+
+
+    /**
+     * What follows the scheme in a Basic Authorization header, or null when the request carries no such header.
+     * The scheme name is case-insensitive (RFC 9110, section 11.1), so `basic` and `BASIC` are the scheme as
+     * much as `Basic` is; what follows it is handed back untouched for the caller to decode and judge. A bare
+     * scheme is an empty credential rather than no header: PSR-7 implementations trim the field value, so
+     * `Basic ` reaches this method as `Basic`, and a wallet which sent that did attempt to authenticate.
+     */
+    protected function basicAuthorizationCredentials(ServerRequestInterface $request): ?string
+    {
+        $authorizationHeader = $request->getHeader('Authorization')[0] ?? null;
+
+        if (
+            !is_string($authorizationHeader) ||
+            preg_match('/^Basic(?:[ \t]+(.*))?$/i', $authorizationHeader, $matches) !== 1
+        ) {
+            return null;
+        }
+
+        return $matches[1] ?? '';
+    }
+
+
+    /**
+     * A request which presented credentials and still resolved as a public client tried to authenticate and
+     * failed: every credential method declined what it was given (a malformed Basic header, an assertion of
+     * an unsupported type, an empty assertion), and only the bare client_id was left for forPublicClient()
+     * to accept. That is a failed authentication - invalid_client under RFC 7521 section 4.2.1 for an
+     * assertion and RFC 6749 section 5.2 otherwise - not an unauthenticated public client, so it is refused
+     * here rather than let through as `none`. Throwing makes forAnySupportedMethod() answer null, as for
+     * any other failure.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     */
+    protected function refuseCredentialsWhichWentUnused(
+        Request|ServerRequestInterface $request,
+        ResolvedClientAuthenticationMethod $resolved,
+    ): void {
+        if (
+            $resolved->getClientAuthenticationMethod()->isNone() &&
+            $this->presentsClientCredentials($request)
+        ) {
+            throw new AuthorizationException(
+                'Client credentials were presented, but none of them could be used to authenticate the client.',
+            );
         }
     }
 
@@ -153,23 +249,16 @@ class AuthenticatedOAuth2ClientResolver
             $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
         }
 
-        $authorizationHeader = $request->getHeader('Authorization')[0] ?? null;
+        $basicCredentials = $this->basicAuthorizationCredentials($request);
 
-        if (!is_string($authorizationHeader)) {
+        if ($basicCredentials === null) {
             $this->loggerService->debug(
-                'No authorization header available for basic auth, skipping.',
+                'No Basic authorization header available for basic auth, skipping.',
             );
             return null;
         }
 
-        if (!str_starts_with($authorizationHeader, 'Basic ')) {
-            $this->loggerService->debug(
-                'Authorization header is not in basic auth format, skipping.',
-            );
-            return null;
-        }
-
-        $decodedAuthorizationHeader = base64_decode(substr($authorizationHeader, 6), true);
+        $decodedAuthorizationHeader = base64_decode($basicCredentials, true);
 
         if ($decodedAuthorizationHeader === false) {
             $this->loggerService->debug(

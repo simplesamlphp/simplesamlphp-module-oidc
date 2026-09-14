@@ -72,13 +72,13 @@ use SimpleSAML\OpenID\Jwks;
 class RequestRulesManagerFactoryTest extends TestCase
 {
     /** Rules the factory registers when it is left to pick them itself. */
-    private const int DEFAULT_RULE_COUNT = 27;
+    private const int DEFAULT_RULE_COUNT = 28;
 
     /**
      * Constructor parameters across all of those rules, counted so that the wiring test cannot pass by
      * asserting nothing. Adding a dependency to any rule is expected to move this number.
      */
-    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 86;
+    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 90;
 
 
     private ModuleConfig&MockObject $moduleConfigMock;

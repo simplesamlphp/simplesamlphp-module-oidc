@@ -478,6 +478,16 @@ Requests that still send `client_id` are unaffected, and the authenticated clien
 is always validated against the client the authorization code / refresh token was
 issued to. Note that for non-registered (generic VCI) clients the `client_id`
 parameter is still required, as their identity cannot be derived from a credential.
+- A token request which presents client credentials that cannot be used - a
+malformed `Authorization: Basic` header, a `client_assertion` of an unsupported
+type - is now refused with `invalid_client` even when it also names a public
+client through `client_id`. Previously such a request fell through to the
+public client's `none` method and was accepted as unauthenticated, as if the
+credentials had not been sent (RFC 7521 section 4.2.1 and RFC 6749 section 5.2
+call for `invalid_client`). A public client which sends only its `client_id` is
+unaffected. In the same place, the `Basic` scheme name in the `Authorization`
+header is now matched case-insensitively, as HTTP defines it (RFC 9110 section
+11.1); previously a `basic` or `BASIC` header was skipped as if absent.
 - Client property `is_federated` has been removed, as the OP implementation
 can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to

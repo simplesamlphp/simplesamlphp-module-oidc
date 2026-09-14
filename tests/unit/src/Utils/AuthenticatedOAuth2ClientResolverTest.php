@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -28,6 +30,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\ClientAssertion;
 use SimpleSAML\OpenID\Exceptions\JwsException;
@@ -310,9 +313,13 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
 
-    public function testForClientSecretBasicReturnsResolvedResultOnSuccess(): void
+    /**
+     * The scheme name is case-insensitive (RFC 9110, section 11.1), and more than one space may follow it.
+     */
+    #[DataProvider('basicSchemeSpellingProvider')]
+    public function testForClientSecretBasicReturnsResolvedResultOnSuccess(string $schemePrefix): void
     {
-        $encoded = 'Basic ' . base64_encode(self::CLIENT_ID . ':' . self::CLIENT_SECRET);
+        $encoded = $schemePrefix . base64_encode(self::CLIENT_ID . ':' . self::CLIENT_SECRET);
         $this->serverRequestMock->method('getHeader')->with('Authorization')
             ->willReturn([$encoded]);
         $this->clientEntityMock->method('isConfidential')->willReturn(true);
@@ -327,6 +334,17 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ClientAuthenticationMethodsEnum::ClientSecretBasic,
             $result->getClientAuthenticationMethod(),
         );
+    }
+
+
+    public static function basicSchemeSpellingProvider(): array
+    {
+        return [
+            'Basic' => ['Basic '],
+            'basic' => ['basic '],
+            'BASIC' => ['BASIC '],
+            'Basic followed by two spaces' => ['Basic  '],
+        ];
     }
 
 
@@ -747,6 +765,116 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         );
     }
 
+
+    /**
+     * A registered public client identified by its client_id alone resolves as `none`; that is the fallback
+     * the credential methods leave to forPublicClient(). Pinned beside the refusal below as its other half:
+     * the guard which refuses a `none` resolution reads what the request presented, and this is what keeps
+     * it from being widened into refusing `none` outright.
+     */
+    public function testForAnySupportedMethodFallsBackToThePublicClientWhenNoCredentialsArePresented(): void
+    {
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn([]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(
+                static fn(string $paramKey): ?string => $paramKey === ParamsEnum::ClientId->value ?
+                    self::CLIENT_ID :
+                    null,
+            );
+        $this->clientEntityMock->method('isConfidential')->willReturn(false);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+
+        $result = $this->sut()->forAnySupportedMethod($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame(ClientAuthenticationMethodsEnum::None, $result->getClientAuthenticationMethod());
+    }
+
+
+    /**
+     * The same public client with credentials it could not be authenticated by does not get that fallback:
+     * the request tried to authenticate and failed, and is refused rather than let through as `none`. Each
+     * shape is one a credential method declines without throwing, which is what would otherwise have handed
+     * the request on to forPublicClient().
+     */
+    #[DataProvider('unusableCredentialsProvider')]
+    public function testForAnySupportedMethodRefusesAPublicClientWhoseCredentialsWentUnused(
+        array $authorizationHeader,
+        array $postParameters,
+    ): void {
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn($authorizationHeader);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(
+                static fn(string $paramKey): ?string => $postParameters[$paramKey] ?? null,
+            );
+        $this->clientEntityMock->method('isConfidential')->willReturn(false);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('none of them could be used to authenticate the client'));
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock));
+    }
+
+
+    public static function unusableCredentialsProvider(): array
+    {
+        $samlBearer = 'urn:ietf:params:oauth:client-assertion-type:saml2-bearer';
+
+        return [
+            'a malformed Basic header' => [['Basic !!!'], [ParamsEnum::ClientId->value => self::CLIENT_ID]],
+            'a Basic header carrying nothing' => [['Basic '], [ParamsEnum::ClientId->value => self::CLIENT_ID]],
+            'a bare Basic scheme' => [['Basic'], [ParamsEnum::ClientId->value => self::CLIENT_ID]],
+            'a Basic header without a colon' => [
+                ['Basic ' . base64_encode('no-colon-here')],
+                [ParamsEnum::ClientId->value => self::CLIENT_ID],
+            ],
+            'an assertion of an unsupported type' => [
+                [],
+                [
+                    ParamsEnum::ClientId->value => self::CLIENT_ID,
+                    ParamsEnum::ClientAssertion->value => 'some-assertion-token',
+                    ParamsEnum::ClientAssertionType->value => $samlBearer,
+                ],
+            ],
+            'an assertion type without an assertion' => [
+                [],
+                [
+                    ParamsEnum::ClientId->value => self::CLIENT_ID,
+                    ParamsEnum::ClientAssertionType->value => ClientAssertionTypesEnum::JwtBaerer->value,
+                ],
+            ],
+            'an empty assertion without a type' => [
+                [],
+                [
+                    ParamsEnum::ClientId->value => self::CLIENT_ID,
+                    ParamsEnum::ClientAssertion->value => '',
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * The pre-fetched client goes through to every method, and each holds the client the credentials name
+     * against it: Basic credentials for one client, with another handed over as pre-fetched, are refused.
+     */
+    public function testForAnySupportedMethodRefusesCredentialsWhichNameAnotherClientThanThePreFetchedOne(): void
+    {
+        $preFetchedClient = $this->createMock(ClientEntityInterface::class);
+        $preFetchedClient->method('getIdentifier')->willReturn('different-client-id');
+        $preFetchedClient->method('isEnabled')->willReturn(true);
+        $preFetchedClient->method('isExpired')->willReturn(false);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':' . self::CLIENT_SECRET)]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+        $this->clientRepositoryMock->expects($this->never())->method('findById');
+        // Logged where the mismatch is found and again where the exception is caught.
+        $this->loggerServiceMock->expects($this->exactly(2))->method('error')
+            ->with($this->stringContains('Client ID does not match'));
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock, $preFetchedClient));
+    }
+
     // -----------------------------------------------------------------------
     // findActiveClient
     // -----------------------------------------------------------------------
@@ -831,5 +959,125 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         // Must not throw.
         $this->sut()->validateClientSecret($this->clientEntityMock, self::CLIENT_SECRET);
         $this->addToAssertionCount(1);
+    }
+
+    // -----------------------------------------------------------------------
+    // presentsClientCredentials
+    // -----------------------------------------------------------------------
+
+    /**
+     * What counts is an attempt: an assertion as soon as it is a string, even an empty one which
+     * forPrivateKeyJwt() then refuses; an assertion type on its own, which nothing reads; a header on its
+     * `Basic ` prefix alone, whether or not forClientSecretBasic() can parse the rest; a client secret only when
+     * it is non-empty, since forClientSecretPost() treats an empty one as absent. A bare client_id is not a
+     * credential.
+     */
+    #[DataProvider('presentedCredentialsProvider')]
+    public function testPresentsClientCredentialsTellsCredentialsFromIdentification(
+        array $postParameters,
+        array $authorizationHeader,
+        bool $expected,
+    ): void {
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn($authorizationHeader);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(
+                function (
+                    string $paramKey,
+                    ServerRequestInterface $request,
+                    array $allowedMethods,
+                ) use ($postParameters): ?string {
+                    $this->assertSame($this->serverRequestMock, $request);
+                    $this->assertSame([HttpMethodsEnum::POST], $allowedMethods);
+
+                    return $postParameters[$paramKey] ?? null;
+                },
+            );
+
+        $this->assertSame($expected, $this->sut()->presentsClientCredentials($this->serverRequestMock));
+    }
+
+
+    public static function presentedCredentialsProvider(): array
+    {
+        $clientId = [ParamsEnum::ClientId->value => self::CLIENT_ID];
+
+        return [
+            'nothing but a client_id' => [$clientId, [], false],
+            'a client assertion' => [
+                $clientId + [ParamsEnum::ClientAssertion->value => 'some-assertion-token'],
+                [],
+                true,
+            ],
+            'an empty client assertion, which is presented and then refused' => [
+                $clientId + [ParamsEnum::ClientAssertion->value => ''],
+                [],
+                true,
+            ],
+            'a client assertion type without an assertion' => [
+                $clientId + [
+                    ParamsEnum::ClientAssertionType->value => ClientAssertionTypesEnum::JwtBaerer->value,
+                ],
+                [],
+                true,
+            ],
+            'a Basic Authorization header' => [$clientId, ['Basic ' . base64_encode('id:secret')], true],
+            'a Basic Authorization header with the scheme in lower case' => [
+                $clientId,
+                ['basic ' . base64_encode('id:secret')],
+                true,
+            ],
+            'a Basic Authorization header carrying nothing usable' => [$clientId, ['Basic '], true],
+            'a bare Basic scheme, which is what PSR-7 makes of `Basic ` once trimmed' => [
+                $clientId,
+                ['Basic'],
+                true,
+            ],
+            'a Bearer Authorization header' => [$clientId, ['Bearer some-token'], false],
+            'a scheme which merely starts with Basic' => [$clientId, ['Basically nothing'], false],
+            'a client secret' => [
+                $clientId + [ParamsEnum::ClientSecret->value => self::CLIENT_SECRET],
+                [],
+                true,
+            ],
+            'an empty client secret, which is skipped' => [
+                $clientId + [ParamsEnum::ClientSecret->value => ''],
+                [],
+                false,
+            ],
+        ];
+    }
+
+
+    /**
+     * Through a real PSR-7 request rather than a mock, because the implementation trims the header value:
+     * `Basic ` is delivered as `Basic`, which a mock preserving the space never shows. A wallet which sent it
+     * attempted to authenticate, so it is presented credentials here and, being empty, credentials
+     * forClientSecretBasic() then skips - the shape the public-client guard is for.
+     */
+    public function testABareBasicSchemeSurvivesPsr7TrimmingAsAnEmptyCredential(): void
+    {
+        $request = new ServerRequest('POST', 'https://example.org/oidc/token', ['Authorization' => 'Basic ']);
+        $this->assertSame(['Basic'], $request->getHeader('Authorization'));
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+
+        $this->assertTrue($this->sut()->presentsClientCredentials($request));
+        $this->assertNull($this->sut()->forClientSecretBasic($request));
+    }
+
+
+    public function testPresentsClientCredentialsConvertsSymfonyRequestToPsr(): void
+    {
+        $symfonyRequest = Request::create('/', 'POST');
+        $psrRequest = $this->createMock(ServerRequestInterface::class);
+        $psrRequest->method('getHeader')->with('Authorization')->willReturn(['Basic abc']);
+        $this->psrHttpFactoryMock->expects($this->once())
+            ->method('createRequest')
+            ->with($symfonyRequest)
+            ->willReturn($psrRequest);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->with($this->anything(), $this->identicalTo($psrRequest))
+            ->willReturn(null);
+
+        $this->assertTrue($this->sut()->presentsClientCredentials($symfonyRequest));
     }
 }

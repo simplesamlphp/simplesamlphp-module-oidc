@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -106,6 +107,13 @@ class PreAuthCodeGrant extends AuthCodeGrant
     /**
      * Reimplementation for Pre-authorized Code.
      *
+     * Client authentication is optional for this grant (OpenID4VCI 1.0, section 6.1), so the wallet is not put
+     * through ClientAuthenticationRule, which refuses a request presenting no method. PreAuthorizedCodeClientRule
+     * authenticates the wallet when it presents credentials, takes a bare `client_id` as the self-declared
+     * identifier of a non-registered wallet, and identifies nobody for an anonymous request. Whatever it
+     * resolves is what the access token is bound to; the token itself is issued to the client the code was
+     * created for, which is the generic VCI client either way.
+     *
      * @param \Psr\Http\Message\ServerRequestInterface $request
      * @param \League\OAuth2\Server\ResponseTypes\ResponseTypeInterface $responseType
      * @param \DateInterval $accessTokenTTL
@@ -122,9 +130,6 @@ class PreAuthCodeGrant extends AuthCodeGrant
         ResponseTypeInterface $responseType,
         DateInterval $accessTokenTTL,
     ): ResponseTypeInterface {
-
-        // TODO mivanci client authentication?
-
         $this->loggerService->debug('PreAuthCodeGrant::respondToAccessTokenRequest');
 
         $preAuthorizedCodeId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
@@ -180,18 +185,15 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         $resultBag = $this->requestRulesManager->check(
             $request,
-            [AuthorizationDetailsRule::class],
+            [PreAuthorizedCodeClientRule::class, AuthorizationDetailsRule::class],
             // Response mode is not relevant for token request, as there is
             // no redirection, but we need to provide something to execute rules.
             new QueryResponseMode(),
             $this->allowedTokenHttpMethods,
         );
 
-        $clientId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
-            ParamsEnum::ClientId->value,
-            $request,
-            $this->allowedTokenHttpMethods,
-        );
+        // Null for an anonymous request.
+        $boundClientId = $resultBag->get(PreAuthorizedCodeClientRule::class)?->getValue();
 
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
 
@@ -214,7 +216,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
             $preAuthorizedCodeId,
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
             authorizationDetails: $authorizationDetails,
-            boundClientId: $clientId,
+            boundClientId: $boundClientId,
         );
 
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
@@ -222,7 +224,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         $this->loggerService->notice(
             'Pre-authorized code redeemed; access token issued.',
-            ['client_id' => $client->getIdentifier()],
+            ['client_id' => $client->getIdentifier(), 'bound_client_id' => $boundClientId],
         );
 
         return $responseType;

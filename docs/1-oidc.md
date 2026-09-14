@@ -149,7 +149,16 @@ Currently implemented OpenID4VCI features:
   verifier at this issuer's key set.
 - Supported Flows & Grant Types
   - Authorization Code Flow: Fully supported
-  - Pre-Authorized Code Flow: Fully supported
+  - Pre-Authorized Code Flow: Fully supported. Client authentication at the
+  token endpoint is optional, as OpenID4VCI 1.0 (section 6.1) has it. A wallet
+  may authenticate with any supported method (`private_key_jwt`,
+  `client_secret_basic`, `client_secret_post`), in which case it has to be a
+  registered client, and credentials which do not verify are refused with
+  `invalid_client`; it may identify itself with a bare `client_id`, which a
+  non-registered wallet is taken at its word for; or it may send neither and
+  redeem the code anonymously. Whatever identified the wallet is what the `iss`
+  claim of its key proof is checked against at the credential endpoint, and an
+  anonymous wallet has to omit that claim.
   - Authorization Details: Support for `openid_credential` type in authorization
   and token requests.
 - Supported Credential Formats

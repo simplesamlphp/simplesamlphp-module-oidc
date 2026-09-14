@@ -429,10 +429,10 @@ class OpenId4VciProofValidator
     {
         $proofIssuer = $proof->getIssuer();
 
-        // A pre-authorized code redeemed without a `client_id` identifies no wallet at all, so there is
-        // nothing an `iss` claim could be checked against, and OpenID4VCI has the wallet omit it.
-        // Recognised from the flow plus the absence of a bound client id rather than from the stored
-        // client entity, which names the client the offer was created for either way.
+        // A pre-authorized code redeemed anonymously - no client credentials and no `client_id` - identifies
+        // no wallet at all, so there is nothing an `iss` claim could be checked against, and OpenID4VCI has
+        // the wallet omit it. Recognised from the flow plus the absence of a bound client id rather than
+        // from the stored client entity, which names the client the offer was created for either way.
         if (
             $accessToken->getFlowTypeEnum() === FlowTypeEnum::VciPreAuthorizedCode &&
             $accessToken->getBoundClientId() === null

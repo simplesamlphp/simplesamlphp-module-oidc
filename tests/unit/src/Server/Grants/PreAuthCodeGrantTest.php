@@ -41,6 +41,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
@@ -56,20 +57,22 @@ use Stringable;
  * A pre-authorized code is issued out of band, inside a credential offer, and carries the holder, the client
  * and, optionally, a transaction code the wallet has to present with it. This grant redeems it: it finds the
  * stored code, checks that it is a pre-authorized one, unexpired and unrevoked, checks the transaction code
- * when the stored code carries one, runs the authorization details rule, consumes the code with the
- * repository's conditional update as the replay guard, and only then issues the access token, bound to the
- * client id presented and to the authorization details. A pre-authorized code is never requested through
- * the authorization endpoint, so the grant claims no authorization request and the module's four hooks
- * which would carry one towards a code all throw; League's own validateAuthorizationRequest() is inherited
- * untouched, but the module's server never reaches it for a grant which claims no request.
+ * when the stored code carries one, runs the client and authorization details rules, consumes the code with
+ * the repository's conditional update as the replay guard, and only then issues the access token, bound to
+ * whichever client the client rule identified and to the authorization details. A pre-authorized code is
+ * never requested through the authorization endpoint, so the grant claims no authorization request and the
+ * module's four hooks which would carry one towards a code all throw; League's own
+ * validateAuthorizationRequest() is inherited untouched, but the module's server never reaches it for a
+ * grant which claims no request.
  *
  * The four tests at the top predate this file's coverage pass and pin the replay guard: consumption before
  * issuance, a second redemption refused, an invalid transaction code refused before consumption, and no
  * attempt to give the code back when token persistence fails after it. The rest pin each refusal with its
  * error type and hint, and its log line where the grant writes one, what the issued token is made of, and
- * the closed hooks. The client id presented is not checked against the code's client; the source marks
- * client authentication as an open question, and the tests keep the two equal rather than pin either
- * answer.
+ * the closed hooks. Client authentication is optional for this grant and lives in
+ * PreAuthorizedCodeClientRule, with its own tests; here the rule is a result in the bag, and what is pinned is
+ * that the grant runs it, binds the token to whatever it answered, and binds it to nobody when it answered
+ * nothing. The token is issued to the code's client either way.
  */
 #[CoversClass(PreAuthCodeGrant::class)]
 #[UsesClass(AuthCodeEntity::class)]
@@ -83,7 +86,9 @@ class PreAuthCodeGrantTest extends TestCase
 
     private const string TRANSACTION_CODE = '1234';
 
-    private const string CLIENT_ID = 'wallet-client';
+    private const string CLIENT_ID = 'vci-generic-client';
+
+    private const string WALLET_CLIENT_ID = 'https://wallet.example.org';
 
     private const string USER_ID = 'user-id';
 
@@ -193,7 +198,7 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertLogged(
             'notice',
             'Pre-authorized code redeemed; access token issued.',
-            ['client_id' => self::CLIENT_ID],
+            ['client_id' => self::CLIENT_ID, 'bound_client_id' => null],
         );
         $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
@@ -506,29 +511,32 @@ class PreAuthCodeGrantTest extends TestCase
             new DateInterval('PT5M'),
         );
 
-        $this->assertSame([ParamsEnum::PreAuthorizedCode->value, ParamsEnum::ClientId->value], $this->askedParameters);
+        $this->assertSame([ParamsEnum::PreAuthorizedCode->value], $this->askedParameters);
     }
 
 
     /**
      * The token is made for the code's client and holder, with no scopes yet, expiring after the lifetime
-     * given, marked as issued through the pre-authorized code flow, tied to the code, bound to the client id
-     * presented and carrying whatever the authorization details rule read from the request. The request is
-     * put through that one rule with the token endpoint's method, and the issued token is announced through
-     * the emitter with the request it answered.
+     * given, marked as issued through the pre-authorized code flow, tied to the code, bound to the client the
+     * client rule identified - nobody, for an anonymous request - and carrying whatever the authorization
+     * details rule read from the request. The request is put through those two rules, the client one first,
+     * with the token endpoint's method, and the issued token is announced through the emitter with the
+     * request it answered. The client the token is issued to is the code's whether or not a wallet was
+     * identified: the rule's answer is a binding, not a reassignment.
      */
     #[DataProvider('holderProvider')]
     public function testIssuesTheAccessTokenForTheCodeHolderBoundToTheClientAndTheAuthorizationDetails(
         ?string $holder,
         ?array $authorizationDetails,
+        ?string $boundClientId,
     ): void {
         $this->configureRequestParameters(null);
         $this->requestRulesManagerMock->expects($this->once())->method('check')->with(
             $this->identicalTo($this->requestMock),
-            [AuthorizationDetailsRule::class],
+            [PreAuthorizedCodeClientRule::class, AuthorizationDetailsRule::class],
             $this->isInstanceOf(QueryResponseMode::class),
             [HttpMethodsEnum::POST],
-        )->willReturn($this->resultBagWith($authorizationDetails));
+        )->willReturn($this->resultBagWith($authorizationDetails, $boundClientId));
         $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode(holder: $holder));
         $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
         $accessToken = $this->createMock(AccessTokenEntity::class);
@@ -598,19 +606,45 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertFalse($tokenData['isRevoked']);
         $this->assertSame(FlowTypeEnum::VciPreAuthorizedCode, $tokenData['flowTypeEnum']);
         $this->assertSame($authorizationDetails, $tokenData['authorizationDetails']);
-        $this->assertSame(self::CLIENT_ID, $tokenData['boundClientId']);
+        $this->assertSame($boundClientId, $tokenData['boundClientId']);
         $this->assertNull($tokenData['boundRedirectUri']);
         $this->assertNull($tokenData['issuerState']);
         $this->assertSame([$this->requestMock], $emitted);
+        $this->assertLogged(
+            'notice',
+            'Pre-authorized code redeemed; access token issued.',
+            ['client_id' => self::CLIENT_ID, 'bound_client_id' => $boundClientId],
+        );
     }
 
 
     public static function holderProvider(): array
     {
         return [
-            'a code with a holder and authorization details' => [self::USER_ID, self::AUTHORIZATION_DETAILS],
-            'a code with neither' => [null, null],
+            'a code with a holder and authorization details, redeemed by an identified wallet' => [
+                self::USER_ID,
+                self::AUTHORIZATION_DETAILS,
+                self::WALLET_CLIENT_ID,
+            ],
+            'a code with neither, redeemed anonymously' => [null, null, null],
         ];
+    }
+
+
+    /**
+     * A refusal by either rule - a wallet whose credentials do not verify, an authorization details parameter
+     * the rule will not have - is the grant's answer, and comes before the code is consumed.
+     */
+    public function testARefusalByTheRulesIsPassedOnBeforeTheCodeIsConsumed(): void
+    {
+        $this->configureRequestParameters(null);
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->requestRulesManagerMock->method('check')
+            ->willThrowException(OidcServerException::invalidClient($this->requestMock));
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->assertTokenRequestRefused('invalid_client', null);
     }
 
 
@@ -734,7 +768,6 @@ class PreAuthCodeGrantTest extends TestCase
                     return match ($parameter) {
                         ParamsEnum::PreAuthorizedCode->value => $preAuthorizedCode,
                         ParamsEnum::TxCode->value => $transactionCode,
-                        ParamsEnum::ClientId->value => self::CLIENT_ID,
                         default => null,
                     };
                 },
@@ -748,9 +781,16 @@ class PreAuthCodeGrantTest extends TestCase
     }
 
 
-    private function resultBagWith(?array $authorizationDetails): ResultBag
+    /**
+     * What the two rules leave in the bag: each of them nothing when it had nothing to say - no authorization
+     * details parameter, an anonymous request - and its value otherwise.
+     */
+    private function resultBagWith(?array $authorizationDetails, ?string $boundClientId = null): ResultBag
     {
         $resultBag = new ResultBag();
+        if ($boundClientId !== null) {
+            $resultBag->add(new Result(PreAuthorizedCodeClientRule::class, $boundClientId));
+        }
         if ($authorizationDetails !== null) {
             $resultBag->add(new Result(AuthorizationDetailsRule::class, $authorizationDetails));
         }
@@ -759,7 +799,7 @@ class PreAuthCodeGrantTest extends TestCase
     }
 
 
-    private function assertTokenRequestRefused(string $errorType, string $hint): void
+    private function assertTokenRequestRefused(string $errorType, ?string $hint): void
     {
         try {
             $this->sut()->respondToAccessTokenRequest(
