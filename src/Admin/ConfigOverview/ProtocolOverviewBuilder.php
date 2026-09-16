@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use Throwable;
 
@@ -192,7 +193,8 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                         'clients on registration and is refused at the authorization and token endpoints, ' .
                         'even for a client registered with it earlier. OAuth 2.0 Security Best Current ' .
                         'Practice (RFC 9700) advises against the implicit grant, so it should be enabled ' .
-                        'only for a client which depends on it.',
+                        "only for a client which depends on it. Without 'refresh_token', the " .
+                        "'offline_access' scope is not supported either.",
                     ),
                 ),
             ),
@@ -767,11 +769,14 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         $defaultScopes = [];
         $defaultScopesError = null;
         $areDefaultScopesConfigured = false;
+        $isOfflineAccessSupported = false;
 
         try {
             $areDefaultScopesConfigured = $this->moduleConfig->config()
                 ->hasValue(ModuleConfig::OPTION_DCR_DEFAULT_SCOPES);
             $defaultScopes = $this->moduleConfig->getDcrDefaultScopes();
+            // Only worth a mention while the scope is among the supported ones (ModuleConfig::getScopes()).
+            $isOfflineAccessSupported = $this->moduleConfig->isGrantTypeEnabled(GrantTypesEnum::RefreshToken);
         } catch (Throwable $exception) {
             $defaultScopesError = $this->describeResolutionError(
                 $exception,
@@ -786,11 +791,18 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
             ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
             // Suppressed on failure: the fallback set could not be resolved, so claiming it
             // contains every supported scope would contradict the warning and the empty value.
-            ($areDefaultScopesConfigured || !is_null($defaultScopesError)) ? null : Translate::noop(
-                'Not configured, so this falls back to every scope this OP supports, meaning a ' .
-                "client which registers without a 'scope' may request any of them, including " .
-                "'offline_access'.",
-            ),
+            match (true) {
+                $areDefaultScopesConfigured || !is_null($defaultScopesError) => null,
+                $isOfflineAccessSupported => Translate::noop(
+                    'Not configured, so this falls back to every scope this OP supports, meaning a ' .
+                    "client which registers without a 'scope' may request any of them, including " .
+                    "'offline_access'.",
+                ),
+                default => Translate::noop(
+                    'Not configured, so this falls back to every scope this OP supports, meaning a ' .
+                    "client which registers without a 'scope' may request any of them.",
+                ),
+            },
             $defaultScopesError,
         );
     }

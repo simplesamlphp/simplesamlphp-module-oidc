@@ -470,10 +470,16 @@ A grant type which is left out is gone from every place it shows:
   `unsupported_grant_type` at the token endpoint. This holds whatever the
   client's registration says.
 
-Without `refresh_token`, the `offline_access` scope is still accepted but no
-refresh token is issued — OpenID Connect Core 1.0 section 11 defines the scope
-as a *request* for one, which the OP is free to leave unanswered — so a client
-which relies on refresh tokens should not be registered with that OP.
+Without `refresh_token`, the `offline_access` scope goes with it. OpenID
+Connect Core 1.0 section 11 defines the scope as a request for a refresh token,
+so there is nothing left to grant: it is dropped from `scopes_supported` (which
+OpenID Connect Discovery 1.0 section 3 has list the standard scopes "if
+supported"), from the scopes a client can be registered with (Dynamic Client
+Registration filters it out, the client form does not offer it, and the default
+set for a scope-less dynamic registration no longer contains it), and an
+authorization request carrying it is refused as `invalid_scope`, the way the
+module answers any scope it does not support. A client which relies on refresh
+tokens should therefore not be registered with such an OP.
 
 Why disable the implicit grant: OAuth 2.0 Security Best Current Practice
 (RFC 9700, section 2.1.2) has clients avoid the implicit grant and every
@@ -607,7 +613,9 @@ If not set, you will see warnings about this in the logs.
 ## Private scopes
 
 The module supports the standard scopes: `openid`, `offline_access`, `email`,
-`address`, `phone`, and `profile`. You can add private scopes in
+`address`, `phone`, and `profile` (`offline_access` only while the
+`refresh_token` grant is enabled, see [Enabled grant
+types](#enabled-grant-types-flows)). You can add private scopes in
 `module_oidc.php`:
 
 ```php

@@ -136,7 +136,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected RefreshTokenIssuer $refreshTokenIssuer,
         protected Helpers $helpers,
         protected LoggerService $loggerService,
-        protected readonly bool $isRefreshTokenGrantEnabled = true,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -754,25 +753,16 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $responseType->setSessionId($authCodePayload->session_id);
         }
 
-        // Release refresh token if it is requested by using offline_access scope.
+        // Release refresh token if it is requested by using offline_access scope. With the refresh token grant
+        // disabled the scope is not among the supported ones (ModuleConfig::getScopes()), so validateScopes()
+        // above has already refused it: no refresh token is issued which the token endpoint would then refuse.
         if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
-            if ($this->isRefreshTokenGrantEnabled) {
-                // Issue and persist new refresh token if given
-                $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
+            // Issue and persist new refresh token if given
+            $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 
-                if ($refreshToken !== null) {
-                    $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
-                    $responseType->setRefreshToken($refreshToken);
-                }
-            } else {
-                // The token endpoint would refuse the refresh token with unsupported_grant_type, so there is
-                // no point in issuing it. OpenID Connect Core section 11 defines offline_access as a request
-                // for a refresh token, one the OP is free to leave unanswered, so the exchange goes through
-                // without one rather than failing.
-                $this->loggerService->notice(
-                    'Refresh token not issued for offline_access: the refresh token grant is disabled.',
-                    ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
-                );
+            if ($refreshToken !== null) {
+                $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
+                $responseType->setRefreshToken($refreshToken);
             }
         }
 

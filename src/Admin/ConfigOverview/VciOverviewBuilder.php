@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
@@ -869,6 +870,12 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             // Deliberately generic about why a mapping is ineffective, since there are two distinct
             // reasons and each one is named on the mapping itself.
             $error = match (true) {
+                $this->hasProtectedScopeName($credentialConfigurations) => Translate::noop(
+                    'At least one credential configuration is named after a standard OpenID Connect ' .
+                    'scope (openid, offline_access, profile, email, address, phone). Such a name is ' .
+                    'refused, and with it the whole scope list, so discovery, registration and ' .
+                    'authorization fail until it is renamed.',
+                ),
                 $this->hasUnsupportedFormat($credentialConfigurations) => Translate::noop(
                     'At least one credential configuration has a missing or unsupported format, so ' .
                     'it cannot issue credentials at all. Supported formats are jwt_vc_json, ' .
@@ -1594,6 +1601,25 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
     /**
      * Whether any credential configuration declares a format which cannot be issued.
      */
+    /**
+     * A credential configuration becomes a scope of the same name, so ModuleConfig::getVciScopes() refuses
+     * one named after a standard scope; this row is where the administrator sees which option that is.
+     */
+    protected function hasProtectedScopeName(array $credentialConfigurations): bool
+    {
+        $protectedNames = array_map(fn(ScopesEnum $scope): string => $scope->value, ScopesEnum::cases());
+
+        /** @var mixed $configuration */
+        foreach ($credentialConfigurations as $configuration) {
+            if (is_array($configuration) && in_array($configuration['id'] ?? null, $protectedNames, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
     protected function hasUnsupportedFormat(array $credentialConfigurations): bool
     {
         /** @var mixed $configuration */

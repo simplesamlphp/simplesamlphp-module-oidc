@@ -565,6 +565,22 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
 
+    /**
+     * The scope list further down simply lacks `offline_access` without the refresh token grant; the note
+     * next to the enabled set is where an administrator learns why.
+     */
+    public function testTellsNextToTheEnabledGrantTypesThatOfflineAccessGoesWithRefreshToken(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString("'offline_access'", (string)$row->getNote());
+    }
+
+
     public function testShowsOnlyTheEnabledGrantTypes(): void
     {
         $row = $this->findRowForOption(
@@ -641,6 +657,70 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertNotNull($configuredRow);
         $this->assertNull($configuredRow->getNote());
         $this->assertSame(['openid'], $configuredRow->getValue());
+    }
+
+
+    /**
+     * Without the refresh token grant the scope is not among the supported ones, so the fallback set does
+     * not contain it and the note must not say it does.
+     */
+    public function testDoesNotMentionOfflineAccessInTheDefaultScopesNoteWithoutTheRefreshTokenGrant(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [GrantTypesEnum::AuthorizationCode],
+            ])->build(),
+            ModuleConfig::OPTION_DCR_DEFAULT_SCOPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertIsArray($row->getValue());
+        $this->assertNotContains('offline_access', $row->getValue());
+        $this->assertNotNull($row->getNote());
+        $this->assertStringNotContainsString('offline_access', (string)$row->getNote());
+    }
+
+
+    /**
+     * A credential configuration named after a standard scope is refused where the ids become scopes,
+     * not in the constructor, precisely so that this screen can still be built and point at it.
+     */
+    public function testReportsACredentialConfigurationNamedAfterAStandardScopeOnTheScopesRow(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['offline_access' => []],
+            ])->build(),
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame([], $row->getValue());
+        // The reason itself goes to the log; the row only says the option could not be resolved.
+        $this->assertNotNull($row->getWarning());
+        $this->assertNull($row->getNote());
+    }
+
+
+    /**
+     * The scope list is built from the same getter discovery and registration read, so it shows what the
+     * deployment actually supports rather than the module's full standard set.
+     */
+    public function testLeavesOfflineAccessOffTheScopeListWithoutTheRefreshTokenGrant(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [GrantTypesEnum::AuthorizationCode],
+            ])->build(),
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES,
+        );
+
+        $this->assertNotNull($row);
+        $scopes = $row->getValue();
+        $this->assertIsArray($scopes);
+        $this->assertNotContains('offline_access', array_column($scopes, 'name'));
+        $this->assertContains('openid', array_column($scopes, 'name'));
     }
 
 

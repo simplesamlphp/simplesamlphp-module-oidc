@@ -379,6 +379,30 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
+     * ModuleConfig::getVciScopes() refuses a configuration named after a standard scope, which the protocol
+     * overview reports on its scope list; this row names the option actually at fault.
+     */
+    public function testFlagsACredentialConfigurationNamedAfterAStandardScope(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'offline_access' => ['format' => 'jwt_vc_json'],
+                    'Fine' => ['format' => 'jwt_vc_json'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertCount(2, (array)$row->getValue());
+        $this->assertStringContainsString('standard OpenID Connect scope', (string)$row->getWarning());
+        $this->assertNull($row->getNote());
+    }
+
+
+    /**
      * Issuance filters a mapping path down to its string segments and writes at what remains, so the
      * screen must name the path the credential ends up with, not the one that was configured.
      */

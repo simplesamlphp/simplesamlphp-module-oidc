@@ -31,7 +31,7 @@ contract for what was honored.
 |---|---|---|---|
 | `redirect_uris` | Honored | Honored | Required; scheme required, fragment rejected. |
 | `client_name` | Honored | Honored | Defaults to client_id. |
-| `scope` | Honored | Honored | DCR default = `OPTION_DCR_DEFAULT_SCOPES`. |
+| `scope` | Honored | Honored | DCR default = `OPTION_DCR_DEFAULT_SCOPES`. Unsupported values dropped; `offline_access` is one of them while the `refresh_token` grant is not in `enabled_grant_types`. |
 | `grant_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["authorization_code"]` stored at registration. Unsupported values rejected (`ModuleConfig`, honouring `enabled_grant_types`). Enforced for the code grant (presence + non-empty); refresh grant exempt (see note). |
 | `response_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["code"]` stored at registration. Unsupported values rejected (those whose grant type is not enabled included). Enforced at the authorization endpoint (presence + non-empty). |
 | `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | DCR default `client_secret_basic` (or `none` for public) stored at registration. Unsupported values rejected. Enforced at the token endpoint (presence). Also the primary signal for the client type (see below): `none` ⇒ public, any real method ⇒ confidential. |

@@ -118,8 +118,9 @@ endpoint with a configured token as an HTTP Bearer token.
 `scope` is OPTIONAL in a registration request. When a **Dynamic** registration
 omits it, the client is assigned the set configured by
 `OPTION_DCR_DEFAULT_SCOPES`, which **defaults to all scopes the OP supports**
-(including `offline_access`). This lets a scope-less dynamic client request any
-supported scope, e.g. obtain a refresh token via `offline_access`. To restrict
+(including `offline_access`, while the `refresh_token` grant is enabled). This
+lets a scope-less dynamic client request any supported scope, e.g. obtain a
+refresh token via `offline_access`. To restrict
 this, set an explicit list in config. This applies to Dynamic registrations
 only: manual (admin) and OpenID Federation automatic registrations still default
 to `openid` only. An explicit but *unsupported* `scope` is not treated as

@@ -144,6 +144,9 @@ class AuthCodeGrantTest extends TestCase
     /** Whether the granted scopes are treated as containing offline_access. */
     private bool $offlineAccessGranted = false;
 
+    /** @var string[] Scope identifiers the scope repository no longer resolves, as ModuleConfig::getScopes() drops them. */
+    private array $unsupportedScopes = [];
+
     /** @var array<int,array{message:string,context:array}> */
     private array $logRecords = [];
 
@@ -177,7 +180,11 @@ class AuthCodeGrantTest extends TestCase
         $this->scopeHelperMock->method('exists')->willReturnCallback(fn(): bool => $this->offlineAccessGranted);
 
         $this->scopeRepositoryMock->method('getScopeEntityByIdentifier')
-            ->willReturnCallback(static fn(string $identifier): ScopeEntity => new ScopeEntity($identifier));
+            ->willReturnCallback(fn(string $identifier): ?ScopeEntity => in_array(
+                $identifier,
+                $this->unsupportedScopes,
+                true,
+            ) ? null : new ScopeEntity($identifier));
         $this->scopeRepositoryMock->method('finalizeScopes')
             ->willReturnCallback(static fn(array $scopes): array => $scopes);
 
@@ -560,31 +567,22 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
-     * With the refresh token grant disabled the token endpoint would refuse the refresh token, so issuing
-     * one would only store a credential nothing can redeem. OpenID Connect Core section 11 defines
-     * offline_access as a request for a refresh token which the OP is free to leave unanswered, so the
-     * exchange itself goes through as it would without the scope.
+     * Why the grant carries no refresh token guard of its own: with the refresh token grant disabled,
+     * ModuleConfig::getScopes() leaves `offline_access` out, the scope repository no longer resolves it, and
+     * validateScopes() refuses the code before the refresh token branch is reached. Pinned against an
+     * authorization code issued with the scope just before the option changed.
      */
-    public function testIgnoresOfflineAccessWhenTheRefreshTokenGrantIsDisabled(): void
+    public function testRejectsAnAuthorizationCodeCarryingAScopeTheRepositoryNoLongerKnows(): void
     {
-        $this->captureLogs('notice');
         $this->storedAuthCode();
-        $accessToken = $this->expectAccessTokenToBeIssued();
-
+        $this->unsupportedScopes = ['offline_access'];
         $this->offlineAccessGranted = true;
 
         $this->refreshTokenIssuerMock->expects($this->never())->method('issue');
 
-        $responseType = $this->responseType();
-        $responseType->expects($this->once())->method('setAccessToken')->with($accessToken);
-        $responseType->expects($this->never())->method('setRefreshToken');
-
-        $this->sut(isRefreshTokenGrantEnabled: false)
-            ->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
-
-        $this->assertStringContainsString(
-            'refresh token grant is disabled',
-            json_encode($this->logRecords, JSON_THROW_ON_ERROR),
+        $this->assertRejects(
+            'invalid_scope',
+            $this->requestFor($this->payload(['scopes' => ['openid', 'offline_access']])),
         );
     }
 
@@ -1029,10 +1027,8 @@ class AuthCodeGrantTest extends TestCase
 
     // Helpers.
 
-    private function sut(
-        ?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null,
-        bool $isRefreshTokenGrantEnabled = true,
-    ): AuthCodeGrant {
+    private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): AuthCodeGrant
+    {
         $grant = new AuthCodeGrant(
             $authCodeRepository ?? $this->authCodeRepositoryMock,
             $this->accessTokenRepositoryMock,
@@ -1045,7 +1041,6 @@ class AuthCodeGrantTest extends TestCase
             $this->refreshTokenIssuerMock,
             $this->helpersMock,
             $this->loggerServiceMock,
-            $isRefreshTokenGrantEnabled,
         );
 
         $grant->setEncryptionKey($this->encryptionKey);

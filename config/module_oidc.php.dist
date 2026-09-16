@@ -171,9 +171,12 @@ $config = [
      * (section 3) still lists it among the grant types a Dynamic OpenID
      * Provider supports, so the OP is not one in that strict sense without it.
      *
-     * Without 'refresh_token', the 'offline_access' scope is accepted but
-     * no refresh token is issued; OpenID Connect Core section 11 defines the
-     * scope as a request for one, which the OP may leave unanswered.
+     * Without 'refresh_token', the 'offline_access' scope is not supported
+     * either: OpenID Connect Core section 11 defines it as a request for a
+     * refresh token, so there is nothing to grant. It is then left out of
+     * 'scopes_supported', a client can not be registered with it, and a
+     * request carrying it is refused as 'invalid_scope' like any other
+     * unsupported scope.
      *
      * If not set, every grant type is enabled.
      */
@@ -787,7 +790,8 @@ $config = [
      *
      * If this option is omitted (commented out), it defaults to ALL scopes this
      * OP supports, so a scope-less dynamic client may request any supported scope
-     * (including 'offline_access', i.e. refresh tokens). To restrict what a
+     * (including 'offline_access', i.e. refresh tokens, while the 'refresh_token'
+     * grant is enabled - see OPTION_ENABLED_GRANT_TYPES). To restrict what a
      * scope-less dynamic client receives, set an explicit list below; only values
      * that are actually supported by this OP are kept.
      *
@@ -1263,6 +1267,11 @@ $config = [
      * `credential_configurations_supported` claim definition in
      * https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#credential-issuer-parameters.
      * Check the example below on how this can be used.
+     *
+     * While issuance is enabled, each configuration id also becomes a
+     * requestable scope of the same name, so an id can not be one of the
+     * standard OpenID Connect scopes ('openid', 'offline_access', 'profile',
+     * 'email', 'address', 'phone') - such a configuration is refused.
      */
     ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
         // Sample for 'jwt_vc_json' format with notes about required and

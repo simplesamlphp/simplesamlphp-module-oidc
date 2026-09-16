@@ -2862,6 +2862,147 @@ class ModuleConfigTest extends TestCase
     }
 
 
+    /**
+     * OpenID Connect Core 1.0 section 11 defines `offline_access` as a request for a refresh token, so with
+     * the refresh token grant off the scope has nothing to grant. Everything that lists scopes reads this
+     * one getter -- discovery, registration, the client form, the scope repository behind the
+     * authorization request -- so leaving the scope out here is what keeps the OP from advertising a
+     * scope it never honours. The other standard scopes, and a scope the deployment added, stay.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotSupportOfflineAccessWithoutTheRefreshTokenGrant(): void
+    {
+        $sut = $this->sut(overrides: [
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [GrantTypesEnum::AuthorizationCode->value],
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => ['api' => ['description' => 'API access']],
+        ]);
+
+        $scopes = array_keys($sut->getScopes());
+
+        $this->assertNotContains(ScopesEnum::OfflineAccess->value, $scopes);
+        $this->assertContains(ScopesEnum::OpenId->value, $scopes);
+        $this->assertContains(ScopesEnum::Profile->value, $scopes);
+        $this->assertContains('api', $scopes);
+        // The default set for a scope-less dynamic registration follows the supported scopes.
+        $this->assertNotContains(ScopesEnum::OfflineAccess->value, $sut->getDcrDefaultScopes());
+    }
+
+
+    /**
+     * Verifiable Credential scopes are merged last and win a name collision, so a credential configuration
+     * named `offline_access` would have put the scope back after the refresh token grant took it out --
+     * and with it a refresh token the token endpoint refuses -- or, requested through
+     * `authorization_details`, ended up in an authorization code the token endpoint can not redeem. A
+     * credential configuration can therefore not take a standard scope's name, whatever the grant
+     * setting, the way a private scope never could. Refused where the ids become scopes rather than in
+     * the constructor, so the configuration overview can still be built and show it. (Found by review.)
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('protectedCredentialConfigurationNameProvider')]
+    public function testRefusesACredentialConfigurationNamedAfterAStandardScope(
+        string $name,
+        array $enabledGrantTypes,
+    ): void {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([$name => [], 'TestCredential' => []]),
+            [
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES => $enabledGrantTypes,
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Verifiable Credential configuration id can not take a protected scope name: ' . $name,
+        );
+
+        $sut->getScopes();
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: string[]}>
+     */
+    public static function protectedCredentialConfigurationNameProvider(): array
+    {
+        $everyGrant = [GrantTypesEnum::AuthorizationCode->value, GrantTypesEnum::RefreshToken->value];
+
+        return [
+            'offline_access, refresh token grant on' => [ScopesEnum::OfflineAccess->value, $everyGrant],
+            'offline_access, refresh token grant off' => [
+                ScopesEnum::OfflineAccess->value,
+                [GrantTypesEnum::AuthorizationCode->value],
+            ],
+            'openid' => [ScopesEnum::OpenId->value, $everyGrant],
+            'profile' => [ScopesEnum::Profile->value, $everyGrant],
+            'email' => [ScopesEnum::Email->value, $everyGrant],
+            'address' => [ScopesEnum::Address->value, $everyGrant],
+            'phone' => [ScopesEnum::Phone->value, $everyGrant],
+        ];
+    }
+
+
+    /**
+     * The credential configurations only become scopes while issuance is enabled, so a name which would
+     * collide is refused only then -- the same gate as the merge itself.
+     *
+     * @throws \Exception
+     */
+    public function testToleratesAProtectedCredentialConfigurationNameWhileIssuanceIsDisabled(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([ScopesEnum::OfflineAccess->value => []]),
+            [ModuleConfig::OPTION_VCI_ENABLED => false],
+        ));
+
+        $this->assertContains(ScopesEnum::OfflineAccess->value, array_keys($sut->getScopes()));
+    }
+
+
+    /**
+     * The upgrade path: a deployment which leaves the option alone keeps `offline_access`, so nothing in
+     * the discovery document or the registrable scopes moves on upgrade.
+     *
+     * @throws \Exception
+     */
+    public function testSupportsOfflineAccessWhileTheRefreshTokenGrantIsOn(): void
+    {
+        $this->assertContains(ScopesEnum::OfflineAccess->value, array_keys($this->sut()->getScopes()));
+        $this->assertContains(
+            ScopesEnum::OfflineAccess->value,
+            array_keys($this->sut(overrides: [
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [
+                    GrantTypesEnum::AuthorizationCode->value,
+                    GrantTypesEnum::RefreshToken->value,
+                ],
+            ])->getScopes()),
+        );
+    }
+
+
+    /**
+     * A private scope can not take a standard scope's name, and that holds for `offline_access` whether
+     * or not the refresh token grant is on: the name is reserved by OpenID Connect Core, not by what this
+     * deployment happens to run.
+     *
+     * @throws \Exception
+     */
+    public function testStillReservesTheOfflineAccessNameWithoutTheRefreshTokenGrant(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Can not overwrite protected scope: offline_access');
+
+        $this->sut(overrides: [
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [GrantTypesEnum::AuthorizationCode->value],
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
+                ScopesEnum::OfflineAccess->value => ['description' => 'not a refresh token'],
+            ],
+        ]);
+    }
+
+
     /*****************************************************************************************************************
      * Encryption key, claim translation and back-channel logout.
      ****************************************************************************************************************/

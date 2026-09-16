@@ -1051,16 +1051,33 @@ class ModuleConfig
 
 
     /**
+     * Every scope this OP supports: the standard ones, the private (custom) ones and, when OpenID4VCI is enabled,
+     * the Verifiable Credential ones. This is the single source for 'scopes_supported', for what a client can be
+     * registered with (dynamically or in the form) and for what an authorization request may ask for.
+     *
+     * OpenID Connect Core 1.0 section 11 defines 'offline_access' as a request for a refresh token, so without
+     * the refresh token grant (see OPTION_ENABLED_GRANT_TYPES) the scope has nothing to grant and is left out: it
+     * is not advertised, a client can not be registered with it, and a request carrying it is refused as
+     * 'invalid_scope' like any other unsupported scope. The name is taken out of the merged set, and a private
+     * scope (validate()) or Verifiable Credential configuration (getVciScopes()) named after a standard scope is
+     * refused, so nothing merged later can put it back.
+     *
      * @throws \Exception
      */
     public function getScopes(): array
     {
-        return array_merge(
+        $scopes = array_merge(
             self::$standardScopes,
             $this->getPrivateScopes(),
             // Also include VCI scopes if enabled.
             $this->getVciScopes(),
         );
+
+        if (!$this->isGrantTypeEnabled(GrantTypesEnum::RefreshToken)) {
+            unset($scopes[ScopesEnum::OfflineAccess->value]);
+        }
+
+        return $scopes;
     }
 
 
@@ -2403,8 +2420,9 @@ class ModuleConfig
      * Scopes assigned to a Dynamic Client Registration (DCR) client that registers without an explicit `scope`.
      * OpenID Connect Dynamic Client Registration 1.0 makes `scope` OPTIONAL and lets the OP assign a default set;
      * this controls that set. When the option is not configured, it defaults to all scopes this OP supports (so a
-     * scope-less dynamic client can request any supported scope, including offline_access). This applies only to
-     * Dynamic registrations; manual and OpenID Federation automatic registrations are unaffected.
+     * scope-less dynamic client can request any supported scope, including offline_access while the refresh token
+     * grant is enabled). This applies only to Dynamic registrations; manual and OpenID Federation automatic
+     * registrations are unaffected.
      *
      * @return string[]
      * @throws \Exception
@@ -2678,6 +2696,17 @@ class ModuleConfig
 
         $vciScopes = [];
         foreach ($this->getVciCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
+            // These are merged after the standard scopes (getScopes()), so a name taken from OpenID Connect Core
+            // would silently replace the standard scope -- and 'offline_access' would come back after the refresh
+            // token grant took it out. Refused here rather than in validate(), like a malformed value of any
+            // other Verifiable Credential option, so the configuration overview can still show the failure.
+            if (in_array($credentialConfigurationId, array_keys(self::$standardScopes), true)) {
+                throw new ConfigurationError(
+                    'Verifiable Credential configuration id can not take a protected scope name: ' .
+                    $credentialConfigurationId,
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
             $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
         }
         return $vciScopes;

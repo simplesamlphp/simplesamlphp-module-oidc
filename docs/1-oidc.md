@@ -14,7 +14,7 @@ Supported flows:
 All three are enabled by default. The Implicit and Refresh Token flows can be
 switched off with the `enabled_grant_types` option, which takes them out of the
 discovery metadata, out of client registration and off the authorization
-server alike; see
+server alike (the `offline_access` scope goes with the Refresh Token flow); see
 [Configuration](3-oidc-configuration.md#enabled-grant-types-flows). OAuth 2.0
 Security Best Current Practice (RFC 9700) advises against the implicit grant,
 so a deployment with no client depending on it should disable it.
