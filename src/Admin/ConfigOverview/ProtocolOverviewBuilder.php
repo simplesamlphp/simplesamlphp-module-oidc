@@ -68,6 +68,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         return [
             $this->buildEntitySection(),
             $this->buildEndpointsSection(),
+            $this->buildGrantTypesSection(),
             $this->buildTokensSection(),
             $this->buildSignatureKeysSection(),
             $this->buildAuthenticationSection(),
@@ -166,6 +167,36 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         }
 
         return new Section(Translate::noop('Endpoints'), 'endpoints', ...$rows);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function buildGrantTypesSection(): Section
+    {
+        return new Section(
+            Translate::noop('Grant types'),
+            'grant-types',
+            $this->guardRow(
+                Translate::noop('Enabled Grant Types'),
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+                fn(): Row => new Row(
+                    Translate::noop('Enabled Grant Types'),
+                    $this->moduleConfig->getSupportedGrantTypes(),
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+                    Translate::noop(
+                        "Published as 'grant_types_supported', with the response types they allow as " .
+                        "'response_types_supported'. A grant type which is not enabled is not offered to " .
+                        'clients on registration and is refused at the authorization and token endpoints, ' .
+                        'even for a client registered with it earlier. OAuth 2.0 Security Best Current ' .
+                        'Practice (RFC 9700) advises against the implicit grant, so it should be enabled ' .
+                        'only for a client which depends on it.',
+                    ),
+                ),
+            ),
+        );
     }
 
 

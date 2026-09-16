@@ -28,6 +28,12 @@ class OpMetadataServiceTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
 
+    /** @var string[] */
+    protected array $supportedResponseTypes = ['code', 'id_token', 'id_token token'];
+
+    /** @var string[] */
+    protected array $supportedGrantTypes = ['authorization_code', 'implicit', 'refresh_token'];
+
     protected MockObject $routesMock;
 
     protected MockObject $claimTranslatorExtractorMock;
@@ -73,10 +79,11 @@ class OpMetadataServiceTest extends TestCase
             });
         $this->moduleConfigMock->method('getAcrValuesSupported')->willReturn(['1']);
         $this->moduleConfigMock->method('getSupportedResponseModes')->willReturn(['query', 'fragment', 'form_post']);
+        // Read through properties so that a test can narrow the offered flows after setUp().
         $this->moduleConfigMock->method('getSupportedResponseTypes')
-            ->willReturn(['code', 'id_token', 'id_token token']);
+            ->willReturnCallback(fn(): array => $this->supportedResponseTypes);
         $this->moduleConfigMock->method('getSupportedGrantTypes')
-            ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
+            ->willReturnCallback(fn(): array => $this->supportedGrantTypes);
         $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
             ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
         $this->moduleConfigMock->method('getSupportedIntrospectionEndpointAuthMethods')
@@ -193,6 +200,26 @@ class OpMetadataServiceTest extends TestCase
             ],
             $this->sut()->getMetadata(),
         );
+    }
+
+
+    /**
+     * OpenID Connect Discovery 1.0 section 3 has `grant_types_supported` default to `authorization_code`
+     * and `implicit` when it is omitted, so an OP which stopped offering the implicit grant and stopped
+     * writing the claim would be read as offering it still. The claim is therefore written whatever it
+     * holds, and the response types go with it.
+     *
+     * @throws \Exception
+     */
+    public function testStillAdvertisesTheGrantTypesWhenTheImplicitGrantIsNotAmongThem(): void
+    {
+        $this->supportedGrantTypes = ['authorization_code', 'refresh_token'];
+        $this->supportedResponseTypes = ['code'];
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertSame(['authorization_code', 'refresh_token'], $metadata['grant_types_supported']);
+        $this->assertSame(['code'], $metadata['response_types_supported']);
     }
 
 

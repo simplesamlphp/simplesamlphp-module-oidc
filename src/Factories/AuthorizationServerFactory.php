@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
 class AuthorizationServerFactory
 {
@@ -55,15 +56,22 @@ class AuthorizationServerFactory
             $this->moduleConfig->getAccessTokenDuration(),
         );
 
-        $authorizationServer->enableGrantType(
-            $this->implicitGrant,
-            $this->moduleConfig->getAccessTokenDuration(),
-        );
+        // A grant type left out of the enabled set is not on the server at all, so a request for it is
+        // refused the way RFC 6749 has it (unsupported_response_type, unsupported_grant_type) even from a
+        // client whose registration still names it. The authorization code grant can not be disabled.
+        if ($this->moduleConfig->isGrantTypeEnabled(GrantTypesEnum::Implicit)) {
+            $authorizationServer->enableGrantType(
+                $this->implicitGrant,
+                $this->moduleConfig->getAccessTokenDuration(),
+            );
+        }
 
-        $authorizationServer->enableGrantType(
-            $this->refreshTokenGrant,
-            $this->moduleConfig->getAccessTokenDuration(),
-        );
+        if ($this->moduleConfig->isGrantTypeEnabled(GrantTypesEnum::RefreshToken)) {
+            $authorizationServer->enableGrantType(
+                $this->refreshTokenGrant,
+                $this->moduleConfig->getAccessTokenDuration(),
+            );
+        }
 
         if ($this->moduleConfig->getVciEnabled()) {
             $authorizationServer->enableGrantType(

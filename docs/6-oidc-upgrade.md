@@ -75,6 +75,16 @@ in the OP discovery metadata via the `response_modes_supported` claim.
   (`query`, `fragment`, `form_post`) are allowed, so existing clients are
   unaffected. It can be narrowed, for example to `form_post` only, to protect
   against browser-swapping attacks (if supported by the client).
+- The grant types (flows) the OP runs can now be narrowed with the
+`enabled_grant_types` option. It defaults to every grant type the module
+implements (`authorization_code`, `implicit`, `refresh_token`), so an upgraded
+deployment behaves as before; a grant type taken off the list is neither
+advertised, nor registrable, nor served, even for a client registered with it
+earlier. Deployments with no client depending on the implicit grant should
+disable it, as OAuth 2.0 Security Best Current Practice (RFC 9700) advises;
+the protocol configuration overview in the administration area says as much
+next to the enabled set. See the
+[configuration guide](3-oidc-configuration.md#enabled-grant-types-flows).
 - Authentication Processing Filters can now be configured per client (Relying
 Party), in addition to the global filters defined under `authproc.oidc`. This
 mimics defining authproc filters in SAML Service Provider metadata. During

@@ -37,8 +37,9 @@ use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
  * `routing/services/services.yml` names `build` as the factory of the shared AuthorizationServer service,
  * which the authorization, access token and end session controllers take in their constructors; nothing else
  * calls it. What the factory decides is which grants that server offers and what they are wired to: the
- * authorization code, implicit and refresh token grants always, the pre-authorized code grant only when
- * Verifiable Credential Issuance is enabled, each enabled with the configured access token lifetime.
+ * authorization code grant always, the implicit and refresh token grants unless the configuration leaves
+ * them out, the pre-authorized code grant only when Verifiable Credential Issuance is enabled, each enabled
+ * with the configured access token lifetime.
  *
  * The server keeps its grants and their lifetimes to itself, so the tests observe the wiring where it
  * surfaces. League's enableGrantType() hands each enabled grant the server's own repositories and keys
@@ -133,11 +134,17 @@ class AuthorizationServerFactoryTest extends TestCase
 
 
     /**
-     * Verifiable Credential Issuance is off unless a test says so.
+     * Verifiable Credential Issuance is off unless a test says so; the optional grants are on, as they are
+     * out of the box, unless a test names the ones which are not.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\GrantTypesEnum[] $disabledGrantTypes
      */
-    protected function sut(bool $vciEnabled = false): AuthorizationServerFactory
+    protected function sut(bool $vciEnabled = false, array $disabledGrantTypes = []): AuthorizationServerFactory
     {
         $this->moduleConfigMock->method('getVciEnabled')->willReturn($vciEnabled);
+        $this->moduleConfigMock->method('isGrantTypeEnabled')->willReturnCallback(
+            fn(GrantTypesEnum $grantType): bool => !in_array($grantType, $disabledGrantTypes, true),
+        );
 
         return new AuthorizationServerFactory(
             $this->moduleConfigMock,
@@ -214,6 +221,32 @@ class AuthorizationServerFactoryTest extends TestCase
         $this->expectGrantLeftOutOfTheServer($this->preAuthCodeGrantMock);
 
         $this->sut()->build();
+    }
+
+
+    /**
+     * A grant which the configuration leaves out is not on the server, which is what makes the setting
+     * more than an advertisement: nothing can answer a request for it, so the server refuses the request
+     * as one for a response type or grant type it does not support, whatever the client's registration
+     * says. The authorization code grant has no such switch.
+     */
+    #[DataProvider('optionalGrantProvider')]
+    public function testLeavesADisabledGrantOffTheServer(GrantTypesEnum $disabledGrantType): void
+    {
+        $this->expectGrantEnabledOnTheServer($this->authCodeGrantMock);
+        $this->expectGrantLeftOutOfTheServer($this->grantMockFor($disabledGrantType));
+        $this->expectGrantLeftOutOfTheServer($this->preAuthCodeGrantMock);
+
+        $this->sut(disabledGrantTypes: [$disabledGrantType])->build();
+    }
+
+
+    public static function optionalGrantProvider(): array
+    {
+        return [
+            'the implicit grant' => [GrantTypesEnum::Implicit],
+            'the refresh token grant' => [GrantTypesEnum::RefreshToken],
+        ];
     }
 
 

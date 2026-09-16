@@ -150,6 +150,39 @@ $config = [
 //        \SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum::Preferred,
 
     /**
+     * (optional) Grant types (flows) this OP runs. A grant type left out is
+     * neither advertised in discovery ('grant_types_supported', and the
+     * response types it allows in 'response_types_supported'), nor offered on
+     * client registration, nor enabled on the authorization server: a request
+     * for it is refused with 'unsupported_response_type' or
+     * 'unsupported_grant_type', even from a client registered with it before
+     * it was disabled. The 'authorization_code' grant can not be disabled.
+     *
+     * Values are \SimpleSAML\OpenID\Codebooks\GrantTypesEnum cases (or their
+     * string values) among 'authorization_code', 'implicit' and
+     * 'refresh_token'. The OpenID4VCI pre-authorized code grant is governed by
+     * ModuleConfig::OPTION_VCI_ENABLED instead.
+     *
+     * OAuth 2.0 Security Best Current Practice (RFC 9700, section 2.1.2)
+     * advises against the implicit grant, and profiles built on it (for
+     * example the EOSC AAI Architecture) prohibit it outright, so a deployment
+     * without a client depending on 'id_token' or 'id_token token' response
+     * types should leave 'implicit' out. Note that OpenID Connect Discovery 1.0
+     * (section 3) still lists it among the grant types a Dynamic OpenID
+     * Provider supports, so the OP is not one in that strict sense without it.
+     *
+     * Without 'refresh_token', the 'offline_access' scope is accepted but
+     * no refresh token is issued; OpenID Connect Core section 11 defines the
+     * scope as a request for one, which the OP may leave unanswered.
+     *
+     * If not set, every grant type is enabled.
+     */
+//    ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [
+//        \SimpleSAML\OpenID\Codebooks\GrantTypesEnum::AuthorizationCode,
+//        \SimpleSAML\OpenID\Codebooks\GrantTypesEnum::RefreshToken,
+//    ],
+
+    /**
      * Authorization code and tokens TTL (validity duration), with given
      * examples. For duration format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php

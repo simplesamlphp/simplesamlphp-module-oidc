@@ -11,6 +11,14 @@ Supported flows:
 - Implicit (response_type: `id_token token` or `id_token`)
 - Refresh Token
 
+All three are enabled by default. The Implicit and Refresh Token flows can be
+switched off with the `enabled_grant_types` option, which takes them out of the
+discovery metadata, out of client registration and off the authorization
+server alike; see
+[Configuration](3-oidc-configuration.md#enabled-grant-types-flows). OAuth 2.0
+Security Best Current Practice (RFC 9700) advises against the implicit grant,
+so a deployment with no client depending on it should disable it.
+
 Authorization request parameters can be sent as plain parameters, by value as a
 Request Object (`request`, OpenID Connect Core / JAR), or by reference
 (`request_uri`) — either via Pushed Authorization Requests (PAR, RFC 9126) or a

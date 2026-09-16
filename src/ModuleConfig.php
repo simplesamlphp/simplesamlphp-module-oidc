@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -95,6 +96,8 @@ class ModuleConfig
     final public const string DEFAULT_PKI_PRIVATE_KEY_FILENAME = 'oidc_module.key';
 
     final public const string DEFAULT_PKI_CERTIFICATE_FILENAME = 'oidc_module.crt';
+
+    final public const string OPTION_ENABLED_GRANT_TYPES = 'enabled_grant_types';
 
     final public const string OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
 
@@ -822,34 +825,99 @@ class ModuleConfig
      * and the client admin form so that the advertised, accepted, and admin-selectable
      * sets cannot drift apart.
      *
+     * Derived from the enabled grant types through the response type / grant type correspondence of OpenID
+     * Connect Dynamic Client Registration 1.0 section 2: a response type is on offer only while every grant
+     * type it needs is. With the implicit grant disabled that leaves `code`.
+     *
      * @return string[]
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function getSupportedResponseTypes(): array
     {
-        return [
-            ResponseTypesEnum::Code->value,
-            ResponseTypesEnum::IdToken->value,
-            ResponseTypesEnum::IdTokenToken->value,
-        ];
+        $enabledGrantTypes = $this->getSupportedGrantTypes();
+
+        return array_values(array_filter(
+            [
+                ResponseTypesEnum::Code->value,
+                ResponseTypesEnum::IdToken->value,
+                ResponseTypesEnum::IdTokenToken->value,
+            ],
+            fn(string $responseType): bool => array_diff(
+                ResponseTypeGrantTypeCorrespondence::requiredGrantTypes([$responseType]),
+                $enabledGrantTypes,
+            ) === [],
+        ));
     }
 
 
     /**
-     * Grant types a client may be registered to use.
+     * Grant types this OP runs, which are the ones a client may be registered to use.
+     *
+     * Every grant type the module implements, unless `OPTION_ENABLED_GRANT_TYPES` narrows the set. Each one
+     * left out is neither advertised, nor registrable, nor enabled on the authorization server, so a request
+     * for it is refused as `unsupported_response_type` or `unsupported_grant_type` (RFC 6749 sections 4.1.2.1
+     * and 5.2), whatever the client's registration says. The authorization code grant is not optional: it is
+     * the flow OpenID Connect Core section 3 has every OP run, and the default a dynamic registration is given
+     * (OpenID Connect Dynamic Client Registration 1.0 section 2), so an OP without it would refuse the very
+     * clients it registers. Returned in the module's own order whatever the configured one, so the advertised
+     * list does not shift with the configuration file.
      *
      * Note: the discovery `grant_types_supported` may advertise additional grant types
      * that are not registered per client (e.g. the VCI pre-authorized_code grant);
-     * that extension is applied by OpMetadataService on top of these values.
+     * that extension is applied by OpMetadataService on top of these values, and that grant is
+     * governed by `OPTION_VCI_ENABLED` rather than by this list.
      *
      * @return string[]
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function getSupportedGrantTypes(): array
     {
-        return [
+        $implemented = [
             GrantTypesEnum::AuthorizationCode->value,
             GrantTypesEnum::Implicit->value,
             GrantTypesEnum::RefreshToken->value,
         ];
+
+        $enabled = [];
+        /** @var mixed $grantType */
+        foreach ($this->config()->getOptionalArray(self::OPTION_ENABLED_GRANT_TYPES, $implemented) as $grantType) {
+            // The enum case is accepted next to its backing value, as the neighbouring options do.
+            $value = $grantType instanceof GrantTypesEnum ? $grantType->value : $grantType;
+
+            if (!is_string($value) || !in_array($value, $implemented, true)) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Expected one of "%s", got %s.',
+                        self::OPTION_ENABLED_GRANT_TYPES,
+                        implode('", "', $implemented),
+                        var_export($grantType, true),
+                    ),
+                );
+            }
+
+            $enabled[] = $value;
+        }
+
+        if (!in_array(GrantTypesEnum::AuthorizationCode->value, $enabled, true)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid value for %s. The "%s" grant type can not be disabled.',
+                    self::OPTION_ENABLED_GRANT_TYPES,
+                    GrantTypesEnum::AuthorizationCode->value,
+                ),
+            );
+        }
+
+        return array_values(array_intersect($implemented, $enabled));
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function isGrantTypeEnabled(GrantTypesEnum $grantType): bool
+    {
+        return in_array($grantType->value, $this->getSupportedGrantTypes(), true);
     }
 
 

@@ -72,7 +72,8 @@ conformance-suite/scripts/run-test-plan.py \
   "oidcc-basic-certification-test-plan[server_metadata=discovery][client_registration=static_client]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-basic-ci.json
 
-# Implicit profile
+# Implicit profile (only with the implicit grant enabled, which is the default;
+# see enabled_grant_types in the configuration guide)
 conformance-suite/scripts/run-test-plan.py \
   --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-warnings.json \
   --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/implicit-skips.json \

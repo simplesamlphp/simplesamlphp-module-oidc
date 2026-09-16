@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
 #[CoversClass(ProtocolOverviewBuilder::class)]
 #[CoversClass(Row::class)]
@@ -546,6 +547,39 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
 
+    /**
+     * A note rather than a warning: the default is what every version 6 deployment ran, and the row's
+     * value already shows whether the implicit grant is on. The note carries the advice either way.
+     */
+    public function testShowsTheEnabledGrantTypesWithTheAdviceAgainstImplicitAsANote(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['authorization_code', 'implicit', 'refresh_token'], $row->getValue());
+        $this->assertStringContainsString('RFC 9700', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    public function testShowsOnlyTheEnabledGrantTypes(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [GrantTypesEnum::AuthorizationCode],
+            ])->build(),
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['authorization_code'], $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
     public function testDoesNotWarnAboutOpenRegistrationWhenDcrIsDisabled(): void
     {
         $row = $this->findRowForOption(
@@ -833,6 +867,14 @@ class ProtocolOverviewBuilderTest extends TestCase
             'timestamp leeway is not a duration' => [
                 ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
                 'not-a-duration',
+            ],
+            'enabled grant types name one this OP can not run' => [
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+                ['authorization_code', 'password'],
+            ],
+            'enabled grant types leave out the authorization code grant' => [
+                ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
+                ['implicit'],
             ],
             'auth source is not a string' => [ModuleConfig::OPTION_AUTH_SOURCE, 123],
             'user identifier attributes are not an array' => [

@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
 class AuthCodeGrantFactory
 {
@@ -52,6 +53,7 @@ class AuthCodeGrantFactory
             $this->refreshTokenIssuer,
             $this->helpers,
             $this->loggerService,
+            $this->moduleConfig->isGrantTypeEnabled(GrantTypesEnum::RefreshToken),
         );
         $authCodeGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 

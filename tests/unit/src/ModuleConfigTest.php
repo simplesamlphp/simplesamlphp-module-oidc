@@ -2694,19 +2694,33 @@ class ModuleConfigTest extends TestCase
     /**
      * The sets are checked for shape above, which does not say a capability was not dropped from one of
      * them: the drift test only walks what is advertised, so removing `code` outright would go unnoticed.
-     * These are the flows this module actually implements -- `AuthCodeGrant`, `RefreshTokenGrant`, and
-     * public clients which authenticate with no secret at all -- so an OP which stops offering them is
-     * advertising less than it can do, and every client following that metadata loses the flow.
+     * Out of the box every flow this module implements is on offer -- the authorization code, implicit and
+     * refresh token grants, the response types they allow, and public clients which authenticate with no
+     * secret at all -- which is what a version 6 deployment had, so an upgrade which does not touch the
+     * configuration advertises exactly what it did before.
      *
      * @throws \Exception
      */
-    public function testTheFlowsThisOpImplementsAreAlwaysOffered(): void
+    public function testEveryFlowThisOpImplementsIsOfferedByDefault(): void
     {
         $sut = $this->sut();
 
-        $this->assertContains(ResponseTypesEnum::Code->value, $sut->getSupportedResponseTypes());
-        $this->assertContains(GrantTypesEnum::AuthorizationCode->value, $sut->getSupportedGrantTypes());
-        $this->assertContains(GrantTypesEnum::RefreshToken->value, $sut->getSupportedGrantTypes());
+        $this->assertSame(
+            [
+                GrantTypesEnum::AuthorizationCode->value,
+                GrantTypesEnum::Implicit->value,
+                GrantTypesEnum::RefreshToken->value,
+            ],
+            $sut->getSupportedGrantTypes(),
+        );
+        $this->assertSame(
+            [
+                ResponseTypesEnum::Code->value,
+                ResponseTypesEnum::IdToken->value,
+                ResponseTypesEnum::IdTokenToken->value,
+            ],
+            $sut->getSupportedResponseTypes(),
+        );
         $this->assertContains(
             TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
             $sut->getSupportedTokenEndpointAuthMethods(),
@@ -2715,6 +2729,136 @@ class ModuleConfigTest extends TestCase
             TokenEndpointAuthMethodsEnum::None->value,
             $sut->getSupportedTokenEndpointAuthMethods(),
         );
+    }
+
+
+    /**
+     * The one place a deployment narrows the flows it runs. The configured list is taken as a set: what
+     * comes back is in the module's own order, so the advertised metadata does not shift with the order an
+     * administrator happened to write, and the response types follow through the registration
+     * correspondence, so `id_token` and `id_token token` go with the implicit grant.
+     *
+     * @throws \Exception
+     */
+    public function testOffersOnlyTheEnabledGrantTypesAndTheResponseTypesTheyAllow(): void
+    {
+        $sut = $this->sut(overrides: [
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [
+                GrantTypesEnum::RefreshToken->value,
+                GrantTypesEnum::AuthorizationCode->value,
+            ],
+        ]);
+
+        $this->assertSame(
+            [GrantTypesEnum::AuthorizationCode->value, GrantTypesEnum::RefreshToken->value],
+            $sut->getSupportedGrantTypes(),
+        );
+        $this->assertSame([ResponseTypesEnum::Code->value], $sut->getSupportedResponseTypes());
+        $this->assertFalse($sut->isGrantTypeEnabled(GrantTypesEnum::Implicit));
+        $this->assertTrue($sut->isGrantTypeEnabled(GrantTypesEnum::RefreshToken));
+        $this->assertTrue($sut->isGrantTypeEnabled(GrantTypesEnum::AuthorizationCode));
+    }
+
+
+    /**
+     * `null` is how this module's configuration file says "not set" -- a dozen neighbouring options are
+     * shipped that way in the distributed file -- and SimpleSAMLphp reads it as absent, so it means the
+     * default rather than an empty or malformed list. Pinned so the convention is a decision, not an
+     * accident of the configuration reader.
+     *
+     * @throws \Exception
+     */
+    public function testANullOptionMeansEveryGrantTypeLikeAnAbsentOne(): void
+    {
+        $this->assertSame(
+            $this->sut()->getSupportedGrantTypes(),
+            $this->sut(overrides: [ModuleConfig::OPTION_ENABLED_GRANT_TYPES => null])->getSupportedGrantTypes(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testAcceptsGrantTypeEnumCasesNextToTheirValues(): void
+    {
+        $sut = $this->sut(overrides: [
+            ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [
+                GrantTypesEnum::AuthorizationCode,
+                GrantTypesEnum::Implicit->value,
+                GrantTypesEnum::AuthorizationCode->value,
+            ],
+        ]);
+
+        $this->assertSame(
+            [GrantTypesEnum::AuthorizationCode->value, GrantTypesEnum::Implicit->value],
+            $sut->getSupportedGrantTypes(),
+        );
+        $this->assertFalse($sut->isGrantTypeEnabled(GrantTypesEnum::RefreshToken));
+    }
+
+
+    /**
+     * Refusing the whole configuration is the right answer to a value this OP can not run: an entry which
+     * was silently dropped would leave an administrator believing a flow is on when it is not, and one
+     * which was silently kept would advertise a flow nothing serves. The pre-authorized code grant is
+     * refused here as well, since it has a switch of its own.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unusableEnabledGrantTypesProvider')]
+    public function testRefusesAnEnabledGrantTypeListItCanNotRun(array $enabledGrantTypes, string $reason): void
+    {
+        $sut = $this->sut(overrides: [ModuleConfig::OPTION_ENABLED_GRANT_TYPES => $enabledGrantTypes]);
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($reason);
+
+        $sut->getSupportedGrantTypes();
+    }
+
+
+    public static function unusableEnabledGrantTypesProvider(): array
+    {
+        return [
+            'an unknown grant type' => [
+                [GrantTypesEnum::AuthorizationCode->value, 'password'],
+                'Expected one of',
+            ],
+            'the pre-authorized code grant, which vci_enabled governs' => [
+                [GrantTypesEnum::AuthorizationCode->value, GrantTypesEnum::PreAuthorizedCode->value],
+                'Expected one of',
+            ],
+            'a value which is not a string' => [
+                [GrantTypesEnum::AuthorizationCode->value, 42],
+                'Expected one of',
+            ],
+            'a list without the authorization code grant' => [
+                [GrantTypesEnum::Implicit->value, GrantTypesEnum::RefreshToken->value],
+                'can not be disabled',
+            ],
+            'an empty list' => [
+                [],
+                'can not be disabled',
+            ],
+        ];
+    }
+
+
+    /**
+     * The response types are read through the grant types, so the same configuration fault surfaces
+     * from both, rather than one side of the discovery document being built from a list the other side
+     * refused.
+     *
+     * @throws \Exception
+     */
+    public function testTheResponseTypesRefuseTheSameConfigurationTheGrantTypesDo(): void
+    {
+        $sut = $this->sut(overrides: [ModuleConfig::OPTION_ENABLED_GRANT_TYPES => ['password']]);
+
+        $this->expectException(ConfigurationError::class);
+
+        $sut->getSupportedResponseTypes();
     }
 
 

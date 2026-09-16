@@ -434,6 +434,58 @@ under `did:jwk` every key is its own DID, and a batch of eight proofs is eight
 distinct DIDs. These are fixed limits on what a request may cost this issuer,
 not settings.
 
+## Enabled grant types (flows)
+
+The module implements the authorization code, implicit and refresh token
+grants, and runs all three unless `enabled_grant_types` says otherwise:
+
+```php
+ModuleConfig::OPTION_ENABLED_GRANT_TYPES => [
+    \SimpleSAML\OpenID\Codebooks\GrantTypesEnum::AuthorizationCode,
+    \SimpleSAML\OpenID\Codebooks\GrantTypesEnum::RefreshToken,
+],
+```
+
+The values are `GrantTypesEnum` cases or their string values
+(`authorization_code`, `implicit`, `refresh_token`); anything else, and a list
+without `authorization_code`, is refused as a configuration error. The
+OpenID4VCI pre-authorized code grant is not part of this list — it is governed
+by `vci_enabled`.
+
+A grant type which is left out is gone from every place it shows:
+
+- **Discovery.** It is not in `grant_types_supported`, and the response types
+  it allows are not in `response_types_supported` — without `implicit`, the OP
+  advertises `code` only. The claim is always written, since OpenID Connect
+  Discovery 1.0 has it default to `authorization_code` *and* `implicit` when
+  omitted.
+- **Registration.** Dynamic Client Registration rejects it in `grant_types`
+  (and the response types needing it in `response_types`) with
+  `invalid_client_metadata`, and the client administration form does not offer
+  it. A client registered with it before it was disabled keeps the value in
+  its record, but the value is no longer honoured.
+- **Runtime.** The grant is not enabled on the authorization server, so a
+  request for it is refused as RFC 6749 has it: `unsupported_response_type` at
+  the authorization endpoint (returned to the client's redirect URI), or
+  `unsupported_grant_type` at the token endpoint. This holds whatever the
+  client's registration says.
+
+Without `refresh_token`, the `offline_access` scope is still accepted but no
+refresh token is issued — OpenID Connect Core 1.0 section 11 defines the scope
+as a *request* for one, which the OP is free to leave unanswered — so a client
+which relies on refresh tokens should not be registered with that OP.
+
+Why disable the implicit grant: OAuth 2.0 Security Best Current Practice
+(RFC 9700, section 2.1.2) has clients avoid the implicit grant and every
+response type which delivers an access token in the authorization response,
+and profiles built on it prohibit them outright (the EOSC AAI Architecture,
+for one). Note the other side of that coin: OpenID Connect Discovery 1.0
+(section 3) and Core 1.0 (section 15.2) list the `implicit` grant and the
+`id_token` / `id_token token` response types among what a *Dynamic* OpenID
+Provider supports, so with `implicit` disabled the OP is not one in that
+strict sense, and the OpenID Connect Implicit certification profile no longer
+applies to it.
+
 ## Pushed Authorization Requests (PAR) and Request Objects
 
 A client can send authorization request parameters in several ways:

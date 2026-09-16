@@ -559,6 +559,36 @@ class AuthCodeGrantTest extends TestCase
     }
 
 
+    /**
+     * With the refresh token grant disabled the token endpoint would refuse the refresh token, so issuing
+     * one would only store a credential nothing can redeem. OpenID Connect Core section 11 defines
+     * offline_access as a request for a refresh token which the OP is free to leave unanswered, so the
+     * exchange itself goes through as it would without the scope.
+     */
+    public function testIgnoresOfflineAccessWhenTheRefreshTokenGrantIsDisabled(): void
+    {
+        $this->captureLogs('notice');
+        $this->storedAuthCode();
+        $accessToken = $this->expectAccessTokenToBeIssued();
+
+        $this->offlineAccessGranted = true;
+
+        $this->refreshTokenIssuerMock->expects($this->never())->method('issue');
+
+        $responseType = $this->responseType();
+        $responseType->expects($this->once())->method('setAccessToken')->with($accessToken);
+        $responseType->expects($this->never())->method('setRefreshToken');
+
+        $this->sut(isRefreshTokenGrantEnabled: false)
+            ->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
+
+        $this->assertStringContainsString(
+            'refresh token grant is disabled',
+            json_encode($this->logRecords, JSON_THROW_ON_ERROR),
+        );
+    }
+
+
     public function testDoesNotIssueRefreshTokenWithoutOfflineAccess(): void
     {
         $this->storedAuthCode();
@@ -999,8 +1029,10 @@ class AuthCodeGrantTest extends TestCase
 
     // Helpers.
 
-    private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): AuthCodeGrant
-    {
+    private function sut(
+        ?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null,
+        bool $isRefreshTokenGrantEnabled = true,
+    ): AuthCodeGrant {
         $grant = new AuthCodeGrant(
             $authCodeRepository ?? $this->authCodeRepositoryMock,
             $this->accessTokenRepositoryMock,
@@ -1013,6 +1045,7 @@ class AuthCodeGrantTest extends TestCase
             $this->refreshTokenIssuerMock,
             $this->helpersMock,
             $this->loggerServiceMock,
+            $isRefreshTokenGrantEnabled,
         );
 
         $grant->setEncryptionKey($this->encryptionKey);

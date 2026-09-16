@@ -126,8 +126,11 @@ class ClientMetadataValidator
         $this->validateFetchedUriDestinations($metadata, $isCallerAuthenticated);
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
-        $this->validateRedirectUrisForApplicationType($metadata, $redirectUris);
+        // Before the application type rule, which reads grant_types and response_types to decide whether the
+        // implicit-grant redirect URI restriction applies: a value this OP does not offer at all is the more
+        // useful answer than a restriction which follows from it.
         $this->validateRegisterableProtocolValues($metadata);
+        $this->validateRedirectUrisForApplicationType($metadata, $redirectUris);
         $this->validateSubjectType($metadata);
         $this->rejectUnsupportedFeatures($metadata);
         $this->validateAdditionalMetadata($metadata);
