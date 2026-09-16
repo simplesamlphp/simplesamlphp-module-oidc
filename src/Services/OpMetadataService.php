@@ -78,6 +78,21 @@ class OpMetadataService
         $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
         $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
         $supportedSignatureAlgorithmNames;
+        // RFC 8414 section 2. Advertised in the OpenID Connect discovery document too, not only in the OAuth 2.0
+        // Authorization Server Metadata one: RFC 8414 section 5 has its parameters usable there, and a resource
+        // server which validates this OP's tokens is as likely to read that document. Only while the endpoint
+        // answers, since it refuses every request otherwise.
+        if (
+            $this->moduleConfig->getApiEnabled() &&
+            $this->moduleConfig->getApiOAuth2TokenIntrospectionEndpointEnabled()
+        ) {
+            $this->metadata[ClaimsEnum::IntrospectionEndpoint->value] =
+            $this->routes->getModuleUrl(RoutesEnum::ApiOAuth2TokenIntrospection->value);
+            $this->metadata[ClaimsEnum::IntrospectionEndpointAuthMethodsSupported->value] =
+            $this->moduleConfig->getSupportedIntrospectionEndpointAuthMethods();
+            $this->metadata[ClaimsEnum::IntrospectionEndpointAuthSigningAlgValuesSupported->value] =
+            $supportedSignatureAlgorithmNames;
+        }
         $this->metadata[ClaimsEnum::RequestParameterSupported->value] = true;
         $this->metadata[ClaimsEnum::RequestObjectSigningAlgValuesSupported->value] = [
             'none',

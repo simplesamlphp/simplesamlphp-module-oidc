@@ -2164,6 +2164,11 @@ $config = [
     /**
      * (optional) API Enable OAuth2 Token Introspection API endpoint. Default
      * is disabled (false). Only relevant if API capabilities are enabled.
+     *
+     * While enabled, the endpoint is advertised as 'introspection_endpoint' in
+     * the OP metadata (OpenID Connect discovery, OAuth 2.0 Authorization Server
+     * Metadata and, if enabled, the OpenID Federation entity configuration), so
+     * resource servers can find it.
      */
     ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => false,
 

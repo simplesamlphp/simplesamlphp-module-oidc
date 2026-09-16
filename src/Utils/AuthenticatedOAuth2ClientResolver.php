@@ -509,10 +509,14 @@ class AuthenticatedOAuth2ClientResolver
         //     Server's Authorization Endpoint or the Authorization Server's Entity Identifier.
         // RFC 9126 (PAR): ...the authorization server MUST accept its issuer identifier, token endpoint URL,
         //     or pushed authorization request endpoint URL as values that identify it as an intended audience.
+        // RFC 7662 has the introspection endpoint authenticate clients as RFC 6749 does, and the endpoint is
+        //     advertised for private_key_jwt (RFC 8414), so an assertion addressed to that endpoint's own URL,
+        //     as RFC 7523 section 3 allows, is accepted there like one addressed to the token endpoint.
         $expectedAudience = [
             $this->routes->getModuleUrl(RoutesEnum::Token->value),
             $this->routes->getModuleUrl(RoutesEnum::Authorization->value),
             $this->routes->getModuleUrl(RoutesEnum::PushedAuthorizationRequest->value),
+            $this->routes->getModuleUrl(RoutesEnum::ApiOAuth2TokenIntrospection->value),
             $this->moduleConfig->getIssuer(),
         ];
 

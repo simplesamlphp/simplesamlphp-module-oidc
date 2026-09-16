@@ -46,10 +46,11 @@ OAuth 2.0:
 - [OAuth 2.0 Authorization Server Metadata (RFC 8414)](https://www.rfc-editor.org/rfc/rfc8414)
   — `/.well-known/oauth-authorization-server`
 - [JWT Profile for Client Authentication (RFC 7523)](https://www.rfc-editor.org/rfc/rfc7523)
-  — `private_key_jwt` at the token and PAR endpoints (token endpoint also
-  supports `client_secret_basic` and `client_secret_post`)
+  — `private_key_jwt` at the token, PAR and token introspection endpoints
+  (the token and introspection endpoints also support `client_secret_basic`
+  and `client_secret_post`)
 - [OAuth 2.0 Token Introspection (RFC 7662)](https://www.rfc-editor.org/rfc/rfc7662)
-  — optional endpoint
+  — optional endpoint, advertised as `introspection_endpoint` while enabled
 - [JWT-Secured Authorization Request, JAR (RFC 9101)](https://www.rfc-editor.org/rfc/rfc9101)
   — `request` and `request_uri`
 - [OAuth 2.0 Pushed Authorization Requests, PAR (RFC 9126)](https://www.rfc-editor.org/rfc/rfc9126)

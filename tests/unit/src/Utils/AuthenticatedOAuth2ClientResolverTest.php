@@ -99,6 +99,10 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
                 [RoutesEnum::Token->value, self::TOKEN_ENDPOINT],
                 [RoutesEnum::Authorization->value, 'https://example.org/oidc/authorization.php'],
                 [RoutesEnum::PushedAuthorizationRequest->value, 'https://example.org/oidc/par'],
+                [
+                    RoutesEnum::ApiOAuth2TokenIntrospection->value,
+                    'https://example.org/oidc/api/oauth2/token-introspection',
+                ],
             ]);
         $this->dateTimeHelperMock = $this->createMock(DateTime::class);
         $this->helpersMock = $this->createMock(Helpers::class);
@@ -680,6 +684,33 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $clientAssertionMock->method('getIssuer')->willReturn(self::CLIENT_ID);
         $clientAssertionMock->method('getSubject')->willReturn(self::CLIENT_ID);
         $clientAssertionMock->method('getAudience')->willReturn(['https://example.org/oidc/par']);
+        $clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
+        $clientAssertionMock->method('getExpirationTime')->willReturn(time() + 60);
+
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn(60);
+
+        $this->assertInstanceOf(
+            ResolvedClientAuthenticationMethod::class,
+            $this->sut()->forPrivateKeyJwt($this->serverRequestMock),
+        );
+    }
+
+
+    public function testForPrivateKeyJwtAcceptsTokenIntrospectionEndpointAsAudience(): void
+    {
+        // The introspection endpoint advertises private_key_jwt (RFC 8414), and RFC 7523 section 3 lets the
+        // client address the assertion to the endpoint it calls, so that URL is an audience of this OP too.
+        $clientAssertionMock = $this->createMock(ClientAssertion::class);
+        $clientAssertionMock->method('getIssuer')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getSubject')->willReturn(self::CLIENT_ID);
+        $clientAssertionMock->method('getAudience')
+            ->willReturn(['https://example.org/oidc/api/oauth2/token-introspection']);
         $clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
         $clientAssertionMock->method('getExpirationTime')->willReturn(time() + 60);
 

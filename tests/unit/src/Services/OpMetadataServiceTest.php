@@ -65,6 +65,8 @@ class OpMetadataServiceTest extends TestCase
                     RoutesEnum::EndSession->value => 'http://localhost/end-session',
                     RoutesEnum::PushedAuthorizationRequest->value => 'http://localhost/par',
                     RoutesEnum::Registration->value => 'http://localhost/register',
+                    RoutesEnum::ApiOAuth2TokenIntrospection->value =>
+                    'http://localhost/api/oauth2/token-introspection',
                 ];
 
                 return $paths[$path] ?? null;
@@ -77,6 +79,8 @@ class OpMetadataServiceTest extends TestCase
             ->willReturn(['authorization_code', 'implicit', 'refresh_token']);
         $this->moduleConfigMock->method('getSupportedTokenEndpointAuthMethods')
             ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none']);
+        $this->moduleConfigMock->method('getSupportedIntrospectionEndpointAuthMethods')
+            ->willReturn(['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'Bearer']);
 
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
 
@@ -228,6 +232,62 @@ class OpMetadataServiceTest extends TestCase
             ClaimsEnum::RegistrationEndpoint->value,
             $this->sut()->getMetadata(),
         );
+    }
+
+
+    /**
+     * RFC 8414 section 2: the endpoint, the authentication methods it accepts and the algorithms it verifies
+     * a client assertion with. The latter are the ones the OP verifies signatures with in general, as for the
+     * token endpoint; the methods are whatever ModuleConfig says the endpoint takes.
+     */
+    public function testAdvertisesIntrospectionEndpointWhenEnabled(): void
+    {
+        $this->moduleConfigMock->method('getApiEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionEndpointEnabled')->willReturn(true);
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertSame(
+            'http://localhost/api/oauth2/token-introspection',
+            $metadata[ClaimsEnum::IntrospectionEndpoint->value] ?? null,
+        );
+        $this->assertSame(
+            ['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'Bearer'],
+            $metadata[ClaimsEnum::IntrospectionEndpointAuthMethodsSupported->value] ?? null,
+        );
+        $this->assertSame(
+            $metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value],
+            $metadata[ClaimsEnum::IntrospectionEndpointAuthSigningAlgValuesSupported->value] ?? null,
+        );
+    }
+
+
+    /**
+     * The endpoint refuses every request while the API as a whole is off, so nothing about it is advertised.
+     */
+    public function testDoesNotAdvertiseIntrospectionEndpointWhenApiDisabled(): void
+    {
+        $this->moduleConfigMock->method('getApiEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionEndpointEnabled')->willReturn(true);
+
+        $this->assertIntrospectionEndpointNotAdvertised($this->sut()->getMetadata());
+    }
+
+
+    public function testDoesNotAdvertiseIntrospectionEndpointWhenIntrospectionDisabled(): void
+    {
+        $this->moduleConfigMock->method('getApiEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionEndpointEnabled')->willReturn(false);
+
+        $this->assertIntrospectionEndpointNotAdvertised($this->sut()->getMetadata());
+    }
+
+
+    protected function assertIntrospectionEndpointNotAdvertised(array $metadata): void
+    {
+        $this->assertArrayNotHasKey(ClaimsEnum::IntrospectionEndpoint->value, $metadata);
+        $this->assertArrayNotHasKey(ClaimsEnum::IntrospectionEndpointAuthMethodsSupported->value, $metadata);
+        $this->assertArrayNotHasKey(ClaimsEnum::IntrospectionEndpointAuthSigningAlgValuesSupported->value, $metadata);
     }
 
 

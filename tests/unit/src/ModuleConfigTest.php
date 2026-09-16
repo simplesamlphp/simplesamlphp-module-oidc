@@ -27,6 +27,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -2623,6 +2624,32 @@ class ModuleConfigTest extends TestCase
                 sprintf('Registrable token endpoint auth method "%s" is not a known one.', $authMethod),
             );
         }
+    }
+
+
+    /**
+     * RFC 7662 section 2.1 has the introspection endpoint protected, and the endpoint itself falls through to
+     * the API bearer token for a client which presents no credentials, so `none` is not on offer there, while
+     * `Bearer` is: RFC 8414 section 2 admits IANA access token types in this list for that very case. Every
+     * other method the token endpoint takes is offered too, since the same resolver authenticates the client
+     * at both.
+     *
+     * @throws \Exception
+     */
+    public function testIntrospectionEndpointAuthMethodsAreTheTokenEndpointOnesWithBearerInsteadOfNone(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame(
+            [
+                ...array_values(array_diff(
+                    $sut->getSupportedTokenEndpointAuthMethods(),
+                    [TokenEndpointAuthMethodsEnum::None->value],
+                )),
+                AccessTokenTypesEnum::Bearer->value,
+            ],
+            $sut->getSupportedIntrospectionEndpointAuthMethods(),
+        );
     }
 
 

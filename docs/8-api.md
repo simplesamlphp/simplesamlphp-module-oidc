@@ -323,6 +323,19 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
 
 `/api/oauth2/token-introspection`
 
+While enabled, the endpoint is advertised as `introspection_endpoint` in the
+OpenID Connect discovery document (`/.well-known/openid-configuration`), the
+OAuth 2.0 Authorization Server Metadata document
+(`/.well-known/oauth-authorization-server`) and, when OpenID Federation is
+enabled, the `openid_provider` metadata of the entity configuration
+(`/.well-known/openid-federation`), together with
+`introspection_endpoint_auth_methods_supported` and
+`introspection_endpoint_auth_signing_alg_values_supported` (RFC 8414). The
+advertised methods are the OAuth2 client authentication methods below plus
+`Bearer`, which stands for the API Bearer Token (RFC 8414 admits IANA access
+token types in that list, as RFC 7662 lets a protected resource authenticate
+with a token of its own).
+
 #### Method
 
 `POST`
@@ -332,7 +345,8 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
 Access is granted if:
 
 * The client is authenticated using one of the supported OAuth2 client
-authentication methods (Basic, Post, Private Key JWT, Bearer).
+authentication methods (`client_secret_basic`, `client_secret_post`,
+`private_key_jwt`). A bare `client_id` does not count.
 * Or, if the request is authorized using an API Bearer Token with
 the appropriate scope.
 

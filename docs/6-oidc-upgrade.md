@@ -28,8 +28,13 @@ keys for protocol (Connect), Federation, and VCI purposes. This was introduced
 to support signature algorithm negotiation with the clients.
 - Clients can now be configured with new properties:
   - ID Token Signing Algorithm (`id_token_signed_response_alg`)
-- Optional OAuth2 Token Introspection endpoint, as per RFC7662. Check the API
-documentation for more details.
+- Optional OAuth2 Token Introspection endpoint, as per RFC7662. While enabled
+it is advertised as `introspection_endpoint` (with the RFC 8414
+`introspection_endpoint_auth_methods_supported` and
+`introspection_endpoint_auth_signing_alg_values_supported` values) in the
+OpenID Connect discovery document, the OAuth 2.0 Authorization Server
+Metadata document and the OpenID Federation entity configuration alike. Check
+the API documentation for more details.
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production. It has not been reviewed against the final OpenID4VCI 1.0

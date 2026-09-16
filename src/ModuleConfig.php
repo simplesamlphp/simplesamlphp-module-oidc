@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
@@ -864,6 +865,29 @@ class ModuleConfig
             TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
             TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
             TokenEndpointAuthMethodsEnum::None->value,
+        ];
+    }
+
+
+    /**
+     * Authentication methods the token introspection endpoint accepts, as advertised in
+     * `introspection_endpoint_auth_methods_supported` (RFC 8414 section 2).
+     *
+     * The token endpoint's methods without `none`, plus `Bearer`. RFC 7662 section 2.1 has the endpoint
+     * protected, and a bare `client_id` is not a credential, so the endpoint does not honour it. The same
+     * section lets a protected resource authenticate with a separate access token instead of client
+     * credentials, which is what the API bearer token is here, and RFC 8414 admits values from the IANA
+     * "OAuth Access Token Types" registry in this list for that reason.
+     *
+     * @return string[]
+     */
+    public function getSupportedIntrospectionEndpointAuthMethods(): array
+    {
+        return [
+            TokenEndpointAuthMethodsEnum::ClientSecretBasic->value,
+            TokenEndpointAuthMethodsEnum::ClientSecretPost->value,
+            TokenEndpointAuthMethodsEnum::PrivateKeyJwt->value,
+            AccessTokenTypesEnum::Bearer->value,
         ];
     }
 
