@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,6 +19,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Exceptions\InvalidValueException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
@@ -211,6 +213,110 @@ class BearerTokenValidatorTest extends TestCase
         $this->expectException(OidcServerException::class);
 
         $this->sut()->validateAuthorization($serverRequest);
+    }
+
+
+    public static function acceptedTypHeaderProvider(): array
+    {
+        return [
+            'absent, pre-upgrade token' => [null],
+            'at+jwt' => ['at+jwt'],
+            'application/at+jwt' => ['application/at+jwt'],
+            'media types are case-insensitive (RFC 7515 4.1.9)' => ['AT+JWT'],
+            'application/AT+JWT' => ['Application/AT+JWT'],
+        ];
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('acceptedTypHeaderProvider')]
+    public function testAcceptsAccessTokenTypHeader(?string $typ): void
+    {
+        $this->parsedJwsMock->method('getHeader')->willReturn(is_null($typ) ? [] : ['typ' => $typ]);
+        $this->parsedJwsMock->method('getType')->willReturn($typ);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
+
+        $validatedServerRequest = $this->sut()->validateAuthorization($serverRequest);
+
+        $this->assertSame(
+            $this->accessTokenState['id'],
+            $validatedServerRequest->getAttribute('oauth_access_token_id'),
+        );
+    }
+
+
+    public static function rejectedTypHeaderProvider(): array
+    {
+        return [
+            'plain JWT' => ['JWT'],
+            'application/jwt' => ['application/jwt'],
+            'logout token' => ['logout+jwt'],
+            'other media type tree' => ['text/at+jwt'],
+            'at+jwt with a suffix' => ['at+jwt;v=1'],
+        ];
+    }
+
+
+    #[DataProvider('rejectedTypHeaderProvider')]
+    public function testRejectsNonAccessTokenTypHeader(string $typ): void
+    {
+        $this->parsedJwsMock->method('getHeader')->willReturn(['typ' => $typ]);
+        $this->parsedJwsMock->method('getType')->willReturn($typ);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->accessTokenRepositoryMock->expects($this->never())->method('isAccessTokenRevoked');
+
+        $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
+
+        try {
+            $this->sut()->validateAuthorization($serverRequest);
+            $this->fail('Expected OidcServerException.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertStringContainsString('typ is not at+jwt', (string)$exception->getHint());
+        }
+    }
+
+
+    public function testRejectsExplicitNullTypHeader(): void
+    {
+        // The parser reports an absent header and an explicit null alike; only the former is a pre-upgrade token.
+        $this->parsedJwsMock->method('getHeader')->willReturn(['typ' => null]);
+        $this->parsedJwsMock->method('getType')->willReturn(null);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->accessTokenRepositoryMock->expects($this->never())->method('isAccessTokenRevoked');
+
+        $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
+
+        try {
+            $this->sut()->validateAuthorization($serverRequest);
+            $this->fail('Expected OidcServerException.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertStringContainsString('typ missing or unexpected type', (string)$exception->getHint());
+        }
+    }
+
+
+    public function testRejectsMalformedTypHeader(): void
+    {
+        $this->parsedJwsMock->method('getHeader')->willReturn(['typ' => 123]);
+        $this->parsedJwsMock->method('getType')
+            ->willThrowException(new InvalidValueException('Unexpected typ'));
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
+
+        try {
+            $this->sut()->validateAuthorization($serverRequest);
+            $this->fail('Expected OidcServerException.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertStringContainsString('Unexpected typ', (string)$exception->getHint());
+        }
     }
 
 

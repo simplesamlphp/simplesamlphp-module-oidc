@@ -10,6 +10,8 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
@@ -17,9 +19,12 @@ use SimpleSAML\OpenID\Jws\ParsedJws;
 use Throwable;
 
 use function apache_request_headers;
+use function array_key_exists;
 use function count;
 use function is_array;
 use function preg_replace;
+use function str_contains;
+use function strtolower;
 use function trim;
 
 class BearerTokenValidator implements AuthorizationValidatorInterface
@@ -115,6 +120,8 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
 
         $token->getExpirationTime();
 
+        $this->ensureAccessTokenType($token);
+
         if (is_null($iss = $token->getIssuer()) || empty($iss)) {
             throw new JwsException('Access token malformed (iss missing or unexpected type)');
         }
@@ -133,6 +140,40 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         }
 
         return $token;
+    }
+
+
+    /**
+     * RFC 9068 section 4: the resource server rejects a token whose "typ" header is anything other than
+     * "at+jwt" / "application/at+jwt". The value is compared as RFC 7515 section 4.1.9 prescribes (media
+     * types are case-insensitive; "application/" is implied when the value has no '/'). An absent "typ" is
+     * still accepted: access tokens minted by earlier module versions carry no "typ" and remain valid until
+     * they expire, and an ID token or logout token can not pass as an access token anyway, since the "jti"
+     * lookup in ensureValidAccessToken() only knows access token identifiers.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     */
+    protected function ensureAccessTokenType(ParsedJws $token): void
+    {
+        if (!array_key_exists(ClaimsEnum::Typ->value, $token->getHeader())) {
+            return;
+        }
+
+        // Present, so it has to be a string (getType() refuses other types); an explicit null is not "absent".
+        $typ = $token->getType();
+        if (is_null($typ)) {
+            throw new JwsException('Access token malformed (typ missing or unexpected type)');
+        }
+
+        $mediaType = strtolower($typ);
+        if (!str_contains($mediaType, '/')) {
+            $mediaType = 'application/' . $mediaType;
+        }
+
+        if ($mediaType !== ContentTypesEnum::ApplicationAtJwt->value) {
+            throw new JwsException('Access token malformed (typ is not at+jwt)');
+        }
     }
 
 

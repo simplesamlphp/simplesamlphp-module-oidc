@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Entities;
 use DateTimeImmutable;
 use InvalidArgumentException;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\Traits\AccessTokenTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
@@ -17,6 +18,7 @@ use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\ParsedJws;
 use Stringable;
@@ -157,6 +159,11 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * in order to remove microseconds from timestamps and to add claims
      * like iss, etc.
      *
+     * The token follows the shape of the JWT Profile for OAuth 2.0 Access Tokens (RFC 9068): "typ" header
+     * (section 2.1), "client_id" (section 2.2) and the space-separated "scope" string (section 2.2.3,
+     * RFC 8693 section 4.2). The "aud" claim stays the client identifier (resource indicators are not
+     * implemented), and the "scopes" array is kept for consumers written against earlier versions.
+     *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Exception
      */
@@ -164,21 +171,33 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     {
         $protocolSignatureKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairBag()->getFirstOrFail();
         $currentTimestamp = $this->jws->helpers()->dateTime()->getUtc()->getTimestamp();
+        $clientId = $this->getClient()->getIdentifier();
+        $scopeIdentifiers = array_map(
+            fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(),
+            $this->getScopes(),
+        );
 
-        $payload = array_filter([
-            ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
-            ClaimsEnum::Iat->value => $currentTimestamp,
-            ClaimsEnum::Jti->value => $this->getIdentifier(),
-            ClaimsEnum::Aud->value => $this->getClient()->getIdentifier(),
-            ClaimsEnum::Nbf->value => $currentTimestamp,
-            ClaimsEnum::Exp->value => $this->expiryDateTime->getTimestamp(),
-            ClaimsEnum::Sub->value => (string)$this->getUserIdentifier(),
-            'scopes' => $this->getScopes(),
-            ClaimsEnum::IssuerState->value => $this->issuerState,
-        ]);
+        // Omit only what is absent (no user, no scope, no issuer state); a valid value of "0" must survive.
+        $payload = array_filter(
+            [
+                ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
+                ClaimsEnum::Iat->value => $currentTimestamp,
+                ClaimsEnum::Jti->value => $this->getIdentifier(),
+                ClaimsEnum::Aud->value => $clientId,
+                ClaimsEnum::Nbf->value => $currentTimestamp,
+                ClaimsEnum::Exp->value => $this->expiryDateTime->getTimestamp(),
+                ClaimsEnum::Sub->value => (string)$this->getUserIdentifier(),
+                ClaimsEnum::ClientId->value => $clientId,
+                ClaimsEnum::Scope->value => implode(' ', $scopeIdentifiers),
+                'scopes' => $this->getScopes(),
+                ClaimsEnum::IssuerState->value => $this->issuerState,
+            ],
+            fn(mixed $value): bool => $value !== null && $value !== '' && $value !== [],
+        );
 
         $header = [
             ClaimsEnum::Kid->value => $protocolSignatureKeyPair->getKeyPair()->getKeyId(),
+            ClaimsEnum::Typ->value => JwtTypesEnum::AtJwt->value,
         ];
 
         return $this->jws->parsedJwsFactory()->fromData(

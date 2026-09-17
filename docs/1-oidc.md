@@ -59,6 +59,10 @@ OAuth 2.0:
   and `client_secret_post`)
 - [OAuth 2.0 Token Introspection (RFC 7662)](https://www.rfc-editor.org/rfc/rfc7662)
   — optional endpoint, advertised as `introspection_endpoint` while enabled
+- [JWT Profile for OAuth 2.0 Access Tokens (RFC 9068)](https://www.rfc-editor.org/rfc/rfc9068)
+  — the access token JWT has the profile's shape (`typ: at+jwt`, `client_id`,
+  `scope`); `aud` remains the client identifier, as resource indicators
+  (RFC 8707) are not implemented
 - [JWT-Secured Authorization Request, JAR (RFC 9101)](https://www.rfc-editor.org/rfc/rfc9101)
   — `request` and `request_uri`
 - [OAuth 2.0 Pushed Authorization Requests, PAR (RFC 9126)](https://www.rfc-editor.org/rfc/rfc9126)

@@ -91,6 +91,24 @@ the implicit grant should disable it, as OAuth 2.0 Security Best Current
 Practice (RFC 9700) advises; the protocol configuration overview in the
 administration area says as much next to the enabled set. See the
 [configuration guide](3-oidc-configuration.md#enabled-grant-types-flows).
+- The access token JWT now follows the shape of the JWT Profile for OAuth 2.0
+Access Tokens (RFC 9068): the header carries `typ: at+jwt` (section 2.1), and
+the payload carries `client_id` (section 2.2) and `scope`, a space-separated
+string of the granted scopes (section 2.2.3). The `scopes` array of earlier
+versions is still present next to `scope`, so a resource server reading it
+keeps working; new integrations should read `scope`. `aud` is still the client
+identifier — the module does not implement resource indicators (RFC 8707), so
+a resource server applying RFC 9068 section 4 literally (it "MUST validate that
+the "aud" claim contains a resource indicator value corresponding to an
+identifier the resource server expects for itself") has to be configured to
+expect the client identifier there. The module's own resource-server side (the
+UserInfo endpoint, token introspection, the credential endpoint) now refuses a
+presented JWT whose `typ` header is anything other than `at+jwt` /
+`application/at+jwt` (compared as media types: case-insensitively, with
+`application/` implied), as RFC 9068 section 4 requires; a JWT without a `typ`
+header is still accepted so that access tokens issued before the upgrade keep
+working until they expire. A resource server of your own that validates the
+`typ` header against a fixed list needs `at+jwt` on it.
 - Authentication Processing Filters can now be configured per client (Relying
 Party), in addition to the global filters defined under `authproc.oidc`. This
 mimics defining authproc filters in SAML Service Provider metadata. During
