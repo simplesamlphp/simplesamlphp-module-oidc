@@ -667,6 +667,76 @@ To expose newly created or custom claims in the UserInfo endpoint or ID token,
 they must also be assigned to a custom scope in `OPTION_AUTH_CUSTOM_SCOPES`,
 enabled for the client, and requested by the client.
 
+## Identity claims and access token claims
+
+Two lists, both empty by default, decide which user claims travel next to
+`sub`:
+
+```php
+<?php
+
+$config = [
+    // Claims which identify the user next to 'sub'.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => [
+        'voperson_id',
+    ],
+    // User claims placed in the JWT access token, in addition to 'sub' and
+    // the identity claims.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => [
+        'eduperson_assurance',
+    ],
+];
+```
+
+**Identity claims** (`identity_claims`) join the `openid` scope next to `sub`
+and go wherever `sub` goes: into the ID token — placed like `sub`, whatever
+the client's `add_claims_to_id_token` setting — the UserInfo response and the
+JWT access token. (The introspection response is token metadata and does not
+carry user claims.) They are single-valued like `sub`, whatever the
+`are_multiple_claim_values_allowed` setting of a private scope which also
+carries them, and like `sub` they are released only as a non-empty string —
+an attribute value which is not one (a nested array from an authentication
+processing filter, an empty value) is an error at release time, not a claim
+with an odd value. A federation profile may
+require one — the EOSC AAI Architecture, for example, releases its Public
+Subject Identifier as both `sub` and `voperson_id` under the `openid` scope, in
+every location. Since every authorization request must carry `openid`, an
+identity claim is released for every user; a private scope which also lists it
+adds nothing.
+
+**Access token claims** (`access_token_claims`) are the user claims placed in
+the JWT access token in addition to `sub` and the identity claims. A claim
+listed here is placed in the token only when a granted scope carries it, so
+the token never says more than the UserInfo endpoint would for the same grant;
+the `claims` request parameter (OpenID Connect Core 1.0 section 5.5) targets
+the ID token and the UserInfo endpoint and does not authorise a claim for the
+access token. Keep the list short: the access token is a bearer credential
+shown to whoever the client calls, and every claim in it is readable by the
+client and by every resource server and proxy on the introspection path. List
+a claim only when a resource server needs it from the token itself rather than
+from the UserInfo or introspection endpoint. An identity claim is in the access
+token already, so it need not be repeated here.
+
+Both lists are checked when read, and the protocol configuration overview in
+the administration area reports a fault on the option's own row:
+
+- every entry is a non-empty claim name (not a decimal integer such as `'42'`,
+  which PHP would turn into an integer array key), and none of them is a name
+  the module writes itself — the registered JWT claims (`iss`, `sub`, `aud`, `exp`, `nbf`,
+  `iat`, `jti`, `azp`, `nonce`, `auth_time`, `at_hash`, `c_hash`, `acr`, `amr`,
+  `sub_jwk`), the ID token's `sid`, the access token envelope (`client_id`,
+  `scope`, the legacy `scopes` array, `typ`, `issuer_state`) and the
+  introspection response members `active` and `token_type`;
+- every name has a translation in the effective [attribute translation
+  table](#attribute-translation), that is, the module defaults with the
+  configured table merged over them and the per-scope `claim_name_prefix`
+  applied — a claim which a private scope renames has to be listed under its
+  prefixed name (`aarc_voperson_id`, say), and a mapping with no attribute (a
+  default emptied with `[]`, or an explicit `'attributes' => []`) does not
+  count;
+- an identity claim's translation must yield a string — the default type — so
+  a `json`, `int` or `bool` mapping is refused for it.
+
 ## Authentication Processing filters (OIDC)
 
 Standard SAML Auth Proc Filters do not run during OIDC authN because not

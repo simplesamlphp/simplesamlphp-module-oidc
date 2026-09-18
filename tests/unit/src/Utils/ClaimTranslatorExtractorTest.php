@@ -45,6 +45,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         array $claimSets = [],
         array $translationTable = [],
         array $allowedMultiValueClaims = [],
+        array $identityClaims = [],
     ): ClaimTranslatorExtractor {
         return new ClaimTranslatorExtractor(
             self::$userIdAttrs,
@@ -52,6 +53,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             $claimSets,
             $translationTable,
             $allowedMultiValueClaims,
+            $identityClaims,
         );
     }
 
@@ -562,5 +564,193 @@ class ClaimTranslatorExtractorTest extends TestCase
         ];
 
         $this->assertEquals($expectedClaims, $releasedClaims);
+    }
+
+
+    /**
+     * The 'openid' scope releases the subject, which is 'sub' and the identity claims next to it; 'sub' is
+     * there once whatever the list says.
+     */
+    public function testTheOpenIdScopeReleasesTheIdentityClaimsNextToTheSubject(): void
+    {
+        $this->assertSame(['sub'], $this->mock()->getClaimSet('openid')?->getClaims());
+
+        $claimTranslator = $this->mock(
+            [],
+            ['voperson_id' => ['voPersonID']],
+            [],
+            ['voperson_id', 'sub', 'voperson_id'],
+        );
+
+        $this->assertSame(['sub', 'voperson_id'], $claimTranslator->getClaimSet('openid')?->getClaims());
+        $this->assertSame(
+            ['sub' => 'u1', 'voperson_id' => 'v1'],
+            $claimTranslator->extract(['openid'], ['uid' => ['u1'], 'voPersonID' => ['v1']]),
+        );
+    }
+
+
+    /**
+     * Like the standard single-value claims, an identity claim is translated to its first value even when a
+     * scope allows it multiple values, since it identifies the subject in every location it is released in.
+     */
+    public function testAnIdentityClaimIsSingleValuedEvenWhereMultipleValuesAreAllowed(): void
+    {
+        $claimSet = new ClaimSetEntity('bundle', ['voperson_id', 'eduperson_entitlement']);
+        $translate = [
+            'voperson_id' => ['voPersonID'],
+            'eduperson_entitlement' => ['eduPersonEntitlement'],
+        ];
+        $userAttributes = [
+            'uid' => ['u1'],
+            'voPersonID' => ['v1', 'v2'],
+            'eduPersonEntitlement' => ['e1', 'e2'],
+        ];
+        $allowedMultiValueClaims = ['voperson_id', 'eduperson_entitlement'];
+
+        $this->assertSame(
+            ['voperson_id' => ['v1', 'v2'], 'eduperson_entitlement' => ['e1', 'e2']],
+            $this->mock([$claimSet], $translate, $allowedMultiValueClaims)->extract(['bundle'], $userAttributes),
+        );
+
+        $claimTranslator = $this->mock([$claimSet], $translate, $allowedMultiValueClaims, ['voperson_id']);
+
+        $this->assertSame(
+            ['voperson_id' => 'v1', 'eduperson_entitlement' => ['e1', 'e2']],
+            $claimTranslator->extract(['bundle'], $userAttributes),
+        );
+        $this->assertSame(
+            ['sub' => 'u1', 'voperson_id' => 'v1'],
+            $claimTranslator->extract(['openid'], $userAttributes),
+        );
+    }
+
+
+    /**
+     * A claim counts as translated when the translation can yield a value: at least one attribute, or for a
+     * 'json' claim at least one sub-claim, read the way the translation reads the mapping (legacy list,
+     * 'attributes' key, 'type').
+     */
+    #[DataProvider('claimTranslationProvider')]
+    public function testTellsWhetherAClaimHasATranslationWhichCanYieldAValue(array $mapping, bool $expected): void
+    {
+        $this->assertSame($expected, $this->mock([], ['claim' => $mapping])->isClaimTranslated('claim'));
+    }
+
+
+    /**
+     * @return array<string, array{0: array, 1: bool}>
+     */
+    public static function claimTranslationProvider(): array
+    {
+        return [
+            'legacy attribute list' => [['attribute'], true],
+            'attributes key' => [['type' => 'string', 'attributes' => ['attribute']], true],
+            'json with a sub-claim' => [['type' => 'json', 'claims' => ['sub' => ['attribute']]], true],
+            'emptied' => [[], false],
+            'type only' => [['type' => 'int'], false],
+            'attributes key, empty' => [['type' => 'string', 'attributes' => []], false],
+            'json without sub-claims' => [['type' => 'json', 'claims' => []], false],
+            'json without the claims key' => [['type' => 'json'], false],
+            'json whose sub-claims translate nothing' => [['type' => 'json', 'claims' => ['level' => []]], false],
+            'json with a nested json which translates' => [
+                ['type' => 'json', 'claims' => ['inner' => ['type' => 'json', 'claims' => ['leaf' => ['attr']]]]],
+                true,
+            ],
+            'json with a nested json which translates nothing' => [
+                ['type' => 'json', 'claims' => ['inner' => ['type' => 'json', 'claims' => ['leaf' => []]]]],
+                false,
+            ],
+        ];
+    }
+
+
+    public function testAClaimWithoutATableEntryIsNotTranslated(): void
+    {
+        $this->assertFalse($this->mock()->isClaimTranslated('unknown_claim'));
+        // A default the module ships empty.
+        $this->assertFalse($this->mock()->isClaimTranslated('middle_name'));
+        $this->assertTrue($this->mock()->isClaimTranslated('email'));
+    }
+
+
+    /**
+     * An identity claim is held to the rule 'sub' is held to: released only as a non-empty string. The
+     * translation alone can not guarantee it -- an attribute value which is itself an array survives the
+     * string conversion as an array, and an attribute with no value yields '' -- so the extraction refuses
+     * such a value (found by review). The valid subject-like value "0" passes, and a claim which is not an
+     * identity claim is not held to the rule.
+     */
+    #[DataProvider('unusableIdentityClaimValueProvider')]
+    public function testRefusesAnIdentityClaimWhichIsNotANonEmptyString(array $attributeValue): void
+    {
+        $translate = ['voperson_id' => ['voPersonID'], 'other' => ['otherAttribute']];
+        $claimTranslator = $this->mock([], $translate, [], ['voperson_id']);
+
+        // Not an identity claim: the same value passes through as before.
+        $this->assertArrayHasKey(
+            'other',
+            $this->mock([new ClaimSetEntity('scope', ['other'])], $translate, [], ['voperson_id'])
+                ->extract(['scope'], ['otherAttribute' => $attributeValue]),
+        );
+        $this->assertSame(
+            ['sub' => 'u1', 'voperson_id' => '0'],
+            $claimTranslator->extract(['openid'], ['uid' => ['u1'], 'voPersonID' => ['0']]),
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("The 'voperson_id' identity claim must be a non-empty string");
+
+        $claimTranslator->extract(['openid'], ['uid' => ['u1'], 'voPersonID' => $attributeValue]);
+    }
+
+
+    /**
+     * @return array<string, array{0: array}>
+     */
+    public static function unusableIdentityClaimValueProvider(): array
+    {
+        return [
+            'a nested array value' => [[['v1', 'v2']]],
+            'no value' => [[]],
+            'an empty string' => [['']],
+        ];
+    }
+
+
+    public function testRefusesAnIdentityClaimWhichIsNotANonEmptyStringWhenIndividuallyRequested(): void
+    {
+        $claimTranslator = $this->mock([], ['voperson_id' => ['voPersonID']], [], ['voperson_id']);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("The 'voperson_id' identity claim must be a non-empty string");
+
+        $claimTranslator->extractAdditionalUserInfoClaims(
+            ['userinfo' => ['voperson_id' => null]],
+            ['voPersonID' => [['v1', 'v2']]],
+        );
+    }
+
+
+    /**
+     * A subject comparison (an `id_token_hint` match before the authentication processing filters have run, the
+     * RP association) needs 'sub' and nothing else: the identity claims are left out, so an attribute a filter
+     * still has to supply, or an invalid value of one, can not fail it (found by review). A mapped 'sub' which is
+     * not a non-empty string is still refused, as extract() refuses it.
+     */
+    public function testExtractsTheSubjectAloneWithoutTheIdentityClaims(): void
+    {
+        $claimTranslator = $this->mock([], ['voperson_id' => ['voPersonID']], [], ['voperson_id']);
+
+        $this->assertSame('u1', $claimTranslator->extractSubject(['uid' => ['u1'], 'voPersonID' => []]));
+        $this->assertSame('u1', $claimTranslator->extractSubject(['uid' => ['u1'], 'voPersonID' => [['v1', 'v2']]]));
+        $this->assertSame('0', $claimTranslator->extractSubject(['uid' => ['0']]));
+        $this->assertNull($claimTranslator->extractSubject(['voPersonID' => ['v1']]));
+        $this->assertNull($this->mock([], ['sub' => []])->extractSubject(['uid' => ['u1']]));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("The 'sub' claim must be a non-empty string");
+
+        $claimTranslator->extractSubject(['uid' => [false]]);
     }
 }

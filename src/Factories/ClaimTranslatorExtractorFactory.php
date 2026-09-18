@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories;
 
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
@@ -23,9 +24,69 @@ class ClaimTranslatorExtractorFactory
 
 
     /**
+     * The identity claims and the access token claims are checked here rather than in ModuleConfig, since this
+     * is the only place which knows the effective translation table: the defaults with the configured table
+     * merged over them and the per-scope claim name prefixes applied. ModuleConfig checks the raw options.
+     *
      * @throws \Exception
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function build(): ClaimTranslatorExtractor
+    {
+        $identityClaims = $this->moduleConfig->getIdentityClaims();
+        $claimTranslatorExtractor = $this->buildWith($identityClaims);
+
+        $this->ensureIdentityClaimsAreTranslated($claimTranslatorExtractor, $identityClaims);
+        $this->ensureAccessTokenClaimsAreTranslated($claimTranslatorExtractor);
+
+        return $claimTranslatorExtractor;
+    }
+
+
+    /**
+     * The check build() runs for the identity claims option, on its own: a fault in the access token claims
+     * option does not fail it. For a screen which reports each option in its place.
+     *
+     * @throws \Exception
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function checkIdentityClaims(): void
+    {
+        $identityClaims = $this->moduleConfig->getIdentityClaims();
+
+        $this->ensureIdentityClaimsAreTranslated($this->buildWith($identityClaims), $identityClaims);
+    }
+
+
+    /**
+     * The check build() runs for the access token claims option, on its own: the effective translation table
+     * does not depend on the identity claims, so a fault in that option does not fail it.
+     *
+     * @throws \Exception
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function checkAccessTokenClaims(): void
+    {
+        $this->ensureAccessTokenClaimsAreTranslated($this->buildWith([]));
+    }
+
+
+    /**
+     * The effective translation table, which is buildable whatever the two claim options say.
+     *
+     * @throws \Exception
+     */
+    public function effectiveTranslationTable(): array
+    {
+        return $this->buildWith([])->getTranslationTable();
+    }
+
+
+    /**
+     * @param string[] $identityClaims
+     * @throws \Exception
+     */
+    protected function buildWith(array $identityClaims): ClaimTranslatorExtractor
     {
         $translatorTable = $this->moduleConfig->config()
             ->getOptionalArray(ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE, []);
@@ -64,7 +125,105 @@ class ClaimTranslatorExtractorFactory
             $claimSet,
             $translatorTable,
             $allowedMultipleValueClaims,
+            $identityClaims,
         );
+    }
+
+
+    /**
+     * @param string[] $identityClaims
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureIdentityClaimsAreTranslated(
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
+        array $identityClaims,
+    ): void {
+        $this->ensureClaimsAreTranslated(
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+            $identityClaims,
+            $claimTranslatorExtractor,
+        );
+        $this->ensureClaimsAreTranslatedToStrings(
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+            $identityClaims,
+            $claimTranslatorExtractor,
+        );
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureAccessTokenClaimsAreTranslated(ClaimTranslatorExtractor $claimTranslatorExtractor): void
+    {
+        $this->ensureClaimsAreTranslated(
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+            $this->moduleConfig->getAccessTokenClaims(),
+            $claimTranslatorExtractor,
+        );
+    }
+
+
+    /**
+     * Every claim the option names must have a translation which can yield a value, or it would silently never
+     * be released: a name which is not in the effective table, a mapping with no attribute (a default the
+     * configuration emptied, or an explicit `'attributes' => []`), or the unprefixed name of a claim a private
+     * scope prefixes.
+     *
+     * @param string[] $claimNames
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureClaimsAreTranslated(
+        string $option,
+        array $claimNames,
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
+    ): void {
+        foreach ($claimNames as $claimName) {
+            if (!$claimTranslatorExtractor->isClaimTranslated($claimName)) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" has no attribute translation in the effective "%s" table.',
+                        $option,
+                        $claimName,
+                        ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                    ),
+                );
+            }
+        }
+    }
+
+
+    /**
+     * An identity claim is 'sub'-like, so its translation must yield a string: a 'json', 'int' or 'bool' type
+     * would put a non-string identifier next to 'sub'.
+     *
+     * @param string[] $claimNames
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureClaimsAreTranslatedToStrings(
+        string $option,
+        array $claimNames,
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
+    ): void {
+        $translationTable = $claimTranslatorExtractor->getTranslationTable();
+
+        foreach ($claimNames as $claimName) {
+            /** @var mixed $mapping */
+            $mapping = $translationTable[$claimName] ?? null;
+            $type = is_array($mapping) ? ($mapping['type'] ?? 'string') : 'string';
+
+            if ($type !== 'string') {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" is translated to type %s, but an identity claim must ' .
+                        'be a string.',
+                        $option,
+                        $claimName,
+                        var_export($type, true),
+                    ),
+                );
+            }
+        }
     }
 
 

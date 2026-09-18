@@ -98,6 +98,16 @@ class IdTokenBuilder
         // kept even for a value that array_filter() would consider falsy (for example the valid subject "0").
         $payload[ClaimsEnum::Sub->value] = $this->core->helpers()->type()->ensureNonEmptyString($subject);
 
+        // The rest of the 'openid' claim set is the configured identity claims (ModuleConfig::getIdentityClaims()),
+        // which identify the End-User next to 'sub' and go wherever it goes: placed like 'sub', whatever the
+        // client's claim-release setting below says, and kept for a falsy value for the same reason.
+        foreach ($openIdClaims as $claimName => $claimValue) {
+            if (is_string($claimName) && $claimName !== '' && $claimName !== ClaimsEnum::Sub->value) {
+                /** @psalm-suppress MixedAssignment */
+                $payload[$claimName] = $claimValue;
+            }
+        }
+
         // Reduce the number of claims by provided scope.
         $claims = $this->claimExtractor->extract(
             $accessToken->getScopes(),

@@ -596,6 +596,147 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
 
+    /**
+     * Both lists are empty unless configured, and shown as such rather than left out: an administrator
+     * checking what the access token carries about the user should find the answer here.
+     */
+    public function testShowsTheIdentityAndAccessTokenClaims(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder()->build();
+
+        foreach (
+            [
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+            ] as $option
+        ) {
+            $row = $this->findRowForOption($sections, $option);
+            $this->assertNotNull($row, sprintf('No row displays %s.', $option));
+            $this->assertSame([], $row->getValue());
+            $this->assertNull($row->getWarning());
+            $this->assertNotNull($row->getNote());
+        }
+
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => ['voperson_id'],
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => ['eduperson_assurance', 'eduperson_entitlement'],
+        ])->build();
+
+        $this->assertSame(
+            ['voperson_id'],
+            $this->findRowForOption($sections, ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS)?->getValue(),
+        );
+        $this->assertSame(
+            ['eduperson_assurance', 'eduperson_entitlement'],
+            $this->findRowForOption($sections, ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS)?->getValue(),
+        );
+    }
+
+
+    /**
+     * The raw option can be read while the name still has no translation, so a row which only read the option
+     * would show a claim the OP never releases. The rows check through the real factory, which is where the names
+     * are matched against the effective translation table, and report its refusal -- on the faulty option's row
+     * only: the other option's row and the translation table row stay healthy (found by review).
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('untranslatedClaimOptionProvider')]
+    public function testReportsAClaimWithNoTranslationOnItsOwnRowOnly(
+        string $option,
+        array $value,
+        string $otherOption,
+    ): void {
+        $healthyModuleConfig = $this->buildOverviewModuleConfig([$option => ['email']]);
+        $healthyRow = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilderWithTheRealClaimTranslatorFactory($healthyModuleConfig)->build(),
+            $option,
+        );
+        $this->assertNotNull($healthyRow);
+        $this->assertSame(['email'], $healthyRow->getValue());
+        $this->assertNull($healthyRow->getWarning());
+
+        $sections = $this->buildProtocolOverviewBuilderWithTheRealClaimTranslatorFactory(
+            $this->buildOverviewModuleConfig([$option => $value, $otherOption => ['email']]),
+        )->build();
+
+        $row = $this->findRowForOption($sections, $option);
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+
+        $otherRow = $this->findRowForOption($sections, $otherOption);
+        $this->assertNotNull($otherRow);
+        $this->assertSame(['email'], $otherRow->getValue());
+        $this->assertNull($otherRow->getWarning());
+
+        $translationRow = $this->findRowForOption($sections, ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE);
+        $this->assertNotNull($translationRow);
+        $this->assertNull($translationRow->getWarning());
+        $this->assertArrayHasKey('email', (array)$translationRow->getValue());
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: array, 2: string}>
+     */
+    public static function untranslatedClaimOptionProvider(): array
+    {
+        return [
+            'an identity claim with no translation' => [
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                ['voperson_id'],
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+            ],
+            'an access token claim with no translation' => [
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+                ['eduperson_assurance'],
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+            ],
+        ];
+    }
+
+
+    /**
+     * A raw fault in the identity claims (a reserved name) is the one case where the extractor itself can not be
+     * built for that option; the access token claims row and the translation table row do not need it built
+     * with the identity claims, so they stay healthy.
+     *
+     * @throws \Exception
+     */
+    public function testARawIdentityClaimFaultStaysOffTheOtherRows(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilderWithTheRealClaimTranslatorFactory(
+            $this->buildOverviewModuleConfig([
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => ['sub'],
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => ['email'],
+            ]),
+        )->build();
+
+        $this->assertNotNull(
+            $this->findRowForOption($sections, ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS)?->getWarning(),
+        );
+        $this->assertNull(
+            $this->findRowForOption($sections, ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS)?->getWarning(),
+        );
+        $this->assertNull(
+            $this->findRowForOption($sections, ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE)?->getWarning(),
+        );
+    }
+
+
+    protected function buildProtocolOverviewBuilderWithTheRealClaimTranslatorFactory(
+        ModuleConfig $moduleConfig,
+    ): ProtocolOverviewBuilder {
+        return new ProtocolOverviewBuilder(
+            $moduleConfig,
+            $this->createMock(Routes::class),
+            new DateIntervalFormatter(),
+            $this->createMock(LoggerService::class),
+            new ClaimTranslatorExtractorFactory($moduleConfig, new ClaimSetEntityFactory()),
+        );
+    }
+
+
     public function testDoesNotWarnAboutOpenRegistrationWhenDcrIsDisabled(): void
     {
         $row = $this->findRowForOption(
@@ -842,9 +983,9 @@ class ProtocolOverviewBuilderTest extends TestCase
      * reported by SimpleSAMLphp itself rather than on a row.
      */
     #[DataProvider('malformedOptionProvider')]
-    public function testReportsAMalformedOptionInPlace(string $option, mixed $value): void
+    public function testReportsAMalformedOptionInPlace(string $option, mixed $value, array $otherOptions = []): void
     {
-        $sections = $this->buildProtocolOverviewBuilder([$option => $value])->build();
+        $sections = $this->buildProtocolOverviewBuilder([$option => $value] + $otherOptions)->build();
 
         $row = $this->findRowForOption($sections, $option);
 
@@ -956,6 +1097,29 @@ class ProtocolOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_ENABLED_GRANT_TYPES,
                 ['implicit'],
             ],
+            'identity claims name a claim the module writes itself' => [
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                ['sub'],
+            ],
+            'identity claims are not all strings' => [ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS, [42]],
+            'identity claims name a claim a private scope renames' => [
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                ['voperson_id'],
+                [
+                    ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
+                        'aarc' => [
+                            'description' => 'AARC bundle',
+                            'claim_name_prefix' => 'aarc_',
+                            'claims' => ['voperson_id'],
+                        ],
+                    ],
+                ],
+            ],
+            'access token claims name a claim the module writes itself' => [
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+                ['client_id'],
+            ],
+            'access token claims are not all strings' => [ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS, [null]],
             'auth source is not a string' => [ModuleConfig::OPTION_AUTH_SOURCE, 123],
             'user identifier attributes are not an array' => [
                 ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE,

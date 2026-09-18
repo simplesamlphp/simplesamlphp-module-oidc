@@ -229,6 +229,29 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ),
             ),
             $this->guardRow(
+                Translate::noop('Access Token Claims'),
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+                function (): Row {
+                    // The factory is where the names are matched against the effective translation table, so a
+                    // claim with no translation is reported on this row -- and only this option is checked here.
+                    $this->claimTranslatorExtractorFactory->checkAccessTokenClaims();
+
+                    return new Row(
+                        Translate::noop('Access Token Claims'),
+                        $this->moduleConfig->getAccessTokenClaims(),
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+                        Translate::noop(
+                            "User claims placed in the JWT access token next to 'sub' and the identity claims, " .
+                            'each only when a granted scope carries it. Every claim in the access token is ' .
+                            'readable by the client and by every resource server and proxy on the ' .
+                            'introspection path, so list a claim only when a resource server needs it from ' .
+                            'the token itself.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
                 Translate::noop('Refresh Token TTL'),
                 ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL,
                 fn(): Row => $this->buildDurationRow(
@@ -453,7 +476,8 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
                 fn(): Row => new Row(
                     Translate::noop('SAML Attribute to OIDC Claim Translation'),
-                    $this->claimTranslatorExtractorFactory->build()->getTranslationTable(),
+                    // The table alone: a fault in the identity or access token claims has a row of its own.
+                    $this->claimTranslatorExtractorFactory->effectiveTranslationTable(),
                     ConfigOverviewValueTypeEnum::Json,
                     ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
                     Translate::noop(
@@ -462,6 +486,28 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                         'claim, and any per-scope claim name prefixes already applied.',
                     ),
                 ),
+            ),
+            $this->guardRow(
+                Translate::noop('Identity Claims'),
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                function (): Row {
+                    // The factory is where the names are matched against the effective translation table, so a
+                    // claim with no translation is reported on this row -- and only this option is checked here.
+                    $this->claimTranslatorExtractorFactory->checkIdentityClaims();
+
+                    return new Row(
+                        Translate::noop('Identity Claims'),
+                        $this->moduleConfig->getIdentityClaims(),
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                        Translate::noop(
+                            "Claims which identify the subject next to 'sub'. They are part of the 'openid' " .
+                            "scope and go wherever 'sub' goes: into the ID token whatever the client's claim " .
+                            'release setting, the UserInfo response and the access token. Each must have a ' .
+                            'translation which yields a single string.',
+                        ),
+                    );
+                },
             ),
             $this->guardRow(
                 Translate::noop("Publish 'claims_supported' in Discovery"),

@@ -257,6 +257,62 @@ class IdTokenBuilderTest extends TestCase
     }
 
 
+    /**
+     * An identity claim (the rest of the 'openid' claim set next to 'sub') goes wherever 'sub' goes: into the ID
+     * token whatever the client's add_claims_to_id_token setting, since it identifies the End-User rather than
+     * describing them -- and like 'sub' it is kept for a falsy value. The scope-released claims stay gated.
+     */
+    public function testPlacesTheIdentityClaimsLikeTheSubjectWhateverTheClaimReleaseSetting(): void
+    {
+        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
+
+        $typeHelperMock = $this->createMock(Type::class);
+        $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
+        $dateTimeHelperMock = $this->createMock(DateTime::class);
+        $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
+        $randomHelperMock = $this->createMock(Random::class);
+        $randomHelperMock->method('string')->willReturn('random-jti');
+        $openIdHelpersMock = $this->createMock(Helpers::class);
+        $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
+        $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
+        $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
+        $this->coreMock->method('helpers')->willReturn($openIdHelpersMock);
+
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturnCallback(
+                fn(array $scopes, array $claims): array => $scopes === ['openid'] ?
+                    ['sub' => 'mapped-subject', 'voperson_id' => 'v1@example.org', 'org_serial' => '0'] :
+                    ['sub' => 'mapped-subject', 'voperson_id' => 'v1@example.org', 'name' => 'Firsty Lasty'],
+            );
+        $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
+
+        $this->idTokenFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    fn(array $payload): bool => $payload[ClaimsEnum::Sub->value] === 'mapped-subject' &&
+                        $payload['voperson_id'] === 'v1@example.org' &&
+                        $payload['org_serial'] === '0' &&
+                        !array_key_exists('name', $payload),
+                ),
+                $this->anything(),
+            );
+
+        $this->sut()->buildFor(
+            $this->userEntityMock,
+            $this->accessTokenEntityMock,
+            false,
+            false,
+            null,
+            null,
+            null,
+            null,
+        );
+    }
+
+
     public function testWillNegotiateIdTokenSignatureAlgorithm(): void
     {
         $this->clientEntityMock->method('getIdTokenSignedResponseAlg')

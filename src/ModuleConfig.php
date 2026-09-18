@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
@@ -105,6 +106,8 @@ class ModuleConfig
 
     final public const string OPTION_TOKEN_ACCESS_TOKEN_TTL = 'accessTokenDuration';
 
+    final public const string OPTION_TOKEN_ACCESS_TOKEN_CLAIMS = 'access_token_claims';
+
     final public const string OPTION_ENCRYPTION_KEY = 'encryption_key';
 
     final public const string OPTION_AUTH_SOURCE = 'auth';
@@ -114,6 +117,34 @@ class ModuleConfig
     final public const string OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE = 'translate';
 
     final public const string OPTION_AUTH_CUSTOM_SCOPES = 'scopes';
+
+    final public const string OPTION_AUTH_IDENTITY_CLAIMS = 'identity_claims';
+
+    /**
+     * Claim names the module writes itself, so neither OPTION_AUTH_IDENTITY_CLAIMS nor
+     * OPTION_TOKEN_ACCESS_TOKEN_CLAIMS may list them: the registered JWT claims the tokens carry, the session id
+     * of the ID token, the access token envelope (RFC 9068 section 2.2, plus this module's legacy `scopes` array
+     * and the `issuer_state` of a Verifiable Credential flow), and the introspection response members
+     * (RFC 7662 section 2.2) which are not claims of the token at all.
+     */
+    final public const array RESERVED_CLAIM_NAMES = [
+        ...ClaimTranslatorExtractor::REGISTERED_CLAIMS,
+        ClaimsEnum::Sid->value,
+        ClaimsEnum::ClientId->value,
+        ClaimsEnum::Scope->value,
+        'scopes',
+        ClaimsEnum::Typ->value,
+        ClaimsEnum::IssuerState->value,
+        'active',
+        'token_type',
+    ];
+
+    /**
+     * Custom scope config keys, mirroring ClaimTranslatorExtractorFactory.
+     */
+    final public const string SCOPE_KEY_CLAIMS = 'claims';
+
+    final public const string SCOPE_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
     final public const string OPTION_AUTH_ACR_VALUES_SUPPORTED = 'acrValuesSupported';
 
@@ -1087,6 +1118,131 @@ class ModuleConfig
     public function getPrivateScopes(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_AUTH_CUSTOM_SCOPES, []);
+    }
+
+
+    /**
+     * Claims which identify the subject next to 'sub'. They join the 'openid' claim set and go wherever 'sub'
+     * goes: into the ID token whatever the client's add_claims_to_id_token setting (IdTokenBuilder), the UserInfo
+     * response and the access token. Each name must have an attribute translation
+     * (OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE) which yields a string; that is checked where the effective
+     * translation table is known, in ClaimTranslatorExtractorFactory::build(). Here the option is checked on its
+     * own: a list of non-empty claim names, none of them reserved (RESERVED_CLAIM_NAMES), and none listed in a
+     * private scope which sets a 'claim_name_prefix' -- the prefix renames the claim in the effective table, so
+     * the name given here would never yield a value. List the prefixed name instead.
+     *
+     * Checked on read rather than in validate() so that the configuration overview can show the fault on the
+     * option's own row.
+     *
+     * @return string[]
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getIdentityClaims(): array
+    {
+        $identityClaims = $this->getClaimNameListOption(self::OPTION_AUTH_IDENTITY_CLAIMS);
+
+        if ($identityClaims === []) {
+            return [];
+        }
+
+        /**
+         * @var string $scopeName
+         * @var mixed $scopeConfig
+         */
+        foreach ($this->getPrivateScopes() as $scopeName => $scopeConfig) {
+            if (!is_array($scopeConfig)) {
+                continue;
+            }
+
+            // A prefix counts when ClaimTranslatorExtractorFactory::isScopeClaimNamePrefixSet() says so: a
+            // non-empty string, where empty() is the test, so "0" is no prefix there and none here.
+            $prefix = $scopeConfig[self::SCOPE_KEY_CLAIM_NAME_PREFIX] ?? null;
+            if (!is_string($prefix) || $prefix === '' || $prefix === '0') {
+                continue;
+            }
+
+            /** @var mixed $claims */
+            $claims = $scopeConfig[self::SCOPE_KEY_CLAIMS] ?? null;
+            $prefixedIdentityClaims = array_intersect($identityClaims, is_array($claims) ? $claims : []);
+
+            if ($prefixedIdentityClaims !== []) {
+                $claim = reset($prefixedIdentityClaims);
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" is listed in scope "%s" which sets "%s", so it is ' .
+                        'released under the name "%s%s" -- list that name instead.',
+                        self::OPTION_AUTH_IDENTITY_CLAIMS,
+                        $claim,
+                        $scopeName,
+                        self::SCOPE_KEY_CLAIM_NAME_PREFIX,
+                        $prefix,
+                        $claim,
+                    ),
+                );
+            }
+        }
+
+        return $identityClaims;
+    }
+
+
+    /**
+     * User claims placed in the JWT access token next to 'sub' and the identity claims (getIdentityClaims()).
+     * A claim listed here is released in the access token only when a granted scope carries it, so the token
+     * never says more than the UserInfo endpoint would for the same grant; every claim placed in the token is
+     * readable by the client and by every resource server and proxy on the introspection path, which is why
+     * the list is explicit and empty by default. Each name must have an attribute translation
+     * (OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE), checked in ClaimTranslatorExtractorFactory::build(); here
+     * the option is checked to be a list of non-empty, non-reserved claim names (RESERVED_CLAIM_NAMES).
+     *
+     * @return string[]
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getAccessTokenClaims(): array
+    {
+        return $this->getClaimNameListOption(self::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS);
+    }
+
+
+    /**
+     * A list of claim names, duplicates dropped: every entry a non-empty string which is not an integer in
+     * disguise, none of them a name the module writes itself.
+     *
+     * @return string[]
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function getClaimNameListOption(string $option): array
+    {
+        $claimNames = [];
+
+        /** @var mixed $claimName */
+        foreach ($this->config()->getOptionalArray($option, []) as $claimName) {
+            // A decimal integer string such as "0" or "42" becomes an integer key in the translation table, which
+            // the extractor's strict comparisons then never match, so such a claim could never be released.
+            if (!is_string($claimName) || $claimName === '' || (string)(int)$claimName === $claimName) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Expected a list of non-empty claim names, got %s.',
+                        $option,
+                        var_export($claimName, true),
+                    ),
+                );
+            }
+
+            if (in_array($claimName, self::RESERVED_CLAIM_NAMES, true)) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" is written by the module itself and can not be listed.',
+                        $option,
+                        $claimName,
+                    ),
+                );
+            }
+
+            $claimNames[] = $claimName;
+        }
+
+        return array_values(array_unique($claimNames));
     }
 
 

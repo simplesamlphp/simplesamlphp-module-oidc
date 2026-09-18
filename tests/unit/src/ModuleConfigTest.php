@@ -2983,6 +2983,190 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * Both lists are empty unless configured: an identity claim or an access token claim is a release of
+     * personal data the deployment has to decide on, so an upgraded deployment issues exactly what it did.
+     *
+     * @throws \Exception
+     */
+    public function testReleasesNoIdentityOrAccessTokenClaimsUnlessConfigured(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame([], $sut->getIdentityClaims());
+        $this->assertSame([], $sut->getAccessTokenClaims());
+        $this->assertSame([], $this->sut(overrides: [
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => null,
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => null,
+        ])->getIdentityClaims());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsTheIdentityAndAccessTokenClaimListsInTheConfiguredOrderWithoutDuplicates(): void
+    {
+        $sut = $this->sut(overrides: [
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => ['voperson_id', 'email', 'voperson_id'],
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => ['eduperson_assurance', 'eduperson_entitlement'],
+            // A private scope which carries the claim without renaming it is fine.
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
+                'aarc' => ['description' => 'AARC bundle', 'claims' => ['voperson_id', 'eduperson_assurance']],
+                'other' => ['description' => 'no prefix', 'claim_name_prefix' => '', 'claims' => ['voperson_id']],
+                // Read as "no prefix" by ClaimTranslatorExtractorFactory::isScopeClaimNamePrefixSet() (empty()).
+                'zero' => [
+                    'description' => 'no prefix either',
+                    'claim_name_prefix' => '0',
+                    'claims' => ['voperson_id'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(['voperson_id', 'email'], $sut->getIdentityClaims());
+        $this->assertSame(['eduperson_assurance', 'eduperson_entitlement'], $sut->getAccessTokenClaims());
+    }
+
+
+    /**
+     * A name the module writes itself can not be a user claim: it would either be overwritten by the envelope
+     * or, worse, overwrite it. The registered JWT claims, the ID token session id, the RFC 9068 access token
+     * envelope (with this module's legacy `scopes` array and the Verifiable Credential `issuer_state`) and the
+     * RFC 7662 introspection response members are all refused, on either option.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unusableClaimNameListProvider')]
+    public function testRefusesAClaimNameListItCanNotUse(string $option, array $claimNames, string $reason): void
+    {
+        $sut = $this->sut(overrides: [$option => $claimNames]);
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($reason);
+
+        $option === ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS ?
+        $sut->getIdentityClaims() :
+        $sut->getAccessTokenClaims();
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: array, 2: string}>
+     */
+    public static function unusableClaimNameListProvider(): array
+    {
+        $cases = [];
+
+        foreach (
+            [
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+                ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+            ] as $option
+        ) {
+            $cases[$option . ': a value which is not a string'] = [
+                $option,
+                ['voperson_id', 42],
+                'non-empty claim names',
+            ];
+            $cases[$option . ': an empty name'] = [$option, [''], 'non-empty claim names'];
+            $cases[$option . ': a nested list'] = [$option, [['voperson_id']], 'non-empty claim names'];
+            // A decimal integer string becomes an integer key in the translation table, which the extractor's
+            // strict comparisons never match again, so such a claim could never be released (found by review).
+            $cases[$option . ': an integer in disguise'] = [$option, ['0'], 'non-empty claim names'];
+            $cases[$option . ': another integer in disguise'] = [$option, ['42'], 'non-empty claim names'];
+
+            foreach (
+                [
+                    ClaimsEnum::Sub->value,
+                    ClaimsEnum::Iss->value,
+                    ClaimsEnum::Aud->value,
+                    ClaimsEnum::Exp->value,
+                    ClaimsEnum::Jti->value,
+                    ClaimsEnum::Nonce->value,
+                    ClaimsEnum::Acr->value,
+                    ClaimsEnum::Sid->value,
+                    ClaimsEnum::ClientId->value,
+                    ClaimsEnum::Scope->value,
+                    'scopes',
+                    ClaimsEnum::Typ->value,
+                    ClaimsEnum::IssuerState->value,
+                    'active',
+                    'token_type',
+                ] as $reserved
+            ) {
+                $cases[$option . ': reserved name ' . $reserved] = [
+                    $option,
+                    ['voperson_id', $reserved],
+                    sprintf('Claim "%s" is written by the module itself', $reserved),
+                ];
+            }
+        }
+
+        return $cases;
+    }
+
+
+    /**
+     * A private scope with a `claim_name_prefix` renames every claim it carries in the effective translation
+     * table, so the unprefixed name would resolve to nothing and the identity claim would silently be empty
+     * everywhere. Refused where the raw options can already tell, and with the prefixed name in the message;
+     * the prefixed name itself is accepted.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesAnIdentityClaimWhichAPrivateScopeRenames(): void
+    {
+        $scopes = [
+            'aarc' => [
+                'description' => 'AARC bundle',
+                'claim_name_prefix' => 'aarc_',
+                'claims' => ['voperson_id'],
+            ],
+        ];
+
+        $this->assertSame(
+            ['aarc_voperson_id'],
+            $this->sut(overrides: [
+                ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => ['aarc_voperson_id'],
+                ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => $scopes,
+            ])->getIdentityClaims(),
+        );
+
+        $sut = $this->sut(overrides: [
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => ['voperson_id'],
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => $scopes,
+        ]);
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('released under the name "aarc_voperson_id"');
+
+        $sut->getIdentityClaims();
+    }
+
+
+    /**
+     * The prefix rule is about the identity claims only: an access token claim is looked up by whatever name
+     * the effective table ends up with, and that check belongs to the factory which builds that table.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotApplyThePrefixRuleToAccessTokenClaims(): void
+    {
+        $sut = $this->sut(overrides: [
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => ['eduperson_assurance'],
+            ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES => [
+                'aarc' => [
+                    'description' => 'AARC bundle',
+                    'claim_name_prefix' => 'aarc_',
+                    'claims' => ['eduperson_assurance'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(['eduperson_assurance'], $sut->getAccessTokenClaims());
+    }
+
+
+    /**
      * A private scope can not take a standard scope's name, and that holds for `offline_access` whether
      * or not the refresh token grant is on: the name is reserved by OpenID Connect Core, not by what this
      * deployment happens to run.

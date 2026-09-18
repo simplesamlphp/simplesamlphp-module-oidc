@@ -109,6 +109,19 @@ presented JWT whose `typ` header is anything other than `at+jwt` /
 header is still accepted so that access tokens issued before the upgrade keep
 working until they expire. A resource server of your own that validates the
 `typ` header against a fixed list needs `at+jwt` on it.
+- Two new options decide which user claims travel next to `sub`, both empty by
+default, so nothing changes on upgrade. `identity_claims` names claims which
+identify the user (a `voperson_id`, say): they join the `openid` scope and go
+wherever `sub` goes — into the ID token whatever the client's
+`add_claims_to_id_token` setting, the UserInfo response and the access token —
+and they are single-valued like `sub` whatever the multi-value setting of a
+private scope which also carries them.
+`access_token_claims` names user claims placed in the JWT access token in
+addition to `sub` and the identity claims, each only when a granted scope
+carries it. Both lists are validated against the effective attribute
+translation table, and a claim the module writes itself (a registered JWT
+claim, `sid`, the access token envelope, the introspection members) is refused.
+See the [configuration guide](3-oidc-configuration.md#identity-claims-and-access-token-claims).
 - Authentication Processing Filters can now be configured per client (Relying
 Party), in addition to the global filters defined under `authproc.oidc`. This
 mimics defining authproc filters in SAML Service Provider metadata. During

@@ -474,6 +474,46 @@ $config = [
     ],
 
     /**
+     * Optional claims which identify the user next to 'sub'. They join the
+     * 'openid' scope and go wherever 'sub' goes: into the ID token (whatever
+     * the client's 'add_claims_to_id_token' setting), the UserInfo response
+     * and the JWT access token. Each name must have a translation in the table
+     * above which yields a string (the default type); a claim which a private
+     * scope renames through 'claim_name_prefix' has to be listed under its
+     * prefixed name. Reserved names -- the registered JWT claims, 'sid', and
+     * the access token envelope 'client_id', 'scope', 'scopes', 'typ',
+     * 'issuer_state', 'active', 'token_type' -- are refused.
+     *
+     * Empty by default. A federation profile may require one: the EOSC AAI
+     * Architecture, for example, releases its Public Subject Identifier as
+     * both 'sub' and 'voperson_id' under the 'openid' scope, in every
+     * location.
+     */
+//    ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS => [
+//        'voperson_id',
+//    ],
+
+    /**
+     * Optional user claims placed in the JWT access token, next to 'sub' and
+     * the identity claims above. A claim listed here is placed in the token
+     * only when a granted scope carries it, so the token never says more than
+     * the UserInfo endpoint would for the same grant; the 'claims' request
+     * parameter does not authorise a claim for the access token. Each name
+     * must have a translation in the table above; the reserved names are
+     * refused as for the identity claims.
+     *
+     * Empty by default, and it should stay short: every claim placed in the
+     * access token is readable by the client and by every resource server and
+     * proxy on the introspection path (the token is a bearer credential,
+     * shown to whoever the client calls), so list a claim only when a resource
+     * server needs it from the token itself rather than from the UserInfo or
+     * introspection endpoint.
+     */
+//    ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS => [
+//        'eduperson_assurance',
+//    ],
+
+    /**
      * Optional list of the Authentication Context Class References that this OP
      * supports. If populated, this list will be available in the OP discovery
      * document (OP Metadata) as 'acr_values_supported'.

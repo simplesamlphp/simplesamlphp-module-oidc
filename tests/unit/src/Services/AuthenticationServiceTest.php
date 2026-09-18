@@ -270,9 +270,9 @@ class AuthenticationServiceTest extends TestCase
             ->willReturn($this->userEntityMock);
         $this->userRepositoryMock->expects($this->once())->method('update')->with($this->userEntityMock);
 
-        $this->claimTranslatorExtractorMock->expects($this->once())->method('extract')
-            ->with(['openid'], $this->isArray())
-            ->willReturn([]);
+        $this->claimTranslatorExtractorMock->expects($this->once())->method('extractSubject')
+            ->with($this->isArray())
+            ->willReturn(null);
 
         $this->assertSame(
             $this->mock()->getAuthenticateUser(self::STATE),
@@ -536,9 +536,9 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testSubjectMatchesAttributesMatchesUserIdentifier(): void
     {
-        $this->claimTranslatorExtractorMock->method('extract')
-            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
-            ->willReturn([]);
+        $this->claimTranslatorExtractorMock->method('extractSubject')
+            ->with(self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn(null);
 
         $this->assertTrue(
             $this->mock()->subjectMatchesAttributes(self::USERNAME, self::USER_ENTITY_ATTRIBUTES),
@@ -552,9 +552,9 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testSubjectMatchesAttributesMatchesMappedSubClaim(): void
     {
-        $this->claimTranslatorExtractorMock->method('extract')
-            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
-            ->willReturn(['sub' => 'mapped-subject']);
+        $this->claimTranslatorExtractorMock->method('extractSubject')
+            ->with(self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn('mapped-subject');
 
         $this->assertTrue(
             $this->mock()->subjectMatchesAttributes('mapped-subject', self::USER_ENTITY_ATTRIBUTES),
@@ -568,9 +568,9 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testSubjectMatchesAttributesRejectsDifferentSubject(): void
     {
-        $this->claimTranslatorExtractorMock->method('extract')
-            ->with(['openid'], self::USER_ENTITY_ATTRIBUTES)
-            ->willReturn([]);
+        $this->claimTranslatorExtractorMock->method('extractSubject')
+            ->with(self::USER_ENTITY_ATTRIBUTES)
+            ->willReturn(null);
 
         $this->assertFalse(
             $this->mock()->subjectMatchesAttributes('someone-else', self::USER_ENTITY_ATTRIBUTES),

@@ -351,9 +351,10 @@ class AuthenticationService
             return false;
         }
 
-        // We need to make sure that we use 'sub' as user identifier, if configured.
-        $claims = $this->claimTranslatorExtractor->extract(['openid'], $attributes);
-        $canonicalSubject = (isset($claims['sub']) && is_scalar($claims['sub'])) ? (string)$claims['sub'] : $userId;
+        // We need to make sure that we use 'sub' as a user identifier, if configured. The subject alone: this runs
+        // before the authentication processing filters for a prompt=none request, so an identity claim whose
+        // attribute a filter still has to supply must not get in the way of the comparison.
+        $canonicalSubject = $this->claimTranslatorExtractor->extractSubject($attributes) ?? $userId;
 
         return hash_equals($canonicalSubject, $subject);
     }
@@ -365,13 +366,13 @@ class AuthenticationService
      */
     protected function addRelyingPartyAssociation(ClientEntityInterface $oidcClient, UserEntity $user): void
     {
-        // We need to make sure that we use 'sub' as user identifier, if configured.
-        $claims = $this->claimTranslatorExtractor->extract(['openid'], $user->getClaims());
+        // We need to make sure that we use 'sub' as user identifier, if configured. The subject alone is stored.
+        $subject = $this->claimTranslatorExtractor->extractSubject($user->getClaims());
 
         $this->sessionService->addRelyingPartyAssociation(
             new RelyingPartyAssociation(
                 $oidcClient->getIdentifier(),
-                (string)($claims['sub'] ?? $user->getIdentifier()),
+                $subject ?? $user->getIdentifier(),
                 $this->getSessionId(),
                 $oidcClient->getBackChannelLogoutUri(),
                 $oidcClient->getIdTokenSignedResponseAlg(),
