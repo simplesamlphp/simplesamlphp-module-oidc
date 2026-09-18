@@ -30,6 +30,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -59,7 +60,9 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\OpenID\Core\IdTokenHint;
@@ -129,6 +132,12 @@ class ImplicitGrantTest extends TestCase
 
     protected MockObject $idTokenBuilderMock;
 
+    protected UserRepository&MockObject $userRepositoryMock;
+
+    protected SubjectResolver&MockObject $subjectResolverMock;
+
+    protected AccessTokenClaimsResolver&MockObject $accessTokenClaimsResolverMock;
+
     protected DateInterval $accessTokenTtl1h;
 
     protected MockObject $accessTokenRepositoryMock;
@@ -189,6 +198,9 @@ class ImplicitGrantTest extends TestCase
 
         $this->serverRequestMock = $this->createMock(ServerRequestInterface::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->userRepositoryMock = $this->createMock(UserRepository::class);
+        $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
+        $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
 
         $this->incomingResponseMode = new QueryResponseMode();
         $this->checkedResponseMode = new FragmentResponseMode();
@@ -223,6 +235,9 @@ class ImplicitGrantTest extends TestCase
             $requestParamsResolver,
             $accessTokenEntityFactory,
             $loggerService,
+            $this->userRepositoryMock,
+            $this->subjectResolverMock,
+            $this->accessTokenClaimsResolverMock,
         );
 
         $implicitGrant->setScopeRepository($scopeRepository);
@@ -856,6 +871,40 @@ class ImplicitGrantTest extends TestCase
 
 
     /**
+     * The implicit grant holds the authenticated user already, so the mint gets the entity and makes no lookup;
+     * the subject and the access token claims are resolved from that entity, and the ID token is then built
+     * from the same access token, which is what makes the two name the End-User the same way.
+     */
+    public function testTheAccessTokenIsMintedFromTheUserTheGrantHoldsWithoutALookup(): void
+    {
+        $this->scopesAreFinalizedAs(new ScopeEntity('openid'));
+        $accessToken = $this->accessTokenIsIssued();
+        $this->idTokenIsBuilt();
+
+        $authorizationRequest = $this->authorizationRequest();
+        $user = $authorizationRequest->getUser();
+
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $this->subjectResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with($this->identicalTo($user))
+            ->willReturn('resolved-subject');
+        $this->accessTokenClaimsResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with($this->identicalTo($user), $this->isArray())
+            ->willReturn(['voperson_id' => 'v1@example.org']);
+
+        $this->completed($authorizationRequest);
+
+        $this->assertSame(self::USER_ID, $this->accessTokenArguments[4]);
+        $this->assertSame('resolved-subject', $this->accessTokenArguments[13]);
+        $this->assertSame(['voperson_id' => 'v1@example.org'], $this->accessTokenArguments[14]);
+        $this->assertSame($user, $this->idTokenArguments[0]);
+        $this->assertSame($accessToken, $this->idTokenArguments[1]);
+    }
+
+
+    /**
      * The rest of what the token is built from: the client it belongs to, the claims the request asked for --
      * which is how a request for claims survives as far as the UserInfo endpoint -- and an expiry taken from
      * the grant's own configured access token lifetime rather than from anything on the request.
@@ -1156,6 +1205,9 @@ class ImplicitGrantTest extends TestCase
                 $this->requestParamsResolverMock,
                 $this->accessTokenEntityFactoryMock,
                 $this->loggerServiceMock,
+                $this->userRepositoryMock,
+                $this->subjectResolverMock,
+                $this->accessTokenClaimsResolverMock,
             ])
             ->onlyMethods(['issueAccessToken'])
             ->getMock();

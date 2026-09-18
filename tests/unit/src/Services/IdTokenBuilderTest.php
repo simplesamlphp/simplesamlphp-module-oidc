@@ -10,6 +10,7 @@ use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core;
@@ -59,6 +61,8 @@ class IdTokenBuilderTest extends TestCase
 
     protected MockObject $scopeEntityMock;
 
+    protected MockObject $subjectResolverMock;
+
 
     protected function setUp(): void
     {
@@ -83,6 +87,7 @@ class IdTokenBuilderTest extends TestCase
 
         $this->userEntityMock = $this->createMock(UserEntity::class);
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
+        $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
 
         $this->clientEntityMock = $this->createMock(ClientEntity::class);
         $this->accessTokenEntityMock->method('getClient')->willReturn($this->clientEntityMock);
@@ -100,15 +105,18 @@ class IdTokenBuilderTest extends TestCase
         ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
         ?Core $core = null,
         ?ModuleConfig $moduleConfig = null,
+        ?SubjectResolver $subjectResolver = null,
     ): IdTokenBuilder {
         $claimTranslatorExtractor ??= $this->claimTranslatorExtractorMock;
         $core ??= $this->coreMock;
         $moduleConfig ??= $this->moduleConfigMock;
+        $subjectResolver ??= $this->subjectResolverMock;
 
         return new IdTokenBuilder(
             $claimTranslatorExtractor,
             $core,
             $moduleConfig,
+            $subjectResolver,
         );
     }
 
@@ -130,8 +138,8 @@ class IdTokenBuilderTest extends TestCase
                 $this->arrayHasKey(ClaimsEnum::Iss->value),
             );
 
-        // extract() is called twice: once with the openid scope to resolve the canonical `sub`, and once with the
-        // access token scopes to gather the claims to release.
+        // extract() is called twice: once with the openid scope for the identity claims placed next to `sub`, and
+        // once with the access token scopes to gather the claims to release.
         $this->claimTranslatorExtractorMock->expects($this->exactly(2))
             ->method('extract')
             ->willReturn(['foo' => 'bar']);
@@ -157,16 +165,11 @@ class IdTokenBuilderTest extends TestCase
 
 
     /**
-     * The issued `sub` must be the canonical subject (the mapped `sub` claim when one is configured), regardless of
-     * whether the client releases the user's claims in the ID Token. A stable `sub` is relied upon elsewhere, e.g.
-     * when matching an `id_token_hint`.
+     * The `sub` payload value passes through the type helper, so make it return the value it is given; the other
+     * helpers return fixed values.
      */
-    public function testSubIsCanonicalRegardlessOfClaimRelease(): void
+    private function stubOpenIdHelpers(): void
     {
-        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
-        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
-
-        // The `sub` payload value passes through the type helper, so make it return the value it is given.
         $typeHelperMock = $this->createMock(Type::class);
         $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
         $dateTimeHelperMock = $this->createMock(DateTime::class);
@@ -178,13 +181,27 @@ class IdTokenBuilderTest extends TestCase
         $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
         $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
         $this->coreMock->method('helpers')->willReturn($openIdHelpersMock);
+    }
 
-        $this->claimTranslatorExtractorMock->method('extract')
-            ->willReturnCallback(
-                fn(array $scopes, array $claims): array => $scopes === ['openid'] ?
-                    ['sub' => 'mapped-subject'] :
-                    [],
-            );
+
+    /**
+     * The issued `sub` is the one the access token was minted with, so the two tokens issued together name the
+     * End-User the same way, whatever the client's claim release setting -- and it is not overwritten by the `sub`
+     * the 'openid' scope releases from the attributes as they are now, which on a refresh can differ from the
+     * subject carried since the original authentication. A stable `sub` is relied upon elsewhere, e.g. when
+     * matching an `id_token_hint`.
+     */
+    #[DataProvider('claimReleaseSettingProvider')]
+    public function testTakesTheSubjectFromTheAccessTokenWhateverTheClaimReleaseSetting(bool $addClaimsFromScopes): void
+    {
+        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn('carried-subject');
+        $this->subjectResolverMock->expects($this->never())->method('resolve');
+
+        $this->stubOpenIdHelpers();
+
+        $this->claimTranslatorExtractorMock->method('extract')->willReturn(['sub' => 'live-subject']);
         $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
 
         $this->idTokenFactoryMock->expects($this->once())->method('fromData')
@@ -192,12 +209,61 @@ class IdTokenBuilderTest extends TestCase
                 $this->anything(),
                 $this->anything(),
                 $this->callback(
-                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === 'mapped-subject',
+                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === 'carried-subject',
                 ),
                 $this->anything(),
             );
 
-        // add_claims_to_id_token = false: the user's claims are not released, but `sub` must still be canonical.
+        $this->sut()->buildFor(
+            $this->userEntityMock,
+            $this->accessTokenEntityMock,
+            $addClaimsFromScopes,
+            false,
+            null,
+            null,
+            null,
+            null,
+        );
+    }
+
+
+    public static function claimReleaseSettingProvider(): array
+    {
+        return [
+            'claims released in the ID token' => [true],
+            'claims left to the UserInfo endpoint' => [false],
+        ];
+    }
+
+
+    /**
+     * An access token built without a subject (rehydrated from storage) has it resolved by the same rule the mint
+     * applies, so the ID token still names the End-User the way every other token does.
+     */
+    public function testResolvesTheSubjectWhenTheAccessTokenCarriesNone(): void
+    {
+        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn(null);
+        $this->subjectResolverMock->expects($this->once())->method('resolve')
+            ->with($this->userEntityMock)
+            ->willReturn('resolved-subject');
+
+        $this->stubOpenIdHelpers();
+
+        $this->claimTranslatorExtractorMock->method('extract')->willReturn([]);
+        $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
+
+        $this->idTokenFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === 'resolved-subject',
+                ),
+                $this->anything(),
+            );
+
         $this->sut()->buildFor(
             $this->userEntityMock,
             $this->accessTokenEntityMock,
@@ -212,24 +278,17 @@ class IdTokenBuilderTest extends TestCase
 
 
     /**
-     * The subject is REQUIRED, so it must be kept even when its value would be considered falsy (e.g. "0").
+     * The subject is REQUIRED, so it must be kept even when its value would be considered falsy (e.g. "0") -- and
+     * so is a nonce, acr or sid of "0": a value the client sent or the source asserted, not an absent one. Only
+     * what is absent (null, '') is left out.
      */
-    public function testSubIsKeptForFalsyValue(): void
+    public function testKeepsFalsyButPresentClaimValues(): void
     {
         $this->userEntityMock->method('getIdentifier')->willReturn('0');
         $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['0']]);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn('0');
 
-        $typeHelperMock = $this->createMock(Type::class);
-        $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
-        $dateTimeHelperMock = $this->createMock(DateTime::class);
-        $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
-        $randomHelperMock = $this->createMock(Random::class);
-        $randomHelperMock->method('string')->willReturn('random-jti');
-        $openIdHelpersMock = $this->createMock(Helpers::class);
-        $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
-        $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
-        $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
-        $this->coreMock->method('helpers')->willReturn($openIdHelpersMock);
+        $this->stubOpenIdHelpers();
 
         $this->claimTranslatorExtractorMock->method('extract')->willReturn([]);
         $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
@@ -239,7 +298,12 @@ class IdTokenBuilderTest extends TestCase
                 $this->anything(),
                 $this->anything(),
                 $this->callback(
-                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === '0',
+                    fn(array $payload): bool => ($payload[ClaimsEnum::Sub->value] ?? null) === '0' &&
+                        ($payload[ClaimsEnum::Nonce->value] ?? null) === '0' &&
+                        ($payload[ClaimsEnum::AuthTime->value] ?? null) === 0 &&
+                        ($payload[ClaimsEnum::Acr->value] ?? null) === '0' &&
+                        ($payload[ClaimsEnum::Sid->value] ?? null) === '0' &&
+                        !array_key_exists(ClaimsEnum::ATHash->value, $payload),
                 ),
                 $this->anything(),
             );
@@ -249,10 +313,51 @@ class IdTokenBuilderTest extends TestCase
             $this->accessTokenEntityMock,
             false,
             false,
+            '0',
+            0,
+            '0',
+            '0',
+        );
+    }
+
+
+    /**
+     * An empty string is an absent value, as null is: neither is placed.
+     */
+    public function testLeavesOutAbsentOptionalClaims(): void
+    {
+        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn('resolved-subject');
+
+        $this->stubOpenIdHelpers();
+
+        $this->claimTranslatorExtractorMock->method('extract')->willReturn([]);
+        $this->claimTranslatorExtractorMock->method('extractAdditionalIdTokenClaims')->willReturn([]);
+
+        $this->idTokenFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    fn(array $payload): bool => !array_key_exists(ClaimsEnum::Nonce->value, $payload) &&
+                        !array_key_exists(ClaimsEnum::AuthTime->value, $payload) &&
+                        !array_key_exists(ClaimsEnum::Acr->value, $payload) &&
+                        !array_key_exists(ClaimsEnum::Sid->value, $payload) &&
+                        !array_key_exists(ClaimsEnum::ATHash->value, $payload),
+                ),
+                $this->anything(),
+            );
+
+        $this->sut()->buildFor(
+            $this->userEntityMock,
+            $this->accessTokenEntityMock,
+            false,
+            false,
+            '',
             null,
-            null,
-            null,
-            null,
+            '',
+            '',
         );
     }
 
@@ -266,18 +371,9 @@ class IdTokenBuilderTest extends TestCase
     {
         $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
         $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['raw-identifier']]);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn('mapped-subject');
 
-        $typeHelperMock = $this->createMock(Type::class);
-        $typeHelperMock->method('ensureNonEmptyString')->willReturnArgument(0);
-        $dateTimeHelperMock = $this->createMock(DateTime::class);
-        $dateTimeHelperMock->method('getUtc')->willReturn(new DateTimeImmutable());
-        $randomHelperMock = $this->createMock(Random::class);
-        $randomHelperMock->method('string')->willReturn('random-jti');
-        $openIdHelpersMock = $this->createMock(Helpers::class);
-        $openIdHelpersMock->method('type')->willReturn($typeHelperMock);
-        $openIdHelpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
-        $openIdHelpersMock->method('random')->willReturn($randomHelperMock);
-        $this->coreMock->method('helpers')->willReturn($openIdHelpersMock);
+        $this->stubOpenIdHelpers();
 
         $this->claimTranslatorExtractorMock->method('extract')
             ->willReturnCallback(

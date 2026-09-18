@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\OidcCapableGrantTypeInterface;
@@ -76,7 +77,9 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -136,6 +139,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected RefreshTokenIssuer $refreshTokenIssuer,
         protected Helpers $helpers,
         protected LoggerService $loggerService,
+        UserRepository $userRepository,
+        SubjectResolver $subjectResolver,
+        AccessTokenClaimsResolver $accessTokenClaimsResolver,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -154,6 +160,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $this->codeChallengeVerifiers[$plainVerifier->getMethod()] = $plainVerifier;
 
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
+        $this->setUserRepository($userRepository);
+        $this->subjectResolver = $subjectResolver;
+        $this->accessTokenClaimsResolver = $accessTokenClaimsResolver;
     }
 
 

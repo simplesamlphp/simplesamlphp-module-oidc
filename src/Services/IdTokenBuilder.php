@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core;
@@ -24,6 +25,7 @@ class IdTokenBuilder
         protected readonly ClaimTranslatorExtractor $claimExtractor,
         protected readonly Core $core,
         protected readonly ModuleConfig $moduleConfig,
+        protected readonly SubjectResolver $subjectResolver,
     ) {
     }
 
@@ -41,7 +43,7 @@ class IdTokenBuilder
         ?string $acr,
         ?string $sessionId,
     ): IdToken {
-        if (!is_a($userEntity, ClaimSetInterface::class)) {
+        if (!$userEntity instanceof ClaimSetInterface) {
             throw new RuntimeException('UserEntity must implement ClaimSetInterface');
         }
 
@@ -64,17 +66,15 @@ class IdTokenBuilder
 
         $currentTimestamp = $this->core->helpers()->dateTime()->getUtc()->getTimestamp();
 
-        // Resolve the canonical subject identifier for this user. The subject is the user identifier, unless a `sub`
-        // claim mapping (openid scope) produces a value, which then takes precedence. This is resolved up front, and
-        // independently of the claim-release settings below, so that the issued `sub` is stable for a given user
-        // across flows and clients (it must not vary with `add_claims_to_id_token` or the granted scopes): the `sub`
-        // is the End-User's identity towards the client and is relied upon elsewhere, e.g. when matching an
-        // `id_token_hint` (see AuthenticationService::subjectMatchesAttributes()) and in logout token association.
-        $openIdClaims = $this->claimExtractor->extract(['openid'], $userEntity->getClaims());
-        $subject = (isset($openIdClaims['sub']) && is_scalar($openIdClaims['sub'])) ?
-        (string)$openIdClaims['sub'] :
-        $userEntity->getIdentifier();
+        // The subject is the one the access token was minted with (SubjectResolver, once per mint), so the ID token
+        // and the access token issued together name the End-User the same way, whatever `add_claims_to_id_token` or
+        // the granted scopes say; on a refresh it is the subject carried since the original authentication (OpenID
+        // Connect Core 1.0 section 12.2). It is relied upon elsewhere, e.g. when matching an `id_token_hint` (see
+        // AuthenticationService::subjectMatchesAttributes()) and in logout token association. An access token
+        // built without one (rehydrated from storage) has it resolved here by the same rule.
+        $subject = $accessToken->getSubject() ?? $this->subjectResolver->resolve($userEntity);
 
+        // Leave out only what is absent: a nonce or acr of "0" is a value the client sent or the source asserted.
         $payload = array_filter([
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
@@ -92,15 +92,12 @@ class IdTokenBuilder
                 null,
             ClaimsEnum::Acr->value => $acr,
             ClaimsEnum::Sid->value => $sessionId,
-        ]);
-
-        // The subject is set after the optional claims above have been filtered, since it is REQUIRED and must be
-        // kept even for a value that array_filter() would consider falsy (for example the valid subject "0").
-        $payload[ClaimsEnum::Sub->value] = $this->core->helpers()->type()->ensureNonEmptyString($subject);
+        ], fn(mixed $value): bool => $value !== null && $value !== '');
 
         // The rest of the 'openid' claim set is the configured identity claims (ModuleConfig::getIdentityClaims()),
         // which identify the End-User next to 'sub' and go wherever it goes: placed like 'sub', whatever the
-        // client's claim-release setting below says, and kept for a falsy value for the same reason.
+        // client's claim-release setting below says, and kept for a falsy value (no filter) for the same reason.
+        $openIdClaims = $this->claimExtractor->extract(['openid'], $userEntity->getClaims());
         foreach ($openIdClaims as $claimName => $claimValue) {
             if (is_string($claimName) && $claimName !== '' && $claimName !== ClaimsEnum::Sub->value) {
                 /** @psalm-suppress MixedAssignment */
@@ -129,6 +126,11 @@ class IdTokenBuilder
                 $payload[$claimName] = $claimValue;
             }
         }
+
+        // The subject is written last: it is REQUIRED, and it must not be overwritten by the 'sub' the 'openid'
+        // scope releases just above, which is resolved from the attributes as they are now rather than carried
+        // from the mint.
+        $payload[ClaimsEnum::Sub->value] = $this->core->helpers()->type()->ensureNonEmptyString($subject);
 
         $header = [
             ClaimsEnum::Kid->value => $protocolSignatureKeyPair->getKeyPair()->getKeyId(),

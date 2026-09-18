@@ -122,6 +122,26 @@ carries it. Both lists are validated against the effective attribute
 translation table, and a claim the module writes itself (a registered JWT
 claim, `sid`, the access token envelope, the introspection members) is refused.
 See the [configuration guide](3-oidc-configuration.md#identity-claims-and-access-token-claims).
+- The `sub` of the JWT access token is now the same subject the ID token
+carries — the value the `sub` attribute translation yields, else the internal
+user identifier — instead of always the internal user identifier, and an
+access token issued without a user (a pre-authorized code with no holder) now
+carries the client identifier as `sub` (RFC 9068 section 2.2) instead of no
+`sub`. Deployments which did not customize the `sub` translation see no change
+(the user identifier attribute heads it by default, so the two values were
+equal already). If you did map `sub` to another attribute, a resource server
+which matched the access token's `sub` against the internal user identifier
+now sees the mapped value, as the ID token and the UserInfo response already
+did. The subject is resolved once, when the access token is minted, and
+travels with the tokens: the refresh token payload carries it (a refresh token
+issued before the upgrade has it resolved again when redeemed), and the
+UserInfo endpoint and token introspection report the value the presented
+token carries. For an access token issued before the upgrade (no `typ` header)
+the UserInfo endpoint keeps releasing the `sub` the translation yields, as it
+did when that token was issued. The UserInfo response now always carries `sub`,
+as OpenID Connect Core 1.0 section 5.3.2 requires; before, an emptied `sub`
+translation (`'sub' => []`) left it out. See the [configuration
+guide](3-oidc-configuration.md#the-subject).
 - Authentication Processing Filters can now be configured per client (Relying
 Party), in addition to the global filters defined under `authproc.oidc`. This
 mimics defining authproc filters in SAML Service Provider metadata. During

@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterfa
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
@@ -42,7 +43,9 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
@@ -65,11 +68,17 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         protected RequestParamsResolver $requestParamsResolver,
         AccessTokenEntityFactory $accessTokenEntityFactory,
         protected LoggerService $loggerService,
+        UserRepository $userRepository,
+        SubjectResolver $subjectResolver,
+        AccessTokenClaimsResolver $accessTokenClaimsResolver,
     ) {
         parent::__construct($accessTokenTTL);
 
         $this->accessTokenRepository = $accessTokenRepository;
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
+        $this->setUserRepository($userRepository);
+        $this->subjectResolver = $subjectResolver;
+        $this->accessTokenClaimsResolver = $accessTokenClaimsResolver;
     }
 
 
@@ -268,6 +277,8 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             'state' => $authorizationRequest->getState(),
         ];
 
+        // The grant holds the user already, so the mint resolves the subject and the access token claims from it
+        // without a lookup; the ID token below takes the same subject from the token.
         $accessToken = $this->issueAccessToken(
             $this->accessTokenTTL,
             $authorizationRequest->getClient(),
@@ -275,6 +286,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $finalizedScopes,
             null,
             $authorizationRequest->getClaims(),
+            user: $user,
         );
 
         if ($accessToken instanceof EntityStringRepresentationInterface === false) {

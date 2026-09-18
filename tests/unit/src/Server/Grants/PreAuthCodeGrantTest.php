@@ -29,12 +29,14 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
@@ -46,7 +48,9 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -123,6 +127,12 @@ class PreAuthCodeGrantTest extends TestCase
 
     private LoggerService&MockObject $loggerServiceMock;
 
+    private UserRepository&MockObject $userRepositoryMock;
+
+    private SubjectResolver&MockObject $subjectResolverMock;
+
+    private AccessTokenClaimsResolver&MockObject $accessTokenClaimsResolverMock;
+
     private ServerRequestInterface&MockObject $requestMock;
 
     /** The client the pre-authorized code was issued to. */
@@ -147,6 +157,9 @@ class PreAuthCodeGrantTest extends TestCase
         $this->refreshTokenIssuerMock = $this->createMock(RefreshTokenIssuer::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->userRepositoryMock = $this->createMock(UserRepository::class);
+        $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
+        $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
         $this->requestMock = $this->createMock(ServerRequestInterface::class);
         $this->clientMock = $this->createMock(ClientEntity::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -552,6 +565,21 @@ class PreAuthCodeGrantTest extends TestCase
         )->willReturn($this->resultBagWith($authorizationDetails, $walletClient));
         $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode(holder: $holder));
         $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
+        // A code with a holder has the holder's record looked up and the subject resolved from it; a code
+        // without one has nothing to resolve, and the entity names the client as the subject when it renders.
+        $holderEntity = $this->createMock(UserEntity::class);
+        $this->userRepositoryMock->expects($holder === null ? $this->never() : $this->once())
+            ->method('getUserEntityByIdentifier')
+            ->with(self::USER_ID)
+            ->willReturn($holderEntity);
+        $this->subjectResolverMock->expects($holder === null ? $this->never() : $this->once())
+            ->method('resolve')
+            ->with($holderEntity)
+            ->willReturn('holder-subject');
+        $this->accessTokenClaimsResolverMock->expects($holder === null ? $this->never() : $this->once())
+            ->method('resolve')
+            ->with($holderEntity, [])
+            ->willReturn([]);
         $accessToken = $this->createMock(AccessTokenEntity::class);
         $tokenData = [];
         $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
@@ -569,6 +597,8 @@ class PreAuthCodeGrantTest extends TestCase
                 ?string $boundClientId,
                 ?string $boundRedirectUri,
                 ?string $issuerState,
+                ?string $subject,
+                array $userClaims,
             ) use (
                 &$tokenData,
                 $accessToken,
@@ -587,6 +617,8 @@ class PreAuthCodeGrantTest extends TestCase
                     'boundClientId',
                     'boundRedirectUri',
                     'issuerState',
+                    'subject',
+                    'userClaims',
                 );
 
                 return $accessToken;
@@ -622,6 +654,8 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertSame($boundClientId, $tokenData['boundClientId']);
         $this->assertNull($tokenData['boundRedirectUri']);
         $this->assertNull($tokenData['issuerState']);
+        $this->assertSame($holder === null ? null : 'holder-subject', $tokenData['subject']);
+        $this->assertSame([], $tokenData['userClaims']);
         $this->assertSame([$this->requestMock], $emitted);
         $this->assertLogged(
             'notice',
@@ -724,6 +758,9 @@ class PreAuthCodeGrantTest extends TestCase
             $this->refreshTokenIssuerMock,
             $this->helpersMock,
             $this->loggerServiceMock,
+            $this->userRepositoryMock,
+            $this->subjectResolverMock,
+            $this->accessTokenClaimsResolverMock,
         );
     }
 

@@ -27,6 +27,8 @@ class AccessTokenEntityFactory
 
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @param string|null $subject The subject resolved at minting; null for an entity rehydrated from storage.
+     * @param array<non-empty-string, mixed> $userClaims The user claims placed in the JWT next to 'sub'.
      */
     public function fromData(
         string $id,
@@ -42,6 +44,8 @@ class AccessTokenEntityFactory
         ?string $boundClientId = null,
         ?string $boundRedirectUri = null,
         ?string $issuerState = null,
+        ?string $subject = null,
+        array $userClaims = [],
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,
@@ -59,6 +63,8 @@ class AccessTokenEntityFactory
             boundClientId: $boundClientId,
             boundRedirectUri: $boundRedirectUri,
             issuerState: $issuerState,
+            subject: $subject,
+            userClaims: $userClaims,
         );
     }
 

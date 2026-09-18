@@ -180,7 +180,7 @@ class TokenIntrospectionController
             return null;
         }
 
-        return array_filter([
+        return $this->withoutAbsentMembers([
             'active' => true,
             'scope' => $scopeClaim,
             'client_id' => $clientId,
@@ -193,6 +193,18 @@ class TokenIntrospectionController
             ClaimsEnum::Iss->value => $accessToken->getIssuer(),
             ClaimsEnum::Jti->value => $accessToken->getJwtId(),
         ]);
+    }
+
+
+    /**
+     * Leave out only what is absent (null or an empty string): a subject of "0" is valid and must be reported.
+     *
+     * @param array<string, mixed> $members
+     * @return array<string, mixed>
+     */
+    protected function withoutAbsentMembers(array $members): array
+    {
+        return array_filter($members, fn(mixed $value): bool => $value !== null && $value !== '');
     }
 
 
@@ -216,7 +228,7 @@ class TokenIntrospectionController
             return null;
         }
 
-        // See \League\OAuth2\Server\ResponseTypes\BearerTokenResponse::generateHttpResponse for claims set on
+        // See \SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse::generateHttpResponse for claims set on
         // the refresh token.
 
         $expireTime = is_int($expireTime = $tokenData['expire_time'] ?? null) ? $expireTime : null;
@@ -260,12 +272,18 @@ class TokenIntrospectionController
             return null;
         }
 
-        return array_filter([
+        // The subject the token was issued with, the same one its access token and ID token carry; a payload
+        // written before the module recorded it has only the internal user identifier, which then stands as it
+        // does in that token's access token.
+        $subject = is_string($tokenData['sub'] ?? null) ? $tokenData['sub'] : null;
+        $subject ??= is_string($tokenData['user_id'] ?? null) ? $tokenData['user_id'] : null;
+
+        return $this->withoutAbsentMembers([
             'active' => true,
             'scope' => $scopeClaim,
             'client_id' => $clientId,
             ClaimsEnum::Exp->value => $expireTime,
-            ClaimsEnum::Sub->value => is_string($tokenData['user_id'] ?? null) ? $tokenData['user_id'] : null,
+            ClaimsEnum::Sub->value => $subject,
             ClaimsEnum::Aud->value => $clientId,
             ClaimsEnum::Jti->value => $refreshTokenId,
         ]);

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
@@ -201,6 +202,99 @@ class UserInfoControllerTest extends TestCase
             ['email' => 'userid@localhost.localdomain'],
             json_decode((string) $response->getContent(), true),
         );
+    }
+
+
+    /**
+     * A request authorised with the given token attributes, against a stored token for a user whose record
+     * releases what the extractor is told to release.
+     *
+     * @param array<string, mixed> $tokenAttributes What BearerTokenValidator put on the request.
+     * @param array<string, mixed> $extracted What the extractor releases for the token's scopes.
+     */
+    protected function userInfoFor(array $tokenAttributes, array $extracted): array
+    {
+        $this->serverRequestMock->method('getMethod')->willReturn('GET');
+        $this->authorizationServerRequestMock->method('getAttribute')
+            ->willReturnCallback(fn(string $name): mixed => $tokenAttributes[$name] ?? null);
+        $this->resourceServerMock->method('validateAuthenticatedRequest')
+            ->willReturn($this->authorizationServerRequestMock);
+        $this->accessTokenEntityMock->method('getUserIdentifier')->willReturn('userid');
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenEntityMock);
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['userid']]);
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->willReturn($this->userEntityMock);
+        $this->claimTranslatorExtractorMock->method('extract')->willReturn($extracted);
+        $this->claimTranslatorExtractorMock->method('extractAdditionalUserInfoClaims')->willReturn([]);
+
+        $response = $this->mock()->__invoke($this->serverRequestMock);
+
+        return json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+
+    /**
+     * The subject is the one the presented access token carries (resolved when it was minted and shared with
+     * the ID token issued alongside), not the one the 'sub' translation yields now: an attribute which changed
+     * since must not make this response contradict that ID token (OpenID Connect Core 1.0 section 5.3.2). And
+     * it is there even when the translation yields nothing ("The sub (subject) Claim MUST always be returned
+     * in the UserInfo Response"), which a 'sub' => [] translation left out before.
+     */
+    #[DataProvider('subjectFromTheTokenProvider')]
+    public function testTakesTheSubjectFromAnAtJwtAccessToken(array $extracted, string $tokenSubject): void
+    {
+        $claims = $this->userInfoFor(
+            [
+                'oauth_access_token_id' => 'tokenid',
+                'oauth_scopes' => ['openid', 'email'],
+                'oauth_user_id' => $tokenSubject,
+                'oauth_access_token_typ' => 'at+jwt',
+            ],
+            $extracted,
+        );
+
+        $this->assertSame($tokenSubject, $claims['sub']);
+        $this->assertSame('userid@localhost.localdomain', $claims['email']);
+    }
+
+
+    public static function subjectFromTheTokenProvider(): array
+    {
+        return [
+            'the translation yields another value now' => [
+                ['sub' => 'subject-now', 'email' => 'userid@localhost.localdomain'],
+                'subject-from-token',
+            ],
+            'the translation yields nothing' => [
+                ['email' => 'userid@localhost.localdomain'],
+                'subject-from-token',
+            ],
+            'the token carries the falsy but valid subject "0"' => [
+                ['sub' => 'subject-now', 'email' => 'userid@localhost.localdomain'],
+                '0',
+            ],
+        ];
+    }
+
+
+    /**
+     * An access token minted before the module wrote a 'typ' header carries the internal user identifier as
+     * its 'sub', not the resolved subject, so for such a token the 'sub' the 'openid' scope releases stands --
+     * as it did when that token's ID token was issued -- for the rest of the token's lifetime.
+     */
+    public function testKeepsTheReleasedSubjectForALegacyAccessToken(): void
+    {
+        $claims = $this->userInfoFor(
+            [
+                'oauth_access_token_id' => 'tokenid',
+                'oauth_scopes' => ['openid', 'email'],
+                'oauth_user_id' => 'userid',
+                'oauth_access_token_typ' => null,
+            ],
+            ['sub' => 'subject-now', 'email' => 'userid@localhost.localdomain'],
+        );
+
+        $this->assertSame('subject-now', $claims['sub']);
     }
 
 

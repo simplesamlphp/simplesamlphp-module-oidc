@@ -40,6 +40,7 @@ use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -70,7 +71,9 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -137,6 +140,12 @@ class AuthCodeGrantTest extends TestCase
 
     private LoggerService&MockObject $loggerServiceMock;
 
+    private UserRepository&MockObject $userRepositoryMock;
+
+    private SubjectResolver&MockObject $subjectResolverMock;
+
+    private AccessTokenClaimsResolver&MockObject $accessTokenClaimsResolverMock;
+
     private ScopeRepositoryInterface&MockObject $scopeRepositoryMock;
 
     private Key $encryptionKey;
@@ -167,6 +176,9 @@ class AuthCodeGrantTest extends TestCase
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->scopeHelperMock = $this->createMock(Scope::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->userRepositoryMock = $this->createMock(UserRepository::class);
+        $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
+        $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
         $this->scopeRepositoryMock = $this->createMock(ScopeRepositoryInterface::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
@@ -472,6 +484,44 @@ class AuthCodeGrantTest extends TestCase
         );
 
         $this->assertSame($responseType, $result);
+    }
+
+
+    /**
+     * The token endpoint holds only the user id from the code, so the mint looks the record up and resolves the
+     * subject and the access token claims from it; both reach the factory by name.
+     */
+    public function testMintsTheAccessTokenWithTheResolvedSubjectAndClaims(): void
+    {
+        $this->storedAuthCode();
+        $this->expectAccessTokenToBeIssued();
+
+        $user = $this->createMock(UserEntity::class);
+        $this->userRepositoryMock->expects($this->once())
+            ->method('getUserEntityByIdentifier')
+            ->with(self::USER_ID)
+            ->willReturn($user);
+        $this->subjectResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with($user)
+            ->willReturn('resolved-subject');
+        $this->accessTokenClaimsResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with(
+                $user,
+                $this->callback(fn(array $scopes): bool => array_map(
+                    fn(ScopeEntity $scope): string => $scope->getIdentifier(),
+                    array_values($scopes),
+                ) === ['openid']),
+            )
+            ->willReturn(['voperson_id' => 'v1@example.org']);
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        // fromData() is called with a mix of positional and named arguments; a mock sees them all by position.
+        $this->assertSame(self::USER_ID, $this->accessTokenFactoryArguments[4]);
+        $this->assertSame('resolved-subject', $this->accessTokenFactoryArguments[13]);
+        $this->assertSame(['voperson_id' => 'v1@example.org'], $this->accessTokenFactoryArguments[14]);
     }
 
 
@@ -1041,6 +1091,9 @@ class AuthCodeGrantTest extends TestCase
             $this->refreshTokenIssuerMock,
             $this->helpersMock,
             $this->loggerServiceMock,
+            $this->userRepositoryMock,
+            $this->subjectResolverMock,
+            $this->accessTokenClaimsResolverMock,
         );
 
         $grant->setEncryptionKey($this->encryptionKey);

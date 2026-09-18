@@ -50,6 +50,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
 
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @param string|null $subject The subject the token was minted with (SubjectResolver): the 'sub' claim of the
+     * JWT, of the ID token issued alongside and of the refresh token payload, so that all three name the End-User
+     * the same way. Not persisted: null for an entity rehydrated from storage, whose JWT is never rebuilt.
+     * @param array<non-empty-string, mixed> $userClaims The user claims placed in the JWT next to 'sub'
+     * (AccessTokenClaimsResolver): the identity claims and the configured access token claims a granted scope
+     * carries, as they were when the token was minted. Not persisted, for the same reason as the subject.
      */
     public function __construct(
         string $id,
@@ -67,6 +73,8 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?string $boundClientId = null,
         protected readonly ?string $boundRedirectUri = null,
         protected readonly ?string $issuerState = null,
+        protected readonly ?string $subject = null,
+        protected readonly array $userClaims = [],
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Access token identifier cannot be empty.');
@@ -89,6 +97,25 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         if ($isRevoked) {
             $this->revoke();
         }
+    }
+
+
+    /**
+     * The subject resolved when the token was minted, or null for an entity built without one (rehydrated from
+     * storage). The JWT itself always carries a 'sub', see convertToJWT().
+     */
+    public function getSubject(): ?string
+    {
+        return $this->subject;
+    }
+
+
+    /**
+     * @return array<non-empty-string, mixed>
+     */
+    public function getUserClaims(): array
+    {
+        return $this->userClaims;
     }
 
 
@@ -164,6 +191,10 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * RFC 8693 section 4.2). The "aud" claim stays the client identifier (resource indicators are not
      * implemented), and the "scopes" array is kept for consumers written against earlier versions.
      *
+     * The user claims come first and the envelope is written over them: a user claim can never overwrite
+     * "iss", "sub", "aud", "client_id", "scope" ... whatever the configuration says (ModuleConfig refuses
+     * those names as well; this is the second line).
+     *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Exception
      */
@@ -177,8 +208,8 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             $this->getScopes(),
         );
 
-        // Omit only what is absent (no user, no scope, no issuer state); a valid value of "0" must survive.
-        $payload = array_filter(
+        // Omit only what is absent (no scope, no issuer state); a valid value of "0" must survive.
+        $envelope = array_filter(
             [
                 ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
                 ClaimsEnum::Iat->value => $currentTimestamp,
@@ -186,7 +217,6 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
                 ClaimsEnum::Aud->value => $clientId,
                 ClaimsEnum::Nbf->value => $currentTimestamp,
                 ClaimsEnum::Exp->value => $this->expiryDateTime->getTimestamp(),
-                ClaimsEnum::Sub->value => (string)$this->getUserIdentifier(),
                 ClaimsEnum::ClientId->value => $clientId,
                 ClaimsEnum::Scope->value => implode(' ', $scopeIdentifiers),
                 'scopes' => $this->getScopes(),
@@ -194,6 +224,15 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             ],
             fn(mixed $value): bool => $value !== null && $value !== '' && $value !== [],
         );
+
+        // "sub" is REQUIRED (RFC 9068 section 2.2): the subject resolved at minting, else the internal user
+        // identifier for an entity built without one, else -- no resource owner involved -- the client itself:
+        // "the value of "sub" SHOULD correspond to an identifier the authorization server uses to indicate the
+        // client application". Set after the filter above, so a valid subject of "0" is kept.
+        $envelope[ClaimsEnum::Sub->value] = $this->subject ?? $this->getUserIdentifier() ?? $clientId;
+
+        // User claims keep a valid falsy value too (no filter), which is why they are not part of the list above.
+        $payload = array_merge($this->userClaims, $envelope);
 
         $header = [
             ClaimsEnum::Kid->value => $protocolSignatureKeyPair->getKeyPair()->getKeyId(),

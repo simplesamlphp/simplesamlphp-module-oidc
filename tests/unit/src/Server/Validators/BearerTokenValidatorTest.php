@@ -246,6 +246,26 @@ class BearerTokenValidatorTest extends TestCase
             $this->accessTokenState['id'],
             $validatedServerRequest->getAttribute('oauth_access_token_id'),
         );
+        // The header value is passed on as found (null for a pre-upgrade token), so that a consumer can tell a
+        // token whose 'sub' is the resolved subject from one whose 'sub' is the internal user identifier.
+        $this->assertSame($typ, $validatedServerRequest->getAttribute('oauth_access_token_typ'));
+    }
+
+
+    /**
+     * The token's 'sub' is passed on under league's name for it.
+     */
+    public function testPassesTheTokenSubjectOn(): void
+    {
+        $this->parsedJwsMock->method('getSubject')->willReturn('subject-from-token');
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
+
+        $this->assertSame(
+            'subject-from-token',
+            $this->sut()->validateAuthorization($serverRequest)->getAttribute('oauth_user_id'),
+        );
     }
 
 

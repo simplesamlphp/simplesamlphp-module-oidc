@@ -10,9 +10,13 @@ use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 
 /**
  * Trait IssueAccessTokenTrait
@@ -24,13 +28,30 @@ trait IssueAccessTokenTrait
 {
     protected AccessTokenEntityFactory $accessTokenEntityFactory;
 
+    protected SubjectResolver $subjectResolver;
+
+    protected AccessTokenClaimsResolver $accessTokenClaimsResolver;
+
 
     /**
      * Issue an access token.
      *
-     * @param string|null $userIdentifier
+     * The token's subject and user claims are resolved here, once, from the user record as it is now, and
+     * travel with the token (AccessTokenEntity::getSubject(), getUserClaims()): the ID token issued alongside
+     * and the refresh token payload take the subject from the entity rather than resolving it again. A caller
+     * which already holds the user entity passes it; for the others it is looked up. A caller redeeming a
+     * refresh token passes the subject its payload carries, so the subject stays what it was when the user
+     * authenticated (OpenID Connect Core 1.0 section 12.2) and only the claims are read afresh.
+     *
+     * Nothing is resolved when there is no user (a pre-authorized code without one). A user record which is gone
+     * leaves the token with the internal identifier as its subject and without user claims; minting does not fail
+     * on it.
+     *
+     * @param int|string|null $userIdentifier
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @param array|null $requestedClaims Any requested claims
+     * @param \SimpleSAML\Module\oidc\Entities\UserEntity|null $user The user record, when the caller holds it.
+     * @param string|null $subject The subject to carry instead of resolving one (refresh token grant).
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -46,6 +67,8 @@ trait IssueAccessTokenTrait
         ?string $boundClientId = null,
         ?string $boundRedirectUri = null,
         ?string $issuerState = null,
+        ?UserEntity $user = null,
+        ?string $subject = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -54,6 +77,32 @@ trait IssueAccessTokenTrait
             throw OidcServerException::serverError(
                 'Access token repository does not implement ' . AccessTokenRepositoryInterface::class,
             );
+        }
+
+        // The user repository slot is league's (AbstractGrant, for its password grant); the lookup needs the
+        // module's own, which the grant constructors set.
+        if (! $this->userRepository instanceof UserRepository) {
+            throw OidcServerException::serverError('User repository is not ' . UserRepository::class);
+        }
+
+        // The entity treats an empty identifier as no user; so does the resolution below.
+        $userIdentifier = is_scalar($userIdentifier) && (string)$userIdentifier !== '' ? (string)$userIdentifier : null;
+        $userClaims = [];
+
+        if ($userIdentifier !== null) {
+            $user ??= $this->userRepository->getUserEntityByIdentifier($userIdentifier);
+
+            if ($user instanceof UserEntity) {
+                $subject ??= $this->subjectResolver->resolve($user);
+                $userClaims = $this->accessTokenClaimsResolver->resolve($user, $scopes);
+            } else {
+                $this->loggerService->warning(
+                    'Access token issued for a user whose record is not in storage: it carries no user claims, and ' .
+                    'its subject is the one carried over (refresh) or else the internal user identifier.',
+                    ['client_id' => $client->getIdentifier(), 'user_id' => $userIdentifier],
+                );
+                $subject ??= $userIdentifier;
+            }
         }
 
         while ($maxGenerationAttempts-- > 0) {
@@ -71,6 +120,8 @@ trait IssueAccessTokenTrait
                     boundClientId: $boundClientId,
                     boundRedirectUri: $boundRedirectUri,
                     issuerState: $issuerState,
+                    subject: $subject,
+                    userClaims: $userClaims,
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;

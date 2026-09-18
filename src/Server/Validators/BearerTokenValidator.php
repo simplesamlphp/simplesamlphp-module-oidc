@@ -93,12 +93,16 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             throw OidcServerException::accessDenied('Access token malformed (jti missing or unexpected type)');
         }
 
-        // Return the request with additional attributes
+        // Return the request with additional attributes. 'oauth_user_id' is the token's 'sub' (league's name for
+        // it); 'oauth_access_token_typ' is the JWT 'typ' header, null for an access token minted before the module
+        // wrote one, so a consumer can tell a token whose 'sub' is the resolved subject from one whose 'sub' is
+        // the internal user identifier (see UserInfoController).
         return $request
             ->withAttribute('oauth_access_token_id', $jti)
             ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($token->getAudience()))
             ->withAttribute('oauth_user_id', $token->getSubject())
-            ->withAttribute('oauth_scopes', $token->getPayloadClaim('scopes'));
+            ->withAttribute('oauth_scopes', $token->getPayloadClaim('scopes'))
+            ->withAttribute('oauth_access_token_typ', $token->getType());
     }
 
 

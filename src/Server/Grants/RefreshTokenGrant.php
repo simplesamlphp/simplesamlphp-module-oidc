@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
+use DateInterval;
 use DateTimeImmutable;
 use Exception;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
@@ -11,18 +12,29 @@ use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use League\OAuth2\Server\RequestAccessTokenEvent;
 use League\OAuth2\Server\RequestEvent;
+use League\OAuth2\Server\RequestRefreshTokenEvent;
+use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 
+use function implode;
+use function in_array;
+use function is_array;
 use function is_null;
+use function is_scalar;
+use function is_string;
 use function json_decode;
 use function time;
 
@@ -40,9 +52,15 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         protected readonly RefreshTokenIssuer $refreshTokenIssuer,
         protected readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         protected readonly LoggerService $loggerService,
+        UserRepository $userRepository,
+        SubjectResolver $subjectResolver,
+        AccessTokenClaimsResolver $accessTokenClaimsResolver,
     ) {
         parent::__construct($refreshTokenRepository);
         $this->accessTokenEntityFactory = $accessTokenEntityFactory;
+        $this->setUserRepository($userRepository);
+        $this->subjectResolver = $subjectResolver;
+        $this->accessTokenClaimsResolver = $accessTokenClaimsResolver;
     }
 
 
@@ -79,6 +97,89 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
 
     /**
+     * League's own body with one departure: the new access token carries the subject the refresh token payload
+     * was issued with (TokenResponse writes it next to 'user_id'), so the subject is not resolved again from
+     * attributes which may have changed since the user authenticated -- OpenID Connect Core 1.0 section 12.2
+     * has the refreshed ID token's 'sub' be "the same as in the ID Token issued when the original
+     * authentication occurred". A payload written before the subject was recorded carries no 'sub', and the
+     * subject is resolved afresh for the remainder of that token's life. The user claims of the new access
+     * token are read from the user record as it is now, as for any other grant.
+     *
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \JsonException
+     * @throws \Throwable
+     */
+    public function respondToAccessTokenRequest(
+        ServerRequestInterface $request,
+        ResponseTypeInterface $responseType,
+        DateInterval $accessTokenTTL,
+    ): ResponseTypeInterface {
+        $client = $this->validateClient($request);
+        $oldRefreshToken = $this->validateOldRefreshToken($request, $client->getIdentifier());
+
+        // The payload is the module's own (TokenResponse writes it, encrypted), so these are its fields.
+        $oldScopeIdentifiers = [];
+        /** @psalm-suppress MixedAssignment */
+        $oldScopes = $oldRefreshToken['scopes'] ?? null;
+        if (is_array($oldScopes)) {
+            /** @psalm-suppress MixedAssignment */
+            foreach ($oldScopes as $oldScope) {
+                if (is_string($oldScope)) {
+                    $oldScopeIdentifiers[] = $oldScope;
+                }
+            }
+        }
+
+        $scopes = $this->validateScopes(
+            $this->getRequestParameter('scope', $request, implode(self::SCOPE_DELIMITER_STRING, $oldScopeIdentifiers)),
+        );
+
+        // The OAuth spec says that a refreshed access token can have the original scopes or fewer so ensure
+        // the request doesn't include any new scopes
+        foreach ($scopes as $scope) {
+            if (in_array($scope->getIdentifier(), $oldScopeIdentifiers, true) === false) {
+                throw OAuthServerException::invalidScope($scope->getIdentifier());
+            }
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $oldUserId = $oldRefreshToken['user_id'] ?? null;
+        $userId = is_scalar($oldUserId) ? (string)$oldUserId : null;
+        /** @psalm-suppress MixedAssignment */
+        $oldSubject = $oldRefreshToken['sub'] ?? null;
+        $subject = is_string($oldSubject) && $oldSubject !== '' ? $oldSubject : null;
+
+        $scopes = $this->scopeRepository->finalizeScopes($scopes, $this->getIdentifier(), $client, $userId);
+
+        // Expire old tokens
+        $this->accessTokenRepository->revokeAccessToken((string)$oldRefreshToken['access_token_id']);
+        if ($this->revokeRefreshTokens) {
+            $this->refreshTokenRepository->revokeRefreshToken((string)$oldRefreshToken['refresh_token_id']);
+        }
+
+        // Issue and persist new access token
+        $accessToken = $this->issueAccessToken($accessTokenTTL, $client, $userId, $scopes, subject: $subject);
+        $this->getEmitter()->emit(
+            new RequestAccessTokenEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request, $accessToken),
+        );
+        $responseType->setAccessToken($accessToken);
+
+        // Issue and persist new refresh token if given
+        $refreshToken = $this->issueRefreshToken($accessToken);
+
+        if ($refreshToken !== null) {
+            $this->getEmitter()->emit(
+                new RequestRefreshTokenEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request, $refreshToken),
+            );
+            $responseType->setRefreshToken($refreshToken);
+        }
+
+        return $responseType;
+    }
+
+
+    /**
+     * @return array<string, mixed>
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */

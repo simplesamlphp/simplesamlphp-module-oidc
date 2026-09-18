@@ -7,11 +7,14 @@ namespace SimpleSAML\Module\oidc\Factories\Grant;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 
 class ImplicitGrantFactory
 {
@@ -23,6 +26,9 @@ class ImplicitGrantFactory
         private readonly RequestParamsResolver $requestParamsResolver,
         private readonly AccessTokenEntityFactory $accessTokenEntityFactory,
         private readonly LoggerService $loggerService,
+        private readonly UserRepository $userRepository,
+        private readonly SubjectResolver $subjectResolver,
+        private readonly AccessTokenClaimsResolver $accessTokenClaimsResolver,
     ) {
     }
 
@@ -37,6 +43,9 @@ class ImplicitGrantFactory
             $this->requestParamsResolver,
             $this->accessTokenEntityFactory,
             $this->loggerService,
+            $this->userRepository,
+            $this->subjectResolver,
+            $this->accessTokenClaimsResolver,
         );
     }
 }

@@ -128,8 +128,12 @@ class AccessTokenEntityTest extends TestCase
     }
 
 
-    public function mock(?array $scopes = null, ?ClientEntity $clientEntity = null): AccessTokenEntity
-    {
+    public function mock(
+        ?array $scopes = null,
+        ?ClientEntity $clientEntity = null,
+        ?string $subject = null,
+        array $userClaims = [],
+    ): AccessTokenEntity {
         return new AccessTokenEntity(
             $this->id,
             $clientEntity ?? $this->clientEntityStub,
@@ -141,6 +145,8 @@ class AccessTokenEntityTest extends TestCase
             $this->authCodeId,
             $this->requestedClaims,
             $this->isRevoked,
+            subject: $subject,
+            userClaims: $userClaims,
         );
     }
 
@@ -285,7 +291,12 @@ class AccessTokenEntityTest extends TestCase
     }
 
 
-    public function testJwtOmitsSubjectWhenThereIsNoUser(): void
+    /**
+     * RFC 9068 section 2.2 has "sub" REQUIRED; for a token with no resource owner behind it (a pre-authorized code
+     * issued without a user) it names the client: "the value of "sub" SHOULD correspond to an identifier the
+     * authorization server uses to indicate the client application".
+     */
+    public function testJwtNamesTheClientAsSubjectWhenThereIsNoUser(): void
     {
         $accessTokenEntity = new AccessTokenEntity(
             $this->id,
@@ -298,8 +309,107 @@ class AccessTokenEntityTest extends TestCase
 
         [$payload] = $this->serialise($accessTokenEntity);
 
-        $this->assertArrayNotHasKey(ClaimsEnum::Sub->value, $payload);
+        $this->assertSame($this->clientId, $payload[ClaimsEnum::Sub->value]);
         $this->assertArrayNotHasKey(ClaimsEnum::IssuerState->value, $payload);
         $this->assertSame($this->clientId, $payload[ClaimsEnum::ClientId->value]);
+    }
+
+
+    public function testCarriesTheSubjectAndUserClaimsItWasMintedWith(): void
+    {
+        $accessTokenEntity = $this->mock(subject: 'resolved-subject', userClaims: ['voperson_id' => 'v1']);
+
+        $this->assertSame('resolved-subject', $accessTokenEntity->getSubject());
+        $this->assertSame(['voperson_id' => 'v1'], $accessTokenEntity->getUserClaims());
+        // Neither is persisted: the row has no column for them.
+        $this->assertArrayNotHasKey('subject', $accessTokenEntity->getState());
+        $this->assertArrayNotHasKey('user_claims', $accessTokenEntity->getState());
+    }
+
+
+    /**
+     * The JWT "sub" is the subject resolved at minting, whatever the internal user identifier is.
+     */
+    public function testJwtCarriesTheMintedSubjectOverTheUserIdentifier(): void
+    {
+        [$payload] = $this->serialise($this->mock(subject: 'resolved-subject'));
+
+        $this->assertSame('resolved-subject', $payload[ClaimsEnum::Sub->value]);
+    }
+
+
+    /**
+     * An entity built without a subject (rehydrated from storage, which no production path serialises) falls
+     * back to the internal identifier, the "sub" of every access token before the subject was resolved at minting.
+     */
+    public function testJwtFallsBackToTheUserIdentifierWithoutAMintedSubject(): void
+    {
+        [$payload] = $this->serialise($this->mock());
+
+        $this->assertSame($this->userId, $payload[ClaimsEnum::Sub->value]);
+    }
+
+
+    public function testJwtKeepsAFalsyButValidSubject(): void
+    {
+        [$payload] = $this->serialise($this->mock(subject: '0'));
+
+        $this->assertSame('0', $payload[ClaimsEnum::Sub->value]);
+    }
+
+
+    /**
+     * The user claims are placed next to the envelope, keeping a valid falsy value (an assurance of "0", a
+     * boolean false) which the envelope's own absent-value filter would have dropped.
+     */
+    public function testJwtCarriesTheUserClaimsNextToTheEnvelope(): void
+    {
+        [$payload] = $this->serialise($this->mock(
+            subject: 'resolved-subject',
+            userClaims: [
+                'voperson_id' => 'v1@example.org',
+                'eduperson_assurance' => ['0'],
+                'flag' => false,
+                'zero' => 0,
+            ],
+        ));
+
+        $this->assertSame('v1@example.org', $payload['voperson_id']);
+        $this->assertSame(['0'], $payload['eduperson_assurance']);
+        $this->assertFalse($payload['flag']);
+        $this->assertSame(0, $payload['zero']);
+        $this->assertSame('resolved-subject', $payload[ClaimsEnum::Sub->value]);
+        $this->assertSame($this->clientId, $payload[ClaimsEnum::ClientId->value]);
+    }
+
+
+    /**
+     * The envelope is written over the user claims, so even a user claim which gets past the option validation
+     * under a reserved name can not replace "iss", "sub", "aud", "client_id", "scope" or the legacy "scopes".
+     */
+    public function testJwtEnvelopeIsWrittenOverTheUserClaims(): void
+    {
+        [$payload] = $this->serialise($this->mock(
+            subject: 'resolved-subject',
+            userClaims: [
+                ClaimsEnum::Iss->value => 'https://attacker.example.org',
+                ClaimsEnum::Sub->value => 'someone-else',
+                ClaimsEnum::Aud->value => 'other-client',
+                ClaimsEnum::ClientId->value => 'other-client',
+                ClaimsEnum::Scope->value => 'admin',
+                'scopes' => ['admin'],
+                ClaimsEnum::Jti->value => 'forged',
+                ClaimsEnum::Exp->value => 0,
+            ],
+        ));
+
+        $this->assertSame('https://op.example.org', $payload[ClaimsEnum::Iss->value]);
+        $this->assertSame('resolved-subject', $payload[ClaimsEnum::Sub->value]);
+        $this->assertSame($this->clientId, $payload[ClaimsEnum::Aud->value]);
+        $this->assertSame($this->clientId, $payload[ClaimsEnum::ClientId->value]);
+        $this->assertSame('openid profile', $payload[ClaimsEnum::Scope->value]);
+        $this->assertSame(array_values($this->scopes), $payload['scopes']);
+        $this->assertSame($this->id, $payload[ClaimsEnum::Jti->value]);
+        $this->assertSame($this->expiryDateTime->getTimestamp(), $payload[ClaimsEnum::Exp->value]);
     }
 }

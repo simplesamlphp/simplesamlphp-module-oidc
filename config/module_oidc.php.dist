@@ -374,7 +374,13 @@ $config = [
          * `ModuleConfig::OPTION_AUTH_USER_IDENTIFIER_ATTRIBUTE` setting.
          * You will probably want to use this attribute as the 'sub' claim since
          * it designates a unique identifier for the user. However, override as
-         * necessary.
+         * necessary. The subject of every token (ID token, access token, and
+         * the refresh token payload) is the value this translation yields, or
+         * the internal user identifier when it yields nothing -- an emptied
+         * translation ('sub' => []) means the internal identifier on purpose.
+         * It is resolved once, when the access token is minted, and the
+         * UserInfo and introspection endpoints report the value the presented
+         * token carries.
          */
 //        'sub' => [
 //            'attribute-defined-in-useridattr', // will be dynamically added if the list for 'sub' claim is not set.

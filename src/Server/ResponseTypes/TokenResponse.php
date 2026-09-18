@@ -7,6 +7,8 @@ namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 use League\OAuth2\Server\CryptKeyInterface;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
+use LogicException;
+use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -18,6 +20,10 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+
+use function array_merge;
+use function json_encode;
+use function time;
 
 /**
  * Class IdTokenResponse.
@@ -55,6 +61,76 @@ class TokenResponse extends BearerTokenResponse implements
         protected LoggerService $loggerService,
     ) {
         $this->privateKey = $privateKey;
+    }
+
+
+    /**
+     * League's own body (BearerTokenResponse, which builds the refresh token payload inline and offers no hook
+     * for it) with one addition: the payload also carries the access token's subject as 'sub', next to the
+     * internal 'user_id'. RefreshTokenGrant reads it back so the refreshed tokens name the End-User as the
+     * original ID token did (OpenID Connect Core 1.0 section 12.2), whatever the user's attributes say by
+     * then, and the introspection endpoint reports it for the refresh token.
+     *
+     * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \Exception
+     */
+    public function generateHttpResponse(ResponseInterface $response): ResponseInterface
+    {
+        $accessToken = $this->accessToken;
+        if ($accessToken instanceof AccessTokenEntity === false) {
+            throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
+        }
+
+        $expireDateTime = $accessToken->getExpiryDateTime()->getTimestamp();
+
+        $responseParams = [
+            'token_type'   => 'Bearer',
+            'expires_in'   => $expireDateTime - time(),
+            'access_token' => $accessToken->toString(),
+        ];
+
+        // League leaves the property unset until a grant sets it.
+        /** @psalm-suppress RedundantPropertyInitializationCheck */
+        if (isset($this->refreshToken)) {
+            $refreshTokenPayload = [
+                'client_id'        => $accessToken->getClient()->getIdentifier(),
+                'refresh_token_id' => $this->refreshToken->getIdentifier(),
+                'access_token_id'  => $accessToken->getIdentifier(),
+                'scopes'           => $accessToken->getScopes(),
+                'user_id'          => $accessToken->getUserIdentifier(),
+                'expire_time'      => $this->refreshToken->getExpiryDateTime()->getTimestamp(),
+            ];
+
+            // Every access token minted for a user carries one; an entity built without it (none is, on this
+            // path) simply leaves the field out, which the grant reads as "resolve afresh".
+            if (($subject = $accessToken->getSubject()) !== null) {
+                $refreshTokenPayload['sub'] = $subject;
+            }
+
+            $refreshTokenPayload = json_encode($refreshTokenPayload);
+
+            if ($refreshTokenPayload === false) {
+                throw new LogicException('Error encountered JSON encoding the refresh token payload');
+            }
+
+            $responseParams['refresh_token'] = $this->encrypt($refreshTokenPayload);
+        }
+
+        $responseParams = json_encode(array_merge($this->getExtraParams($accessToken), $responseParams));
+
+        if ($responseParams === false) {
+            throw new LogicException('Error encountered JSON encoding response parameters');
+        }
+
+        $response = $response
+            ->withStatus(200)
+            ->withHeader('pragma', 'no-cache')
+            ->withHeader('cache-control', 'no-store')
+            ->withHeader('content-type', 'application/json; charset=UTF-8');
+
+        $response->getBody()->write($responseParams);
+
+        return $response;
     }
 
 

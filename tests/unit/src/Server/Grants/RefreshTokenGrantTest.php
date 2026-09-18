@@ -16,7 +16,10 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface as OAuth2AccessTokenRepositoryInterface;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
+use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
+use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -29,23 +32,34 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use Stringable;
 
 /**
- * The grant overrides four of the methods it inherits. `validateOldRefreshToken()` comes from league's own
- * `RefreshTokenGrant`; `validateClient()` and `issueRefreshToken()` are declared on `AbstractGrant`; and
- * `issueAccessToken()` is replaced wholesale by `IssueAccessTokenTrait`. None of the four calls `parent::`
- * -- each replaces the league body rather than extending it. The constructor does call
- * `parent::__construct()`, which is what leaves `refreshTokenTTL` initialised to one month.
+ * The grant overrides five of the methods it inherits. `respondToAccessTokenRequest()` and
+ * `validateOldRefreshToken()` come from league's own `RefreshTokenGrant`; `validateClient()` and
+ * `issueRefreshToken()` are declared on `AbstractGrant`; and `issueAccessToken()` is replaced wholesale by
+ * `IssueAccessTokenTrait`. None of the five calls `parent::` -- each replaces the league body rather than
+ * extending it. The constructor does call `parent::__construct()`, which is what leaves `refreshTokenTTL`
+ * initialised to one month.
+ *
+ * `respondToAccessTokenRequest()` is league's body with one departure: the subject the refresh token payload
+ * carries as `sub` is handed to the mint, so the refreshed access token and ID token name the End-User as the
+ * original ID token did rather than resolving the subject again from attributes which may have changed. A
+ * payload without `sub` (written before the module recorded it) has the subject resolved afresh.
  *
  * The tests below are written against those departures, since a regression which restored the league
  * behaviour would still leave a working refresh flow, only a differently behaved one.
@@ -64,9 +78,9 @@ use Stringable;
  * entity itself. All four are protected, so they are reached by reflection.
  *
  * The payload fixture is keyed on the field names written by
- * `League\OAuth2\Server\ResponseTypes\BearerTokenResponse`, which is what produces this payload in the
- * module -- `TokenResponse` extends it without overriding that method -- rather than on the names read back
- * by the code under test.
+ * `SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse::generateHttpResponse()` (league's fields plus
+ * `sub`), which is what produces this payload in the module, rather than on the names read back by the code
+ * under test.
  *
  * Fixtures are encrypted with a `Defuse\Crypto\Key`. `ModuleConfig::getEncryptionKey()` returns either a
  * `Key` or, when no key is configured, the SimpleSAMLphp secret salt as a password; both are real
@@ -91,6 +105,17 @@ class RefreshTokenGrantTest extends TestCase
 
     protected const string USER_ID = 'test-user-id';
 
+    /** The subject the original authentication resolved, as the refresh token payload carries it. */
+    protected const string SUBJECT = 'subject-at-login';
+
+    /**
+     * Positions of the `subject` and `userClaims` parameters of `AccessTokenEntityFactory::fromData()`. The
+     * mint passes them by name, and a mock receives every argument by position.
+     */
+    protected const int SUBJECT_ARGUMENT = 13;
+
+    protected const int USER_CLAIMS_ARGUMENT = 14;
+
 
     protected static ?Key $encryptionKey = null;
 
@@ -105,6 +130,12 @@ class RefreshTokenGrantTest extends TestCase
     protected MockObject $serverRequestMock;
 
     protected MockObject $loggerServiceMock;
+
+    protected MockObject $userRepositoryMock;
+
+    protected MockObject $subjectResolverMock;
+
+    protected MockObject $accessTokenClaimsResolverMock;
 
     protected EventEmitter $emitter;
 
@@ -126,6 +157,9 @@ class RefreshTokenGrantTest extends TestCase
         $this->clientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
         $this->serverRequestMock = $this->createMock(ServerRequestInterface::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->userRepositoryMock = $this->createMock(UserRepository::class);
+        $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
+        $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
 
         $this->emittedEventNames = [];
         $this->emitter = new EventEmitter();
@@ -166,6 +200,9 @@ class RefreshTokenGrantTest extends TestCase
             $this->refreshTokenIssuerMock,
             $this->clientResolverMock,
             $this->loggerServiceMock,
+            $this->userRepositoryMock,
+            $this->subjectResolverMock,
+            $this->accessTokenClaimsResolverMock,
         );
 
         // A grant carries no key until an AuthorizationServer registers it -- enableGrantType() is what
@@ -201,6 +238,7 @@ class RefreshTokenGrantTest extends TestCase
                 'scopes' => ['openid', 'profile'],
                 'user_id' => self::USER_ID,
                 'expire_time' => time() + 3600,
+                'sub' => self::SUBJECT,
             ],
             $overrides,
         );
@@ -1251,5 +1289,492 @@ class RefreshTokenGrantTest extends TestCase
         $this->expectException(UniqueTokenIdentifierConstraintViolationException::class);
 
         $this->callIssueAccessToken($grant, new DateInterval('PT15M'), $this->createMock(ClientEntity::class));
+    }
+
+    // respondToAccessTokenRequest(): the refresh itself.
+
+    /**
+     * A grant wired for a whole refresh: the client resolves, the scope repository knows every scope it is
+     * asked for and finalises them unchanged, the access token factory hands back a mock and records its
+     * arguments, and the user record is in storage.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     */
+    protected function sutForARefresh(?UserEntity $user = null): RefreshTokenGrant
+    {
+        $client = $this->createMock(ClientEntity::class);
+        $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $this->clientResolverMock->method('forAnySupportedMethod')
+            ->willReturn(new ResolvedClientAuthenticationMethod(
+                $client,
+                ClientAuthenticationMethodsEnum::ClientSecretBasic,
+            ));
+
+        $scopeRepository = $this->createMock(ScopeRepositoryInterface::class);
+        $scopeRepository->method('getScopeEntityByIdentifier')
+            ->willReturnCallback(fn(string $identifier): ScopeEntity => new ScopeEntity($identifier));
+        $scopeRepository->method('finalizeScopes')->willReturnArgument(0);
+
+        $this->accessTokenEntityFactoryMock->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments): AccessTokenEntity {
+                $this->accessTokenFactoryArguments[] = $arguments;
+
+                return $this->createMock(AccessTokenEntity::class);
+            });
+
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')
+            ->willReturnCallback(fn(string $id): ?UserEntity => $id === self::USER_ID ? $user : null);
+
+        $grant = $this->sut();
+        $grant->setScopeRepository($scopeRepository);
+        $grant->setAccessTokenRepository($this->createMock(AccessTokenRepositoryInterface::class));
+
+        return $grant;
+    }
+
+
+    protected function userEntity(): UserEntity
+    {
+        $user = $this->createMock(UserEntity::class);
+        $user->method('getIdentifier')->willReturn(self::USER_ID);
+        $user->method('getClaims')->willReturn(['uid' => [self::USER_ID]]);
+
+        return $user;
+    }
+
+
+    /**
+     * @param array<string, mixed> $payload
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    protected function refreshWith(
+        RefreshTokenGrant $grant,
+        array $payload,
+        array $parsedBody = [],
+    ): ResponseTypeInterface {
+        $responseType = $this->createMock(ResponseTypeInterface::class);
+
+        return $grant->respondToAccessTokenRequest(
+            $this->requestWith(['refresh_token' => self::encryptedPayload($payload)] + $parsedBody),
+            $responseType,
+            new DateInterval('PT15M'),
+        );
+    }
+
+
+    /**
+     * The subject travels from the payload to the mint untouched: the resolver is not consulted, and the
+     * factory receives the subject the original authentication produced. The claims, on the other hand, are
+     * read from the record as it is now -- the token is a snapshot of the current attributes under the
+     * subject of the original login.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshCarriesTheSubjectFromThePayloadAndReadsTheClaimsAfresh(): void
+    {
+        $user = $this->userEntity();
+        $grant = $this->sutForARefresh($user);
+
+        $this->subjectResolverMock->expects($this->never())->method('resolve');
+        $this->accessTokenClaimsResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with($user, $this->isArray())
+            ->willReturn(['voperson_id' => 'v-now']);
+
+        $this->refreshWith($grant, self::refreshTokenPayload());
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame(self::USER_ID, $arguments[4]);
+        $this->assertSame(self::SUBJECT, $arguments[self::SUBJECT_ARGUMENT]);
+        $this->assertSame(['voperson_id' => 'v-now'], $arguments[self::USER_CLAIMS_ARGUMENT]);
+        $this->assertSame(
+            [RequestEvent::ACCESS_TOKEN_ISSUED],
+            $this->emittedEventNames,
+        );
+    }
+
+
+    /**
+     * A payload written before the module recorded the subject has no `sub`; for the rest of that token's
+     * life the subject is resolved as at the original login, from the record as it is now.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    #[DataProvider('payloadWithoutASubjectProvider')]
+    public function testARefreshOfALegacyPayloadResolvesTheSubject(array $overrides): void
+    {
+        $user = $this->userEntity();
+        $grant = $this->sutForARefresh($user);
+
+        $this->subjectResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with($user)
+            ->willReturn('subject-now');
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+
+        $payload = self::refreshTokenPayload($overrides);
+        unset($payload['sub']);
+        if (array_key_exists('sub', $overrides)) {
+            $payload['sub'] = $overrides['sub'];
+        }
+
+        $this->refreshWith($grant, $payload);
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame('subject-now', $arguments[self::SUBJECT_ARGUMENT]);
+    }
+
+
+    public static function payloadWithoutASubjectProvider(): array
+    {
+        return [
+            'no sub field' => [[]],
+            'sub is null' => [['sub' => null]],
+            'sub is empty' => [['sub' => '']],
+            'sub is not a string' => [['sub' => 42]],
+        ];
+    }
+
+
+    /**
+     * League's guarantees hold: the old access token is revoked before the new one is minted, the old refresh
+     * token with it, the new tokens go onto the response type, and a scope not in the old grant is refused
+     * before anything is revoked.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshRevokesTheOldTokensAndReturnsTheNewOnes(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $accessTokenRepository = $this->createMock(AccessTokenRepositoryInterface::class);
+        $accessTokenRepository->expects($this->once())->method('revokeAccessToken')->with(self::ACCESS_TOKEN_ID);
+        $accessTokenRepository->expects($this->once())->method('persistNewAccessToken');
+        $grant->setAccessTokenRepository($accessTokenRepository);
+        $this->refreshTokenRepositoryMock->expects($this->once())
+            ->method('revokeRefreshToken')
+            ->with(self::REFRESH_TOKEN_ID);
+
+        $refreshToken = $this->createMock(RefreshTokenEntityInterface::class);
+        $this->refreshTokenIssuerMock->method('issue')->willReturn($refreshToken);
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+
+        $responseType = $this->createMock(ResponseTypeInterface::class);
+        $responseType->expects($this->once())->method('setAccessToken');
+        $responseType->expects($this->once())->method('setRefreshToken')->with($refreshToken);
+
+        $result = $grant->respondToAccessTokenRequest(
+            $this->requestWith(['refresh_token' => self::encryptedPayload(self::refreshTokenPayload())]),
+            $responseType,
+            new DateInterval('PT15M'),
+        );
+
+        $this->assertSame($responseType, $result);
+        $this->assertSame(
+            [RequestEvent::ACCESS_TOKEN_ISSUED, RequestEvent::REFRESH_TOKEN_ISSUED],
+            $this->emittedEventNames,
+        );
+    }
+
+
+    /**
+     * The old access token is revoked before the new one is minted, so a failure in minting can not leave both
+     * alive; the order is what league guarantees and what the override keeps.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshRevokesTheOldAccessTokenBeforeMintingTheNewOne(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+
+        $order = [];
+        $accessTokenRepository = $this->createMock(AccessTokenRepositoryInterface::class);
+        $accessTokenRepository->method('revokeAccessToken')
+            ->willReturnCallback(function () use (&$order): void {
+                $order[] = 'revoke';
+            });
+        $accessTokenRepository->method('persistNewAccessToken')
+            ->willReturnCallback(function () use (&$order): void {
+                $order[] = 'persist';
+            });
+        $grant->setAccessTokenRepository($accessTokenRepository);
+        $this->refreshTokenRepositoryMock->method('revokeRefreshToken')
+            ->willReturnCallback(function () use (&$order): void {
+                $order[] = 'revoke-refresh';
+            });
+
+        $this->refreshWith($grant, self::refreshTokenPayload());
+
+        $this->assertSame(['revoke', 'revoke-refresh', 'persist'], $order);
+    }
+
+
+    /**
+     * League's `revokeRefreshTokens(false)` keeps the old refresh token valid; the override honours the flag.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshKeepsTheOldRefreshTokenWhenRotationIsOff(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $grant->revokeRefreshTokens(false);
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeRefreshToken');
+
+        $this->refreshWith($grant, self::refreshTokenPayload());
+
+        $this->assertSame(self::SUBJECT, $this->accessTokenFactoryArguments[0][self::SUBJECT_ARGUMENT]);
+    }
+
+
+    /**
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshRefusesAScopeTheOldGrantDidNotHave(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $accessTokenRepository = $this->createMock(AccessTokenRepositoryInterface::class);
+        $accessTokenRepository->expects($this->never())->method('revokeAccessToken');
+        $grant->setAccessTokenRepository($accessTokenRepository);
+
+        try {
+            $this->refreshWith($grant, self::refreshTokenPayload(), ['scope' => 'openid email']);
+            $this->fail('A scope outside the original grant was accepted.');
+        } catch (OAuthServerException $exception) {
+            $this->assertSame('invalid_scope', $exception->getErrorType());
+        }
+
+        $this->assertSame([], $this->accessTokenFactoryArguments);
+    }
+
+
+    /**
+     * A narrower request keeps the subject and gets the claims for the scopes it kept.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshMayNarrowTheScopes(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $this->accessTokenClaimsResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with(
+                $this->anything(),
+                $this->callback(fn(array $scopes): bool => array_map(
+                    fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(),
+                    array_values($scopes),
+                ) === ['openid']),
+            )
+            ->willReturn([]);
+
+        $this->refreshWith($grant, self::refreshTokenPayload(), ['scope' => 'openid']);
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame(self::SUBJECT, $arguments[self::SUBJECT_ARGUMENT]);
+        $this->assertSame(
+            ['openid'],
+            array_map(fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), array_values($arguments[2])),
+        );
+    }
+
+    // IssueAccessTokenTrait: what the mint resolves.
+
+    /**
+     * The user record is looked up unless the caller passes it, and both resolvers read from it.
+     *
+     * @throws \ReflectionException
+     */
+    public function testIssueAccessTokenLooksTheUserUpAndResolvesSubjectAndClaims(): void
+    {
+        $user = $this->userEntity();
+        $this->userRepositoryMock->expects($this->once())
+            ->method('getUserEntityByIdentifier')
+            ->with(self::USER_ID)
+            ->willReturn($user);
+        $this->subjectResolverMock->expects($this->once())->method('resolve')->with($user)->willReturn('resolved');
+        $this->accessTokenClaimsResolverMock->expects($this->once())
+            ->method('resolve')
+            ->with($user, [])
+            ->willReturn(['voperson_id' => 'v1']);
+        $this->loggerServiceMock->expects($this->never())->method('warning');
+
+        $this->accessTokenEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments): AccessTokenEntity {
+                $this->accessTokenFactoryArguments[] = $arguments;
+
+                return $this->createMock(AccessTokenEntity::class);
+            });
+
+        $grant = $this->sut();
+        $grant->setAccessTokenRepository($this->createMock(AccessTokenRepositoryInterface::class));
+
+        $this->callIssueAccessToken($grant, new DateInterval('PT15M'), $this->createMock(ClientEntity::class));
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame('resolved', $arguments[self::SUBJECT_ARGUMENT]);
+        $this->assertSame(['voperson_id' => 'v1'], $arguments[self::USER_CLAIMS_ARGUMENT]);
+    }
+
+
+    /**
+     * A caller which holds the user entity (the implicit grant) hands it over, and no lookup is made.
+     *
+     * @throws \ReflectionException
+     */
+    public function testIssueAccessTokenUsesTheUserEntityItIsGiven(): void
+    {
+        $user = $this->userEntity();
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $this->subjectResolverMock->expects($this->once())->method('resolve')->with($user)->willReturn('resolved');
+        $this->accessTokenClaimsResolverMock->expects($this->once())->method('resolve')->with($user)->willReturn([]);
+
+        $this->accessTokenEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments): AccessTokenEntity {
+                $this->accessTokenFactoryArguments[] = $arguments;
+
+                return $this->createMock(AccessTokenEntity::class);
+            });
+
+        $grant = $this->sut();
+        $grant->setAccessTokenRepository($this->createMock(AccessTokenRepositoryInterface::class));
+
+        (new ReflectionMethod(RefreshTokenGrant::class, 'issueAccessToken'))->invoke(
+            $grant,
+            new DateInterval('PT15M'),
+            $this->createMock(ClientEntity::class),
+            self::USER_ID,
+            [],
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            $user,
+        );
+
+        $this->assertSame('resolved', $this->accessTokenFactoryArguments[0][self::SUBJECT_ARGUMENT]);
+    }
+
+
+    /**
+     * A record which is gone is not a failed request: the token is minted with the internal identifier as
+     * its subject and without user claims, and the gap is logged at `warning` with the identifiers only.
+     *
+     * @throws \ReflectionException
+     */
+    public function testIssueAccessTokenFallsBackToTheInternalIdentifierWhenTheUserRecordIsGone(): void
+    {
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->willReturn(null);
+        $this->subjectResolverMock->expects($this->never())->method('resolve');
+        $this->accessTokenClaimsResolverMock->expects($this->never())->method('resolve');
+        $this->captureLogCalls();
+
+        $this->accessTokenEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments): AccessTokenEntity {
+                $this->accessTokenFactoryArguments[] = $arguments;
+
+                return $this->createMock(AccessTokenEntity::class);
+            });
+
+        $client = $this->createMock(ClientEntity::class);
+        $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $grant = $this->sut();
+        $grant->setAccessTokenRepository($this->createMock(AccessTokenRepositoryInterface::class));
+
+        $this->callIssueAccessToken($grant, new DateInterval('PT15M'), $client);
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame(self::USER_ID, $arguments[self::SUBJECT_ARGUMENT]);
+        $this->assertSame([], $arguments[self::USER_CLAIMS_ARGUMENT]);
+        $this->assertCount(1, $this->logCalls);
+        $this->assertSame(
+            ['client_id' => self::CLIENT_ID, 'user_id' => self::USER_ID],
+            $this->logCalls[0][1],
+        );
+    }
+
+
+    /**
+     * A token with no user behind it (a pre-authorized code issued without one) has nothing to resolve; the
+     * entity itself names the client as the subject when it renders the JWT.
+     *
+     * @throws \ReflectionException
+     */
+    #[DataProvider('noUserIdentifierProvider')]
+    public function testIssueAccessTokenResolvesNothingWithoutAUser(mixed $userIdentifier): void
+    {
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $this->subjectResolverMock->expects($this->never())->method('resolve');
+        $this->accessTokenClaimsResolverMock->expects($this->never())->method('resolve');
+        $this->loggerServiceMock->expects($this->never())->method('warning');
+
+        $this->accessTokenEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments): AccessTokenEntity {
+                $this->accessTokenFactoryArguments[] = $arguments;
+
+                return $this->createMock(AccessTokenEntity::class);
+            });
+
+        $grant = $this->sut();
+        $grant->setAccessTokenRepository($this->createMock(AccessTokenRepositoryInterface::class));
+
+        (new ReflectionMethod(RefreshTokenGrant::class, 'issueAccessToken'))->invoke(
+            $grant,
+            new DateInterval('PT15M'),
+            $this->createMock(ClientEntity::class),
+            $userIdentifier,
+        );
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertNull($arguments[4]);
+        $this->assertNull($arguments[self::SUBJECT_ARGUMENT]);
+        $this->assertSame([], $arguments[self::USER_CLAIMS_ARGUMENT]);
+    }
+
+
+    public static function noUserIdentifierProvider(): array
+    {
+        return [
+            'null' => [null],
+            'empty string' => [''],
+        ];
+    }
+
+
+    /**
+     * The user repository slot is league's own, typed on its interface; the lookup needs the module's
+     * repository, so anything else is refused before a token is minted.
+     *
+     * @throws \ReflectionException
+     */
+    public function testIssueAccessTokenRejectsAUserRepositoryWhichIsNotTheModulesOwn(): void
+    {
+        $grant = $this->sut();
+        $grant->setAccessTokenRepository($this->createMock(AccessTokenRepositoryInterface::class));
+        $grant->setUserRepository($this->createMock(UserRepositoryInterface::class));
+
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        try {
+            $this->callIssueAccessToken($grant, new DateInterval('PT15M'), $this->createMock(ClientEntity::class));
+            $this->fail('A user repository which is not the module\'s own was accepted.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('server_error', $exception->getErrorType());
+            $this->assertStringContainsString(UserRepository::class, $exception->getMessage());
+        }
     }
 }

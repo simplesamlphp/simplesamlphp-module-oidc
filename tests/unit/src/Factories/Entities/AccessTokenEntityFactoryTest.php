@@ -66,6 +66,10 @@ class AccessTokenEntityFactoryTest extends TestCase
 
     protected const string ISSUER_STATE = 'issuer-state-value';
 
+    protected const string SUBJECT = 'resolved-subject';
+
+    protected const array USER_CLAIMS = ['voperson_id' => 'v1@example.org'];
+
     protected const string EXPIRES_AT = '2026-01-01 12:00:00';
 
     /**
@@ -143,6 +147,8 @@ class AccessTokenEntityFactoryTest extends TestCase
             'boundClientId' => self::BOUND_CLIENT_ID,
             'boundRedirectUri' => self::BOUND_REDIRECT_URI,
             'issuerState' => self::ISSUER_STATE,
+            'subject' => self::SUBJECT,
+            'userClaims' => self::USER_CLAIMS,
         ];
     }
 
@@ -239,7 +245,12 @@ class AccessTokenEntityFactoryTest extends TestCase
 
     public function testFromDataPassesEveryArgumentToItsSlot(): void
     {
-        $this->assertEntityCarriesTheFixture($this->sut()->fromData(...$this->fromDataArguments()));
+        $entity = $this->sut()->fromData(...$this->fromDataArguments());
+
+        $this->assertEntityCarriesTheFixture($entity);
+        // Resolved at minting and not persisted, so only a fromData() entity carries them.
+        $this->assertSame(self::SUBJECT, $entity->getSubject());
+        $this->assertSame(self::USER_CLAIMS, $entity->getUserClaims());
     }
 
 
@@ -293,6 +304,8 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->assertNull($entity->getBoundClientId());
         $this->assertNull($entity->getBoundRedirectUri());
         $this->assertNull($entity->getIssuerState());
+        $this->assertNull($entity->getSubject());
+        $this->assertSame([], $entity->getUserClaims());
     }
 
 
@@ -334,6 +347,20 @@ class AccessTokenEntityFactoryTest extends TestCase
     public function testFromStateBuildsEveryFieldFromARow(): void
     {
         $this->assertEntityCarriesTheFixture($this->sut()->fromState($this->row()));
+    }
+
+
+    /**
+     * The subject and the user claims are resolved when the token is minted and travel with that entity only:
+     * no column stores them, and the JWT of a stored token is never rebuilt. The endpoints which need the
+     * subject later read it from the presented JWT.
+     */
+    public function testFromStateBuildsAnEntityWithoutASubjectOrUserClaims(): void
+    {
+        $entity = $this->sut()->fromState($this->row());
+
+        $this->assertNull($entity->getSubject());
+        $this->assertSame([], $entity->getUserClaims());
     }
 
 

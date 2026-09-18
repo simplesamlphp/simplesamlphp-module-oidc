@@ -667,6 +667,29 @@ To expose newly created or custom claims in the UserInfo endpoint or ID token,
 they must also be assigned to a custom scope in `OPTION_AUTH_CUSTOM_SCOPES`,
 enabled for the client, and requested by the client.
 
+### The subject
+
+The `sub` claim of every token the module issues for a user — the ID token,
+the JWT access token and the payload of the refresh token — is the value the
+`sub` translation yields, or the internal user identifier (the value of the
+`useridattr` attribute at login) when it yields nothing. An emptied translation
+(`'sub' => []`) means the internal identifier on purpose; a translation with
+attributes to read which yields nothing for a user is logged as a warning, and
+the internal identifier is used.
+
+The subject is resolved once, when the access token is minted, and travels with
+the tokens: the ID token issued alongside carries the same value, the refresh
+token carries it into the tokens it refreshes (OpenID Connect Core 1.0 section
+12.2 requires the refreshed ID token's `sub` to be the one of the original
+authentication), and the UserInfo and introspection endpoints report the value
+the presented token carries rather than resolving it again. An attribute which
+changes after the user authenticated therefore changes the subject only at the
+next authentication, never between an ID token and the UserInfo response for the
+same grant (OpenID Connect Core 1.0 section 5.3.2 has the client reject that).
+The subject is also the `sub` of an access token issued without a user (a
+pre-authorized code with no holder); such a token names the client (RFC 9068
+section 2.2).
+
 ## Identity claims and access token claims
 
 Two lists, both empty by default, decide which user claims travel next to

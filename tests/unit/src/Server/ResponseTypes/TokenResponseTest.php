@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseTypes;
 
 use DateTimeImmutable;
+use Defuse\Crypto\Crypto;
+use Defuse\Crypto\Key;
 use Exception;
 use League\OAuth2\Server\CryptKey;
+use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -24,6 +28,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\Factories\IdTokenFactory;
@@ -86,6 +91,8 @@ class TokenResponseTest extends TestCase
 
     protected MockObject $signatureKeyPairMock;
 
+    protected Key $encryptionKey;
+
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -139,13 +146,18 @@ class TokenResponseTest extends TestCase
         $this->coreMock = $this->createMock(Core::class);
         $this->coreMock->method('idTokenFactory')->willReturn($this->idTokenFactoryMock);
 
+        $this->loggerMock = $this->createMock(LoggerService::class);
+
+        $claimTranslatorExtractor = new ClaimTranslatorExtractor(
+            [self::USER_ID_ATTR],
+            $this->claimSetEntityFactoryStub,
+        );
         $this->idTokenBuilder = new IdTokenBuilder(
-            new ClaimTranslatorExtractor([self::USER_ID_ATTR], $this->claimSetEntityFactoryStub),
+            $claimTranslatorExtractor,
             $this->coreMock,
             $this->moduleConfigMock,
+            new SubjectResolver($claimTranslatorExtractor, $this->loggerMock),
         );
-
-        $this->loggerMock = $this->createMock(LoggerService::class);
 
         $this->protocolSignatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $this->signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
@@ -158,6 +170,8 @@ class TokenResponseTest extends TestCase
             ->willReturn($this->protocolSignatureKeyPairBagMock);
 
         $this->idTokenMock = $this->createMock(IdToken::class);
+
+        $this->encryptionKey = Key::createNewRandomKey();
     }
 
 
@@ -334,6 +348,124 @@ class TokenResponseTest extends TestCase
         $body = $response->getBody()->getContents();
         $this->expectException(Exception::class);
         $this->shouldHaveValidIdToken($body);
+    }
+
+
+    /**
+     * The refresh token payload is league's (client, ids, scopes, internal user id, expiry) plus the subject the
+     * access token was minted with, so that RefreshTokenGrant can carry it into the refreshed tokens and the
+     * introspection endpoint can report it. It is the one field league's BearerTokenResponse does not write, and
+     * the reason the method is overridden at all.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('carriedSubjectProvider')]
+    public function testRefreshTokenPayloadCarriesTheAccessTokensSubject(string $subject): void
+    {
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn($subject);
+        $this->idTokenFactoryMock->method('fromData')->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $payload = $this->refreshTokenPayloadOf($this->generateResponseWithRefreshToken());
+
+        $this->assertSame(
+            [
+                'client_id' => self::CLIENT_ID,
+                'refresh_token_id' => 'refresh-token-id',
+                'access_token_id' => self::TOKEN_ID,
+                'scopes' => ['openid', 'email'],
+                'user_id' => self::SUBJECT,
+                'expire_time' => $this->expiration->getTimestamp(),
+                'sub' => $subject,
+            ],
+            $payload,
+        );
+    }
+
+
+    public static function carriedSubjectProvider(): array
+    {
+        return [
+            'a subject' => ['resolved-subject'],
+            'the falsy but valid subject "0"' => ['0'],
+        ];
+    }
+
+
+    /**
+     * An access token built without a subject leaves the field out rather than writing a null the grant would
+     * have to tell apart from a legacy payload anyway.
+     */
+    public function testRefreshTokenPayloadLeavesTheSubjectOutWhenTheAccessTokenCarriesNone(): void
+    {
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn(null);
+        $this->idTokenFactoryMock->method('fromData')->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $payload = $this->refreshTokenPayloadOf($this->generateResponseWithRefreshToken());
+
+        $this->assertArrayNotHasKey('sub', $payload);
+        $this->assertSame(self::SUBJECT, $payload['user_id']);
+    }
+
+
+    public function testResponseCarriesNoRefreshTokenUnlessOneWasSet(): void
+    {
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+        $this->idTokenFactoryMock->method('fromData')->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $tokenResponse = $this->prepareMockedInstance();
+        $tokenResponse->setAccessToken($this->accessTokenEntityMock);
+        $response = $tokenResponse->generateHttpResponse(new Response());
+
+        $response->getBody()->rewind();
+        $result = json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertArrayNotHasKey('refresh_token', $result);
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('no-store', $response->getHeaderLine('cache-control'));
+        $this->assertSame('no-cache', $response->getHeaderLine('pragma'));
+        $this->assertSame('Bearer', $result['token_type']);
+        $this->assertSame('AccessToken123', $result['access_token']);
+    }
+
+
+    protected function generateResponseWithRefreshToken(): array
+    {
+        $refreshToken = $this->createMock(RefreshTokenEntityInterface::class);
+        $refreshToken->method('getIdentifier')->willReturn('refresh-token-id');
+        $refreshToken->method('getExpiryDateTime')->willReturn($this->expiration);
+
+        $tokenResponse = $this->prepareMockedInstance();
+        $tokenResponse->setEncryptionKey($this->encryptionKey);
+        $tokenResponse->setAccessToken($this->accessTokenEntityMock);
+        $tokenResponse->setRefreshToken($refreshToken);
+        $response = $tokenResponse->generateHttpResponse(new Response());
+
+        $response->getBody()->rewind();
+
+        return json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
+    }
+
+
+    /**
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \Defuse\Crypto\Exception\WrongKeyOrModifiedCiphertextException
+     * @throws \JsonException
+     */
+    protected function refreshTokenPayloadOf(array $result): array
+    {
+        $this->assertIsString($result['refresh_token'] ?? null);
+
+        $payload = Crypto::decrypt($result['refresh_token'], $this->encryptionKey);
+
+        return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
     }
 
 

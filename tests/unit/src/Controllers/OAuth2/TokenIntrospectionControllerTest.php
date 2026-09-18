@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\OAuth2;
 use Exception;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -372,7 +373,12 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
-    public function testInvokeReturnsExpectedAccessTokenPayload(): void
+    /**
+     * A subject of "0" is valid (the translation may yield it) and must be reported like any other; only an
+     * absent member is left out.
+     */
+    #[DataProvider('accessTokenSubjectProvider')]
+    public function testInvokeReturnsExpectedAccessTokenPayload(string $subject): void
     {
         $requestMock = $this->createMock(Request::class);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
@@ -390,7 +396,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $jwsMock->method('getExpirationTime')->willReturn(1000);
         $jwsMock->method('getIssuedAt')->willReturn(500);
         $jwsMock->method('getNotBefore')->willReturn(500);
-        $jwsMock->method('getSubject')->willReturn('sub1');
+        $jwsMock->method('getSubject')->willReturn($subject);
         $jwsMock->method('getAudience')->willReturn(['client1']);
         $jwsMock->method('getIssuer')->willReturn('iss1');
         $jwsMock->method('getJwtId')->willReturn('jti1');
@@ -411,7 +417,7 @@ class TokenIntrospectionControllerTest extends TestCase
                 'exp' => 1000,
                 'iat' => 500,
                 'nbf' => 500,
-                'sub' => 'sub1',
+                'sub' => $subject,
                 'aud' => ['client1'],
                 'iss' => 'iss1',
                 'jti' => 'jti1',
@@ -422,7 +428,22 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
-    public function testInvokeReturnsExpectedRefreshTokenPayload(): void
+    public static function accessTokenSubjectProvider(): array
+    {
+        return [
+            'a subject' => ['sub1'],
+            'the falsy but valid subject "0"' => ['0'],
+        ];
+    }
+
+
+    /**
+     * The subject reported for a refresh token is the one its payload carries as 'sub' -- the subject its
+     * access token and ID token were issued with. A payload written before the module recorded it has only
+     * the internal 'user_id', which then stands, as it does in that token's access token.
+     */
+    #[DataProvider('refreshTokenSubjectProvider')]
+    public function testInvokeReturnsExpectedRefreshTokenPayload(array $subjectFields, string $expectedSubject): void
     {
         $requestMock = $this->createMock(Request::class);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
@@ -443,7 +464,7 @@ class TokenIntrospectionControllerTest extends TestCase
                 'refresh_token_id' => 'jti1',
                 'scopes' => ['scope1', 'scope2'],
                 'client_id' => 'client1',
-                'user_id' => 'sub1',
+                ...$subjectFields,
             ]));
 
         $this->refreshTokenRepositoryMock->method('isRefreshTokenRevoked')
@@ -457,12 +478,22 @@ class TokenIntrospectionControllerTest extends TestCase
                 && $data['scope'] === 'scope1 scope2'
                 && $data['client_id'] === 'client1'
                 && $data['exp'] > time()
-                && $data['sub'] === 'sub1'
+                && $data['sub'] === $expectedSubject
                 && $data['aud'] === 'client1'
                 && $data['jti'] === 'jti1'))
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public static function refreshTokenSubjectProvider(): array
+    {
+        return [
+            'payload carries the subject' => [['user_id' => 'internal-id', 'sub' => 'sub1'], 'sub1'],
+            'payload carries the falsy but valid subject "0"' => [['user_id' => 'internal-id', 'sub' => '0'], '0'],
+            'legacy payload without a subject' => [['user_id' => 'sub1'], 'sub1'],
+        ];
     }
 
 
