@@ -117,10 +117,11 @@ Currently supported OIDFed features:
 - Automatic client registration using a Request Object
 - Federation participation limiting based on Trust Marks
 - Endpoint for issuing a configuration entity statement (about itself)
-- The OpenID4VCI issuer metadata published in that entity statement under the
-  `openid_credential_issuer` entity type, and issued credentials naming this
-  entity for trust establishment — both per the OpenID Federation Digital
-  Credentials Profile, see [Note on the DIIP profile](#note-on-the-diip-profile)
+- The OpenID4VCI issuer metadata and the credential signing keys published in
+  that entity statement under the `openid_credential_issuer` and `vc_issuer`
+  entity types, and issued credentials naming this entity for trust
+  establishment — all per the OpenID Federation Digital Credentials Profile,
+  see [Note on the DIIP profile](#note-on-the-diip-profile)
 
 The OP participates as a leaf entity, so it deliberately does not serve a fetch
 endpoint or a subordinate listing endpoint.
@@ -244,12 +245,15 @@ here is scoped to that role rather than to "DIIP conformance" unqualified:
 **Nothing certifies this, and it is not a claim about the whole profile.** There
 is no DIIP conformance suite of the kind the OpenID Foundation runs for OpenID
 Connect (see [Conformance testing](#conformance-testing) below for what is
-actually tested), so this is a self-assessment. What has been worked through
-against the profile text is its identifier half: that Issuers and Holders can be
-identified by `did:jwk` and `did:web`, and the two identifier-dependent issuance
-requirements, the `jwt` proof type and the `cnf` holder binding claim. Two
-readings this module makes along the way — what the profile's `iss` requirement
-can mean alongside OpenID4VCI, and which party's DID document its
+actually tested), so this is a self-assessment. Every requirement of the v5
+text which addresses the Issuer has been traced against the source, one at a
+time: the identifier half first — that Issuers and Holders can be identified by
+`did:jwk` and `did:web`, and the two identifier-dependent issuance
+requirements, the `jwt` proof type and the `cnf` holder binding claim — and
+then the rest of the profile, the credential formats, the signature algorithm,
+the issuance flows, revocation, and the optional Trust Establishment appendix.
+Two readings this module makes along the way — what the profile's `iss`
+requirement can mean alongside OpenID4VCI, and which party's DID document its
 `assertionMethod` sentence is about — are written out under [Three
 interpretations this module makes](3-oidc-configuration.md#three-interpretations-this-module-makes),
 so a deployment which reads them differently knows where it differs.
@@ -266,7 +270,8 @@ proof-bound configuration rather than only by the DIIP ones.
 **Choosing that policy is therefore not by itself a conformant deployment**, and
 neither is any single setting. The profile also places requirements on the
 deployment as a whole — credential formats, signature algorithm, the issuance
-flows, revocation — and those were not traced through one at a time here. The
+flows, revocation — and the capabilities are there, but several are switched
+on by configuration rather than present by default. The
 one most easily missed is a setting rather than a feature: DIIP requires the
 Issuer's authorization server to require pushed authorization requests and to
 advertise `require_pushed_authorization_requests` as `true`, which here means
@@ -305,13 +310,30 @@ with it off, a credential names no federation rather than one that answers 403.
 
 The Entity Configuration a verifier then fetches is profiled by the same
 appendix. Beside the `federation_entity` and `openid_provider` metadata it
-already carried, it publishes the OpenID4VCI issuer metadata under the
-`openid_credential_issuer` entity type whenever credential issuance is enabled —
-the same document as `.well-known/openid-credential-issuer`, built once and
-published twice, because a wallet which finds it in the Entity Configuration is
-told to use that copy and ignore the well-known one. The `credential_issuer`
-value in it is the Entity Identifier, as the appendix requires; both are the
-issuer URL.
+already carried, it publishes two more entity types. Under
+`openid_credential_issuer`, whenever credential issuance is enabled, the
+OpenID4VCI issuer metadata — the same document as
+`.well-known/openid-credential-issuer`, built once and published twice, because
+a wallet which finds it in the Entity Configuration is told to use that copy and
+ignore the well-known one; the `credential_issuer` value in it is the Entity
+Identifier, as the appendix requires, and both are the issuer URL. Under
+`vc_issuer`, a `jwks` holding the keys credentials are signed with. Those are
+verification keys, so they follow the credentials rather than the switch: they
+are published for as long as the VCI key pairs stay configured, whether or not
+issuance is still enabled — which is what the [installation
+guide](2-oidc-installation.md) asks of a deployment that turns it off — and
+they hold every configured pair and not only the one signing now, so that a
+credential signed under a pair since rotated out stays verifiable. A verifier
+that has resolved the Trust Chain checks the credential's `kid` header against
+that set, and what that header carries depends on the issuer identity mode the
+credential was issued under — a `did:jwk` or `did:web` URL under those modes,
+the bare key id under `https`. So each key appears under every name a
+credential may carry for it: the name of the mode in use, the bare id and the
+`did:jwk` URL always, and the `did:web` URL for as long as a `did:web` is
+configured, which is also how long its DID document stays published. A
+deployment that changes mode therefore keeps its earlier credentials matching.
+These keys are distinct from the Entity Configuration's own top-level `jwks`,
+which holds the federation keys that sign the statement itself.
 
 Most of the profile's requirements are worded as *"MUST support"* — capabilities
 an implementation has to have, rather than a list of things it may not otherwise
