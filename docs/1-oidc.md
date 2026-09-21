@@ -117,9 +117,10 @@ Currently supported OIDFed features:
 - Automatic client registration using a Request Object
 - Federation participation limiting based on Trust Marks
 - Endpoint for issuing a configuration entity statement (about itself)
-- Issued credentials name this entity for trust establishment, per the OpenID
-  Federation Digital Credentials Profile — see [Note on the DIIP
-  profile](#note-on-the-diip-profile)
+- The OpenID4VCI issuer metadata published in that entity statement under the
+  `openid_credential_issuer` entity type, and issued credentials naming this
+  entity for trust establishment — both per the OpenID Federation Digital
+  Credentials Profile, see [Note on the DIIP profile](#note-on-the-diip-profile)
 
 The OP participates as a leaf entity, so it deliberately does not serve a fetch
 endpoint or a subordinate listing endpoint.
@@ -301,6 +302,16 @@ a `did:jwk` in `iss` has nothing to fetch an Entity Configuration from. Both are
 emitted only while `OPTION_FEDERATION_ENABLED` is on, because that switch is
 also what decides whether an Entity Configuration is published at that URL —
 with it off, a credential names no federation rather than one that answers 403.
+
+The Entity Configuration a verifier then fetches is profiled by the same
+appendix. Beside the `federation_entity` and `openid_provider` metadata it
+already carried, it publishes the OpenID4VCI issuer metadata under the
+`openid_credential_issuer` entity type whenever credential issuance is enabled —
+the same document as `.well-known/openid-credential-issuer`, built once and
+published twice, because a wallet which finds it in the Entity Configuration is
+told to use that copy and ignore the well-known one. The `credential_issuer`
+value in it is the Entity Identifier, as the appendix requires; both are the
+issuer URL.
 
 Most of the profile's requirements are worded as *"MUST support"* — capabilities
 an implementation has to have, rather than a list of things it may not otherwise

@@ -74,6 +74,9 @@ There you can see discovery URLs. Typical discovery endpoints are:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-federation)
 - OpenID for Verifiable Credential Issuance configuration:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/openid-credential-issuer](https://yourserver/simplesaml/module.php/oidc/.well-known/openid-credential-issuer)
+  — the same document also appears in the Entity Configuration above, under
+  the `openid_credential_issuer` entity type, when both federation and
+  credential issuance are enabled
 - OAuth2 Authorization Server configuration:
 [https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server](https://yourserver/simplesaml/module.php/oidc/.well-known/oauth-authorization-server)
 - JWT VC Issuer configuration:

@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\Federation;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\CredentialIssuerMetadataService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
@@ -40,6 +41,9 @@ class EntityStatementController
         protected readonly Federation $federation,
         protected readonly LoggerService $loggerService,
         protected readonly ?FederationCache $federationCache,
+        // Constructing it reads no configuration; only asking it for the document does, and that is
+        // done below only where Verifiable Credentials are enabled.
+        protected readonly CredentialIssuerMetadataService $credentialIssuerMetadataService,
     ) {
         if (!$this->moduleConfig->getFederationEnabled()) {
             throw OidcServerException::forbidden('federation capabilities not enabled');
@@ -121,6 +125,29 @@ class EntityStatementController
                 ],
             ],
         ];
+
+        // The OpenID4VCI issuer metadata, under the Entity Type that OpenID Fed DCP (Appendix B of DIIP
+        // v5) defines for it. The same document the well-known endpoint serves, from the same builder:
+        // a wallet which finds this Entity Type is to use it and ignore the well-known one, so the two
+        // must not be allowed to differ. Only an issuer of credentials is one, so a deployment with
+        // Verifiable Credentials off does not claim the Entity Type - and its settings are not read.
+        if ($this->moduleConfig->getVciEnabled()) {
+            try {
+                $payload[ClaimsEnum::Metadata->value][EntityTypesEnum::OpenIdCredentialIssuer->value] =
+                $this->credentialIssuerMetadataService->getMetadata();
+            } catch (Throwable $exception) {
+                // Building the document is what reads the Verifiable Credential settings, so this is a
+                // deployment whose credential issuance is misconfigured - and whose well-known VCI
+                // endpoint fails the same way. Contained here, like a Trust Mark that can not be fetched
+                // below, because an OP's federation registration should not go down with a feature it
+                // does not depend on. The configuration overview screen is what reports the fault.
+                $this->loggerService->error(
+                    'Could not build the Credential Issuer metadata, so the Entity Configuration is ' .
+                    'published without the openid_credential_issuer Entity Type.',
+                    ['error' => $exception->getMessage()],
+                );
+            }
+        }
 
         if (
             is_array($authorityHints = $this->moduleConfig->getFederationAuthorityHints()) &&

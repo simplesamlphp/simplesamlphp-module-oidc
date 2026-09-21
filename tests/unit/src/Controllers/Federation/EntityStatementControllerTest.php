@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Services\CredentialIssuerMetadataService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
@@ -97,6 +98,8 @@ class EntityStatementControllerTest extends TestCase
 
     protected MockObject $federationCacheMock;
 
+    protected MockObject $credentialIssuerMetadataServiceMock;
+
     /** The two configured key pairs, so that "the first one signs" is a claim a test can check. */
     protected MockObject $firstPrivateKey;
 
@@ -134,6 +137,11 @@ class EntityStatementControllerTest extends TestCase
 
     /** @var array<string,mixed> */
     protected array $opMetadata = [];
+
+    protected bool $vciEnabled = false;
+
+    /** @var array<string,mixed> */
+    protected array $credentialIssuerMetadata = [];
 
     /** What was handed to the statement factory to sign. */
     protected ?array $signedPayload = null;
@@ -190,6 +198,11 @@ class EntityStatementControllerTest extends TestCase
         $this->issuerStatementFailure = null;
         $this->trustMarkFetchFailure = null;
         $this->opMetadata = ['issuer' => self::ISSUER, 'response_types_supported' => ['code']];
+        $this->vciEnabled = false;
+        $this->credentialIssuerMetadata = [
+            ClaimsEnum::CredentialIssuer->value => self::ISSUER,
+            ClaimsEnum::CredentialEndpoint->value => self::ISSUER . '/credential',
+        ];
         $this->signedPayload = null;
         $this->signedHeader = null;
         $this->signedWithKey = null;
@@ -204,6 +217,7 @@ class EntityStatementControllerTest extends TestCase
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getVciEnabled')->willReturnCallback(fn(): bool => $this->vciEnabled);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->moduleConfigMock->method('getFederationEntityStatementDuration')
             ->willReturn(new DateInterval(self::STATEMENT_DURATION));
@@ -241,6 +255,10 @@ class EntityStatementControllerTest extends TestCase
         $this->opMetadataServiceMock = $this->createMock(OpMetadataService::class);
         $this->opMetadataServiceMock->method('getMetadata')
             ->willReturnCallback(fn(): array => $this->opMetadata);
+
+        $this->credentialIssuerMetadataServiceMock = $this->createMock(CredentialIssuerMetadataService::class);
+        $this->credentialIssuerMetadataServiceMock->method('getMetadata')
+            ->willReturnCallback(fn(): array => $this->credentialIssuerMetadata);
 
         $this->helpersMock = $this->createMock(Helpers::class);
         $dateTimeHelperMock = $this->createMock(DateTime::class);
@@ -332,6 +350,7 @@ class EntityStatementControllerTest extends TestCase
         ?Federation $federation = null,
         ?LoggerService $loggerService = null,
         ?FederationCache $federationCache = null,
+        ?CredentialIssuerMetadataService $credentialIssuerMetadataService = null,
     ): EntityStatementController {
         $moduleConfig ??= $this->moduleConfigMock;
         $jwks ??= $this->jwksMock;
@@ -341,6 +360,7 @@ class EntityStatementControllerTest extends TestCase
         $federation ??= $this->federationMock;
         $loggerService ??= $this->loggerServiceMock;
         $federationCache ??= $this->federationCacheMock;
+        $credentialIssuerMetadataService ??= $this->credentialIssuerMetadataServiceMock;
 
         return new EntityStatementController(
             $moduleConfig,
@@ -351,6 +371,7 @@ class EntityStatementControllerTest extends TestCase
             $federation,
             $loggerService,
             $federationCache,
+            $credentialIssuerMetadataService,
         );
     }
 
@@ -688,6 +709,87 @@ class EntityStatementControllerTest extends TestCase
 
 
     /**
+     * OpenID Fed DCP has a Credential Issuer place its OpenID4VCI issuer metadata under the
+     * `openid_credential_issuer` Entity Type, and has a wallet which finds it there use it and ignore
+     * the well-known one. So it is the same document, from the same builder, published unchanged.
+     *
+     * @throws \Exception
+     */
+    public function testTheCredentialIssuerMetadataIsPublishedWhereFedDcpLooksForIt(): void
+    {
+        $this->vciEnabled = true;
+
+        $metadata = $this->publishedPayload()[ClaimsEnum::Metadata->value] ?? null;
+        $this->assertIsArray($metadata);
+
+        $this->assertSame(
+            $this->credentialIssuerMetadata,
+            $metadata[EntityTypesEnum::OpenIdCredentialIssuer->value] ?? null,
+        );
+
+        // Beside the existing Entity Types rather than in place of any of them.
+        $this->assertArrayHasKey(EntityTypesEnum::FederationEntity->value, $metadata);
+        $this->assertArrayHasKey(EntityTypesEnum::OpenIdProvider->value, $metadata);
+    }
+
+
+    /**
+     * A deployment which issues no credentials is not a Credential Issuer and does not claim the
+     * Entity Type. Not asked for the document either, because building it reads the Verifiable
+     * Credential settings, which such a deployment need not have.
+     *
+     * @throws \Exception
+     */
+    public function testNoCredentialIssuerMetadataIsPublishedOrBuiltWhileCredentialsAreOff(): void
+    {
+        $this->vciEnabled = false;
+
+        $this->credentialIssuerMetadataServiceMock->expects($this->never())->method('getMetadata');
+
+        $metadata = $this->publishedPayload()[ClaimsEnum::Metadata->value] ?? null;
+        $this->assertIsArray($metadata);
+
+        // The other Entity Types are there, so this is the published metadata and not an empty
+        // fallback which would have nothing in it to find.
+        $this->assertArrayHasKey(EntityTypesEnum::FederationEntity->value, $metadata);
+        $this->assertArrayHasKey(EntityTypesEnum::OpenIdProvider->value, $metadata);
+        $this->assertArrayNotHasKey(EntityTypesEnum::OpenIdCredentialIssuer->value, $metadata);
+    }
+
+
+    /**
+     * Building that document is what reads the Verifiable Credential settings, so a deployment which
+     * has them wrong fails here as it does at its well-known VCI endpoint. That is contained the way a
+     * Trust Mark fetch failure is: logged, and the statement published without the Entity Type, so an
+     * OP's federation registration does not go down with a feature it does not depend on.
+     *
+     * @throws \Exception
+     */
+    public function testAMisconfiguredCredentialIssuerIsLoggedAndLeftOutOfTheStatement(): void
+    {
+        $this->vciEnabled = true;
+
+        $this->credentialIssuerMetadataServiceMock = $this->createMock(CredentialIssuerMetadataService::class);
+        $this->credentialIssuerMetadataServiceMock->method('getMetadata')
+            ->willThrowException(new RuntimeException('No VCI signature key pair configured.'));
+
+        $this->loggerServiceMock->expects($this->once())->method('error');
+
+        $metadata = $this->publishedPayload()[ClaimsEnum::Metadata->value] ?? null;
+        $this->assertIsArray($metadata);
+
+        $this->assertArrayHasKey(EntityTypesEnum::OpenIdProvider->value, $metadata);
+        $this->assertArrayNotHasKey(EntityTypesEnum::OpenIdCredentialIssuer->value, $metadata);
+        $this->assertSame(1, $this->signedCount);
+
+        // Cached like any other statement. A configuration fix takes effect after the cache duration
+        // the operator chose, as every other setting published in this document does; the failure is
+        // deterministic, so rebuilding on every request would only repeat the same error line.
+        $this->assertCount(1, $this->cacheWrites);
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testAuthorityHintsArePublishedWhenThereAreAny(): void
@@ -933,6 +1035,7 @@ class EntityStatementControllerTest extends TestCase
             $this->federationMock,
             $this->loggerServiceMock,
             null,
+            $this->credentialIssuerMetadataServiceMock,
         );
 
         $response = $sut->configuration();
