@@ -117,6 +117,9 @@ Currently supported OIDFed features:
 - Automatic client registration using a Request Object
 - Federation participation limiting based on Trust Marks
 - Endpoint for issuing a configuration entity statement (about itself)
+- Issued credentials name this entity for trust establishment, per the OpenID
+  Federation Digital Credentials Profile — see [Note on the DIIP
+  profile](#note-on-the-diip-profile)
 
 The OP participates as a leaf entity, so it deliberately does not serve a fetch
 endpoint or a subordinate listing endpoint.
@@ -284,6 +287,20 @@ rather than a gap — but one issued from a configuration with no lifetime carri
 no expiry at all, in any of the three. See [Credential
 expiry](3-oidc-configuration.md#credential-expiry), which also covers why a
 credential that never expires holds its Status List open for good.
+
+A third setting decides whether credentials name a federation at all. The
+profile's Trust Establishment section — optional in v5 — profiles OpenID
+Federation for credentials in its Appendix B (the *OpenID Federation Digital
+Credentials Profile*, "OpenID Fed DCP") and has an Issuer say in each credential
+which Entity Configuration a verifier resolves its Trust Chain from: an SD-JWT
+VC (`dc+sd-jwt`) carries the issuer URL in a `fed` claim, and a W3C VCDM
+credential (`jwt_vc_json`, `vc+sd-jwt`) carries a `termsOfUse` entry of type
+`OpenIDFederation` whose `policyId` is that URL. It is the issuer URL under
+every issuer identity mode, which is the point of the claim: a verifier holding
+a `did:jwk` in `iss` has nothing to fetch an Entity Configuration from. Both are
+emitted only while `OPTION_FEDERATION_ENABLED` is on, because that switch is
+also what decides whether an Entity Configuration is published at that URL —
+with it off, a credential names no federation rather than one that answers 403.
 
 Most of the profile's requirements are worded as *"MUST support"* — capabilities
 an implementation has to have, rather than a list of things it may not otherwise

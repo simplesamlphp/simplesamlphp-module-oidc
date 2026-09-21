@@ -32,6 +32,7 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\TermsOfUseTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\TokenStatusList\StatusClaim;
 use SimpleSAML\OpenID\VerifiableCredentials;
@@ -452,6 +453,14 @@ class CredentialIssuerCredentialController
         // were actually signed under, rather than what configuration said before any of them was.
         $issuerIdentity = null;
 
+        // The OpenID Federation Entity Identifier a credential points a verifier at for trust
+        // establishment (OpenID Fed DCP, Appendix B of DIIP v5). It is the issuer URL and not the
+        // credential's `iss`, which the issuer identity mode may make a DID - and a DID has no Entity
+        // Configuration to fetch, which is the gap the claim exists to bridge. Stated only while an
+        // Entity Configuration is actually published at it: with federation off the well-known
+        // endpoint answers 403, and naming it would send a verifier somewhere it can resolve nothing.
+        $entityIdentifier = $this->moduleConfig->getFederationEnabled() ? $this->moduleConfig->getIssuer() : null;
+
         foreach ($validatedProofs as $validatedProof) {
             // A configuration which issues credentials that are not bound to a holder key has no wallet
             // key to name here, so the subject is one this issuer derives from the authenticated user.
@@ -724,6 +733,13 @@ class CredentialIssuerCredentialController
                     $expiresAt->format(DateTimeInterface::RFC3339);
                 }
 
+                // A W3C VCDM credential names its federation in the data model's own vocabulary, inside
+                // the credential body, rather than as a JWT claim beside it.
+                if ($entityIdentifier !== null) {
+                    $verifiableCredentialBody[ClaimsEnum::Terms_Of_Use->value] =
+                    $this->openIdFederationTermsOfUse($entityIdentifier);
+                }
+
                 $verifiableCredential = $this->verifiableCredentials->jwtVcJsonFactory()->fromData(
                     $signingKey,
                     $signatureAlgorithm,
@@ -757,6 +773,11 @@ class CredentialIssuerCredentialController
                     ],
                     $commonClaims,
                 );
+
+                // An SD-JWT VC has no data model vocabulary for this, so it is a claim beside `iss`.
+                if ($entityIdentifier !== null) {
+                    $sdJwtPayload[ClaimsEnum::Fed->value] = $entityIdentifier;
+                }
 
                 $verifiableCredential = $this->verifiableCredentials->sdJwtVcFactory()->fromData(
                     $signingKey,
@@ -803,6 +824,13 @@ class CredentialIssuerCredentialController
                 // `validUntil`, alongside the `validFrom` above, so this format states it both ways.
                 if ($expiresAt instanceof DateTimeImmutable) {
                     $sdJwtPayload[ClaimsEnum::ValidUntil->value] = $expiresAt->format(DateTimeInterface::RFC3339);
+                }
+
+                // This is the W3C data model secured as an SD-JWT rather than an SD-JWT VC, so it names
+                // its federation the way the data model does, and the payload is the credential body.
+                if ($entityIdentifier !== null) {
+                    $sdJwtPayload[ClaimsEnum::Terms_Of_Use->value] =
+                    $this->openIdFederationTermsOfUse($entityIdentifier);
                 }
 
                 $verifiableCredential = $this->verifiableCredentials->vcSdJwtFactory()->fromData(
@@ -889,5 +917,24 @@ class CredentialIssuerCredentialController
         } else {
             $temp = $value;
         }
+    }
+
+
+    /**
+     * The `termsOfUse` entry OpenID Fed DCP has a W3C VCDM credential carry, naming the Entity Identifier
+     * a verifier resolves the Issuer's Trust Chain from.
+     *
+     * A single entry rather than a list of one. The data model allows either, and the profile's own
+     * example states the one entry bare.
+     *
+     * @param non-empty-string $entityIdentifier
+     * @return array{type: non-empty-string, policyId: non-empty-string}
+     */
+    protected function openIdFederationTermsOfUse(string $entityIdentifier): array
+    {
+        return [
+            ClaimsEnum::Type->value => TermsOfUseTypesEnum::OpenIdFederation->value,
+            ClaimsEnum::Policy_Id->value => $entityIdentifier,
+        ];
     }
 }

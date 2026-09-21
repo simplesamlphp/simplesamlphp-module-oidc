@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
+use SimpleSAML\OpenID\Codebooks\TermsOfUseTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Helpers as VcHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
@@ -952,6 +953,95 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->assertArrayHasKey(ClaimsEnum::ValidUntil->value, $payload);
         $this->assertArrayHasKey(ClaimsEnum::Exp->value, $payload);
+    }
+
+
+    /**
+     * OpenID Fed DCP (Appendix B of DIIP v5) has a credential name the Entity Identifier a verifier
+     * resolves the Issuer's Trust Chain from. That identifier only leads anywhere while an Entity
+     * Configuration is published at it, which is what the federation switch decides, so with it off
+     * nothing is named - in any of the three formats, and in neither vocabulary.
+     */
+    public function testNamesNoFederationEntityWhileFederationIsOff(): void
+    {
+        $issuableFormats = [
+            CredentialFormatIdentifiersEnum::JwtVcJson,
+            CredentialFormatIdentifiersEnum::DcSdJwt,
+            CredentialFormatIdentifiersEnum::VcSdJwt,
+        ];
+
+        foreach ($issuableFormats as $format) {
+            $this->setUp();
+            $this->moduleConfigMock->method('getFederationEnabled')->willReturn(false);
+            $this->issue($format->value);
+
+            $payload = $this->signedPayloads[0];
+
+            $this->assertArrayNotHasKey(ClaimsEnum::Fed->value, $payload, $format->value);
+            $this->assertArrayNotHasKey(ClaimsEnum::Terms_Of_Use->value, $payload, $format->value);
+            $this->assertArrayNotHasKey(
+                ClaimsEnum::Terms_Of_Use->value,
+                (array)($payload[ClaimsEnum::Vc->value] ?? []),
+                $format->value,
+            );
+        }
+    }
+
+
+    /**
+     * An SD-JWT VC names its federation in a `fed` claim. The value is the issuer URL and not the `iss`
+     * beside it, which here is a DID: a DID has no Entity Configuration to fetch, and bridging that is
+     * what the claim is for.
+     */
+    public function testAnSdJwtVcCarriesTheEntityIdentifierInTheFedClaim(): void
+    {
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
+
+        $payload = $this->signedPayloads[0];
+
+        $this->assertSame(self::ISSUER, $payload[ClaimsEnum::Fed->value] ?? null);
+        $this->assertSame(self::ISSUER_DID, $payload[ClaimsEnum::Iss->value] ?? null);
+
+        // The data model vocabulary belongs to the W3C formats, not to this one.
+        $this->assertArrayNotHasKey(ClaimsEnum::Terms_Of_Use->value, $payload);
+    }
+
+
+    /**
+     * A W3C VCDM credential names its federation in the data model's own vocabulary: a `termsOfUse`
+     * entry of type `OpenIDFederation` whose `policyId` is the Entity Identifier. It sits in the
+     * credential body, which for `jwt_vc_json` is the `vc` claim and for `vc+sd-jwt` is the payload.
+     */
+    public function testAW3cCredentialCarriesTheOpenIdFederationTermsOfUse(): void
+    {
+        $expectedTermsOfUse = [
+            ClaimsEnum::Type->value => TermsOfUseTypesEnum::OpenIdFederation->value,
+            ClaimsEnum::Policy_Id->value => self::ISSUER,
+        ];
+
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->issue(CredentialFormatIdentifiersEnum::JwtVcJson->value);
+
+        $payload = $this->signedPayloads[0];
+        $verifiableCredentialBody = (array)($payload[ClaimsEnum::Vc->value] ?? []);
+
+        $this->assertSame(
+            $expectedTermsOfUse,
+            $verifiableCredentialBody[ClaimsEnum::Terms_Of_Use->value] ?? null,
+        );
+        $this->assertArrayNotHasKey(ClaimsEnum::Terms_Of_Use->value, $payload);
+        $this->assertArrayNotHasKey(ClaimsEnum::Fed->value, $payload);
+
+        $this->setUp();
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->issue(CredentialFormatIdentifiersEnum::VcSdJwt->value);
+
+        $payload = $this->signedPayloads[0];
+
+        $this->assertSame($expectedTermsOfUse, $payload[ClaimsEnum::Terms_Of_Use->value] ?? null);
+        $this->assertArrayNotHasKey(ClaimsEnum::Fed->value, $payload);
     }
 
 
