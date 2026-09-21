@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\StatusList\DbStatusIndexAllocator;
 use SimpleSAML\Module\oidc\StatusList\StatusListKeyResolver;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusAllocation;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\TokenStatusList;
@@ -1351,5 +1352,432 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->expectException(StatusListException::class);
 
         $allocator->allocateFor($this->pool(), 'https://op.example.org/vc/x', self::CREDENTIAL_CONFIGURATION_ID);
+    }
+
+
+    /**
+     * The allocator over the real database and the given repositories, for the tests which stand in for
+     * one of them.
+     */
+    protected function allocatorWith(
+        StatusListRepository $statusListRepository,
+        ?StatusListEntryRepository $statusListEntryRepository = null,
+    ): DbStatusIndexAllocator {
+        return new DbStatusIndexAllocator(
+            $statusListRepository,
+            $statusListEntryRepository ?? $this->statusListEntryRepository,
+            $this->keyResolverMock,
+            new TokenStatusList(),
+            $this->routesMock,
+            new Helpers(),
+            $this->loggerServiceMock,
+        );
+    }
+
+
+    /**
+     * An unopened list of the first generation in the non-expiring lane, as a request which is still
+     * seeding one, or died doing so, leaves it.
+     *
+     * @throws \Exception
+     */
+    protected function createUnopenedList(string $id): void
+    {
+        $this->statusListRepository->create(
+            $id,
+            'https://op.example.org/module.php/oidc/statuslist/' . $id,
+            self::POOL_ID,
+            $this->pool()->getPolicyFingerprint($this->signingKeyId),
+            StatusListExpiryLaneEnum::NonExpiring,
+            1,
+            1,
+            self::CAPACITY,
+            '0,1',
+            43200,
+            604800,
+            3600,
+            $this->signingKeyId,
+            StatusListKeyProfileEnum::DidJwk,
+        );
+    }
+
+
+    /**
+     * The message for a lane whose lists all yielded nothing, three times over.
+     */
+    protected function noIndexAfterThreeListsMessage(): string
+    {
+        return sprintf(
+            'Unable to allocate a Status List index for pool "%s" in the "%s" lane after 3 attempts.',
+            self::POOL_ID,
+            StatusListExpiryLaneEnum::NonExpiring->value,
+        );
+    }
+
+
+    /**
+     * Running out of picks rotates, and three rotations are the limit: a lane whose every list yields
+     * nothing has something wrong which a fourth list would not fix. Each list tried is closed on the way,
+     * so the next request starts from a successor rather than from the same three.
+     *
+     * @throws \Exception
+     */
+    public function testGivesUpAfterThreeListsYieldNoIndex(): void
+    {
+        $entryRepositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListEntryRepository {
+            public function allocate(
+                string $statusListId,
+                int $idx,
+                string $credentialId,
+                string $credentialIdHash,
+                string $credentialConfigurationId,
+                ?string $subjectRef,
+                ?DateTimeImmutable $expiresAt,
+                ?DateTimeImmutable $issuedAt = null,
+            ): bool {
+                // Every pick collides.
+                return false;
+            }
+        };
+
+        try {
+            $this->allocatorWith($this->statusListRepository, $entryRepositoryStub)->allocateFor(
+                $this->pool(),
+                'https://op.example.org/vc/x',
+                self::CREDENTIAL_CONFIGURATION_ID,
+            );
+            $this->fail('No exception was raised.');
+        } catch (StatusListException $exception) {
+            $this->assertSame($this->noIndexAfterThreeListsMessage(), $exception->getMessage());
+        }
+
+        $rows = $this->statusListRows();
+        $this->assertSame([1, 2, 3], array_map(static fn(array $row): int => (int)$row['generation'], $rows));
+        $this->assertSame([0, 0, 0], array_map(static fn(array $row): int => (int)$row['is_active'], $rows));
+    }
+
+
+    /**
+     * A request which has waited out the budget for a list nobody is finishing does not wait again when
+     * its own insert then fails: the look for something to adopt returns at once and the next attempt
+     * goes ahead. Otherwise each attempt would spend a whole budget arriving at the same answer, and the
+     * issuance would fail once the attempts ran out.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotWaitAgainForAListItAlreadyWaitedOnInVain(): void
+    {
+        // Created moments ago and never opened, and its creator is gone, so nothing will ever open it.
+        $this->createUnopenedList('never-finished');
+
+        $repositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListRepository {
+            public int $inserts = 0;
+
+
+            public function create(
+                string $id,
+                string $uri,
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+                int $generation,
+                int $bits,
+                int $capacity,
+                string $allowedStatuses,
+                int $ttlSeconds,
+                int $tokenValiditySeconds,
+                int $refreshIntervalSeconds,
+                string $signingKeyId,
+                StatusListKeyProfileEnum $keyProfile,
+                ?string $issuerIdentifier = null,
+            ): void {
+                // The first insert loses; the second is left to succeed.
+                if (++$this->inserts === 1) {
+                    throw new Exception('Database error: duplicate generation.');
+                }
+
+                parent::create(
+                    $id,
+                    $uri,
+                    $poolId,
+                    $policyFingerprint,
+                    $expiryLane,
+                    $generation,
+                    $bits,
+                    $capacity,
+                    $allowedStatuses,
+                    $ttlSeconds,
+                    $tokenValiditySeconds,
+                    $refreshIntervalSeconds,
+                    $signingKeyId,
+                    $keyProfile,
+                    $issuerIdentifier,
+                );
+            }
+        };
+
+        $started = microtime(true);
+        $allocation = $this->allocatorWith($repositoryStub)->allocateFor(
+            $this->pool(),
+            'https://op.example.org/vc/first',
+            self::CREDENTIAL_CONFIGURATION_ID,
+        );
+        $elapsed = microtime(true) - $started;
+
+        $this->assertNotSame('never-finished', $allocation->getStatusListId());
+        $this->assertSame(2, $repositoryStub->inserts);
+        // One wait of five seconds, before the first insert; a second one would double this.
+        $this->assertLessThan(8.0, $elapsed);
+    }
+
+
+    /**
+     * A wait ends as soon as there is nothing left to wait for. The request seeding the list gave up and
+     * removed it, so the next look finds no list being prepared, and this request starts its own without
+     * spending the rest of the budget or reporting that it gave up.
+     *
+     * @throws \Exception
+     */
+    public function testStopsWaitingOnceTheListBeingPreparedIsGone(): void
+    {
+        $this->createUnopenedList('vanishing');
+
+        $repositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListRepository {
+            public int $preparedLookups = 0;
+
+
+            public function findBeingPreparedForPolicy(
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+                DateTimeImmutable $createdAfter,
+                ?int $belowGeneration = null,
+            ): array {
+                // The other request gives up partway through this request's wait.
+                if ($belowGeneration === null && ++$this->preparedLookups === 2) {
+                    $this->deleteUnopened('vanishing');
+                }
+
+                return parent::findBeingPreparedForPolicy(
+                    $poolId,
+                    $policyFingerprint,
+                    $expiryLane,
+                    $createdAfter,
+                    $belowGeneration,
+                );
+            }
+        };
+
+        $this->loggerServiceMock->expects($this->never())->method('warning');
+
+        $started = microtime(true);
+        $allocation = $this->allocatorWith($repositoryStub)->allocateFor(
+            $this->pool(),
+            'https://op.example.org/vc/first',
+            self::CREDENTIAL_CONFIGURATION_ID,
+        );
+        $elapsed = microtime(true) - $started;
+
+        $this->assertNotSame('vanishing', $allocation->getStatusListId());
+        $this->assertCount(1, $this->statusListRows());
+        // Asked once before waiting and once after the first pause, which is where the answer changed.
+        $this->assertSame(2, $repositoryStub->preparedLookups);
+        // One pause of a quarter second, not the twenty of a wait which runs out.
+        $this->assertLessThan(2.0, $elapsed);
+    }
+
+
+    /**
+     * Two requests reading the highest generation a moment apart pick different ones, so both inserts
+     * succeed. The one whose rival opened its list while this one was inserting stands down: its own
+     * list, never opened, is removed, and the rival's is what it allocates into.
+     *
+     * The rival's list is old enough not to count as still being prepared, so nothing is waited for
+     * beforehand and the only reason to stand down is that the list is open, which is the reason under
+     * test: a rival still counted as preparing an earlier generation would stand this request down on
+     * its own, whether or not its list had opened.
+     *
+     * @throws \Exception
+     */
+    public function testStandsDownForAListWhichOpenedWhileItWasCreatingItsOwn(): void
+    {
+        $this->createUnopenedList('rival');
+        $this->statusListEntryRepository->seed('rival', self::CAPACITY);
+        $this->database->write(
+            'UPDATE ' . $this->database->applyPrefix('oidc_status_list') .
+            " SET created_at = '2020-01-01 00:00:00' WHERE id = 'rival'",
+        );
+
+        $repositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListRepository {
+            public int $activeLookups = 0;
+
+
+            public function findActiveForPolicy(
+                string $poolId,
+                string $policyFingerprint,
+                StatusListExpiryLaneEnum $expiryLane,
+            ): array {
+                // The rival opens its list while this request is inserting its own.
+                if (++$this->activeLookups === 2) {
+                    $this->activate('rival');
+                }
+
+                return parent::findActiveForPolicy($poolId, $policyFingerprint, $expiryLane);
+            }
+        };
+
+        $allocation = $this->allocatorWith($repositoryStub)->allocateFor(
+            $this->pool(),
+            'https://op.example.org/vc/first',
+            self::CREDENTIAL_CONFIGURATION_ID,
+        );
+
+        $this->assertSame('rival', $allocation->getStatusListId());
+        $this->assertSame(['rival'], array_column($this->statusListRows(), 'id'));
+    }
+
+
+    /**
+     * A list which was inserted, seeded and opened but cannot then be read back is reported rather than
+     * allocated into blind. The row stays, open, for the next request to find.
+     *
+     * @throws \Exception
+     */
+    public function testRaisesWhenTheListItCreatedCannotBeReadBack(): void
+    {
+        $repositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListRepository {
+            public function findByIdOnPrimary(string $id): ?StatusListRecord
+            {
+                return null;
+            }
+        };
+
+        $raised = null;
+
+        try {
+            $this->allocatorWith($repositoryStub)->allocateFor(
+                $this->pool(),
+                'https://op.example.org/vc/first',
+                self::CREDENTIAL_CONFIGURATION_ID,
+            );
+        } catch (StatusListException $exception) {
+            $raised = $exception;
+        }
+
+        $rows = $this->statusListRows();
+        $this->assertCount(1, $rows);
+        $this->assertSame(1, (int)$rows[0]['is_active']);
+        $this->assertInstanceOf(StatusListException::class, $raised, 'No exception was raised.');
+        $this->assertSame(
+            sprintf('Status List "%s" was created but could not be read back.', $rows[0]['id']),
+            $raised->getMessage(),
+        );
+    }
+
+
+    /**
+     * A list read back with no capacity is rotated past rather than probed: there is no index to draw,
+     * and drawing from an empty range would raise where running out of picks rotates. A pool refuses
+     * such a capacity and the table's check constraint keeps it out wherever the database enforces
+     * one, so the record is handed over by the repository here rather than read from the table.
+     *
+     * @throws \Exception
+     */
+    public function testRotatesPastAListReadBackWithNoCapacity(): void
+    {
+        $repositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListRepository {
+            public function findByIdOnPrimary(string $id): ?StatusListRecord
+            {
+                $rows = $this->readPrimary(
+                    'SELECT * FROM ' . $this->getTableName() . ' WHERE id = :id',
+                    ['id' => $id],
+                );
+                $row = current($rows);
+
+                // The row as written, read back with its capacity gone.
+                return is_array($row) ? StatusListRecord::fromRow(array_replace($row, ['capacity' => 0])) : null;
+            }
+        };
+
+        $entryRepositoryStub = new class (
+            $this->createMock(ModuleConfig::class),
+            $this->database,
+            $this->createMock(ProtocolCache::class),
+            new Helpers(),
+        ) extends StatusListEntryRepository {
+            public int $picks = 0;
+
+
+            public function allocate(
+                string $statusListId,
+                int $idx,
+                string $credentialId,
+                string $credentialIdHash,
+                string $credentialConfigurationId,
+                ?string $subjectRef,
+                ?DateTimeImmutable $expiresAt,
+                ?DateTimeImmutable $issuedAt = null,
+            ): bool {
+                $this->picks++;
+
+                return parent::allocate(
+                    $statusListId,
+                    $idx,
+                    $credentialId,
+                    $credentialIdHash,
+                    $credentialConfigurationId,
+                    $subjectRef,
+                    $expiresAt,
+                    $issuedAt,
+                );
+            }
+        };
+
+        try {
+            $this->allocatorWith($repositoryStub, $entryRepositoryStub)->allocateFor(
+                $this->pool(),
+                'https://op.example.org/vc/first',
+                self::CREDENTIAL_CONFIGURATION_ID,
+            );
+            $this->fail('No exception was raised.');
+        } catch (StatusListException $exception) {
+            $this->assertSame($this->noIndexAfterThreeListsMessage(), $exception->getMessage());
+        }
+
+        $this->assertSame(0, $entryRepositoryStub->picks);
+        $this->assertSame(
+            [0, 0, 0],
+            array_map(static fn(array $row): int => (int)$row['is_active'], $this->statusListRows()),
+        );
     }
 }

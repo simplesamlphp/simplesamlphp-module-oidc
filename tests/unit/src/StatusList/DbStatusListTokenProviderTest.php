@@ -30,6 +30,7 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\Factories\DidDocumentFactory;
+use SimpleSAML\OpenID\Exceptions\StatusListException as LibraryStatusListException;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
@@ -644,6 +645,104 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->expectExceptionMessage('no issuer identifier');
 
         $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * Whatever signing throws is reported as one failure to sign this list, with the cause kept whole:
+     * its message in the report, its code as the code, itself as the previous exception. Nothing is
+     * published.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAFailureToSign(): void
+    {
+        $cause = new RuntimeException('the private key is unusable', 17);
+
+        $this->statusListTokenFactoryMock = $this->createMock(StatusListTokenFactory::class);
+        $this->statusListTokenFactoryMock->method('forStatusList')->willThrowException($cause);
+
+        $this->givenAListWhichNeedsPublishing();
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        try {
+            $this->sut()->getToken(self::LIST_ID);
+            $this->fail('No exception was raised.');
+        } catch (StatusListException $exception) {
+            $this->assertSame(
+                'Unable to sign a Status List Token for "a-status-list-id": the private key is unusable',
+                $exception->getMessage(),
+            );
+            $this->assertSame(17, $exception->getCode());
+            $this->assertSame($cause, $exception->getPrevious());
+        }
+    }
+
+
+    /**
+     * Building the list from its entries is under the same report as signing it. An entry at an index the
+     * list has no room for -- a damaged row, since the allocator draws indices below the capacity -- is
+     * refused by the library, and the refusal is reported as a failure to sign this list, with the
+     * library's own words and exception kept.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAnEntryTheListHasNoRoomFor(): void
+    {
+        $this->givenAListWhichNeedsPublishing();
+        $this->statusListEntryRepositoryMock = $this->createMock(StatusListEntryRepository::class);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([64 => 1]);
+
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        try {
+            $this->sut()->getToken(self::LIST_ID);
+            $this->fail('No exception was raised.');
+        } catch (StatusListException $exception) {
+            $this->assertSame(
+                'Unable to sign a Status List Token for "a-status-list-id": ' .
+                'Index 64 is out of bounds of the Status List (capacity 64).',
+                $exception->getMessage(),
+            );
+            // The library's refusal carries no code, so none is carried over.
+            $this->assertSame(0, $exception->getCode());
+            $this->assertInstanceOf(LibraryStatusListException::class, $exception->getPrevious());
+        }
+    }
+
+
+    /**
+     * The did:jwk identity is minted from the key before anything is signed, so a public key which
+     * cannot be turned into one fails the request there, with the cause kept whole, nothing signed and
+     * nothing published.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAFailureToDeriveTheDidJwkIdentifier(): void
+    {
+        $cause = new RuntimeException('not a JWK', 3);
+
+        $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
+        $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willThrowException($cause);
+        $this->didFactoryMock = $this->createMock(DidFactory::class);
+        $this->didFactoryMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+
+        $this->givenAListWhichNeedsPublishing();
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        try {
+            $this->sut()->getToken(self::LIST_ID);
+            $this->fail('No exception was raised.');
+        } catch (StatusListException $exception) {
+            $this->assertSame(
+                'Unable to derive the did:jwk identifier for the Status List signing key: not a JWK',
+                $exception->getMessage(),
+            );
+            $this->assertSame(3, $exception->getCode());
+            $this->assertSame($cause, $exception->getPrevious());
+        }
     }
 
 

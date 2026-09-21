@@ -26,6 +26,12 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
+/**
+ * run() also does nothing at all on a SimpleSAMLphp which cannot read from the primary database
+ * (`ModuleConfig::hasPrimaryDatabaseReadCapability()`). That is a `method_exists()` on the installed
+ * SimpleSAMLphp, which cannot answer false under the version this module requires, so that branch is not
+ * pinned here.
+ */
 #[CoversClass(StatusListLifecycle::class)]
 #[AllowMockObjectsWithoutExpectations]
 class StatusListLifecycleTest extends TestCase
@@ -139,6 +145,29 @@ class StatusListLifecycleTest extends TestCase
             ->willReturn(3);
 
         $this->assertSame(3, $this->sut()->clearExpiredCredentialLinkage());
+    }
+
+
+    /**
+     * Reaching the ceiling is not a failure, but a run which stopped short says so, with how far it got,
+     * so that a backlog which never clears shows in the log rather than only in the table.
+     *
+     * @throws \Exception
+     */
+    public function testSaysSoWhenLinkageClearingStopsAtItsCeiling(): void
+    {
+        $this->statusListEntryRepositoryMock = $this->createMock(StatusListEntryRepository::class);
+        $this->statusListEntryRepositoryMock->expects($this->exactly(200))
+            ->method('clearExpiredLinkage')
+            ->with($this->isInstanceOf(DateTimeImmutable::class), 400)
+            ->willReturn(400);
+
+        $this->loggerServiceMock->expects($this->once())->method('info')->with(
+            'Status List lifecycle cleared the linkage of 80000 expired credential(s) and stopped at its ' .
+            'ceiling for one run. The rest is cleared by the next run.',
+        );
+
+        $this->assertSame(80000, $this->sut()->clearExpiredCredentialLinkage());
     }
 
 
@@ -320,6 +349,34 @@ class StatusListLifecycleTest extends TestCase
 
 
     /**
+     * Every run pages from the beginning, so the lists beyond the ceiling are examined by no run at all
+     * until the ones before them are retired. A run which stops short warns rather than notes it, since
+     * what lies beyond waits for a later run however long that takes.
+     *
+     * @throws \Exception
+     */
+    public function testWarnsWhenRetirementStopsBeforeReachingTheEnd(): void
+    {
+        $this->statusListRepositoryMock = $this->createMock(StatusListRepository::class);
+        $this->statusListRepositoryMock->expects($this->exactly(100))
+            ->method('findRetirementCandidates')
+            ->willReturn(array_map(
+                static fn(int $position): string => sprintf('list-%03d', $position),
+                range(1, 100),
+            ));
+        $this->statusListRepositoryMock->method('retire')->willReturn(true);
+
+        $this->loggerServiceMock->expects($this->once())->method('warning')->with(
+            'Status List retirement stopped after 10000 lists without reaching the end. Every run starts ' .
+            'from the beginning, so the lists beyond that point are examined by no run at all and will not ' .
+            'be retired until the ones before them are.',
+        );
+
+        $this->assertSame(10000, $this->sut()->retireSpentStatusLists());
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testRemovesTheEntriesOfRetiredListsUntilNoneAreLeft(): void
@@ -414,6 +471,29 @@ class StatusListLifecycleTest extends TestCase
         $this->assertSame(7, $this->sut()->pruneStatusAuditTrail());
         $this->assertInstanceOf(DateTimeImmutable::class, $cutOff);
         $this->assertLessThan($this->helpers->dateTime()->getUtc(), $cutOff);
+    }
+
+
+    /**
+     * The audit prune has a ceiling like the other steps and, unlike the linkage one, says nothing when
+     * it is reached; the rows left over are pruned by the next run.
+     *
+     * @throws \Exception
+     */
+    public function testPrunesAuditRowsUpToItsCeilingInOneRun(): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getVciStatusListAuditRetention')->willReturn(new DateInterval('P1Y'));
+
+        $this->statusAuditRepositoryMock = $this->createMock(StatusAuditRepository::class);
+        $this->statusAuditRepositoryMock->expects($this->exactly(200))
+            ->method('removeOlderThan')
+            ->with($this->isInstanceOf(DateTimeImmutable::class), 500)
+            ->willReturn(500);
+
+        $this->loggerServiceMock->expects($this->never())->method($this->anything());
+
+        $this->assertSame(100000, $this->sut()->pruneStatusAuditTrail());
     }
 
 
