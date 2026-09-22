@@ -551,6 +551,62 @@ class ModuleConfigTest extends TestCase
     }
 
 
+    /**
+     * A granted scope goes into the "scope" claim of the JWT access token, which the library holds to the
+     * RFC 6749 section 3.3 scope-token grammar; a private scope named outside it would be accepted here and
+     * refused at the token endpoint, for every grant carrying it (found by review).
+     */
+    #[DataProvider('scopeTokenProvider')]
+    public function testAcceptsAPrivateScopeNamedAsAScopeToken(string $name): void
+    {
+        $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [$name => ['description' => 'd']];
+
+        $this->assertArrayHasKey($name, $this->sut()->getPrivateScopes());
+    }
+
+
+    #[DataProvider('notAScopeTokenProvider')]
+    public function testRefusesAPrivateScopeNotNamedAsAScopeToken(string $name): void
+    {
+        $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [$name => ['description' => 'd']];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Scope [' . $name . '] is not a scope-token (RFC 6749 section 3.3)');
+
+        $this->sut();
+    }
+
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function scopeTokenProvider(): array
+    {
+        return [
+            'plain' => ['api'],
+            'every printable ASCII character but space, double quote and backslash' => [
+                '!#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~',
+            ],
+            'a URL' => ['https://example.org/scopes/read'],
+        ];
+    }
+
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function notAScopeTokenProvider(): array
+    {
+        return [
+            'non-ASCII' => ['étudiant'],
+            'space' => ['read all'],
+            'double quote' => ['read"all'],
+            'backslash' => ['read\\all'],
+            'trailing newline' => ["api\n"],
+        ];
+    }
+
+
     public function testThrowsIfAcrIsNotString(): void
     {
         $this->overrides[ModuleConfig::OPTION_AUTH_ACR_VALUES_SUPPORTED] = [123];
@@ -2941,6 +2997,29 @@ class ModuleConfigTest extends TestCase
             'address' => [ScopesEnum::Address->value, $everyGrant],
             'phone' => [ScopesEnum::Phone->value, $everyGrant],
         ];
+    }
+
+
+    /**
+     * A credential configuration id is a scope, so it is held to the scope-token grammar the way a private
+     * scope name is (testRefusesAPrivateScopeNotNamedAsAScopeToken), where the ids become scopes.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('notAScopeTokenProvider')]
+    public function testRefusesACredentialConfigurationIdWhichIsNotAScopeToken(string $name): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([$name => [], 'TestCredential' => []]),
+            [ModuleConfig::OPTION_VCI_ENABLED => true],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Verifiable Credential configuration id [' . $name . '] is not a scope-token (RFC 6749 section 3.3)',
+        );
+
+        $sut->getScopes();
     }
 
 

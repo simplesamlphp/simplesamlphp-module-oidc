@@ -11,7 +11,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
-use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
+use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
@@ -23,8 +23,6 @@ use function array_key_exists;
 use function count;
 use function is_array;
 use function preg_replace;
-use function str_contains;
-use function strtolower;
 use function trim;
 
 class BearerTokenValidator implements AuthorizationValidatorInterface
@@ -150,17 +148,19 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
     /**
      * RFC 9068 section 4: the resource server rejects a token whose "typ" header is anything other than
      * "at+jwt" / "application/at+jwt". The value is compared as RFC 7515 section 4.1.9 prescribes (media
-     * types are case-insensitive; "application/" is implied when the value has no '/'). An absent "typ" is
-     * still accepted: access tokens minted by earlier module versions carry no "typ" and remain valid until
-     * they expire, and an ID token or logout token can not pass as an access token anyway, since the "jti"
-     * lookup in ensureValidAccessToken() only knows access token identifiers.
+     * types are case-insensitive; "application/" is implied when the value has no '/'), which the library's
+     * MediaType helper does; it is the comparison the library's own JwtAccessToken makes at construction.
+     * An absent "typ" is still accepted: access tokens minted by earlier module versions carry no "typ" and
+     * remain valid until they expire, and an ID token or logout token can not pass as an access token
+     * anyway, since the "jti" lookup in ensureValidAccessToken() only knows access token identifiers. Once
+     * that grace period is over, the token is to be parsed as a JwtAccessToken instead, which needs "typ".
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
      */
     protected function ensureAccessTokenType(ParsedJws $token): void
     {
-        if (!array_key_exists(ClaimsEnum::Typ->value, $token->getHeader())) {
+        if (!$token->hasHeaderClaim(ClaimsEnum::Typ->value)) {
             return;
         }
 
@@ -170,12 +170,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             throw new JwsException('Access token malformed (typ missing or unexpected type)');
         }
 
-        $mediaType = strtolower($typ);
-        if (!str_contains($mediaType, '/')) {
-            $mediaType = 'application/' . $mediaType;
-        }
-
-        if ($mediaType !== ContentTypesEnum::ApplicationAtJwt->value) {
+        if (!$this->jws->helpers()->mediaType()->areJwtTypesEqual($typ, JwtTypesEnum::AtJwt->value)) {
             throw new JwsException('Access token malformed (typ is not at+jwt)');
         }
     }

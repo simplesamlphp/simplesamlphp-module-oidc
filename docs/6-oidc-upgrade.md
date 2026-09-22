@@ -101,14 +101,30 @@ identifier — the module does not implement resource indicators (RFC 8707), so
 a resource server applying RFC 9068 section 4 literally (it "MUST validate that
 the "aud" claim contains a resource indicator value corresponding to an
 identifier the resource server expects for itself") has to be configured to
-expect the client identifier there. The module's own resource-server side (the
-UserInfo endpoint, token introspection, the credential endpoint) now refuses a
-presented JWT whose `typ` header is anything other than `at+jwt` /
-`application/at+jwt` (compared as media types: case-insensitively, with
-`application/` implied), as RFC 9068 section 4 requires; a JWT without a `typ`
-header is still accepted so that access tokens issued before the upgrade keep
-working until they expire. A resource server of your own that validates the
-`typ` header against a fixed list needs `at+jwt` on it.
+expect the client identifier there. The token is minted through the
+`simplesamlphp/openid` library's JWT access token factory, which validates the
+payload against the profile before signing: a token missing one of the
+REQUIRED claims of section 2.2, or carrying one of the profile's claims with a
+value of another shape, is refused at the token endpoint rather than by a
+resource server. Two configurations could run into that, and both are now
+refused when the configuration is read instead: a private scope (or a
+Verifiable Credential configuration id) named outside the RFC 6749 section 3.3
+`scope-token` grammar — printable ASCII without space, double quote or
+backslash — since every granted scope goes into the `scope` claim (section
+2.2.3); and one of `groups`, `roles` or `entitlements` (lists, section
+2.2.3.1) listed in `access_token_claims` without a translation which yields a
+list (a private scope carrying the claim with
+`are_multiple_claim_values_allowed`). See the configuration guide on
+[private scopes](3-oidc-configuration.md#private-scopes) and on
+[identity claims and access token claims](3-oidc-configuration.md#identity-claims-and-access-token-claims).
+The module's own resource-server side (the UserInfo endpoint, token
+introspection, the credential endpoint) now refuses a presented JWT whose `typ`
+header is anything other than `at+jwt` / `application/at+jwt` (compared as
+media types: case-insensitively, with `application/` implied), as RFC 9068
+section 4 requires; a JWT without a `typ` header is still accepted so that
+access tokens issued before the upgrade keep working until they expire. A
+resource server of your own that validates the `typ` header against a fixed
+list needs `at+jwt` on it.
 - Two new options decide which user claims travel next to `sub`, both empty by
 default, so nothing changes on upgrade. `identity_claims` names claims which
 identify the user (a `voperson_id`, say): they join the `openid` scope and go

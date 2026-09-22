@@ -12,14 +12,14 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
-use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\OAuth2;
 
 class AccessTokenEntityFactory
 {
     public function __construct(
         protected readonly Helpers $helpers,
         protected readonly ScopeEntityFactory $scopeEntityFactory,
-        protected readonly Jws $jws,
+        protected readonly OAuth2 $oAuth2,
         protected readonly ModuleConfig $moduleConfig,
     ) {
     }
@@ -52,7 +52,7 @@ class AccessTokenEntityFactory
             $clientEntity,
             $scopes,
             $expiryDateTime,
-            $this->jws,
+            $this->oAuth2,
             $this->moduleConfig,
             $userIdentifier,
             $authCodeId,

@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Exceptions\InvalidValueException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\Factories\ParsedJwsFactory;
@@ -72,6 +73,8 @@ class BearerTokenValidatorTest extends TestCase
         $this->moduleConfigMock->method('getIssuer')->willReturn('issuer123');
 
         $this->jwsMock = $this->createMock(Jws::class);
+        // The real helpers: the "typ" header is compared as a media type through the library's MediaType helper.
+        $this->jwsMock->method('helpers')->willReturn(new Helpers());
         $this->jwksMock = $this->createMock(Jwks::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
 
@@ -221,6 +224,7 @@ class BearerTokenValidatorTest extends TestCase
         return [
             'absent, pre-upgrade token' => [null],
             'at+jwt' => ['at+jwt'],
+            'at+JWT, as the RFC 9068 example has it' => ['at+JWT'],
             'application/at+jwt' => ['application/at+jwt'],
             'media types are case-insensitive (RFC 7515 4.1.9)' => ['AT+JWT'],
             'application/AT+JWT' => ['Application/AT+JWT'],
@@ -234,7 +238,7 @@ class BearerTokenValidatorTest extends TestCase
     #[DataProvider('acceptedTypHeaderProvider')]
     public function testAcceptsAccessTokenTypHeader(?string $typ): void
     {
-        $this->parsedJwsMock->method('getHeader')->willReturn(is_null($typ) ? [] : ['typ' => $typ]);
+        $this->parsedJwsMock->method('hasHeaderClaim')->with('typ')->willReturn(!is_null($typ));
         $this->parsedJwsMock->method('getType')->willReturn($typ);
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
 
@@ -276,7 +280,8 @@ class BearerTokenValidatorTest extends TestCase
             'application/jwt' => ['application/jwt'],
             'logout token' => ['logout+jwt'],
             'other media type tree' => ['text/at+jwt'],
-            'at+jwt with a suffix' => ['at+jwt;v=1'],
+            'at+jwt with a parameter' => ['at+jwt;v=1'],
+            'empty' => [''],
         ];
     }
 
@@ -284,7 +289,7 @@ class BearerTokenValidatorTest extends TestCase
     #[DataProvider('rejectedTypHeaderProvider')]
     public function testRejectsNonAccessTokenTypHeader(string $typ): void
     {
-        $this->parsedJwsMock->method('getHeader')->willReturn(['typ' => $typ]);
+        $this->parsedJwsMock->method('hasHeaderClaim')->with('typ')->willReturn(true);
         $this->parsedJwsMock->method('getType')->willReturn($typ);
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
         $this->accessTokenRepositoryMock->expects($this->never())->method('isAccessTokenRevoked');
@@ -304,7 +309,7 @@ class BearerTokenValidatorTest extends TestCase
     public function testRejectsExplicitNullTypHeader(): void
     {
         // The parser reports an absent header and an explicit null alike; only the former is a pre-upgrade token.
-        $this->parsedJwsMock->method('getHeader')->willReturn(['typ' => null]);
+        $this->parsedJwsMock->method('hasHeaderClaim')->with('typ')->willReturn(true);
         $this->parsedJwsMock->method('getType')->willReturn(null);
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
         $this->accessTokenRepositoryMock->expects($this->never())->method('isAccessTokenRevoked');
@@ -323,7 +328,7 @@ class BearerTokenValidatorTest extends TestCase
 
     public function testRejectsMalformedTypHeader(): void
     {
-        $this->parsedJwsMock->method('getHeader')->willReturn(['typ' => 123]);
+        $this->parsedJwsMock->method('hasHeaderClaim')->with('typ')->willReturn(true);
         $this->parsedJwsMock->method('getType')
             ->willThrowException(new InvalidValueException('Unexpected typ'));
         $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);

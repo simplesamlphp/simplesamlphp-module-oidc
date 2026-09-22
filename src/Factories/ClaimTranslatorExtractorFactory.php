@@ -8,12 +8,25 @@ use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 
 class ClaimTranslatorExtractorFactory
 {
     protected const string CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
     protected const string CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
+
+    /**
+     * The claims the JWT access token profile defines for authorization decisions (RFC 9068 section 2.2.3.1),
+     * each a list (RFC 7643 section 4.1.2). The library's JwtAccessToken holds them to that shape, so an
+     * access token carrying one of them as anything else can not be minted -- which is why a configuration
+     * translating one of them to a single value or a JSON object is refused here, at configuration time.
+     */
+    final public const array ACCESS_TOKEN_LIST_CLAIMS = [
+        ClaimsEnum::Groups->value,
+        ClaimsEnum::Roles->value,
+        ClaimsEnum::Entitlements->value,
+    ];
 
 
     public function __construct(
@@ -148,6 +161,7 @@ class ClaimTranslatorExtractorFactory
             $identityClaims,
             $claimTranslatorExtractor,
         );
+        $this->ensureNoAccessTokenListClaim(ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS, $identityClaims);
     }
 
 
@@ -156,9 +170,16 @@ class ClaimTranslatorExtractorFactory
      */
     protected function ensureAccessTokenClaimsAreTranslated(ClaimTranslatorExtractor $claimTranslatorExtractor): void
     {
+        $accessTokenClaims = $this->moduleConfig->getAccessTokenClaims();
+
         $this->ensureClaimsAreTranslated(
             ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
-            $this->moduleConfig->getAccessTokenClaims(),
+            $accessTokenClaims,
+            $claimTranslatorExtractor,
+        );
+        $this->ensureAccessTokenListClaimsAreTranslatedToLists(
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+            $accessTokenClaims,
             $claimTranslatorExtractor,
         );
     }
@@ -224,6 +245,81 @@ class ClaimTranslatorExtractorFactory
                 );
             }
         }
+    }
+
+
+    /**
+     * One of ACCESS_TOKEN_LIST_CLAIMS is placed in the access token as a list, or the token can not be minted:
+     * its translation has to yield one, which a 'json' mapping (a JSON object) never does and any other
+     * mapping does only when a private scope allows the claim multiple values.
+     *
+     * @param string[] $claimNames
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureAccessTokenListClaimsAreTranslatedToLists(
+        string $option,
+        array $claimNames,
+        ClaimTranslatorExtractor $claimTranslatorExtractor,
+    ): void {
+        $translationTable = $claimTranslatorExtractor->getTranslationTable();
+
+        foreach (array_intersect($claimNames, self::ACCESS_TOKEN_LIST_CLAIMS) as $claimName) {
+            /** @var mixed $mapping */
+            $mapping = $translationTable[$claimName] ?? null;
+            // Read the way ClaimTranslatorExtractor reads it.
+            $type = is_array($mapping) ? (string)($mapping['type'] ?? 'string') : 'string';
+
+            if ($type === 'json') {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section ' .
+                        '2.2.3.1), but it is translated to type %s, which yields a JSON object.',
+                        $option,
+                        $claimName,
+                        var_export($type, true),
+                    ),
+                );
+            }
+
+            if ($claimTranslatorExtractor->isSingleValueClaim($claimName)) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section ' .
+                        '2.2.3.1), but its translation yields a single value -- set "%s" in a private scope ' .
+                        'which carries it.',
+                        $option,
+                        $claimName,
+                        self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED,
+                    ),
+                );
+            }
+        }
+    }
+
+
+    /**
+     * An identity claim is single-valued like 'sub', so it can not be one of ACCESS_TOKEN_LIST_CLAIMS: the
+     * access token would carry it as a string where the profile has a list, and could not be minted.
+     *
+     * @param string[] $claimNames
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureNoAccessTokenListClaim(string $option, array $claimNames): void
+    {
+        $listClaims = array_intersect($claimNames, self::ACCESS_TOKEN_LIST_CLAIMS);
+
+        if ($listClaims === []) {
+            return;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section 2.2.3.1), ' .
+                'and an identity claim is a single value.',
+                $option,
+                reset($listClaims),
+            ),
+        );
     }
 
 

@@ -638,6 +638,14 @@ $config = [
 ];
 ```
 
+A scope name is a `scope-token` of RFC 6749 section 3.3: printable ASCII
+without space, double quote or backslash (`!`, `#`–`[`, `]`–`~`). A private
+scope named outside that grammar is refused when the configuration is read,
+and so is a Verifiable Credential configuration id (each becomes a scope
+while issuance is enabled): every granted scope goes into the `scope` claim of
+the JWT access token (RFC 9068 section 2.2.3), which is minted only with that
+grammar, so the fault is reported here rather than at the token endpoint.
+
 ## Attribute translation
 
 Default SAML-to-OIDC claim mapping follows the
@@ -763,7 +771,13 @@ the administration area reports a fault on the option's own row:
   default emptied with `[]`, or an explicit `'attributes' => []`) does not
   count;
 - an identity claim's translation must yield a string — the default type — so
-  a `json`, `int` or `bool` mapping is refused for it.
+  a `json`, `int` or `bool` mapping is refused for it;
+- `groups`, `roles` and `entitlements` are lists in a JWT access token (RFC
+  9068 section 2.2.3.1), and the token can not be minted with one of them
+  carrying anything else, so as an access token claim each of them needs a
+  translation which yields a list — a private scope carrying the claim with
+  `are_multiple_claim_values_allowed` set, and not a `json` mapping — and none
+  of them can be an identity claim, which is a single value.
 
 ## Authentication Processing filters (OIDC)
 

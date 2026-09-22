@@ -416,6 +416,121 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
 
 
     /**
+     * RFC 9068 section 2.2.3.1 has "groups", "roles" and "entitlements" carry lists, and the library refuses to
+     * mint an access token with one of them carrying anything else; so an access token claim of one of these
+     * names is accepted only when its translation yields a list, that is, when a private scope allows it
+     * multiple values.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('accessTokenListClaimProvider')]
+    public function testAcceptsAnAccessTokenListClaimWhichAScopeAllowsMultipleValues(string $claimName): void
+    {
+        $extractor = $this->factory($this->moduleConfig(
+            accessTokenClaims: [$claimName],
+            privateScopes: [
+                'authz' => ['claims' => [$claimName], 'are_multiple_claim_values_allowed' => true],
+            ],
+            translationTable: [$claimName => ['isMemberOf']],
+        ))->build();
+
+        $this->assertSame(
+            [$claimName => ['g1', 'g2']],
+            $extractor->extract(['authz'], ['uid' => ['u1'], 'isMemberOf' => ['g1', 'g2']]),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('accessTokenListClaimProvider')]
+    public function testRefusesAnAccessTokenListClaimTranslatedToASingleValue(string $claimName): void
+    {
+        $factory = $this->factory($this->moduleConfig(
+            accessTokenClaims: [$claimName],
+            privateScopes: ['authz' => ['claims' => [$claimName]]],
+            translationTable: [$claimName => ['isMemberOf']],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(sprintf(
+            'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section 2.2.3.1), but ' .
+            'its translation yields a single value',
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+            $claimName,
+        ));
+
+        $factory->build();
+    }
+
+
+    /**
+     * A 'json' translation yields an object, whatever the multi-value setting of the scope.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesAnAccessTokenListClaimTranslatedToAJsonObject(): void
+    {
+        $factory = $this->factory($this->moduleConfig(
+            accessTokenClaims: ['groups'],
+            privateScopes: ['authz' => ['claims' => ['groups'], 'are_multiple_claim_values_allowed' => true]],
+            translationTable: ['groups' => ['type' => 'json', 'claims' => ['names' => ['isMemberOf']]]],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(sprintf(
+            'Invalid value in %s. Claim "groups" is a list in a JWT access token (RFC 9068 section 2.2.3.1), but ' .
+            'it is translated to type \'json\'',
+            ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
+        ));
+
+        $factory->build();
+    }
+
+
+    /**
+     * An identity claim is single-valued whatever any scope says, so it can never be one of the list claims.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('accessTokenListClaimProvider')]
+    public function testRefusesAnIdentityClaimNamedLikeAnAccessTokenListClaim(string $claimName): void
+    {
+        $factory = $this->factory($this->moduleConfig(
+            identityClaims: [$claimName],
+            privateScopes: [
+                'authz' => ['claims' => [$claimName], 'are_multiple_claim_values_allowed' => true],
+            ],
+            translationTable: [$claimName => ['isMemberOf']],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(sprintf(
+            'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section 2.2.3.1), and ' .
+            'an identity claim is a single value.',
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+            $claimName,
+        ));
+
+        $factory->build();
+    }
+
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function accessTokenListClaimProvider(): array
+    {
+        return [
+            'groups' => ['groups'],
+            'roles' => ['roles'],
+            'entitlements' => ['entitlements'],
+        ];
+    }
+
+
+    /**
      * The configuration overview reports each option on its own row, so it needs each check on its own: a
      * fault in one option must not fail the check of the other, nor the effective table (found by review).
      * build() runs both.

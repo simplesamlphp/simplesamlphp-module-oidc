@@ -28,7 +28,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
-use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\OAuth2;
 use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
 
 #[CoversClass(AccessTokenRepository::class)]
@@ -76,7 +76,7 @@ class AccessTokenRepositoryTest extends TestCase
 
     protected AccessTokenEntityFactory $accessTokenEntityFactory;
 
-    protected MockObject $jwsMock;
+    protected MockObject $oAuth2Mock;
 
     protected MockObject $moduleConfigMock;
 
@@ -126,13 +126,13 @@ class AccessTokenRepositoryTest extends TestCase
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $this->accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
 
-        $this->jwsMock = $this->createMock(Jws::class);
+        $this->oAuth2Mock = $this->createMock(OAuth2::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
 
         $this->accessTokenEntityFactory = new AccessTokenEntityFactory(
             new Helpers(),
             new ScopeEntityFactory(),
-            $this->jwsMock,
+            $this->oAuth2Mock,
             $this->moduleConfigMock,
         );
     }

@@ -180,6 +180,8 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\DidFactory', 'build' ]
   SimpleSAML\OpenID\Jws:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwsFactory', 'build' ]
+  SimpleSAML\OpenID\OAuth2:
+    factory: [ '@SimpleSAML\Module\oidc\Factories\OAuth2Factory', 'build' ]
   SimpleSAML\OpenID\RequestObject:
     factory: [ '@SimpleSAML\Module\oidc\Factories\RequestObjectFactory', 'build' ]
 

@@ -18,9 +18,8 @@ use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
-use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
-use SimpleSAML\OpenID\Jws;
-use SimpleSAML\OpenID\Jws\ParsedJws;
+use SimpleSAML\OpenID\OAuth2;
+use SimpleSAML\OpenID\OAuth2\JwtAccessToken;
 use Stringable;
 
 /**
@@ -62,7 +61,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         OAuth2ClientEntityInterface $clientEntity,
         array $scopes,
         DateTimeImmutable $expiryDateTime,
-        protected readonly Jws $jws,
+        protected readonly OAuth2 $oAuth2,
         protected readonly ModuleConfig $moduleConfig,
         int|string|null $userIdentifier = null,
         ?string $authCodeId = null,
@@ -186,22 +185,27 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * in order to remove microseconds from timestamps and to add claims
      * like iss, etc.
      *
-     * The token follows the shape of the JWT Profile for OAuth 2.0 Access Tokens (RFC 9068): "typ" header
-     * (section 2.1), "client_id" (section 2.2) and the space-separated "scope" string (section 2.2.3,
-     * RFC 8693 section 4.2). The "aud" claim stays the client identifier (resource indicators are not
-     * implemented), and the "scopes" array is kept for consumers written against earlier versions.
+     * The token is a JWT Profile for OAuth 2.0 Access Tokens (RFC 9068) token, minted through the library's
+     * JwtAccessTokenFactory: it writes the "typ" header (section 2.1) and validates the payload against the
+     * profile before signing, so a token missing one of the REQUIRED claims of section 2.2, or carrying one
+     * of a shape the profile does not give it (a "groups" which is not a list, say), is refused here rather
+     * than by a resource server. This class supplies "client_id" (section 2.2) and the space-separated
+     * "scope" string (section 2.2.3, RFC 8693 section 4.2). The "aud" claim stays the client identifier
+     * (resource indicators are not implemented), and the "scopes" array is kept for consumers written
+     * against earlier versions.
      *
      * The user claims come first and the envelope is written over them: a user claim can never overwrite
      * "iss", "sub", "aud", "client_id", "scope" ... whatever the configuration says (ModuleConfig refuses
      * those names as well; this is the second line).
      *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException On a payload the profile does not allow.
      * @throws \Exception
      */
-    protected function convertToJWT(): ParsedJws
+    protected function convertToJWT(): JwtAccessToken
     {
         $protocolSignatureKeyPair = $this->moduleConfig->getProtocolSignatureKeyPairBag()->getFirstOrFail();
-        $currentTimestamp = $this->jws->helpers()->dateTime()->getUtc()->getTimestamp();
+        $currentTimestamp = $this->oAuth2->helpers()->dateTime()->getUtc()->getTimestamp();
         $clientId = $this->getClient()->getIdentifier();
         $scopeIdentifiers = array_map(
             fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(),
@@ -234,12 +238,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         // User claims keep a valid falsy value too (no filter), which is why they are not part of the list above.
         $payload = array_merge($this->userClaims, $envelope);
 
+        // The factory writes the "typ" header itself (at+jwt), whatever is given here.
         $header = [
             ClaimsEnum::Kid->value => $protocolSignatureKeyPair->getKeyPair()->getKeyId(),
-            ClaimsEnum::Typ->value => JwtTypesEnum::AtJwt->value,
         ];
 
-        return $this->jws->parsedJwsFactory()->fromData(
+        return $this->oAuth2->jwtAccessTokenFactory()->fromData(
             $protocolSignatureKeyPair->getKeyPair()->getPrivateKey(),
             $protocolSignatureKeyPair->getSignatureAlgorithm(),
             $payload,

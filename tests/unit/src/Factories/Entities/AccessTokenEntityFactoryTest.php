@@ -26,13 +26,13 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
-use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\OAuth2;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
 /**
  * `AccessTokenEntityFactory` has two jobs. `fromData()` hands its arguments to the `AccessTokenEntity`
- * constructor together with the factory's own `Jws` and `ModuleConfig`, which the entity needs when it
+ * constructor together with the factory's own `OAuth2` and `ModuleConfig`, which the entity needs when it
  * renders itself as a JWT. `fromState()` rebuilds an entity from a database row -- or from the protocol
  * cache's copy of one, which is whatever `getState()` produced -- by checking the column types, decoding
  * the JSON columns and turning empty optional columns into `null` before calling `fromData()`.
@@ -89,7 +89,7 @@ class AccessTokenEntityFactoryTest extends TestCase
 
     protected MockObject $clientMock;
 
-    protected MockObject $jwsMock;
+    protected MockObject $oAuth2Mock;
 
     protected MockObject $moduleConfigMock;
 
@@ -103,7 +103,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->clientMock = $this->createMock(ClientEntityInterface::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
 
-        $this->jwsMock = $this->createMock(Jws::class);
+        $this->oAuth2Mock = $this->createMock(OAuth2::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
 
         $this->helpers = new Helpers();
@@ -116,7 +116,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         return new AccessTokenEntityFactory(
             $this->helpers,
             $scopeEntityFactory ?? $this->scopeEntityFactory,
-            $this->jwsMock,
+            $this->oAuth2Mock,
             $this->moduleConfigMock,
         );
     }
@@ -324,11 +324,11 @@ class AccessTokenEntityFactoryTest extends TestCase
 
 
     /**
-     * The entity renders itself as a JWT through the `Jws` and `ModuleConfig` it was constructed with, and
+     * The entity renders itself as a JWT through the `OAuth2` and `ModuleConfig` it was constructed with, and
      * only the factory is in a position to supply them. Expecting the calls on the factory's own mocks is
      * what proves it handed over these instances rather than some other pair.
      */
-    public function testFromDataHandsTheFactoryJwsAndModuleConfigToTheEntity(): void
+    public function testFromDataHandsTheFactoryOAuth2AndModuleConfigToTheEntity(): void
     {
         $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn(SignatureAlgorithmEnum::RS256);
@@ -338,7 +338,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->moduleConfigMock->expects($this->once())
             ->method('getProtocolSignatureKeyPairBag')
             ->willReturn($signatureKeyPairBagMock);
-        $this->jwsMock->expects($this->once())->method('parsedJwsFactory');
+        $this->oAuth2Mock->expects($this->once())->method('jwtAccessTokenFactory');
 
         $this->sut()->fromData(...$this->fromDataArguments())->toString();
     }

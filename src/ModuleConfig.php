@@ -140,6 +140,16 @@ class ModuleConfig
     ];
 
     /**
+     * A scope name is a scope-token of RFC 6749 section 3.3, `1*( %x21 / %x23-5B / %x5D-7E )`: printable ASCII
+     * without space, double quote or backslash. Every granted scope goes into the "scope" claim of the JWT
+     * access token (RFC 9068 section 2.2.3, which takes the RFC 8693 section 4.2 form: scope-tokens separated by
+     * single spaces), and the library refuses to mint a token whose "scope" does not follow that grammar; so a
+     * private scope name (validate()) and a Verifiable Credential configuration id (getVciScopes()) are held to
+     * it at configuration time, where the fault can be reported, rather than at the token endpoint.
+     */
+    final public const string SCOPE_TOKEN_PATTERN = '/^[\x21\x23-\x5B\x5D-\x7E]+\z/';
+
+    /**
      * Custom scope config keys, mirroring ClaimTranslatorExtractorFactory.
      */
     final public const string SCOPE_KEY_CLAIMS = 'claims';
@@ -462,6 +472,13 @@ class ModuleConfig
                 if (in_array($name, array_keys(self::$standardScopes), true)) {
                     throw new ConfigurationError(
                         'Can not overwrite protected scope: ' . $name,
+                        self::DEFAULT_FILE_NAME,
+                    );
+                }
+                if (preg_match(self::SCOPE_TOKEN_PATTERN, $name) !== 1) {
+                    throw new ConfigurationError(
+                        'Scope [' . $name . '] is not a scope-token (RFC 6749 section 3.3): a scope name is ' .
+                        'printable ASCII without space, double quote or backslash.',
                         self::DEFAULT_FILE_NAME,
                     );
                 }
@@ -2860,6 +2877,15 @@ class ModuleConfig
                 throw new ConfigurationError(
                     'Verifiable Credential configuration id can not take a protected scope name: ' .
                     $credentialConfigurationId,
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+            // The id is a scope, so it is a scope-token (SCOPE_TOKEN_PATTERN), or the access token granting it
+            // could not be minted.
+            if (preg_match(self::SCOPE_TOKEN_PATTERN, $credentialConfigurationId) !== 1) {
+                throw new ConfigurationError(
+                    'Verifiable Credential configuration id [' . $credentialConfigurationId . '] is not a ' .
+                    'scope-token (RFC 6749 section 3.3): printable ASCII without space, double quote or backslash.',
                     self::DEFAULT_FILE_NAME,
                 );
             }

@@ -321,7 +321,7 @@ class ClaimTranslatorExtractor
      * in every location it appears in, so a multi-value flag on any scope which also carries it (granted or not:
      * translation happens before the scope filtering) must not turn it into an array.
      */
-    private function isSingleValueClaim(int|string $claim): bool
+    public function isSingleValueClaim(int|string $claim): bool
     {
         return in_array($claim, self::MANDATORY_SINGLE_VALUE_CLAIMS, true) ||
         in_array($claim, $this->identityClaims, true) ||

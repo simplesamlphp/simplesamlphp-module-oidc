@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -14,15 +15,18 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\Helpers\DateTime;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
-use SimpleSAML\OpenID\Jws;
-use SimpleSAML\OpenID\Jws\Factories\ParsedJwsFactory;
-use SimpleSAML\OpenID\Jws\ParsedJws;
+use SimpleSAML\OpenID\OAuth2;
+use SimpleSAML\OpenID\OAuth2\Factories\JwtAccessTokenFactory;
+use SimpleSAML\OpenID\OAuth2\JwtAccessToken;
+use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
@@ -63,13 +67,13 @@ class AccessTokenEntityTest extends TestCase
 
     protected MockObject $moduleConfigMock;
 
-    protected MockObject $jwsMock;
+    protected MockObject $oAuth2Mock;
 
     protected MockObject $signatureKeyPairMock;
 
     protected MockObject $signatureKeyPairBagMock;
 
-    protected MockObject $parsedJwsFactoryMock;
+    protected MockObject $jwtAccessTokenFactoryMock;
 
     protected int $currentTimestamp = 1700000000;
 
@@ -99,17 +103,17 @@ class AccessTokenEntityTest extends TestCase
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn('https://op.example.org');
-        $this->jwsMock = $this->createMock(Jws::class);
+        $this->oAuth2Mock = $this->createMock(OAuth2::class);
 
         $dateTimeHelperMock = $this->createMock(DateTime::class);
         $dateTimeHelperMock->method('getUtc')
             ->willReturn((new DateTimeImmutable('@' . $this->currentTimestamp)));
         $helpersMock = $this->createMock(Helpers::class);
         $helpersMock->method('dateTime')->willReturn($dateTimeHelperMock);
-        $this->jwsMock->method('helpers')->willReturn($helpersMock);
+        $this->oAuth2Mock->method('helpers')->willReturn($helpersMock);
 
-        $this->parsedJwsFactoryMock = $this->createMock(ParsedJwsFactory::class);
-        $this->jwsMock->method('parsedJwsFactory')->willReturn($this->parsedJwsFactoryMock);
+        $this->jwtAccessTokenFactoryMock = $this->createMock(JwtAccessTokenFactory::class);
+        $this->oAuth2Mock->method('jwtAccessTokenFactory')->willReturn($this->jwtAccessTokenFactoryMock);
 
         $keyPairMock = $this->createMock(KeyPair::class);
         $keyPairMock->method('getKeyId')->willReturn('kid123');
@@ -139,7 +143,7 @@ class AccessTokenEntityTest extends TestCase
             $clientEntity ?? $this->clientEntityStub,
             $scopes ?? $this->scopes,
             $this->expiryDateTime,
-            $this->jwsMock,
+            $this->oAuth2Mock,
             $this->moduleConfigMock,
             $this->userId,
             $this->authCodeId,
@@ -152,14 +156,15 @@ class AccessTokenEntityTest extends TestCase
 
 
     /**
-     * Capture the payload and header handed to the JWS factory when the token is serialised.
+     * Capture the payload and header handed to the library's JWT access token factory when the token is
+     * serialised.
      *
      * @return array{0: array, 1: array}
      */
     protected function serialise(AccessTokenEntity $accessTokenEntity): array
     {
         $captured = [];
-        $this->parsedJwsFactoryMock->expects($this->once())
+        $this->jwtAccessTokenFactoryMock->expects($this->once())
             ->method('fromData')
             ->willReturnCallback(
                 function (
@@ -167,17 +172,46 @@ class AccessTokenEntityTest extends TestCase
                     SignatureAlgorithmEnum $signatureAlgorithm,
                     array $payload,
                     array $header,
-                ) use (&$captured): ParsedJws {
+                ) use (&$captured): JwtAccessToken {
                     $captured = [$payload, $header];
-                    $parsedJwsMock = $this->createMock(ParsedJws::class);
-                    $parsedJwsMock->method('getToken')->willReturn('token');
-                    return $parsedJwsMock;
+                    $jwtAccessTokenMock = $this->createMock(JwtAccessToken::class);
+                    $jwtAccessTokenMock->method('getToken')->willReturn('token');
+                    return $jwtAccessTokenMock;
                 },
             );
 
         $accessTokenEntity->toString();
 
         return $captured;
+    }
+
+
+    /**
+     * The library's OAuth2 tools with a real signing key, for the tests which mint a token and read it back:
+     * the factory validates the payload against RFC 9068 and writes the "typ" header, and only a real
+     * factory shows either.
+     *
+     * @return array{0: \SimpleSAML\OpenID\OAuth2, 1: \SimpleSAML\Module\oidc\ModuleConfig}
+     */
+    protected function realOAuth2AndModuleConfig(): array
+    {
+        $oAuth2 = new OAuth2(
+            supportedAlgorithms: new SupportedAlgorithms(new SignatureAlgorithmBag(SignatureAlgorithmEnum::ES256)),
+        );
+
+        $jwk = JWKFactory::createECKey('P-256');
+        $signatureKeyPair = new SignatureKeyPair(
+            SignatureAlgorithmEnum::ES256,
+            new KeyPair(new JwkDecorator($jwk), new JwkDecorator($jwk->toPublic()), 'kid123'),
+        );
+        $signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
+        $signatureKeyPairBagMock->method('getFirstOrFail')->willReturn($signatureKeyPair);
+
+        $moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $moduleConfigMock->method('getIssuer')->willReturn('https://op.example.org');
+        $moduleConfigMock->method('getProtocolSignatureKeyPairBag')->willReturn($signatureKeyPairBagMock);
+
+        return [$oAuth2, $moduleConfigMock];
     }
 
 
@@ -226,8 +260,8 @@ class AccessTokenEntityTest extends TestCase
     {
         [$payload, $header] = $this->serialise($this->mock());
 
-        $this->assertSame(JwtTypesEnum::AtJwt->value, $header[ClaimsEnum::Typ->value]);
-        $this->assertSame('kid123', $header[ClaimsEnum::Kid->value]);
+        // The "typ" header is the factory's to write (see testMintsAJwtAccessTokenTheLibraryReadsBack).
+        $this->assertSame([ClaimsEnum::Kid->value => 'kid123'], $header);
 
         $this->assertSame('https://op.example.org', $payload[ClaimsEnum::Iss->value]);
         $this->assertSame($this->id, $payload[ClaimsEnum::Jti->value]);
@@ -278,7 +312,7 @@ class AccessTokenEntityTest extends TestCase
             $this->clientEntityStub,
             $this->scopes,
             $this->expiryDateTime,
-            $this->jwsMock,
+            $this->oAuth2Mock,
             $this->moduleConfigMock,
             $this->userId,
             issuerState: 'issuer-state-123',
@@ -303,7 +337,7 @@ class AccessTokenEntityTest extends TestCase
             $this->clientEntityStub,
             $this->scopes,
             $this->expiryDateTime,
-            $this->jwsMock,
+            $this->oAuth2Mock,
             $this->moduleConfigMock,
         );
 
@@ -411,5 +445,70 @@ class AccessTokenEntityTest extends TestCase
         $this->assertSame(array_values($this->scopes), $payload['scopes']);
         $this->assertSame($this->id, $payload[ClaimsEnum::Jti->value]);
         $this->assertSame($this->expiryDateTime->getTimestamp(), $payload[ClaimsEnum::Exp->value]);
+    }
+
+
+    /**
+     * Minted through the library's JwtAccessTokenFactory, the token is what its JwtAccessToken parses: the
+     * "typ" header is "at+jwt" (RFC 9068 section 2.1, written by the factory, not by this entity), and the
+     * envelope comes back through the profile's typed getters.
+     */
+    public function testMintsAJwtAccessTokenTheLibraryReadsBack(): void
+    {
+        [$oAuth2, $moduleConfig] = $this->realOAuth2AndModuleConfig();
+
+        $token = (new AccessTokenEntity(
+            $this->id,
+            $this->clientEntityStub,
+            $this->scopes,
+            $this->expiryDateTime,
+            $oAuth2,
+            $moduleConfig,
+            $this->userId,
+            subject: 'resolved-subject',
+            userClaims: ['voperson_id' => 'v1@example.org', 'eduperson_entitlement' => ['e1', 'e2']],
+        ))->toString();
+
+        $jwtAccessToken = $oAuth2->jwtAccessTokenFactory()->fromToken($token);
+
+        $this->assertSame(JwtTypesEnum::AtJwt->value, $jwtAccessToken->getType());
+        $this->assertSame('kid123', $jwtAccessToken->getKeyId());
+        $this->assertSame('https://op.example.org', $jwtAccessToken->getIssuer());
+        $this->assertSame('resolved-subject', $jwtAccessToken->getSubject());
+        $this->assertSame([$this->clientId], $jwtAccessToken->getAudience());
+        $this->assertSame($this->clientId, $jwtAccessToken->getClientId());
+        $this->assertSame($this->id, $jwtAccessToken->getJwtId());
+        $this->assertSame(['openid', 'profile'], $jwtAccessToken->getScopes());
+        $this->assertSame($this->expiryDateTime->getTimestamp(), $jwtAccessToken->getExpirationTime());
+        $this->assertSame('v1@example.org', $jwtAccessToken->getPayloadClaim('voperson_id'));
+        $this->assertSame(['e1', 'e2'], $jwtAccessToken->getPayloadClaim('eduperson_entitlement'));
+    }
+
+
+    /**
+     * The factory validates the payload against the profile before signing, so a user claim which takes a
+     * name the profile gives a shape to, with a value of another shape, stops the token at minting: "groups"
+     * is a list (RFC 9068 section 2.2.3.1). ClaimTranslatorExtractorFactory refuses such a configuration
+     * first; this is the second line.
+     */
+    public function testRefusesToMintAPayloadTheProfileDoesNotAllow(): void
+    {
+        [$oAuth2, $moduleConfig] = $this->realOAuth2AndModuleConfig();
+
+        $accessTokenEntity = new AccessTokenEntity(
+            $this->id,
+            $this->clientEntityStub,
+            $this->scopes,
+            $this->expiryDateTime,
+            $oAuth2,
+            $moduleConfig,
+            $this->userId,
+            userClaims: [ClaimsEnum::Groups->value => 'admins'],
+        );
+
+        $this->expectException(JwsException::class);
+        $this->expectExceptionMessage('Value is not a list');
+
+        $accessTokenEntity->toString();
     }
 }
