@@ -16,12 +16,14 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository
@@ -164,11 +166,44 @@ class RefreshTokenRepositoryTest extends TestCase
 
 
     /**
+     * An access token's deletion (with its user or its client) cascades to its refresh token's row; a copy of
+     * that row in the protocol cache outlives it, and is dropped -- with the refresh token answered as not
+     * found -- when its access token turns out to be gone.
+     */
+    public function testFindByIdTreatsACachedTokenWhoseAccessTokenIsGoneAsNotFound(): void
+    {
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('get')->willReturn([
+            'id' => self::REFRESH_TOKEN_ID,
+            'expires_at' => '2099-01-01 00:00:00',
+            'access_token_id' => self::ACCESS_TOKEN_ID,
+            'is_revoked' => false,
+            'auth_code_id' => null,
+        ]);
+        $protocolCacheMock->expects($this->once())->method('delete');
+
+        $this->accessTokenRepositoryMock->method('findById')->with(self::ACCESS_TOKEN_ID)->willReturn(null);
+        $this->refreshTokenEntityFactoryMock->expects($this->never())->method('fromState');
+
+        $repository = new RefreshTokenRepository(
+            new ModuleConfig(),
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->accessTokenRepositoryMock,
+            $this->refreshTokenEntityFactoryMock,
+            new Helpers(),
+        );
+
+        $this->assertNull($repository->findById(self::REFRESH_TOKEN_ID));
+    }
+
+
+    /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testErrorRevokeInvalidToken(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(TokenNotFoundException::class);
 
         $this->repository->revokeRefreshToken('notoken');
     }
@@ -179,7 +214,7 @@ class RefreshTokenRepositoryTest extends TestCase
      */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
-        $this->expectException(RuntimeException::class);
+        $this->expectException(TokenNotFoundException::class);
 
         $this->repository->isRefreshTokenRevoked('notoken');
     }

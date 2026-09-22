@@ -482,8 +482,9 @@ $config = [
     /**
      * Optional claims which identify the user next to 'sub'. They join the
      * 'openid' scope and go wherever 'sub' goes: into the ID token (whatever
-     * the client's 'add_claims_to_id_token' setting), the UserInfo response
-     * and the JWT access token. Each name must have a translation in the table
+     * the client's 'add_claims_to_id_token' setting), the UserInfo response,
+     * the JWT access token and the token introspection response for it. Each
+     * name must have a translation in the table
      * above which yields a string (the default type); a claim which a private
      * scope renames through 'claim_name_prefix' has to be listed under its
      * prefixed name. Reserved names -- the registered JWT claims, 'sid', and
@@ -2256,7 +2257,10 @@ $config = [
      * While enabled, the endpoint is advertised as 'introspection_endpoint' in
      * the OP metadata (OpenID Connect discovery, OAuth 2.0 Authorization Server
      * Metadata and, if enabled, the OpenID Federation entity configuration), so
-     * resource servers can find it.
+     * resource servers can find it. The response for an access token issued to
+     * a user carries the user claims the token's scopes release, read from the
+     * user record as it is now (what the UserInfo endpoint releases for the
+     * same token), next to the token members of RFC 7662.
      */
     ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => false,
 

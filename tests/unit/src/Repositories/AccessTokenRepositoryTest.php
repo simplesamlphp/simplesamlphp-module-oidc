@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
-use Exception;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,6 +16,7 @@ use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
@@ -220,12 +220,29 @@ class AccessTokenRepositoryTest extends TestCase
 
 
     /**
+     * A client's deletion cascades to its tokens' rows; a copy of such a row in the protocol cache outlives that,
+     * and is dropped -- with the token answered as not found -- when its client turns out to be gone.
+     */
+    public function testFindByIdTreatsACachedTokenWhoseClientIsGoneAsNotFound(): void
+    {
+        $this->protocolCacheMock->method('get')->willReturn($this->accessTokenState);
+        $this->protocolCacheMock->expects($this->once())->method('delete');
+
+        $clientRepositoryMock = $this->createMock(ClientRepository::class);
+        $clientRepositoryMock->method('findById')->willReturn(null);
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromState');
+
+        $this->assertNull($this->sut(clientRepository: $clientRepositoryMock)->findById(self::ACCESS_TOKEN_ID));
+    }
+
+
+    /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
      */
     public function testErrorRevokeInvalidToken(): void
     {
-        $this->expectException(Exception::class);
+        $this->expectException(TokenNotFoundException::class);
 
         $this->sut()->revokeAccessToken('notoken');
     }
@@ -236,7 +253,7 @@ class AccessTokenRepositoryTest extends TestCase
      */
     public function testErrorCheckIsRevokedInvalidToken(): void
     {
-        $this->expectException(Exception::class);
+        $this->expectException(TokenNotFoundException::class);
 
         $this->sut()->isAccessTokenRevoked('notoken');
     }

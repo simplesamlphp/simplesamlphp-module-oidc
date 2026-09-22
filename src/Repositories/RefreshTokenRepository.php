@@ -10,8 +10,10 @@ use PDO;
 use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\Factories\Entities\RefreshTokenEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -110,7 +112,17 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
             $data = current($rows);
         }
 
-        $data['access_token'] = $this->accessTokenRepository->findById((string)$data['access_token_id']);
+        $accessToken = $this->accessTokenRepository->findById((string)$data['access_token_id']);
+
+        if (!$accessToken instanceof AccessTokenEntity) {
+            // The token's access token is gone (with its user or its client, whose deletion the database cascades),
+            // and the refresh token's row went with it: what answered here is a copy of the row in the protocol
+            // cache, dropped with the access token.
+            $this->protocolCache?->delete($this->getCacheKey($tokenId));
+            return null;
+        }
+
+        $data['access_token'] = $accessToken;
 
         $refreshTokenEntity = $this->refreshTokenEntityFactory->fromState($data);
 
@@ -135,7 +147,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $refreshToken = $this->findById($tokenId);
 
         if (!$refreshToken) {
-            throw new RuntimeException("RefreshToken not found: $tokenId");
+            throw new TokenNotFoundException("RefreshToken not found: $tokenId");
         }
 
         $refreshToken->revoke();
@@ -168,7 +180,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $refreshToken = $this->findById($tokenId);
 
         if (!$refreshToken) {
-            throw new RuntimeException("RefreshToken not found: $tokenId");
+            throw new TokenNotFoundException("RefreshToken not found: $tokenId");
         }
 
         return $refreshToken->isRevoked();

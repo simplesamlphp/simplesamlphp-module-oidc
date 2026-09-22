@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 
+use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -196,6 +197,25 @@ class BearerTokenValidatorTest extends TestCase
         $this->expectException(OidcServerException::class);
 
         $this->sut()->validateAuthorization($serverRequest);
+    }
+
+
+    /**
+     * The library's verifier hands JOSE's own exceptions through for a header it can not work with; the validator
+     * refuses such a token as one it could not verify, so a caller can tell the verdict from a failure of its own.
+     */
+    public function testRefusesATokenTheVerifierCanNotWorkWithAsUnverifiable(): void
+    {
+        $this->parsedJwsFactoryMock->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+        $this->parsedJwsMock->method('verifyWithKeySet')
+            ->willThrowException(new InvalidArgumentException('Unsupported algorithm'));
+
+        $this->expectException(JwsException::class);
+        $this->expectExceptionMessage('Access token signature could not be verified: Unsupported algorithm');
+
+        $this->sut()->ensureValidAccessToken($this->accessToken);
     }
 
 

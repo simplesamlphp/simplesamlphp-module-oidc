@@ -405,11 +405,42 @@ authorized the token.
 * __aud__ (string/array, optional): Audience for the token.
 * __iss__ (string, optional): Issuer of the token.
 * __jti__ (string, optional): Identifier for the token.
+* The __user claims__ the token's scopes release (access tokens issued to a
+user only), as further top-level members, see below.
+
+For an access token issued to a user, the response also carries the user
+claims the token's scopes release -- those of the `openid` scope (`sub`, the
+[identity claims](3-oidc-configuration.md#identity-claims-and-access-token-claims)),
+the standard scopes and the private scopes the token was granted -- read from
+the user record as it is now: the same claims, from the same record, the
+UserInfo endpoint releases for that token, so a resource server which enforces
+its policy on the introspection response (RFC 7662 section 2.2 lets an
+implementation extend it with members of its own) sees what it would see at the
+UserInfo endpoint. Nothing is read from the token itself, which is a snapshot
+taken when it was minted, and the `claims` request parameter plays no part. The
+`sub` reported is the token's own, the subject it was minted with (see [the
+subject](3-oidc-configuration.md#the-subject)); a user claim of the same name
+as a token member does not displace it. (For an access token issued before the
+module wrote a `typ` header, whose `sub` is the internal user identifier, the
+`sub` the `openid` scope releases stands instead, as it does at the UserInfo
+endpoint.) An access token issued without a user
+(a client credentials token, a pre-authorized code with no holder) carries the
+token members only, and so does a refresh token, which is never shown to a
+resource server.
 
 If the token is not active, only the `active` field with a value of
 `false` is returned. The same answer is given when the caller is not entitled
 to be told about the token, so an inactive answer does not distinguish a token
-which does not exist from one the caller may not see.
+which does not exist from one the caller may not see. A token whose user or
+client no longer exists is not active either: deleting a user or a client
+deletes the tokens issued to or for them, so the token was revoked with the
+record, and the answer is the same whether the token's own record is already
+gone or a cached copy of it is still around.
+
+If the endpoint can not read the records it answers from (the token's, the
+user's), it responds with `server_error` (HTTP 500) rather than with an
+inactive token: the failure is the OP's, not a verdict on the token, and a
+resource server may cache the verdict.
 
 #### Sample 1
 
@@ -437,7 +468,9 @@ Response:
     "sub": "user-id",
     "aud": "test-client",
     "iss": "https://idp.mivanci.incubator.hexaa.eu",
-    "jti": "token-id"
+    "jti": "token-id",
+    "name": "Ada Lovelace",
+    "email": "ada@example.org"
 }
 ```
 

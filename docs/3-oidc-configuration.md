@@ -726,9 +726,9 @@ $config = [
 
 **Identity claims** (`identity_claims`) join the `openid` scope next to `sub`
 and go wherever `sub` goes: into the ID token — placed like `sub`, whatever
-the client's `add_claims_to_id_token` setting — the UserInfo response and the
-JWT access token. (The introspection response is token metadata and does not
-carry user claims.) They are single-valued like `sub`, whatever the
+the client's `add_claims_to_id_token` setting — the UserInfo response, the
+JWT access token and the [introspection response](8-api.md#token-introspection)
+for it. They are single-valued like `sub`, whatever the
 `are_multiple_claim_values_allowed` setting of a private scope which also
 carries them, and like `sub` they are released only as a non-empty string —
 an attribute value which is not one (a nested array from an authentication

@@ -118,7 +118,15 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
             ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
         )->jsonSerialize();
-        $token->verifyWithKeySet($jwks);
+
+        try {
+            $token->verifyWithKeySet($jwks);
+        } catch (Throwable $e) {
+            // The library's verifier hands the JOSE library's own exceptions through for a header it can not work
+            // with (an 'alg' which is missing, unsupported or not a string); whatever the reason, a token which can
+            // not be verified is refused as one, so that a caller can tell that verdict from a failure of its own.
+            throw new JwsException('Access token signature could not be verified: ' . $e->getMessage(), 0, $e);
+        }
 
         $token->getExpirationTime();
 

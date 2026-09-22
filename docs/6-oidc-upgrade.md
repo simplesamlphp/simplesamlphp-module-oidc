@@ -33,8 +33,11 @@ it is advertised as `introspection_endpoint` (with the RFC 8414
 `introspection_endpoint_auth_methods_supported` and
 `introspection_endpoint_auth_signing_alg_values_supported` values) in the
 OpenID Connect discovery document, the OAuth 2.0 Authorization Server
-Metadata document and the OpenID Federation entity configuration alike. Check
-the API documentation for more details.
+Metadata document and the OpenID Federation entity configuration alike. The
+response for an access token issued to a user carries, next to the token
+members of RFC 7662 section 2.2, the user claims the token's scopes release,
+read from the user record as it is now -- what the UserInfo endpoint releases
+for the same token. Check the API documentation for more details.
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production. It has not been reviewed against the final OpenID4VCI 1.0
@@ -153,11 +156,11 @@ travels with the tokens: the refresh token payload carries it (a refresh token
 issued before the upgrade has it resolved again when redeemed), and the
 UserInfo endpoint and token introspection report the value the presented
 token carries. For an access token issued before the upgrade (no `typ` header)
-the UserInfo endpoint keeps releasing the `sub` the translation yields, as it
-did when that token was issued. The UserInfo response now always carries `sub`,
-as OpenID Connect Core 1.0 section 5.3.2 requires; before, an emptied `sub`
-translation (`'sub' => []`) left it out. See the [configuration
-guide](3-oidc-configuration.md#the-subject).
+the UserInfo endpoint and token introspection keep releasing the `sub` the
+translation yields, as it did when that token was issued. The UserInfo
+response now always carries `sub`, as OpenID Connect Core 1.0 section 5.3.2
+requires; before, an emptied `sub` translation (`'sub' => []`) left it out.
+See the [configuration guide](3-oidc-configuration.md#the-subject).
 - Authentication Processing Filters can now be configured per client (Relying
 Party), in addition to the global filters defined under `authproc.oidc`. This
 mimics defining authproc filters in SAML Service Provider metadata. During

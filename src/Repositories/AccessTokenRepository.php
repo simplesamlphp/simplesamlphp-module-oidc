@@ -8,12 +8,13 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use PDO;
-use RuntimeException;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -164,7 +165,16 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
             $data = current($rows);
         }
 
-        $data['client'] = $this->clientRepository->findById((string)$data['client_id']);
+        $client = $this->clientRepository->findById((string)$data['client_id']);
+
+        if (!$client instanceof ClientEntityInterface) {
+            // The token's client is gone, and the token's row went with it (the database cascades the client's
+            // deletion): what answered here is a copy of the row in the protocol cache, dropped with the client.
+            $this->protocolCache?->delete($this->getCacheKey($tokenId));
+            return null;
+        }
+
+        $data['client'] = $client;
 
         $accessTokenEntity = $this->accessTokenEntityFactory->fromState($data);
 
@@ -190,7 +200,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $accessToken = $this->findById($tokenId);
 
         if (!$accessToken instanceof AccessTokenEntity) {
-            throw new RuntimeException("AccessToken not found: $tokenId");
+            throw new TokenNotFoundException("AccessToken not found: $tokenId");
         }
 
         $accessToken->revoke();
@@ -224,7 +234,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $accessToken = $this->findById($tokenId);
 
         if (!$accessToken) {
-            throw new RuntimeException("AccessToken not found: $tokenId");
+            throw new TokenNotFoundException("AccessToken not found: $tokenId");
         }
 
         return $accessToken->isRevoked();

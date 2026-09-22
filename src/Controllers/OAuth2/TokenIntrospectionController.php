@@ -7,14 +7,20 @@ namespace SimpleSAML\Module\oidc\Controllers\OAuth2;
 use Exception;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
@@ -22,6 +28,8 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
+use SimpleSAML\OpenID\Jws\ParsedJws;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -41,6 +49,9 @@ class TokenIntrospectionController
         protected readonly BearerTokenValidator $bearerTokenValidator,
         protected readonly OAuth2Bridge $oAuth2Bridge,
         protected readonly RefreshTokenRepository $refreshTokenRepository,
+        protected readonly AccessTokenRepository $accessTokenRepository,
+        protected readonly UserRepository $userRepository,
+        protected readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
     ) {
         if (!$this->moduleConfig->getApiEnabled()) {
             $this->loggerService->warning('API capabilities not enabled.');
@@ -104,14 +115,29 @@ class TokenIntrospectionController
             $allowedMethods,
         );
 
-        $payload = null;
-        if (is_null($tokenTypeHintParam)) {
-            $payload = $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization) ??
-            $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
-        } elseif ($tokenTypeHintParam === 'access_token') {
-            $payload = $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization);
-        } elseif ($tokenTypeHintParam === 'refresh_token') {
-            $payload = $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
+        try {
+            $payload = null;
+            if (is_null($tokenTypeHintParam)) {
+                $payload = $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization) ??
+                $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
+            } elseif ($tokenTypeHintParam === 'access_token') {
+                $payload = $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization);
+            } elseif ($tokenTypeHintParam === 'refresh_token') {
+                $payload = $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
+            }
+        } catch (Throwable $e) {
+            // Again not a verdict, this time on the token: the OP could not read what it answers from (the resource
+            // owner's record, say). Answering 'active: false' would have a resource server refuse a valid token,
+            // and RFC 7662 section 2.2 lets it cache that answer.
+            $this->loggerService->error(
+                'TokenIntrospectionController::invoke: error while resolving the token: ' . $e->getMessage(),
+                ['exception' => $e::class],
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Unable to process the introspection request.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
         }
 
         $payload ??= ['active' => false];
@@ -159,7 +185,11 @@ class TokenIntrospectionController
     ): ?array {
         try {
             $accessToken = $this->bearerTokenValidator->ensureValidAccessToken($tokenParam);
-        } catch (Throwable $e) {
+        } catch (OpenIdException | TokenNotFoundException $e) {
+            // The validator's verdicts: not a JWS of ours, not an access token, expired, revoked (the library's
+            // exceptions), or no record of it (the repository's). A failed read is none of these -- SimpleSAMLphp's
+            // database layer throws a plain Exception, a fetch a PDOException, a corrupt record an
+            // OidcServerException -- and is not caught here.
             $this->loggerService->error('Access token validation failed: ' . $e->getMessage());
             return null;
         }
@@ -167,11 +197,11 @@ class TokenIntrospectionController
         // See \SimpleSAML\Module\oidc\Entities\AccessTokenEntity::convertToJWT
         // for claims set on the access token.
 
-        $scopeClaim = null;
+        $scopes = [];
         /** @psalm-suppress MixedAssignment */
         $accessTokenScopes = $accessToken->getPayloadClaim('scopes');
         if (is_array($accessTokenScopes)) {
-            $scopeClaim = $this->prepareScopeString($accessTokenScopes);
+            $scopes = $this->scopeTokens($accessTokenScopes);
         }
 
         $clientId = is_array($audience = $accessToken->getAudience()) ? $audience[0] ?? null : null;
@@ -180,9 +210,20 @@ class TokenIntrospectionController
             return null;
         }
 
-        return $this->withoutAbsentMembers([
+        $userClaims = $this->resolveUserClaims($accessToken, $scopes);
+
+        if (is_null($userClaims)) {
+            return null;
+        }
+
+        // The user claims are further top-level members, as RFC 7662 section 2.2 allows ("Specific implementations
+        // MAY extend this structure with their own service-specific response names"). The token's own members are
+        // written first and keep the name on a clash: with 'openid' granted, the user claims carry a 'sub' resolved
+        // from the user record as it is now, while the response reports the subject the token was minted with, the
+        // one the ID token issued alongside carries (see the 'sub' note in UserInfoController).
+        $tokenMembers = $this->withoutAbsentMembers([
             'active' => true,
-            'scope' => $scopeClaim,
+            'scope' => $scopes === [] ? null : implode(' ', $scopes),
             'client_id' => $clientId,
             'token_type' => 'Bearer',
             ClaimsEnum::Exp->value => $accessToken->getExpirationTime(),
@@ -193,6 +234,78 @@ class TokenIntrospectionController
             ClaimsEnum::Iss->value => $accessToken->getIssuer(),
             ClaimsEnum::Jti->value => $accessToken->getJwtId(),
         ]);
+
+        // A token minted before the module wrote a 'typ' header carries the internal user identifier as its 'sub',
+        // not the resolved subject; for such a token the 'sub' the 'openid' scope released stands, as it does at
+        // the UserInfo endpoint, so that the two endpoints name the End-User the same way for every token.
+        if (is_null($accessToken->getType()) && array_key_exists(ClaimsEnum::Sub->value, $userClaims)) {
+            unset($tokenMembers[ClaimsEnum::Sub->value]);
+        }
+
+        return $tokenMembers + $userClaims;
+    }
+
+
+    /**
+     * The user claims the token's scopes release, read from the resource owner's record as it is now: the claims
+     * the UserInfo endpoint releases for the same token, from the same record, so a resource server learns the same
+     * about the user whichever endpoint it asks. The 'claims' request parameter (OpenID Connect Core 1.0 section
+     * 5.5) targets the ID token and the UserInfo endpoint and plays no part here, as it plays none in the access
+     * token's own user claims. Nothing is read from the presented token: it is a snapshot taken when it was minted.
+     *
+     * Empty for a token issued without a user (a client credentials token, a pre-authorized code with no holder).
+     * Null when the token is not to be reported as active: its own record is gone, or its resource owner's is. The
+     * validator has already looked the token's record up, so the former only happens when the record went between
+     * the two reads. The latter is decided, not incidental: deleting a user deletes the tokens issued to them (the
+     * database cascades it), which is a revocation RFC 7662 section 4 has the authorization server "determine
+     * whether or not such a revocation has taken place"; a copy of the token's row in the protocol cache can answer
+     * for it until the token expires, and this is where that copy stops passing the token as active.
+     *
+     * @param string[] $scopes
+     * @return ?array<array-key, mixed>
+     * @throws \Throwable When a record can not be read, or a released identity claim is not a non-empty string;
+     * not a verdict on the token, and answered as the OP's failure.
+     */
+    protected function resolveUserClaims(ParsedJws $accessToken, array $scopes): ?array
+    {
+        $jti = $accessToken->getJwtId();
+
+        // The validator refuses a token without one; a null here would mean it was not run.
+        if (is_null($jti)) {
+            return null;
+        }
+
+        $accessTokenEntity = $this->accessTokenRepository->findById($jti);
+
+        if (!$accessTokenEntity instanceof AccessTokenEntity) {
+            $this->loggerService->warning(
+                sprintf('Access token %s has no record. Answering as if the token was not active.', $jti),
+            );
+            return null;
+        }
+
+        // Null for a token issued without a user; the entity keeps no empty identifier.
+        $userIdentifier = $accessTokenEntity->getUserIdentifier();
+
+        if (is_null($userIdentifier)) {
+            return [];
+        }
+
+        $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
+
+        if (!$user instanceof UserEntity) {
+            $this->loggerService->warning(
+                sprintf(
+                    'Access token %s was issued to user %s, whose record is gone. Answering as if the token was ' .
+                    'not active.',
+                    $jti,
+                    $userIdentifier,
+                ),
+            );
+            return null;
+        }
+
+        return $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
     }
 
 
@@ -255,8 +368,11 @@ class TokenIntrospectionController
                 $this->loggerService->error('Refresh token has been revoked.');
                 return null;
             }
-        } catch (OidcServerException $e) {
-            $this->loggerService->error('Refresh token revocation check failed: ' . $e->getMessage());
+        } catch (TokenNotFoundException $e) {
+            // The repository's answer for a token it has no record of (its user's deletion cascaded to it, say):
+            // a token which "does not exist on this server" is inactive (RFC 7662 section 2.2). A failed read
+            // is not this exception, and is not caught here.
+            $this->loggerService->error('Refresh token has no record: ' . $e->getMessage());
             return null;
         }
 
@@ -290,14 +406,30 @@ class TokenIntrospectionController
     }
 
 
+    /**
+     * The scope tokens among the values of a token's legacy 'scopes' array; only an absent one (not a string, or
+     * the empty string) is left out, so a scope named "0" stands.
+     *
+     * @return string[]
+     */
+    protected function scopeTokens(array $scopes): array
+    {
+        $scopeTokens = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($scopes as $scope) {
+            if (is_string($scope) && $scope !== '') {
+                $scopeTokens[] = $scope;
+            }
+        }
+
+        return $scopeTokens;
+    }
+
+
     protected function prepareScopeString(array $scopes): string
     {
-        $scopes = array_filter(
-            $scopes,
-            static fn($scope) => is_string($scope) && !empty($scope),
-        );
-
-        return implode(' ', $scopes);
+        return implode(' ', $this->scopeTokens($scopes));
     }
 
 
