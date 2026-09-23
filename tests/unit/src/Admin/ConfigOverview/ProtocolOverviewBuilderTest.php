@@ -206,6 +206,57 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
 
+    public function testShowsTheIntrospectionUpstreamHubs(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => true,
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => ['hub'],
+            ])->build(),
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['hub'], $row->getValue());
+        $this->assertNotNull($row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * A client named both as a resource server and as the upstream hub stops the introspection endpoint
+     * answering, so the screen has to say so, on the hub row, while the resource server row still shows
+     * what is configured.
+     */
+    public function testReportsAClientNamedInBothIntrospectionRolesInPlace(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => ['hub'],
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => ['hub'],
+        ])->build();
+
+        $hubRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+        );
+
+        $this->assertNotNull($hubRow);
+        $this->assertSame('N/A', $hubRow->getValue());
+        // The detail goes to the log; the screen points at it.
+        $this->assertNotNull($hubRow->getWarning());
+
+        $resourceServerRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
+        );
+        $this->assertNotNull($resourceServerRow);
+        $this->assertSame(['hub'], $resourceServerRow->getValue());
+    }
+
+
     /**
      * A non-string issuer makes getOptionalString() throw, which both getIssuer() and
      * isIssuerConfigured() go through. Resolving the configured state outside the guard would

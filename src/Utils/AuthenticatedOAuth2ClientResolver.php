@@ -429,7 +429,11 @@ class AuthenticatedOAuth2ClientResolver
             return null;
         }
 
-        $this->loggerService->debug('Client assertion param received: ' . $clientAssertionParam);
+        // Its length only, never the assertion: it is a credential until it expires, and one that can be replayed
+        // wherever its replay protection is off (no protocol cache configured), so a debug log must not hold it.
+        $this->loggerService->debug(
+            sprintf('Client assertion param received (%d bytes, not logged).', strlen($clientAssertionParam)),
+        );
 
         // private_key_jwt authentication method is used.
         // Check the expected assertion type param.

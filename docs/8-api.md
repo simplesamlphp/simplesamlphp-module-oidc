@@ -61,8 +61,10 @@ ModuleConfig::OPTION_API_TOKENS => [
 
 The name is what gets recorded in the status change audit trail when this token revokes or suspends a
 credential, so the trail says which system asked rather than only that something did. Without a name,
-an audit row records no actor at all — the token itself is never written anywhere, since that would
-put a bearer secret in the database.
+an audit row records a fingerprint of the token instead (`token:` and 16 hex characters, keyed with a key
+derived from the module's encryption key or the SimpleSAMLphp secret salt), which keeps separate callers
+apart but says nothing about who they are — the
+token itself is never written anywhere, since that would put a bearer secret in the database.
 
 Both shapes work, and a token configured as a plain list of scopes keeps working unchanged.
 
@@ -349,6 +351,7 @@ authentication methods (`client_secret_basic`, `client_secret_post`,
 `private_key_jwt`). A bare `client_id` does not count.
 * Or, if the request is authorized using an API Bearer Token with
 the appropriate scope.
+* Or, if the request is made by a logged in SimpleSAMLphp administrator.
 
 Authenticating is not on its own permission to introspect any given token.
 A client which authenticates as itself is told about tokens issued to it, and
@@ -369,11 +372,37 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS =
 
 This is configuration rather than client metadata on purpose: a client
 registering itself through Dynamic Client Registration must not be able to ask
-for the ability to read every other party's tokens.
+for the ability to read every other party's tokens. Naming a client there is a
+decision to trust it with personal data: a client on that list is trusted with
+the user claims of every token it can present (see the response below).
+
+A deployment whose tokens are introspected by an upstream hub on behalf of
+resource servers elsewhere -- the AS performing
+[AARC-G052](https://aarc-community.org/guidelines/aarc-g052/) proxied token
+introspection towards this OP; for an EOSC Node, the EOSC AAI Federation hub --
+names the client registered for the hub separately:
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => [
+    'hub-client-id',
+],
+```
+
+The hub may introspect any token this OP issued, as a resource server may, since
+introspecting tokens it did not receive itself is its whole function; it is the
+same trust decision. A client named in both lists is a configuration error, and
+until it is resolved the endpoint answers every request authenticated with OAuth2
+client credentials with a `server_error` (API Bearer Tokens and administrators
+are not affected).
 
 Requests authorized with an API Bearer Token holding an introspection scope,
 and those made by a logged in SimpleSAMLphp administrator, may introspect any
-token and are unaffected by that option.
+token and are unaffected by those options. Such a request is attributed to the
+token's configured name, or to a fingerprint of the token where it has none (two
+tokens configured under one name are therefore one caller), and to
+`simplesamlphp-admin` for an administrator.
 
 #### Request
 

@@ -22,6 +22,12 @@ class Authorization
 
     public const string KEY_AUTHORIZATION = 'Authorization';
 
+    /**
+     * Who a request authorized by a logged in SimpleSAMLphp administrator is made by. The session says that
+     * the user is an administrator, not which one.
+     */
+    public const string ADMIN_PRINCIPAL = 'simplesamlphp-admin';
+
 
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
@@ -62,9 +68,40 @@ class Authorization
      */
     public function requireTokenForAnyOfScope(Request $request, array $requiredScopes): void
     {
+        $this->authorizeForAnyOfScope($request, $requiredScopes);
+    }
+
+
+    /**
+     * {@see requireTokenForAnyOfScope()}, saying who the request is made by: for an endpoint whose answer
+     * depends on who is asking, and not only on whether they may ask at all.
+     *
+     * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
+     * @return string ADMIN_PRINCIPAL for a logged in SimpleSAMLphp administrator; for an API token, who it
+     * stands for as {@see ApiTokenPrincipalResolver} resolves it: its configured name, or a fingerprint.
+     * Never the token itself. Two tokens configured under one name are therefore one caller.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function requireCallerForAnyOfScope(Request $request, array $requiredScopes): string
+    {
+        $token = $this->authorizeForAnyOfScope($request, $requiredScopes);
+
+        return is_null($token) ? self::ADMIN_PRINCIPAL : $this->apiTokenPrincipalResolver->resolve($token);
+    }
+
+
+    /**
+     * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
+     * @return ?string The API token the request was authorized with, or null when an administrator's
+     * session authorized it.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     */
+    protected function authorizeForAnyOfScope(Request $request, array $requiredScopes): ?string
+    {
         try {
             $this->requireSimpleSAMLphpAdmin();
-            return;
+            return null;
         } catch (Throwable) {
             // Not admin, check for token.
         }
@@ -82,6 +119,8 @@ class Authorization
         if (!$hasAny) {
             throw new AuthorizationException(Translate::noop('Authorization token is not authorized for this action.'));
         }
+
+        return $token;
     }
 
 

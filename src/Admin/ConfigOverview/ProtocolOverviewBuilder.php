@@ -1187,13 +1187,36 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                         $resourceServers === [] ?
                         Translate::noop(
                             'None, so a client authenticating at the introspection endpoint is only ' .
-                            'told about tokens issued to itself. API tokens and administrators are ' .
-                            'unaffected.',
+                            'told about tokens issued to itself, unless it is named as the upstream hub. ' .
+                            'API tokens and administrators are unaffected.',
                         ) :
                         Translate::noop(
                             'These clients may introspect tokens issued to any client, and not only ' .
                             'their own, so each one can read every other client\'s token subject and ' .
-                            'scopes.',
+                            'scopes, and the user claims those scopes release.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Token Introspection Upstream Hubs'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+                function (): Row {
+                    // Also where a client named in both roles is reported, since this getter refuses it.
+                    $upstreamHubs = $this->moduleConfig
+                        ->getApiOAuth2TokenIntrospectionUpstreamHubClientIds();
+
+                    return new Row(
+                        Translate::noop('Token Introspection Upstream Hubs'),
+                        $upstreamHubs,
+                        ConfigOverviewValueTypeEnum::StringList,
+                        ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+                        $upstreamHubs === [] ?
+                        null :
+                        Translate::noop(
+                            'These clients perform proxied token introspection towards this OP: they may ' .
+                            'introspect any token it issued, as a resource server may, but a token it did ' .
+                            'not issue is never introspected elsewhere on their behalf.',
                         ),
                     );
                 },

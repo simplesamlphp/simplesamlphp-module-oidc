@@ -167,7 +167,7 @@ class TokenIntrospectionController
             sprintf(
                 'Client %s asked about a token which was not issued to it. Answering as if the token ' .
                 'was not active.',
-                (string)$introspectionAuthorization->getClientId(),
+                $introspectionAuthorization->getCallerId(),
             ),
         );
 
@@ -439,9 +439,13 @@ class TokenIntrospectionController
      * Authenticating is not on its own permission to introspect. A client which authenticates as itself is
      * held to its own tokens, since anything else would let any registered client - including one which
      * registered itself through Dynamic Client Registration - read the subject, scopes and lifetime of
-     * tokens belonging to every other client of this OP.
+     * tokens belonging to every other client of this OP. The deployment names the clients which are more than
+     * that - its resource servers, and the upstream hub - and the administrative path (a logged in
+     * administrator, an API token) is its own role; see IntrospectionCallerRoleEnum.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * @throws \SimpleSAML\Error\ConfigurationError When a client is named in two roles, or there is no key to
+     * fingerprint an API token which has no name.
      * @throws \Exception
      */
     protected function resolveIntrospectionAuthorization(Request $request): IntrospectionAuthorization
@@ -466,6 +470,26 @@ class TokenIntrospectionController
                 ),
             );
 
+            // Read first: it refuses a client named in both roles, which must not be settled by whichever
+            // list happened to be consulted first.
+            if (
+                in_array(
+                    $clientId,
+                    $this->moduleConfig->getApiOAuth2TokenIntrospectionUpstreamHubClientIds(),
+                    true,
+                )
+            ) {
+                $this->loggerService->debug(
+                    sprintf(
+                        'Client %s is configured as the upstream hub, so it may introspect any token this OP ' .
+                        'issued.',
+                        $clientId,
+                    ),
+                );
+
+                return IntrospectionAuthorization::forUpstreamHub($clientId);
+            }
+
             if (
                 in_array(
                     $clientId,
@@ -480,24 +504,24 @@ class TokenIntrospectionController
                     ),
                 );
 
-                return IntrospectionAuthorization::forAnyToken();
+                return IntrospectionAuthorization::forResourceServer($clientId);
             }
 
-            return IntrospectionAuthorization::forTokensOfClient($clientId);
+            return IntrospectionAuthorization::forClient($clientId);
         }
 
         $this->loggerService->debug('No regular OAuth2 client authentication method found.');
         $this->loggerService->debug('Trying API client authentication method.');
 
-        $this->apiAuthorization->requireTokenForAnyOfScope(
+        $principal = $this->apiAuthorization->requireCallerForAnyOfScope(
             $request,
             [ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::OAuth2All, ApiScopesEnum::All],
         );
 
-        $this->loggerService->debug('API client authenticated.');
+        $this->loggerService->debug(sprintf('API client %s authenticated.', $principal));
 
         // The administrative path. Reaching it means either a logged in SimpleSAMLphp administrator or an
         // API token the deployment issued and scoped by hand, neither of which is tied to a single client.
-        return IntrospectionAuthorization::forAnyToken();
+        return IntrospectionAuthorization::forAdministrative($principal);
     }
 }

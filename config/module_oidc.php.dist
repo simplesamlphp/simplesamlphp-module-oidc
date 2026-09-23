@@ -2272,9 +2272,15 @@ $config = [
      * about tokens issued to itself, which tells it nothing it did not already
      * hold. Asking about another client's token is a different matter, since
      * the answer carries that token's subject, scopes and lifetime, so it is
-     * refused unless the client is named here. A refused request is answered as
+     * refused unless the client is named here (or as the upstream hub, in the
+     * option below). A refused request is answered as
      * if the token was not active, rather than with an error, so that the
      * endpoint can not be used to find out which tokens exist.
+     *
+     * Naming a client here is a decision to trust it with personal data: a
+     * client on this list is trusted with the user claims of every token it
+     * can present, since the answer for a token issued to a user carries the
+     * user claims the token's scopes release.
      *
      * This is deliberately a deployment decision instead of a client property.
      * Were it registered client metadata, a client registering itself through
@@ -2287,6 +2293,28 @@ $config = [
      */
     ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => [
 //        'resource-server-client-id',
+    ],
+
+    /**
+     * (optional) Client IDs of the upstream hub: the authorization server
+     * which performs AARC-G052 proxied token introspection towards this OP on
+     * behalf of resource servers elsewhere (for an EOSC Node, the EOSC AAI
+     * Federation hub, which authenticates with the client registered for it
+     * here). Default is an empty list.
+     *
+     * A client named here may introspect any token this OP issued, as a
+     * resource server may: introspecting tokens it did not receive itself is
+     * the hub's whole function. It is the same trust decision about personal
+     * data. A token this OP did not issue is never introspected elsewhere on
+     * its behalf, so that a question the hub asks can not travel back to it.
+     *
+     * A client named both here and among the resource servers above is a
+     * configuration error, and until it is resolved the introspection endpoint
+     * answers every request authenticated with OAuth2 client credentials with a
+     * server error (API tokens and administrators are not affected).
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => [
+//        'hub-client-id',
     ],
 
     /**

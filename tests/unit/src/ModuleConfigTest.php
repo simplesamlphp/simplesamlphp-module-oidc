@@ -1779,6 +1779,69 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * No client introspects as the upstream hub unless the deployment names one.
+     *
+     * @throws \Exception
+     */
+    public function testReadsNoIntrospectionUpstreamHubsByDefault(): void
+    {
+        $this->assertSame([], $this->sut()->getApiOAuth2TokenIntrospectionUpstreamHubClientIds());
+    }
+
+
+    /**
+     * Read the same way the resource servers are: what can not name a client is dropped.
+     *
+     * @throws \Exception
+     */
+    public function testReadsConfiguredIntrospectionUpstreamHubs(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => ['resource-server'],
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => ['hub', '', 123, null],
+            ],
+        ));
+
+        $this->assertSame(['hub'], $sut->getApiOAuth2TokenIntrospectionUpstreamHubClientIds());
+    }
+
+
+    /**
+     * A client named both as a resource server and as the upstream hub would hold two contradictory roles,
+     * one of them allowed to have tokens introspected upstream and the other not, so neither is allowed to
+     * win: the configuration is refused.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesAClientNamedAsBothAResourceServerAndTheUpstreamHub(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS => [
+                    'resource-server',
+                    'hub',
+                    'second-hub',
+                ],
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => [
+                    'hub',
+                    'only-a-hub',
+                    'second-hub',
+                ],
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        // Every client in both, so that one correction is enough.
+        $this->expectExceptionMessage('Client(s) hub, second-hub are named both in');
+
+        $sut->getApiOAuth2TokenIntrospectionUpstreamHubClientIds();
+    }
+
+
+    /**
      * @return array<string,mixed>
      */
     protected function withCredentialTtl(mixed $ttl): array

@@ -273,6 +273,9 @@ class ModuleConfig
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS =
     'api_oauth2_token_introspection_resource_server_client_ids';
 
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS =
+    'api_oauth2_token_introspection_upstream_hub_client_ids';
+
     final public const string OPTION_API_TOKENS = 'api_tokens';
 
     /** Optional key naming an API token, so that an audit trail can say who made a change. */
@@ -3251,6 +3254,54 @@ class ModuleConfig
         return array_values(
             array_filter($clientIds, static fn(mixed $clientId): bool => is_string($clientId) && $clientId !== ''),
         );
+    }
+
+
+    /**
+     * Clients which introspect this OP's tokens as the upstream hub: the authorization server which performs
+     * AARC-G052 proxied token introspection towards this OP on behalf of resource servers elsewhere (for an
+     * EOSC Node, the EOSC AAI Federation hub).
+     *
+     * Such a client is told about any token this OP issued, since introspecting tokens it did not receive is
+     * its whole function, but a token this OP did not issue is never introspected upstream on its behalf:
+     * that is the hub's own job, and doing it for the hub would send the question back to where it came from.
+     *
+     * Named by the deployment for the same reason the resource servers are. A client on both lists would hold
+     * two contradictory roles, so that is refused as a configuration error rather than one role winning.
+     *
+     * @return list<string>
+     * @throws \SimpleSAML\Error\ConfigurationError When a client is also named as a resource server.
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionUpstreamHubClientIds(): array
+    {
+        $clientIds = $this->config()->getOptionalArray(
+            self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+            [],
+        );
+
+        $clientIds = array_values(
+            array_filter($clientIds, static fn(mixed $clientId): bool => is_string($clientId) && $clientId !== ''),
+        );
+
+        $inBothRoles = array_values(array_intersect(
+            $clientIds,
+            $this->getApiOAuth2TokenIntrospectionResourceServerClientIds(),
+        ));
+
+        if ($inBothRoles !== []) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Client(s) %s are named both in %s and in %s. A client introspects either as a resource ' .
+                    'server or as the upstream hub, not as both.',
+                    implode(', ', $inBothRoles),
+                    self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
+                    self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+                ),
+            );
+        }
+
+        return $clientIds;
     }
 
 

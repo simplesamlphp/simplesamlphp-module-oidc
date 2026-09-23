@@ -821,6 +821,41 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
 
+    /**
+     * The assertion is a credential until it expires, and without a protocol cache nothing stops it being
+     * replayed, so no log line - debug included - may carry it.
+     */
+    public function testForPrivateKeyJwtNeverLogsTheAssertion(): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($this->clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn(60);
+
+        $messages = [];
+        $contexts = [];
+        foreach (['debug', 'info', 'notice', 'warning', 'error'] as $level) {
+            $this->loggerServiceMock->method($level)
+                ->willReturnCallback(
+                    function (string $message, array $context = []) use (&$messages, &$contexts): void {
+                        $messages[] = $message;
+                        $contexts[] = (string)json_encode($context);
+                    },
+                );
+        }
+
+        $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
+
+        $this->assertContains('Client assertion param received (20 bytes, not logged).', $messages);
+        foreach ([...$messages, ...$contexts] as $logged) {
+            $this->assertStringNotContainsString('some-assertion-token', $logged);
+        }
+    }
+
+
     public function testForPrivateKeyJwtStoresJtiInCacheAfterSuccess(): void
     {
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')

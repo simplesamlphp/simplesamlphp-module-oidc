@@ -30,6 +30,7 @@ use Symfony\Component\HttpFoundation\Request;
  * first. requireTokenForAnyOfScope() takes that session when there is one and otherwise an API token, from
  * the Authorization header or, failing that, the token request parameter. requireBearerTokenForAnyOfScope()
  * takes the header and nothing else, and says who the token belongs to; its own docblock explains why.
+ * requireCallerForAnyOfScope() is requireTokenForAnyOfScope() saying who the caller is.
  *
  * The bearer token is read through the real Helpers, so the Authorization header is built into a Request
  * rather than stubbed.
@@ -287,6 +288,75 @@ class AuthorizationTest extends TestCase
         $this->expectAuthorizationRefused('Authorization token is not authorized for this action.');
 
         $this->sut()->requireTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+    }
+
+
+    /**
+     * requireCallerForAnyOfScope() authorizes exactly as requireTokenForAnyOfScope() does, and says who by: an
+     * administrator's session is the administrator, whose session names no one in particular.
+     */
+    public function testNamesAnAdminSessionAsTheAdministrator(): void
+    {
+        $this->sspAuthMock->method('isAdmin')->willReturn(true);
+        $this->moduleConfigMock->expects($this->never())->method('getApiTokenScopes');
+        $this->apiTokenPrincipalResolverMock->expects($this->never())->method('resolve');
+
+        $this->assertSame(
+            Authorization::ADMIN_PRINCIPAL,
+            $this->sut()->requireCallerForAnyOfScope($this->request(), $this->requiredScopes()),
+        );
+    }
+
+
+    /**
+     * An API token is named by what it stands for, resolved from the token which authorized, from the header
+     * or from the request parameter alike, never the token itself.
+     */
+    #[DataProvider('tokenCarrierProvider')]
+    public function testNamesAnApiTokenByItsPrincipal(bool $inTheHeader): void
+    {
+        if ($inTheHeader) {
+            $request = $this->requestWithBearerToken();
+        } else {
+            $request = $this->request(query: ['token' => self::TOKEN]);
+            $this->tokenParameterAnswered($request, self::TOKEN);
+        }
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+
+        $resolver = $this->createMock(ApiTokenPrincipalResolver::class);
+        $resolver->expects($this->once())
+            ->method('resolve')
+            ->with(self::TOKEN)
+            ->willReturn('the-resolved-principal');
+        $this->apiTokenPrincipalResolverMock = $resolver;
+
+        $this->assertSame(
+            'the-resolved-principal',
+            $this->sut()->requireCallerForAnyOfScope($request, $this->requiredScopes()),
+        );
+    }
+
+
+    public static function tokenCarrierProvider(): array
+    {
+        return [
+            'the Authorization header' => [true],
+            'the token request parameter' => [false],
+        ];
+    }
+
+
+    /**
+     * A refused token is refused before anyone is named, so the principal is never resolved for it.
+     */
+    public function testRefusesACallerWhoseTokenDoesNotCoverTheRequiredScopes(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)
+            ->willReturn([ApiScopesEnum::OAuth2TokenIntrospection]);
+        $this->apiTokenPrincipalResolverMock->expects($this->never())->method('resolve');
+        $this->expectAuthorizationRefused('Authorization token is not authorized for this action.');
+
+        $this->sut()->requireCallerForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
     }
 
 

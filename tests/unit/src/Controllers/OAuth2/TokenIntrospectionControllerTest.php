@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -207,7 +208,7 @@ class TokenIntrospectionControllerTest extends TestCase
             ->willReturn(null);
 
         $this->apiAuthorizationMock->expects($this->once())
-            ->method('requireTokenForAnyOfScope')
+            ->method('requireCallerForAnyOfScope')
             ->willThrowException(new AuthorizationException('Unauthorized client.'));
 
         $this->loggerServiceMock->expects($this->once())
@@ -234,7 +235,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $requestMock = $this->createMock(Request::class);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willThrowException(new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused'));
-        $this->apiAuthorizationMock->expects($this->never())->method('requireTokenForAnyOfScope');
+        $this->apiAuthorizationMock->expects($this->never())->method('requireCallerForAnyOfScope');
 
         $this->loggerServiceMock->expects($this->once())
             ->method('error')
@@ -801,15 +802,26 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
-    public function testInvokeLetsApiTokenCallerIntrospectAnyClientsToken(): void
+    /**
+     * An API token (named, or known by its fingerprint) and an administrator's session alike.
+     */
+    #[DataProvider('administrativePrincipalProvider')]
+    public function testInvokeLetsApiTokenCallerIntrospectAnyClientsToken(string $principal): void
     {
         $requestMock = $this->createMock(Request::class);
         // No client authentication, so the API token path is taken, and it is not tied to a single client.
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willReturn(null);
 
+        // Named by the principal the API authorization resolved, which is what the log says asked.
         $this->apiAuthorizationMock->expects($this->once())
-            ->method('requireTokenForAnyOfScope');
+            ->method('requireCallerForAnyOfScope')
+            ->willReturn($principal);
+        $debugMessages = [];
+        $this->loggerServiceMock->method('debug')
+            ->willReturnCallback(function (string $message) use (&$debugMessages): void {
+                $debugMessages[] = $message;
+            });
 
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
@@ -834,6 +846,176 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->routesMock->expects($this->once())
             ->method('newJsonResponse')
             ->with($this->callback(fn(array $data) => $data['active'] === true && $data['client_id'] === 'some-client'))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+        $this->assertContains(sprintf('API client %s authenticated.', $principal), $debugMessages);
+    }
+
+
+    public static function administrativePrincipalProvider(): array
+    {
+        return [
+            'a named API token' => ['HR system'],
+            'an unnamed API token' => ['token:0123456789abcdef'],
+            'an administrator' => [Authorization::ADMIN_PRINCIPAL],
+        ];
+    }
+
+
+    /**
+     * No key to fingerprint an unnamed API token with is the deployment's configuration error, not a verdict
+     * on the caller's credentials: a server error, not a 401.
+     */
+    public function testInvokeAnswersAnApiCallerWhoCanNotBeNamedAsAServerError(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn(null);
+        $this->apiAuthorizationMock->method('requireCallerForAnyOfScope')
+            ->willThrowException(new ConfigurationError('Unable to derive the API token fingerprint key'));
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->stringContains('Unable to derive the API token fingerprint key'),
+                ['exception' => ConfigurationError::class],
+            );
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * The hub's privilege covers refresh tokens as much as access tokens: the owner test is the role's, not
+     * the token type's.
+     */
+    public function testInvokeLetsTheUpstreamHubIntrospectAnotherClientsRefreshToken(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')
+            ->willReturn(['hub']);
+
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('hub'));
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], 'another-clients-refresh-token'],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'refresh_token'],
+            ]);
+
+        $this->oAuth2BridgeMock->expects($this->once())
+            ->method('decrypt')
+            ->with('another-clients-refresh-token')
+            ->willReturn(json_encode([
+                'expire_time' => time() + 3600,
+                'refresh_token_id' => 'ref-1',
+                'scopes' => ['openid'],
+                'client_id' => 'other-client',
+                'sub' => 'the-subject',
+            ]));
+
+        $this->refreshTokenRepositoryMock->method('isRefreshTokenRevoked')
+            ->with('ref-1')
+            ->willReturn(false);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(
+                $this->callback(
+                    fn(array $data) => $data['active'] === true && $data['client_id'] === 'other-client',
+                ),
+            )
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * The upstream hub introspects tokens it did not receive itself, which is its whole function, so it is
+     * told about any token this OP issued, as a resource server is.
+     */
+    public function testInvokeLetsTheUpstreamHubIntrospectAnotherClientsToken(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')
+            ->willReturn(['hub']);
+        $this->moduleConfigMock->expects($this->never())
+            ->method('getApiOAuth2TokenIntrospectionResourceServerClientIds');
+
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('hub'));
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], 'access-token-of-a-client-of-this-op'],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
+            ]);
+
+        $jwsMock = $this->createMock(ParsedJws::class);
+        $jwsMock->method('getPayloadClaim')->with('scopes')->willReturn(['openid']);
+        $jwsMock->method('getAudience')->willReturn(['other-client']);
+        $jwsMock->method('getExpirationTime')->willReturn(1000);
+        $jwsMock->method('getJwtId')->willReturn('hub-jti');
+
+        $this->bearerTokenValidatorMock->expects($this->once())
+            ->method('ensureValidAccessToken')
+            ->with('access-token-of-a-client-of-this-op')
+            ->willReturn($jwsMock);
+        $this->givenAccessTokenRecord('hub-jti');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(
+                $this->callback(
+                    fn(array $data) => $data['active'] === true && $data['client_id'] === 'other-client',
+                ),
+            )
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A client named in both roles is the deployment's configuration error, not a verdict on the caller: the
+     * request is answered as the OP's failure, before any token is looked at, rather than by letting one of
+     * the two roles win.
+     */
+    public function testInvokeAnswersAClientNamedInBothRolesAsAServerError(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')
+            ->willThrowException(new ConfigurationError('Client(s) hub are named both in …'));
+
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('hub'));
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->stringContains('named both in'),
+                ['exception' => ConfigurationError::class],
+            );
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
