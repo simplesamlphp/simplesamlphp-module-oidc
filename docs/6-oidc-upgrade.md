@@ -379,6 +379,12 @@ optional, client IDs of the upstream hub which performs AARC-G052 proxied token
 introspection towards this OP (default `[]`). Such a client may introspect any
 token this OP issued, as a resource server may. A client named both here and as
 a resource server is a configuration error.
+- `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY` and
+`ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS` -
+optional, a class deciding per caller how much of an active token's
+introspection answer the caller is told (deny, fewer scopes, members withheld),
+and its constructor arguments (default: none, the whole answer is released). See
+[Release policy](8-api.md#release-policy).
 - `ModuleConfig::OPTION_PAR_REQUEST_URI_TTL` - optional, lifetime of a PAR
 `request_uri` (default `PT10M`).
 - `ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS` - optional,

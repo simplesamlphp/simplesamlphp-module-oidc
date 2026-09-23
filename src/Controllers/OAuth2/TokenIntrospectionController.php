@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
+use SimpleSAML\Module\oidc\Factories\IntrospectionReleasePolicyFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -23,7 +24,9 @@ use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectedTokenOrigin;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -52,6 +55,7 @@ class TokenIntrospectionController
         protected readonly AccessTokenRepository $accessTokenRepository,
         protected readonly UserRepository $userRepository,
         protected readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
+        protected readonly IntrospectionReleasePolicyFactory $introspectionReleasePolicyFactory,
     ) {
         if (!$this->moduleConfig->getApiEnabled()) {
             $this->loggerService->warning('API capabilities not enabled.');
@@ -210,17 +214,12 @@ class TokenIntrospectionController
             return null;
         }
 
-        $userClaims = $this->resolveUserClaims($accessToken, $scopes);
+        $resourceOwner = $this->resolveResourceOwner($accessToken);
 
-        if (is_null($userClaims)) {
+        if ($resourceOwner === false) {
             return null;
         }
 
-        // The user claims are further top-level members, as RFC 7662 section 2.2 allows ("Specific implementations
-        // MAY extend this structure with their own service-specific response names"). The token's own members are
-        // written first and keep the name on a clash: with 'openid' granted, the user claims carry a 'sub' resolved
-        // from the user record as it is now, while the response reports the subject the token was minted with, the
-        // one the ID token issued alongside carries (see the 'sub' note in UserInfoController).
         $tokenMembers = $this->withoutAbsentMembers([
             'active' => true,
             'scope' => $scopes === [] ? null : implode(' ', $scopes),
@@ -236,43 +235,78 @@ class TokenIntrospectionController
         ]);
 
         // A token minted before the module wrote a 'typ' header carries the internal user identifier as its 'sub',
-        // not the resolved subject; for such a token the 'sub' the 'openid' scope released stands, as it does at
-        // the UserInfo endpoint, so that the two endpoints name the End-User the same way for every token.
-        if (is_null($accessToken->getType()) && array_key_exists(ClaimsEnum::Sub->value, $userClaims)) {
-            unset($tokenMembers[ClaimsEnum::Sub->value]);
+        // not the resolved subject; for such a token the 'sub' the granted scopes release stands in its place, as it
+        // does at the UserInfo endpoint, so that the two endpoints name the End-User the same way for every token.
+        // Settled before the policy is asked, so that it is the subject the policy sees and the only one the answer
+        // can carry: a policy which takes 'openid' away must not bring the internal identifier back.
+        if (is_null($accessToken->getType()) && $resourceOwner instanceof UserEntity) {
+            $legacySubject = $this->resolveLegacySubject($scopes, $resourceOwner);
+
+            if (!is_null($legacySubject)) {
+                $tokenMembers[ClaimsEnum::Sub->value] = $legacySubject;
+            }
         }
 
-        return $tokenMembers + $userClaims;
+        $decision = $this->decideRelease(
+            $introspectionAuthorization,
+            IntrospectedTokenOrigin::local($this->moduleConfig->getIssuer()),
+            $scopes,
+            $tokenMembers,
+            sprintf('access token %s', (string)$accessToken->getJwtId()),
+        );
+
+        if (is_null($decision)) {
+            return null;
+        }
+
+        $releasedScopes = $decision->releasedScopesOf($scopes);
+
+        // The user claims of the released scopes, and only of those, so that a scope the decision took away can
+        // not leave its claims behind. They are read from the resource owner's record as it is now: the claims
+        // the UserInfo endpoint releases for the same token, from the same record, so a resource server learns the
+        // same about the user whichever endpoint it asks. The 'claims' request parameter (OpenID Connect Core 1.0
+        // section 5.5) targets the ID token and the UserInfo endpoint and plays no part here, as it plays none in
+        // the access token's own user claims. Nothing is read from the presented token: it is a snapshot taken
+        // when it was minted. A released identity claim which is not a non-empty string throws, and is answered
+        // as the OP's failure.
+        $userClaims = $resourceOwner instanceof UserEntity ?
+        $this->claimTranslatorExtractor->extract($releasedScopes, $resourceOwner->getClaims()) :
+        [];
+
+        $tokenMembers = $this->withReleasedScope($tokenMembers, $scopes, $releasedScopes);
+
+        // The user claims are further top-level members, as RFC 7662 section 2.2 allows ("Specific implementations
+        // MAY extend this structure with their own service-specific response names"). The token's own members are
+        // written first and keep the name on a clash: with 'openid' released, the user claims carry a 'sub' resolved
+        // from the user record as it is now, while the response reports the subject the token was minted with, the
+        // one the ID token issued alongside carries (see the 'sub' note in UserInfoController). The withheld
+        // members go last, so that nothing assembled here can put one back: 'sub' is a token member as well as a
+        // user claim.
+        return $decision->withholdFrom($tokenMembers + $userClaims);
     }
 
 
     /**
-     * The user claims the token's scopes release, read from the resource owner's record as it is now: the claims
-     * the UserInfo endpoint releases for the same token, from the same record, so a resource server learns the same
-     * about the user whichever endpoint it asks. The 'claims' request parameter (OpenID Connect Core 1.0 section
-     * 5.5) targets the ID token and the UserInfo endpoint and plays no part here, as it plays none in the access
-     * token's own user claims. Nothing is read from the presented token: it is a snapshot taken when it was minted.
+     * The resource owner whose user claims an active access token releases, as their record is now.
      *
-     * Empty for a token issued without a user (a client credentials token, a pre-authorized code with no holder).
-     * Null when the token is not to be reported as active: its own record is gone, or its resource owner's is. The
+     * Null for a token issued without a user (a client credentials token, a pre-authorized code with no holder).
+     * False when the token is not to be reported as active: its own record is gone, or its resource owner's is. The
      * validator has already looked the token's record up, so the former only happens when the record went between
      * the two reads. The latter is decided, not incidental: deleting a user deletes the tokens issued to them (the
      * database cascades it), which is a revocation RFC 7662 section 4 has the authorization server "determine
      * whether or not such a revocation has taken place"; a copy of the token's row in the protocol cache can answer
      * for it until the token expires, and this is where that copy stops passing the token as active.
      *
-     * @param string[] $scopes
-     * @return ?array<array-key, mixed>
-     * @throws \Throwable When a record can not be read, or a released identity claim is not a non-empty string;
-     * not a verdict on the token, and answered as the OP's failure.
+     * @throws \Throwable When a record can not be read; not a verdict on the token, and answered as the OP's
+     * failure.
      */
-    protected function resolveUserClaims(ParsedJws $accessToken, array $scopes): ?array
+    protected function resolveResourceOwner(ParsedJws $accessToken): UserEntity|false|null
     {
         $jti = $accessToken->getJwtId();
 
         // The validator refuses a token without one; a null here would mean it was not run.
         if (is_null($jti)) {
-            return null;
+            return false;
         }
 
         $accessTokenEntity = $this->accessTokenRepository->findById($jti);
@@ -281,14 +315,14 @@ class TokenIntrospectionController
             $this->loggerService->warning(
                 sprintf('Access token %s has no record. Answering as if the token was not active.', $jti),
             );
-            return null;
+            return false;
         }
 
         // Null for a token issued without a user; the entity keeps no empty identifier.
         $userIdentifier = $accessTokenEntity->getUserIdentifier();
 
         if (is_null($userIdentifier)) {
-            return [];
+            return null;
         }
 
         $user = $this->userRepository->getUserEntityByIdentifier($userIdentifier);
@@ -302,10 +336,105 @@ class TokenIntrospectionController
                     $userIdentifier,
                 ),
             );
-            return null;
+            return false;
         }
 
-        return $this->claimTranslatorExtractor->extract($scopes, $user->getClaims());
+        return $user;
+    }
+
+
+    /**
+     * The 'sub' the granted scopes release, resolved on its own: for a token minted before the module wrote a 'typ'
+     * header, whose own 'sub' is the internal user identifier. Only the subject is read and checked, so that no
+     * other claim of a granted scope (an identity claim with an invalid value, say) can fail the answer before the
+     * release policy has decided whether that scope is released at all. Null when no granted scope releases 'sub',
+     * or the user record yields none.
+     *
+     * @param string[] $scopes
+     * @throws \RuntimeException When the resolved 'sub' is not a non-empty string; answered as the OP's failure.
+     */
+    protected function resolveLegacySubject(array $scopes, UserEntity $resourceOwner): ?string
+    {
+        foreach ($scopes as $scope) {
+            $claimSet = $this->claimTranslatorExtractor->getClaimSet($scope);
+
+            if (!is_null($claimSet) && in_array(ClaimsEnum::Sub->value, $claimSet->getClaims(), true)) {
+                return $this->claimTranslatorExtractor->extractSubject($resourceOwner->getClaims());
+            }
+        }
+
+        return null;
+    }
+
+
+    /**
+     * The release policy's decision about an active token the caller is entitled to ask about; null when the
+     * policy denies the caller the answer, which is then given as for an inactive token, and nothing says why.
+     * RFC 7662 section 2.2 answers a properly authorized request as inactive when "the protected resource is
+     * not allowed to introspect this particular token".
+     *
+     * @param string[] $grantedScopes
+     * @param array<string, mixed> $tokenMembers The answer as it stands before the decision is applied.
+     * @param string $token What to call the token in the log.
+     * @throws \SimpleSAML\Error\ConfigurationError When the configured policy can not be built, or its decision
+     * names a member no decision may withhold.
+     * @throws \Throwable Whatever the policy throws. Like the above, not a verdict on the token, and answered as
+     * the OP's failure.
+     */
+    protected function decideRelease(
+        IntrospectionAuthorization $introspectionAuthorization,
+        IntrospectedTokenOrigin $origin,
+        array $grantedScopes,
+        array $tokenMembers,
+        string $token,
+    ): ?IntrospectionReleaseDecision {
+        $decision = $this->introspectionReleasePolicyFactory->build()->decide(
+            $introspectionAuthorization,
+            $origin,
+            $grantedScopes,
+            $tokenMembers,
+        );
+
+        if (!$decision->isDenied()) {
+            return $decision;
+        }
+
+        $this->loggerService->notice(
+            sprintf(
+                'The introspection release policy denies %s %s the answer about %s. Answering as if the token ' .
+                'was not active.',
+                $introspectionAuthorization->getRole()->value,
+                $introspectionAuthorization->getCallerId(),
+                $token,
+            ),
+        );
+
+        return null;
+    }
+
+
+    /**
+     * The token members with 'scope' naming only the released scopes, and without it when none is released.
+     * Unchanged when every granted scope is released.
+     *
+     * @param array<string, mixed> $tokenMembers
+     * @param string[] $grantedScopes
+     * @param string[] $releasedScopes
+     * @return array<string, mixed>
+     */
+    protected function withReleasedScope(array $tokenMembers, array $grantedScopes, array $releasedScopes): array
+    {
+        if ($releasedScopes === $grantedScopes) {
+            return $tokenMembers;
+        }
+
+        if ($releasedScopes === []) {
+            unset($tokenMembers['scope']);
+        } else {
+            $tokenMembers['scope'] = implode(' ', $releasedScopes);
+        }
+
+        return $tokenMembers;
     }
 
 
@@ -376,10 +505,10 @@ class TokenIntrospectionController
             return null;
         }
 
-        $scopeClaim = null;
+        $scopes = [];
         $refreshTokenScopes = $tokenData['scopes'] ?? null;
         if (is_array($refreshTokenScopes)) {
-            $scopeClaim = $this->prepareScopeString($refreshTokenScopes);
+            $scopes = $this->scopeTokens($refreshTokenScopes);
         }
 
         $clientId = is_string($clientId = $tokenData['client_id'] ?? null) ? $clientId : null;
@@ -394,15 +523,32 @@ class TokenIntrospectionController
         $subject = is_string($tokenData['sub'] ?? null) ? $tokenData['sub'] : null;
         $subject ??= is_string($tokenData['user_id'] ?? null) ? $tokenData['user_id'] : null;
 
-        return $this->withoutAbsentMembers([
+        $tokenMembers = $this->withoutAbsentMembers([
             'active' => true,
-            'scope' => $scopeClaim,
+            'scope' => $scopes === [] ? null : implode(' ', $scopes),
             'client_id' => $clientId,
             ClaimsEnum::Exp->value => $expireTime,
             ClaimsEnum::Sub->value => $subject,
             ClaimsEnum::Aud->value => $clientId,
             ClaimsEnum::Jti->value => $refreshTokenId,
         ]);
+
+        $decision = $this->decideRelease(
+            $introspectionAuthorization,
+            IntrospectedTokenOrigin::local($this->moduleConfig->getIssuer()),
+            $scopes,
+            $tokenMembers,
+            sprintf('refresh token %s', $refreshTokenId),
+        );
+
+        if (is_null($decision)) {
+            return null;
+        }
+
+        // No user claims to read: a refresh token carries the token members only.
+        return $decision->withholdFrom(
+            $this->withReleasedScope($tokenMembers, $scopes, $decision->releasedScopesOf($scopes)),
+        );
     }
 
 
@@ -424,12 +570,6 @@ class TokenIntrospectionController
         }
 
         return $scopeTokens;
-    }
-
-
-    protected function prepareScopeString(array $scopes): string
-    {
-        return implode(' ', $this->scopeTokens($scopes));
     }
 
 

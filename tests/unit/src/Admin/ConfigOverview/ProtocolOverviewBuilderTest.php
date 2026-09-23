@@ -16,10 +16,12 @@ use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\Introspection\PassthroughIntrospectionReleasePolicy;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use stdClass;
 
 #[CoversClass(ProtocolOverviewBuilder::class)]
 #[CoversClass(Row::class)]
@@ -221,6 +223,62 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame(['hub'], $row->getValue());
         $this->assertNotNull($row->getNote());
         $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The configured policy class is shown as data, and one which is not a release policy is flagged on its row,
+     * with the class name still visible, since that is what has to be corrected.
+     */
+    #[DataProvider('introspectionReleasePolicyProvider')]
+    public function testShowsTheIntrospectionReleasePolicy(
+        ?string $policyClass,
+        string $expectedValue,
+        ConfigOverviewValueTypeEnum $expectedType,
+        bool $isWarned,
+    ): void {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY => $policyClass,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS => ['secret-dsn'],
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY);
+
+        $this->assertNotNull($row);
+        $this->assertSame($expectedValue, $row->getValue());
+        $this->assertSame($expectedType, $row->getValueType());
+        $this->assertNotNull($row->getNote());
+        $this->assertSame($isWarned, $row->getWarning() !== null);
+
+        // The arguments are counted, never shown.
+        $argumentsRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS,
+        );
+        $this->assertNotNull($argumentsRow);
+        $this->assertSame('1', $argumentsRow->getValue());
+    }
+
+
+    public static function introspectionReleasePolicyProvider(): array
+    {
+        return [
+            'none' => [null, 'None', ConfigOverviewValueTypeEnum::Text, false],
+            'a release policy' => [
+                PassthroughIntrospectionReleasePolicy::class,
+                PassthroughIntrospectionReleasePolicy::class,
+                ConfigOverviewValueTypeEnum::RawText,
+                false,
+            ],
+            'a class which is not one' => [
+                stdClass::class,
+                stdClass::class,
+                ConfigOverviewValueTypeEnum::RawText,
+                true,
+            ],
+        ];
     }
 
 

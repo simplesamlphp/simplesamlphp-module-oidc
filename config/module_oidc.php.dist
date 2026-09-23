@@ -2318,6 +2318,43 @@ $config = [
     ],
 
     /**
+     * (optional) Class name of the introspection release policy, which
+     * decides, per caller, how much of an active token's introspection answer
+     * that caller is told (RFC 7662 section 2.2 lets an authorization server
+     * "respond differently to different protected resources making the same
+     * request"). Default is null: every caller entitled to ask about a token
+     * is told the whole answer.
+     *
+     * The class must implement
+     * \SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInterface.
+     * It is asked once per answer, only about a token which is active and
+     * which the caller may ask about, and is given the caller (identity and
+     * role), where the token comes from, the scopes the token was granted and
+     * the token's members. It returns a decision: deny (the token is then
+     * answered as not active, exactly as an unknown token is), the scopes to
+     * release (the user claims are then read for those scopes only, and
+     * 'scope' names only those), and names of members to leave out of the
+     * answer, which are removed last, so none of them comes back ('sub'
+     * included). A decision can only take away. The members describing the
+     * token itself ('active', 'iss', 'exp', 'iat', 'nbf', 'token_type',
+     * 'client_id', 'jti' and 'aud') can not be withheld; a decision naming one
+     * is a configuration error. A policy which throws, or which can not be
+     * built, is answered with a server error, never as an inactive token.
+     *
+     * For a token this OP issued, whoever holds the token can read the same
+     * user claims at the UserInfo endpoint, so a policy limits what this
+     * endpoint hands over, not what a caller holding the token can learn.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY => null,
+
+    /**
+     * (optional) Arguments the release policy above is constructed with. A
+     * list is passed by position, string keys by name. Default is an empty
+     * array.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS => [],
+
+    /**
      * List of API tokens which can be used to access API endpoints based on
      * given scopes. The format is: ['token' => [ApiScopesEnum]]
      *

@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\DcrRegistrationAuthEnum;
 use SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
@@ -1220,6 +1221,57 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                         ),
                     );
                 },
+            ),
+            $this->guardRow(
+                Translate::noop('Token Introspection Release Policy'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY,
+                function (): Row {
+                    $policyClass = $this->moduleConfig->getApiOAuth2TokenIntrospectionReleasePolicyClass();
+
+                    if (is_null($policyClass)) {
+                        return new Row(
+                            Translate::noop('Token Introspection Release Policy'),
+                            Translate::noop('None'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY,
+                            Translate::noop(
+                                'None, so every caller entitled to ask about a token is told the whole ' .
+                                'answer: the token\'s members, and the user claims its scopes release.',
+                            ),
+                        );
+                    }
+
+                    // The class name is shown either way, since it is what the administrator has to correct.
+                    return new Row(
+                        Translate::noop('Token Introspection Release Policy'),
+                        $policyClass,
+                        ConfigOverviewValueTypeEnum::RawText,
+                        ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY,
+                        Translate::noop(
+                            'Decides, per caller, whether an active token is reported at all, which of its ' .
+                            'scopes are released, and which members are left out of the answer.',
+                        ),
+                        is_subclass_of($policyClass, IntrospectionReleasePolicyInterface::class) ?
+                        null :
+                        Translate::noop(
+                            'This is not a class implementing the release policy interface, so the ' .
+                            'introspection endpoint answers with a server error wherever it would report ' .
+                            'an active token.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Token Introspection Release Policy Arguments'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS,
+                fn(): Row => $this->buildSecretCountRow(
+                    Translate::noop('Token Introspection Release Policy Arguments'),
+                    count($this->moduleConfig->getApiOAuth2TokenIntrospectionReleasePolicyArguments()),
+                    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS,
+                    Translate::noop(
+                        'Values are not shown, since policy arguments can carry credentials.',
+                    ),
+                ),
             ),
             $this->guardRow(
                 Translate::noop('API Tokens'),

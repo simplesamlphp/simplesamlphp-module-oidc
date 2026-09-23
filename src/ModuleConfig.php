@@ -276,6 +276,12 @@ class ModuleConfig
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS =
     'api_oauth2_token_introspection_upstream_hub_client_ids';
 
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY =
+    'api_oauth2_token_introspection_release_policy';
+
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS =
+    'api_oauth2_token_introspection_release_policy_arguments';
+
     final public const string OPTION_API_TOKENS = 'api_tokens';
 
     /** Optional key naming an API token, so that an audit trail can say who made a change. */
@@ -3302,6 +3308,34 @@ class ModuleConfig
         }
 
         return $clientIds;
+    }
+
+
+    /**
+     * Class name of the policy deciding, per caller, how much of an active token's introspection answer the
+     * caller is told; null for the default, which releases the whole answer. Checked where the policy is
+     * built (see IntrospectionReleasePolicyFactory).
+     *
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionReleasePolicyClass(): ?string
+    {
+        return $this->config()->getOptionalString(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY, null);
+    }
+
+
+    /**
+     * Arguments the release policy is constructed with, as for the cache adapters: a list is passed by position,
+     * string keys by name.
+     *
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionReleasePolicyArguments(): array
+    {
+        return $this->config()->getOptionalArray(
+            self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS,
+            [],
+        );
     }
 
 

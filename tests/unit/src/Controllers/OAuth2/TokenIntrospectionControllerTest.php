@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\OAuth2;
 
+use Closure;
 use Exception;
 use PDOException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -14,12 +15,16 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
+use SimpleSAML\Module\oidc\Codebooks\IntrospectionCallerRoleEnum;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
+use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
+use SimpleSAML\Module\oidc\Factories\IntrospectionReleasePolicyFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -27,11 +32,16 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
+use SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInterface;
+use SimpleSAML\Module\oidc\Services\Introspection\PassthroughIntrospectionReleasePolicy;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectedTokenOrigin;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
@@ -69,6 +79,8 @@ class TokenIntrospectionControllerTest extends TestCase
 
     protected MockObject $claimTranslatorExtractorMock;
 
+    protected MockObject $introspectionReleasePolicyFactoryMock;
+
 
     protected function setUp(): void
     {
@@ -87,6 +99,11 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepository::class);
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->claimTranslatorExtractorMock = $this->createMock(ClaimTranslatorExtractor::class);
+
+        // The default: no policy configured, so every entitled caller is told the whole answer.
+        $this->introspectionReleasePolicyFactoryMock = $this->createMock(IntrospectionReleasePolicyFactory::class);
+        $this->introspectionReleasePolicyFactoryMock->method('build')
+            ->willReturn(new PassthroughIntrospectionReleasePolicy());
     }
 
 
@@ -103,6 +120,7 @@ class TokenIntrospectionControllerTest extends TestCase
         ?AccessTokenRepository $accessTokenRepository = null,
         ?UserRepository $userRepository = null,
         ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
+        ?IntrospectionReleasePolicyFactory $introspectionReleasePolicyFactory = null,
     ): TokenIntrospectionController {
         return new TokenIntrospectionController(
             $moduleConfig ?? $this->moduleConfigMock,
@@ -117,6 +135,7 @@ class TokenIntrospectionControllerTest extends TestCase
             $accessTokenRepository ?? $this->accessTokenRepositoryMock,
             $userRepository ?? $this->userRepositoryMock,
             $claimTranslatorExtractor ?? $this->claimTranslatorExtractorMock,
+            $introspectionReleasePolicyFactory ?? $this->introspectionReleasePolicyFactoryMock,
         );
     }
 
@@ -144,6 +163,19 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->userRepositoryMock->method('getUserEntityByIdentifier')
             ->with($userIdentifier)
             ->willReturn($userEntityMock);
+    }
+
+
+    /**
+     * The 'openid' scope releases 'sub', and the user record resolves it to the given subject; what a token minted
+     * before the module wrote 'typ' is reported with.
+     */
+    private function givenTheResolvedSubject(string $subject): void
+    {
+        $this->claimTranslatorExtractorMock->method('getClaimSet')
+            ->willReturnCallback(fn(string $scope): ?ClaimSetEntity =>
+                $scope === 'openid' ? new ClaimSetEntity('openid', ['sub']) : null);
+        $this->claimTranslatorExtractorMock->method('extractSubject')->willReturn($subject);
     }
 
 
@@ -580,9 +612,10 @@ class TokenIntrospectionControllerTest extends TestCase
             ->method('ensureValidAccessToken')
             ->with('another-clients-access-token')
             ->willReturn($jwsMock);
-        // Refused before anything is read about the token's user.
+        // Refused before anything is read about the token's user, and before the release policy is asked.
         $this->accessTokenRepositoryMock->expects($this->never())->method('findById');
         $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $this->introspectionReleasePolicyFactoryMock->expects($this->never())->method('build');
 
         $responseMock = $this->createMock(JsonResponse::class);
         // Nothing about the token comes back, not even that it exists.
@@ -667,6 +700,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->refreshTokenRepositoryMock->method('isRefreshTokenRevoked')
             ->with('ref-1')
             ->willReturn(false);
+        $this->introspectionReleasePolicyFactoryMock->expects($this->never())->method('build');
 
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
@@ -1180,6 +1214,8 @@ class TokenIntrospectionControllerTest extends TestCase
             ->with('deleted-user')
             ->willReturn(null);
         $this->claimTranslatorExtractorMock->expects($this->never())->method('extract');
+        // A policy is only ever asked about a token which is active.
+        $this->introspectionReleasePolicyFactoryMock->expects($this->never())->method('build');
 
         $this->loggerServiceMock->expects($this->once())
             ->method('warning')
@@ -1205,6 +1241,7 @@ class TokenIntrospectionControllerTest extends TestCase
             ->with('jti1')
             ->willReturn(null);
         $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $this->introspectionReleasePolicyFactoryMock->expects($this->never())->method('build');
 
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
@@ -1286,6 +1323,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid'], 'internal-user-id', null);
         $this->givenAccessTokenRecord('jti1', 'internal-user-id');
         $this->givenUserRecord('internal-user-id', ['uid' => ['internal-user-id']]);
+        $this->givenTheResolvedSubject('resolved-subject');
 
         $this->claimTranslatorExtractorMock->expects($this->once())
             ->method('extract')
@@ -1466,5 +1504,618 @@ class TokenIntrospectionControllerTest extends TestCase
             'the fetch failed' => [new PDOException('SQLSTATE[HY000]: General error: 2013 Lost connection')],
             'the record is corrupt' => [OidcServerException::serverError('Invalid Refresh Token state')],
         ];
+    }
+
+
+    /**
+     * The release policy the deployment configured: answers every question with what $decide returns, and keeps
+     * what it was asked in $asked.
+     *
+     * @param \Closure(): \SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision $decide
+     */
+    private function givenReleasePolicy(Closure $decide): object
+    {
+        $policy = new class ($decide) implements IntrospectionReleasePolicyInterface {
+            public array $asked = [];
+
+
+            public function __construct(private readonly Closure $decide)
+            {
+            }
+
+
+            public function decide(
+                IntrospectionAuthorization $caller,
+                IntrospectedTokenOrigin $origin,
+                array $grantedScopes,
+                array $tokenMembers,
+            ): IntrospectionReleaseDecision {
+                $this->asked[] = [$caller, $origin, $grantedScopes, $tokenMembers];
+
+                return ($this->decide)();
+            }
+        };
+
+        $this->introspectionReleasePolicyFactoryMock = $this->createMock(IntrospectionReleasePolicyFactory::class);
+        $this->introspectionReleasePolicyFactoryMock->method('build')->willReturn($policy);
+
+        return $policy;
+    }
+
+
+    private function givenIntrospectableRefreshToken(MockObject $requestMock, array $payload): void
+    {
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('client1'));
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-refresh-token'],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'refresh_token'],
+            ]);
+
+        $this->oAuth2BridgeMock->method('decrypt')
+            ->with('valid-refresh-token')
+            ->willReturn(json_encode([
+                'expire_time' => time() + 3600,
+                'refresh_token_id' => 'ref-1',
+                'client_id' => 'client1',
+                ...$payload,
+            ]));
+
+        $this->refreshTokenRepositoryMock->method('isRefreshTokenRevoked')->with('ref-1')->willReturn(false);
+    }
+
+
+    /**
+     * The policy is asked once, about an active token, with who asked and in which role, where the token comes
+     * from, the scopes it was granted and its members as they stand before the decision: without the user claims,
+     * which are only read for the scopes the decision releases.
+     */
+    public function testInvokeAsksTheReleasePolicyAboutAnActiveAccessToken(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['displayName' => ['Ada']]);
+        $this->moduleConfigMock->method('getIssuer')->willReturn('https://op.example.org');
+        $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::releaseAll());
+
+        $this->claimTranslatorExtractorMock->method('extract')->willReturn(['name' => 'Ada']);
+        $this->routesMock->method('newJsonResponse')->willReturn($this->createMock(JsonResponse::class));
+
+        $this->sut()->__invoke($requestMock);
+
+        $this->assertCount(1, $policy->asked);
+        [$caller, $origin, $grantedScopes, $tokenMembers] = $policy->asked[0];
+        $this->assertSame(IntrospectionCallerRoleEnum::Client, $caller->getRole());
+        $this->assertSame('client1', $caller->getCallerId());
+        $this->assertTrue($origin->isLocal());
+        $this->assertSame('https://op.example.org', $origin->getIssuer());
+        $this->assertTrue($origin->isIssuerVerified());
+        $this->assertSame(['openid', 'profile'], $grantedScopes);
+        $this->assertSame(
+            [
+                'active' => true,
+                'scope' => 'openid profile',
+                'client_id' => 'client1',
+                'token_type' => 'Bearer',
+                'exp' => 1000,
+                'iat' => 500,
+                'sub' => 'token-subject',
+                'aud' => ['client1'],
+                'iss' => 'iss1',
+                'jti' => 'jti1',
+            ],
+            $tokenMembers,
+        );
+    }
+
+
+    public function testInvokeAsksTheReleasePolicyAboutAnActiveRefreshToken(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableRefreshToken($requestMock, ['scopes' => ['openid', 'offline_access'], 'sub' => 's1']);
+        $this->moduleConfigMock->method('getIssuer')->willReturn('https://op.example.org');
+        $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::releaseAll());
+
+        $this->routesMock->method('newJsonResponse')->willReturn($this->createMock(JsonResponse::class));
+
+        $this->sut()->__invoke($requestMock);
+
+        $this->assertCount(1, $policy->asked);
+        [$caller, $origin, $grantedScopes, $tokenMembers] = $policy->asked[0];
+        $this->assertSame('client1', $caller->getCallerId());
+        $this->assertTrue($origin->isLocal());
+        $this->assertSame('https://op.example.org', $origin->getIssuer());
+        $this->assertSame(['openid', 'offline_access'], $grantedScopes);
+        $this->assertSame('openid offline_access', $tokenMembers['scope']);
+        $this->assertSame('s1', $tokenMembers['sub']);
+        $this->assertSame('ref-1', $tokenMembers['jti']);
+    }
+
+
+    /**
+     * A denial is answered exactly as an inactive token is (RFC 7662 section 2.2), and nothing about the token's
+     * user is read for it.
+     */
+    public function testInvokeAnswersAnAccessTokenThePolicyDeniesAsInactive(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['displayName' => ['Ada']]);
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision => IntrospectionReleaseDecision::deny());
+
+        $this->claimTranslatorExtractorMock->expects($this->never())->method('extract');
+        $this->loggerServiceMock->expects($this->once())
+            ->method('notice')
+            ->with($this->stringContains('denies client client1 the answer about access token jti1'));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public function testInvokeAnswersARefreshTokenThePolicyDeniesAsInactive(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableRefreshToken($requestMock, ['scopes' => ['openid'], 'sub' => 's1']);
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision => IntrospectionReleaseDecision::deny());
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('notice')
+            ->with($this->stringContains('denies client client1 the answer about refresh token ref-1'));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * The policy is told who asked, and in which role: the caller the endpoint authenticated, not the client the
+     * token was issued to, so a deployment can decide per resource server, for the hub or for the administrative
+     * path.
+     */
+    #[DataProvider('callerRoleProvider')]
+    public function testInvokeTellsTheReleasePolicyWhoAskedInWhichRole(
+        ?string $clientId,
+        ?string $roleListGetter,
+        IntrospectionCallerRoleEnum $expectedRole,
+        string $expectedCallerId,
+    ): void {
+        $requestMock = $this->createMock(Request::class);
+
+        if (is_null($clientId)) {
+            $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn(null);
+            $this->apiAuthorizationMock->method('requireCallerForAnyOfScope')->willReturn('ops-token');
+        } else {
+            $this->moduleConfigMock->method((string)$roleListGetter)->willReturn([$clientId]);
+            $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+                ->willReturn($this->createValidResolvedClientAuthenticationMethodMock($clientId));
+        }
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
+            ]);
+
+        $jwsMock = $this->createMock(ParsedJws::class);
+        $jwsMock->method('getPayloadClaim')->with('scopes')->willReturn(['openid']);
+        $jwsMock->method('getAudience')->willReturn(['client1']);
+        $jwsMock->method('getExpirationTime')->willReturn(1000);
+        $jwsMock->method('getJwtId')->willReturn('jti1');
+        $this->bearerTokenValidatorMock->method('ensureValidAccessToken')->willReturn($jwsMock);
+        $this->givenAccessTokenRecord('jti1');
+
+        $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::releaseAll());
+
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true
+                && $data['client_id'] === 'client1'))
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->sut()->__invoke($requestMock);
+
+        $this->assertCount(1, $policy->asked);
+        $this->assertSame($expectedRole, $policy->asked[0][0]->getRole());
+        $this->assertSame($expectedCallerId, $policy->asked[0][0]->getCallerId());
+    }
+
+
+    public static function callerRoleProvider(): array
+    {
+        return [
+            'a resource server' => [
+                'rs1',
+                'getApiOAuth2TokenIntrospectionResourceServerClientIds',
+                IntrospectionCallerRoleEnum::ResourceServer,
+                'rs1',
+            ],
+            'the upstream hub' => [
+                'hub1',
+                'getApiOAuth2TokenIntrospectionUpstreamHubClientIds',
+                IntrospectionCallerRoleEnum::UpstreamHub,
+                'hub1',
+            ],
+            'an API token' => [null, null, IntrospectionCallerRoleEnum::Administrative, 'ops-token'],
+        ];
+    }
+
+
+    /**
+     * Without a token_type_hint, a denied access token is answered as inactive like any other, and the policy is
+     * asked once: the refresh token path tried after it does not find the token.
+     */
+    public function testInvokeAnswersADeniedAccessTokenWithoutATokenTypeHintAsInactive(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid'], tokenTypeHint: null);
+        $this->givenAccessTokenRecord('jti1');
+        $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision => IntrospectionReleaseDecision::deny());
+
+        // An access token is not an encrypted refresh token payload.
+        $this->oAuth2BridgeMock->method('decrypt')->willThrowException(new Exception('Unable to decrypt'));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+        $this->assertCount(1, $policy->asked);
+    }
+
+
+    /**
+     * The user claims are read for the released scopes only, so a scope taken away takes its claims with it, and
+     * the 'scope' member names what was released, in the token's order.
+     */
+    public function testInvokeReleasesTheUserClaimsOfTheReleasedScopesOnly(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile', 'email']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['mail' => ['ada@example.org']]);
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::release(['email', 'openid', 'not-granted']));
+
+        $this->claimTranslatorExtractorMock->expects($this->once())
+            ->method('extract')
+            ->with(['openid', 'email'], ['mail' => ['ada@example.org']])
+            ->willReturn(['email' => 'ada@example.org']);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with([
+                'active' => true,
+                'scope' => 'openid email',
+                'client_id' => 'client1',
+                'token_type' => 'Bearer',
+                'exp' => 1000,
+                'iat' => 500,
+                'sub' => 'token-subject',
+                'aud' => ['client1'],
+                'iss' => 'iss1',
+                'jti' => 'jti1',
+                'email' => 'ada@example.org',
+            ])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public function testInvokeLeavesTheScopeOutWhenNoScopeIsReleased(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['displayName' => ['Ada']]);
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision => IntrospectionReleaseDecision::release([]));
+
+        $this->claimTranslatorExtractorMock->expects($this->once())
+            ->method('extract')
+            ->with([], ['displayName' => ['Ada']])
+            ->willReturn([]);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true
+                && !array_key_exists('scope', $data)
+                && $data['sub'] === 'token-subject'))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * 'scope' is not a protected member: a decision may release a scope's claims and still leave the 'scope' member
+     * itself out of the answer.
+     */
+    public function testInvokeWithholdsTheScopeMemberWhileReleasingTheScopesClaims(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['displayName' => ['Ada']]);
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::release(['profile'], ['scope']));
+
+        $this->claimTranslatorExtractorMock->expects($this->once())
+            ->method('extract')
+            ->with(['profile'], ['displayName' => ['Ada']])
+            ->willReturn(['name' => 'Ada']);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true
+                && !array_key_exists('scope', $data)
+                && $data['name'] === 'Ada'
+                && $data['sub'] === 'token-subject'))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * Withholding is applied to the assembled answer, last, so a withheld name does not come back from either
+     * side: not 'sub' as the token's member, and not 'sub' as the user claim the 'openid' scope releases, which
+     * for a token minted before the module wrote 'typ' would otherwise stand in its place.
+     */
+    #[DataProvider('tokenTypeProvider')]
+    public function testInvokeWithholdsTheNamedMembersFromTheAssembledAnswer(?string $type, string $tokenSubject): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile'], $tokenSubject, $type);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['displayName' => ['Ada']]);
+        $this->givenTheResolvedSubject('user-claim-subject');
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::release(withheldMembers: ['sub', 'name']));
+
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturn(['sub' => 'user-claim-subject', 'name' => 'Ada', 'given_name' => 'Ada']);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with([
+                'active' => true,
+                'scope' => 'openid profile',
+                'client_id' => 'client1',
+                'token_type' => 'Bearer',
+                'exp' => 1000,
+                'iat' => 500,
+                'aud' => ['client1'],
+                'iss' => 'iss1',
+                'jti' => 'jti1',
+                'given_name' => 'Ada',
+            ])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A token with a 'typ' header carries the resolved subject itself; one minted before carries the internal user
+     * identifier, which the resolved subject replaces.
+     */
+    public static function tokenTypeProvider(): array
+    {
+        return [
+            'a token with a typ header' => ['at+jwt', 'token-subject'],
+            'a token minted before the module wrote typ' => [null, 'internal-user-id'],
+        ];
+    }
+
+
+    /**
+     * A token minted before the module wrote 'typ' carries the internal user identifier as its 'sub'; the answer
+     * reports the resolved subject the granted 'openid' scope releases instead. That is settled before the policy
+     * is asked, so a policy which takes 'openid' away does not bring the internal identifier back: a decision can
+     * only take away, and the internal identifier is not in the answer the policy restricts.
+     */
+    #[DataProvider('scopesWithoutOpenIdProvider')]
+    public function testInvokeNeverReportsTheInternalIdentifierOfALegacyTokenWhoseOpenIdScopeIsTakenAway(
+        array $releasedScopes,
+    ): void {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile'], 'internal-user-id', null);
+        $this->givenAccessTokenRecord('jti1', 'internal-user-id');
+        $this->givenUserRecord('internal-user-id', ['displayName' => ['Ada']]);
+        $this->givenTheResolvedSubject('resolved-subject');
+        $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::release($releasedScopes));
+
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturnCallback(fn(array $scopes): array => array_merge(
+                in_array('openid', $scopes, true) ? ['sub' => 'resolved-subject'] : [],
+                in_array('profile', $scopes, true) ? ['name' => 'Ada'] : [],
+            ));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true
+                && $data['sub'] === 'resolved-subject'
+                && !in_array('internal-user-id', $data, true)
+                && array_key_exists('name', $data) === in_array('profile', $releasedScopes, true)))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+
+        // The subject the policy is shown is the one the answer reports.
+        $this->assertSame('resolved-subject', $policy->asked[0][3]['sub']);
+    }
+
+
+    public static function scopesWithoutOpenIdProvider(): array
+    {
+        return [
+            'profile only' => [['profile']],
+            'no scope' => [[]],
+        ];
+    }
+
+
+    /**
+     * Only the subject of a token minted before 'typ' is resolved ahead of the policy. An identity claim with an
+     * invalid value is refused wherever the 'openid' scope releases it, but a policy which takes 'openid' away
+     * releases no identity claim, so that value must not fail the answer before the policy has decided. With the
+     * real extractor, since the refusal is its own.
+     */
+    public function testInvokeResolvesOnlyTheSubjectOfALegacyTokenBeforeThePolicyDecides(): void
+    {
+        $claimTranslatorExtractor = new ClaimTranslatorExtractor(
+            ['uid'],
+            new ClaimSetEntityFactory(),
+            [],
+            ['voperson_id' => ['voPersonID'], 'name' => ['displayName']],
+            [],
+            ['voperson_id'],
+        );
+
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile'], 'internal-user-id', null);
+        $this->givenAccessTokenRecord('jti1', 'internal-user-id');
+        $this->givenUserRecord(
+            'internal-user-id',
+            ['uid' => ['ada-subject'], 'voPersonID' => [''], 'displayName' => ['Ada']],
+        );
+        $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::release(['profile']));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->never())->method('newJsonErrorResponse');
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true
+                && $data['scope'] === 'profile'
+                && $data['sub'] === 'ada-subject'
+                && $data['name'] === 'Ada'
+                && !array_key_exists('voperson_id', $data)))
+            ->willReturn($responseMock);
+
+        $this->assertSame(
+            $responseMock,
+            $this->sut(claimTranslatorExtractor: $claimTranslatorExtractor)->__invoke($requestMock),
+        );
+        $this->assertSame('ada-subject', $policy->asked[0][3]['sub']);
+    }
+
+
+    public function testInvokeAppliesTheDecisionToARefreshToken(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableRefreshToken($requestMock, ['scopes' => ['openid', 'offline_access'], 'sub' => 's1']);
+        $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
+            IntrospectionReleaseDecision::release(['openid'], ['sub']));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true
+                && $data['scope'] === 'openid'
+                && !array_key_exists('sub', $data)
+                && $data['client_id'] === 'client1'
+                && $data['aud'] === 'client1'
+                && $data['jti'] === 'ref-1'))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A policy which fails, or which names a member no decision may withhold, is the OP's failure, not a verdict on
+     * the token: a server_error, never an answer a resource server would cache.
+     */
+    #[DataProvider('releasePolicyFailureProvider')]
+    public function testInvokeAnswersAReleasePolicyFailureAsAServerError(Closure $decide, string $failure): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', []);
+        $this->givenReleasePolicy($decide);
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with($this->stringContains($failure));
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public static function releasePolicyFailureProvider(): array
+    {
+        return [
+            'the policy throws' => [
+                fn(): IntrospectionReleaseDecision => throw new RuntimeException('Policy store unreachable'),
+                'Policy store unreachable',
+            ],
+            'the policy withholds a protected member' => [
+                fn(): IntrospectionReleaseDecision => IntrospectionReleaseDecision::release(withheldMembers: ['iss']),
+                'may not withhold the member iss',
+            ],
+        ];
+    }
+
+
+    public function testInvokeAnswersAReleasePolicyWhichCanNotBeBuiltAsAServerError(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid']);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', []);
+
+        $this->introspectionReleasePolicyFactoryMock = $this->createMock(IntrospectionReleasePolicyFactory::class);
+        $this->introspectionReleasePolicyFactoryMock->method('build')
+            ->willThrowException(new ConfigurationError('not a class implementing'));
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with($this->stringContains('not a class implementing'), ['exception' => ConfigurationError::class]);
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 }

@@ -471,6 +471,90 @@ user's), it responds with `server_error` (HTTP 500) rather than with an
 inactive token: the failure is the OP's, not a verdict on the token, and a
 resource server may cache the verdict.
 
+#### Release policy
+
+By default every caller entitled to ask about a token is told the whole
+answer. A deployment which wants to tell some callers less configures a
+release policy: a class implementing
+`\SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInterface`,
+constructed with the arguments configured next to it (a list is passed by
+position, string keys by name). RFC 7662 section 2.2 lets an authorization
+server "respond differently to different protected resources making the same
+request", for instance by limiting which scopes are returned to each.
+
+The policy is asked once per answer, only about a token which is active and
+which the caller may ask about. It is given the caller (its identifier and its
+role: `client`, `resource_server`, `upstream_hub` or `administrative`), where
+the token comes from, the scopes the token was granted and the token's members
+without the user claims, and returns a decision
+(`\SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision`):
+
+* `releaseAll()` -- the whole answer;
+* `deny()` -- the token is answered as `active: false`, exactly as an unknown
+  token is, and nothing says why (the refusal is logged);
+* `release($scopes, $withheldMembers)` -- only the granted scopes named in
+  `$scopes` (null for all of them) are released: the `scope` member names only
+  those, and the user claims are read for those scopes only, so a scope taken
+  away takes its claims with it. The members named in `$withheldMembers` are
+  then removed from the assembled answer, last, so none of them comes back --
+  `sub` included, which is a token member as well as a user claim.
+
+A decision can only take away: naming a scope the token was not granted does
+not release it. The members describing the token itself -- `active`, `iss`,
+`exp`, `iat`, `nbf`, `token_type`, `client_id`, `jti` (those AARC-G052 section
+3 forbids a proxy to change) and `aud` -- can not be withheld; a decision naming
+one is a configuration error. A policy which throws, which returns such a
+decision, or which can not be built is answered with a `server_error`, never
+with an inactive token.
+
+For a token this OP issued, whoever holds the token can read the same user
+claims at the UserInfo endpoint, so a policy limits what the introspection
+endpoint hands over, not what a caller holding the token can learn.
+
+For example, releasing only the `openid` scope (and so only its claims) to one
+resource server, and the whole answer to every other caller:
+
+```php
+use SimpleSAML\Module\oidc\Codebooks\IntrospectionCallerRoleEnum;
+use SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInterface;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectedTokenOrigin;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision;
+
+class ScopesPerResourceServer implements IntrospectionReleasePolicyInterface
+{
+    /** @param array<string, string[]> $scopesByResourceServer */
+    public function __construct(protected readonly array $scopesByResourceServer)
+    {
+    }
+
+    public function decide(
+        IntrospectionAuthorization $caller,
+        IntrospectedTokenOrigin $origin,
+        array $grantedScopes,
+        array $tokenMembers,
+    ): IntrospectionReleaseDecision {
+        // Keyed by role as well as identifier: an API token's name could equal a client identifier.
+        if ($caller->getRole() !== IntrospectionCallerRoleEnum::ResourceServer) {
+            return IntrospectionReleaseDecision::releaseAll();
+        }
+
+        $scopes = $this->scopesByResourceServer[$caller->getCallerId()] ?? null;
+
+        return IntrospectionReleaseDecision::release($scopes);
+    }
+}
+```
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY => \Acme\ScopesPerResourceServer::class,
+ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS => [
+    'scopesByResourceServer' => ['analytics-rs' => ['openid']],
+],
+```
+
 #### Sample 1
 
 Introspect an active access token using an API Bearer Token.

@@ -1842,6 +1842,42 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * No release policy unless the deployment configures one: the default releases the whole answer.
+     *
+     * @throws \Exception
+     */
+    public function testReadsNoIntrospectionReleasePolicyByDefault(): void
+    {
+        $this->assertNull($this->sut()->getApiOAuth2TokenIntrospectionReleasePolicyClass());
+        $this->assertSame([], $this->sut()->getApiOAuth2TokenIntrospectionReleasePolicyArguments());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsTheConfiguredIntrospectionReleasePolicy(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY => 'Acme\\ReleasePolicy',
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS => [
+                    'positional',
+                    'named' => ['rs1' => ['openid']],
+                ],
+            ],
+        ));
+
+        $this->assertSame('Acme\\ReleasePolicy', $sut->getApiOAuth2TokenIntrospectionReleasePolicyClass());
+        $this->assertSame(
+            ['positional', 'named' => ['rs1' => ['openid']]],
+            $sut->getApiOAuth2TokenIntrospectionReleasePolicyArguments(),
+        );
+    }
+
+
+    /**
      * @return array<string,mixed>
      */
     protected function withCredentialTtl(mixed $ttl): array

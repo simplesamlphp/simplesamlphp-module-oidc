@@ -2521,3 +2521,31 @@ msgid ""
 "introspect any token it issued, as a resource server may, but a token it did "
 "not issue is never introspected elsewhere on their behalf."
 msgstr ""
+
+msgid "Token Introspection Release Policy"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid ""
+"None, so every caller entitled to ask about a token is told the whole "
+"answer: the token's members, and the user claims its scopes release."
+msgstr ""
+
+msgid ""
+"Decides, per caller, whether an active token is reported at all, which of "
+"its scopes are released, and which members are left out of the answer."
+msgstr ""
+
+msgid ""
+"This is not a class implementing the release policy interface, so the "
+"introspection endpoint answers with a server error wherever it would report "
+"an active token."
+msgstr ""
+
+msgid "Token Introspection Release Policy Arguments"
+msgstr ""
+
+msgid "Values are not shown, since policy arguments can carry credentials."
+msgstr ""
