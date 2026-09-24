@@ -313,6 +313,58 @@ class ClientEntityFactoryTest extends TestCase
 
 
     /**
+     * A client registering itself must not be able to lift, or set, the restriction on which issuers' tokens it
+     * may have introspected upstream: that is the deployment's decision about personal data.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataIgnoresAdminOnlyIntrospectionForeignIssuers(): void
+    {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['deny' => []],
+            ],
+            RegistrationTypeEnum::FederatedAutomatic,
+        );
+
+        $this->assertNull($client->getIntrospectionForeignIssuerList());
+        $this->assertArrayNotHasKey(ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS, $client->getExtraMetadata());
+    }
+
+
+    /**
+     * A client updating its own registration (RFC 7592, a full replacement) keeps the list an administrator set.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFromRegistrationDataKeepsTheAdminSetIntrospectionForeignIssuersOnADynamicUpdate(): void
+    {
+        $existingClient = $this->createMock(ClientEntity::class);
+        $existingClient->method('getIdentifier')->willReturn('existing-client');
+        $existingClient->method('getExtraMetadata')->willReturn(
+            [ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['allow' => ['https://node-a.example.org']]],
+        );
+
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['deny' => []],
+            ],
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $existingClient,
+        );
+
+        $foreignIssuerList = $client->getIntrospectionForeignIssuerList();
+        $this->assertNotNull($foreignIssuerList);
+        $this->assertTrue($foreignIssuerList->isAllowList());
+        $this->assertSame(['https://node-a.example.org'], $foreignIssuerList->getIssuers());
+    }
+
+
+    /**
      * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values) and informational
      * metadata (initiate_login_uri, software_id, software_version) are persisted from a registration request.
      *

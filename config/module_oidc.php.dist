@@ -2355,6 +2355,83 @@ $config = [
     ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS => [],
 
     /**
+     * (optional) The authorization server asked about a token this OP did not
+     * issue (AARC-G052 proxied token introspection): for an EOSC Node, the
+     * EOSC AAI Federation hub, which knows the other Nodes. Default is null:
+     * such a token is answered as not active.
+     *
+     * A token is one this OP did not issue when it is a JWS whose 'iss' is not
+     * this OP's issuer. It is asked about only for a caller in the resource
+     * server role; for anyone else it is answered as not active, the upstream
+     * hub included, so that a question can not travel back to where it came
+     * from. Before it is sent, the token must be at most 16384 bytes, name a
+     * signing algorithm other than 'none', name an issuer which is an https
+     * URL, and not be expired or not yet valid by this OP's clock (with the
+     * timestamp validation leeway); anything else is answered as not active
+     * without a request.
+     * The request is this OP's own, authenticated with the credentials below,
+     * never with the caller's. It follows no redirect, goes through the
+     * outbound destination policy, and takes over only the transport options
+     * of the protocol HTTP client options ('verify', 'cert', 'ssl_key',
+     * 'proxy', 'version', 'force_ip_resolve', 'crypto_method'), under its own
+     * timeouts. RFC 8414 discovery of the upstream is not supported: name its
+     * introspection endpoint.
+     *
+     * Keys:
+     * - 'issuer' (mandatory): the upstream's issuer identifier, an https URL
+     *   without a user, a password, a query or a fragment. It can not be this
+     *   OP's own issuer.
+     * - 'introspection_endpoint' (mandatory): its introspection endpoint, an
+     *   https URL without a user, a password or a fragment.
+     * - 'client_id', 'client_secret' (mandatory): the credentials the
+     *   upstream issued to this OP.
+     * - 'client_authentication_method' (optional): 'client_secret_basic'
+     *   (default) or 'client_secret_post'.
+     * - 'connect_timeout', 'timeout' (optional): seconds, default 2 and 5,
+     *   at least 0.001. Keep them short: a worker waiting on a degraded
+     *   upstream answers nobody else meanwhile.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => null,
+//    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => [
+//        'issuer' => 'https://hub.example.org/',
+//        'introspection_endpoint' => 'https://hub.example.org/introspect',
+//        'client_id' => 'client-id-the-hub-issued-to-this-op',
+//        'client_secret' => 'client-secret-the-hub-issued-to-this-op',
+//    ],
+
+    /**
+     * (optional) Authorization servers asked about the tokens of particular
+     * issuers instead of the next hop, keyed by the issuer of the tokens each
+     * answers for, exactly as the tokens name it. Each entry takes the same
+     * keys as the next hop. For a deployment which is itself a hub, or a test
+     * setup. Default is an empty array. This OP's own issuer can not be a key.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP => [
+//        'https://node-a.example.org/' => [
+//            'issuer' => 'https://node-a.example.org/',
+//            'introspection_endpoint' => 'https://node-a.example.org/introspect',
+//            'client_id' => 'client-id-node-a-issued-to-this-op',
+//            'client_secret' => 'client-secret-node-a-issued-to-this-op',
+//        ],
+    ],
+
+    /**
+     * (optional) Whether a failure to get an answer from upstream - it could
+     * not be reached, took too long, answered with an HTTP error, answered
+     * with something which is not an introspection response, or refused this
+     * OP's credentials - is answered as a token which is not active. Default
+     * is false: such a failure is answered with a server error, since it is
+     * this OP's failure and not a verdict on the token, and a resource server
+     * may cache an inactive answer and refuse a valid token for as long as it
+     * keeps it. AARC-G052 section 2.4 has an inactive answer where "AS1 can
+     * not validate the token through any of the trusted AS"; turn this on
+     * where that literal reading is required. A configuration error of this
+     * OP's own (an unusable upstream entry or foreign issuer list, a release
+     * policy which fails) is answered with a server error whatever this says.
+     */
+    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE => false,
+
+    /**
      * List of API tokens which can be used to access API endpoints based on
      * given scopes. The format is: ['token' => [ApiScopesEnum]]
      *

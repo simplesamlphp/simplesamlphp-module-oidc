@@ -282,6 +282,124 @@ class ProtocolOverviewBuilderTest extends TestCase
     }
 
 
+    public function testShowsThatNoIntrospectionUpstreamIsConfigured(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+        ])->build();
+
+        $nextHopRow = $this->findRowForOption($sections, ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP);
+        $this->assertNotNull($nextHopRow);
+        $this->assertSame('None', $nextHopRow->getValue());
+        $this->assertNotNull($nextHopRow->getNote());
+
+        $issuerMapRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP,
+        );
+        $this->assertNotNull($issuerMapRow);
+        $this->assertSame('None', $issuerMapRow->getValue());
+
+        $failureRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE,
+        );
+        $this->assertNotNull($failureRow);
+        $this->assertStringContainsString('server error', (string)$failureRow->getNote());
+    }
+
+
+    /**
+     * The upstreams are shown for the administrator to check, but their client secrets never are.
+     */
+    public function testShowsTheIntrospectionUpstreamsWithoutTheirSecrets(): void
+    {
+        $upstream = fn(string $issuer, string $secret): array => [
+            ModuleConfig::KEY_UPSTREAM_ISSUER => $issuer,
+            ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => $issuer . 'introspect',
+            ModuleConfig::KEY_UPSTREAM_CLIENT_ID => 'our-client-id',
+            ModuleConfig::KEY_UPSTREAM_CLIENT_SECRET => $secret,
+            ModuleConfig::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD => 'client_secret_post',
+        ];
+
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP =>
+                $upstream('https://hub.example.org/', 'hub-secret'),
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP => [
+                'https://node-a.example.org/' => $upstream('https://node-a.example.org/', 'node-a-secret'),
+            ],
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE => true,
+        ])->build();
+
+        $nextHopRow = $this->findRowForOption($sections, ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP);
+        $this->assertNotNull($nextHopRow);
+        $this->assertSame(ConfigOverviewValueTypeEnum::Json, $nextHopRow->getValueType());
+        $this->assertSame(
+            [
+                ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://hub.example.org/',
+                ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://hub.example.org/introspect',
+                ModuleConfig::KEY_UPSTREAM_CLIENT_ID => 'our-client-id',
+                ModuleConfig::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD => 'client_secret_post',
+                ModuleConfig::KEY_UPSTREAM_CONNECT_TIMEOUT => ModuleConfig::DEFAULT_UPSTREAM_CONNECT_TIMEOUT,
+                ModuleConfig::KEY_UPSTREAM_TIMEOUT => ModuleConfig::DEFAULT_UPSTREAM_TIMEOUT,
+            ],
+            $nextHopRow->getValue(),
+        );
+
+        $issuerMapRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP,
+        );
+        $this->assertNotNull($issuerMapRow);
+        $this->assertSame(ConfigOverviewValueTypeEnum::Json, $issuerMapRow->getValueType());
+        $this->assertSame(['https://node-a.example.org/'], array_keys((array)$issuerMapRow->getValue()));
+
+        foreach ([$nextHopRow, $issuerMapRow] as $row) {
+            $shown = json_encode($row->getValue(), JSON_THROW_ON_ERROR);
+            $this->assertStringNotContainsString('hub-secret', $shown);
+            $this->assertStringNotContainsString('node-a-secret', $shown);
+        }
+
+        $this->assertArrayNotHasKey(
+            ModuleConfig::KEY_UPSTREAM_CLIENT_SECRET,
+            ((array)$issuerMapRow->getValue())['https://node-a.example.org/'],
+        );
+
+        $failureRow = $this->findRowForOption(
+            $sections,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE,
+        );
+        $this->assertNotNull($failureRow);
+        $this->assertStringContainsString('may cache', (string)$failureRow->getNote());
+    }
+
+
+    /**
+     * An unusable upstream fails its own row: the introspection endpoint answers a question about a token this OP
+     * did not issue with a server error until it is corrected.
+     */
+    public function testReportsAnUnusableIntrospectionUpstreamInPlace(): void
+    {
+        $sections = $this->buildProtocolOverviewBuilder([
+            ModuleConfig::OPTION_API_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => [
+                ModuleConfig::KEY_UPSTREAM_ISSUER => 'http://hub.example.org/',
+            ],
+        ])->build();
+
+        $row = $this->findRowForOption($sections, ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP);
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+        $this->assertNotNull($this->findRowForOption($sections, ModuleConfig::OPTION_API_TOKENS));
+    }
+
+
     /**
      * A client named both as a resource server and as the upstream hub stops the introspection endpoint
      * answering, so the screen has to say so, on the hub row, while the resource server row still shows

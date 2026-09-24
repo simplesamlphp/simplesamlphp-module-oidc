@@ -22,12 +22,14 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
@@ -281,6 +283,42 @@ class ModuleConfig
 
     final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS =
     'api_oauth2_token_introspection_release_policy_arguments';
+
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP =
+    'api_oauth2_token_introspection_next_hop';
+
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP =
+    'api_oauth2_token_introspection_issuer_map';
+
+    final public const string OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE =
+    'api_oauth2_token_introspection_upstream_failure_answers_inactive';
+
+    /** Keys of an upstream the introspection endpoint asks about tokens this OP did not issue. */
+    final public const string KEY_UPSTREAM_ISSUER = 'issuer';
+
+    final public const string KEY_UPSTREAM_INTROSPECTION_ENDPOINT = 'introspection_endpoint';
+
+    final public const string KEY_UPSTREAM_CLIENT_ID = 'client_id';
+
+    final public const string KEY_UPSTREAM_CLIENT_SECRET = 'client_secret';
+
+    final public const string KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD = 'client_authentication_method';
+
+    final public const string KEY_UPSTREAM_CONNECT_TIMEOUT = 'connect_timeout';
+
+    final public const string KEY_UPSTREAM_TIMEOUT = 'timeout';
+
+    /**
+     * Seconds. Short, since a PHP worker waiting on a degraded upstream answers nobody else meanwhile.
+     */
+    final public const float DEFAULT_UPSTREAM_CONNECT_TIMEOUT = 2.0;
+
+    final public const float DEFAULT_UPSTREAM_TIMEOUT = 5.0;
+
+    /**
+     * Seconds. cURL is given timeouts in whole milliseconds, and a shorter one would reach it as 0: no timeout.
+     */
+    final public const float MIN_UPSTREAM_TIMEOUT = 0.001;
 
     final public const string OPTION_API_TOKENS = 'api_tokens';
 
@@ -3335,6 +3373,215 @@ class ModuleConfig
         return $this->config()->getOptionalArray(
             self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS,
             [],
+        );
+    }
+
+
+    /**
+     * The authorization server asked about a token this OP did not issue, when the issuer map names none for its
+     * issuer (AARC-G052 proxied token introspection): for an EOSC Node, the EOSC AAI Federation hub. The issuer of
+     * another Node's token is that Node, which this OP does not know; the hub does. Null when none is configured,
+     * in which case such a token is answered as inactive.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionNextHop(): ?IntrospectionUpstream
+    {
+        $nextHop = $this->config()->getOptionalArray(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP, null);
+
+        return is_null($nextHop) ?
+        null :
+        $this->buildIntrospectionUpstream($nextHop, self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP);
+    }
+
+
+    /**
+     * Authorization servers asked about the tokens of particular issuers instead of the next hop, keyed by the
+     * token issuer each answers for; for a deployment which is itself a hub, or a test setup.
+     *
+     * @return array<string, \SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionIssuerMap(): array
+    {
+        $issuerMap = $this->config()->getOptionalArray(self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP, []);
+
+        $upstreams = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($issuerMap as $tokenIssuer => $upstream) {
+            $where = sprintf('%s[%s]', self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP, $tokenIssuer);
+
+            if (!is_string($tokenIssuer) || !IntrospectionUpstream::isIssuerIdentifier($tokenIssuer)) {
+                throw new ConfigurationError(
+                    sprintf('%s: the key must be the issuer of the tokens, an https URL.', $where),
+                );
+            }
+
+            // This OP's own tokens are answered here; asking elsewhere about them would send the question
+            // round in a circle.
+            if ($tokenIssuer === $this->getIssuer()) {
+                throw new ConfigurationError(
+                    sprintf('%s: this OP\'s own tokens are answered here, never asked about upstream.', $where),
+                );
+            }
+
+            if (!is_array($upstream)) {
+                throw new ConfigurationError(sprintf('%s must be an array.', $where));
+            }
+
+            $upstreams[$tokenIssuer] = $this->buildIntrospectionUpstream($upstream, $where);
+        }
+
+        return $upstreams;
+    }
+
+
+    /**
+     * The upstream to ask about a token of the given issuer: the one the issuer map names for exactly that issuer,
+     * otherwise the next hop, otherwise none.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionUpstreamFor(string $tokenIssuer): ?IntrospectionUpstream
+    {
+        return $this->getApiOAuth2TokenIntrospectionIssuerMap()[$tokenIssuer] ??
+        $this->getApiOAuth2TokenIntrospectionNextHop();
+    }
+
+
+    /**
+     * Whether a failure to get an answer from upstream (unreachable, timed out, an HTTP error, an unreadable
+     * answer, this OP's credentials refused) answers the token as inactive, as a literal reading of AARC-G052
+     * section 2.4 ("AS1 can not validate the token through any of the trusted AS") would have it. Off by default:
+     * such a failure is this OP's, not a verdict on the token, and an inactive answer is one the resource server
+     * may cache.
+     *
+     * @throws \Exception
+     */
+    public function getApiOAuth2TokenIntrospectionUpstreamFailureAnswersInactive(): bool
+    {
+        return $this->config()->getOptionalBoolean(
+            self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE,
+            false,
+        );
+    }
+
+
+    /**
+     * @param mixed[] $config
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function buildIntrospectionUpstream(array $config, string $where): IntrospectionUpstream
+    {
+        /** @var mixed $issuer */
+        $issuer = $config[self::KEY_UPSTREAM_ISSUER] ?? null;
+        /** @var mixed $endpoint */
+        $endpoint = $config[self::KEY_UPSTREAM_INTROSPECTION_ENDPOINT] ?? null;
+        /** @var mixed $clientId */
+        $clientId = $config[self::KEY_UPSTREAM_CLIENT_ID] ?? null;
+        /** @var mixed $clientSecret */
+        $clientSecret = $config[self::KEY_UPSTREAM_CLIENT_SECRET] ?? null;
+        /** @var mixed $method */
+        $method = $config[self::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD] ??
+        ClientAuthenticationMethodsEnum::ClientSecretBasic->value;
+        /** @var mixed $connectTimeout */
+        $connectTimeout = $config[self::KEY_UPSTREAM_CONNECT_TIMEOUT] ?? self::DEFAULT_UPSTREAM_CONNECT_TIMEOUT;
+        /** @var mixed $timeout */
+        $timeout = $config[self::KEY_UPSTREAM_TIMEOUT] ?? self::DEFAULT_UPSTREAM_TIMEOUT;
+
+        if (!is_string($issuer) || !IntrospectionUpstream::isIssuerIdentifier($issuer)) {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s: \'%s\' must be an https URL without a user, a password, a query or a fragment.',
+                    $where,
+                    self::KEY_UPSTREAM_ISSUER,
+                ),
+            );
+        }
+
+        // Together with the role an upstream hub is given here (answered locally, never forwarded for), what
+        // stops a question going round in a circle through this OP: nothing is ever asked of itself.
+        if ($issuer === $this->getIssuer()) {
+            throw new ConfigurationError(
+                sprintf('%s: the upstream can not be this OP itself (issuer %s).', $where, $issuer),
+            );
+        }
+
+        // RFC 6749 section 3.1 allows an endpoint a query component, and forbids it a fragment. A user or password
+        // in it would be a credential shown wherever the endpoint is, the configuration overview included; the
+        // credentials go in their own keys.
+        $endpointParts = is_string($endpoint) ? parse_url($endpoint) : false;
+        if (
+            !is_string($endpoint) ||
+            !is_array($endpointParts) ||
+            strtolower($endpointParts['scheme'] ?? '') !== 'https' ||
+            ($endpointParts['host'] ?? '') === '' ||
+            isset($endpointParts['user']) ||
+            isset($endpointParts['pass']) ||
+            isset($endpointParts['fragment'])
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s: \'%s\' must be an https URL without a user, a password or a fragment.',
+                    $where,
+                    self::KEY_UPSTREAM_INTROSPECTION_ENDPOINT,
+                ),
+            );
+        }
+
+        if (!is_string($clientId) || $clientId === '' || !is_string($clientSecret) || $clientSecret === '') {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s: \'%s\' and \'%s\' must be non-empty strings.',
+                    $where,
+                    self::KEY_UPSTREAM_CLIENT_ID,
+                    self::KEY_UPSTREAM_CLIENT_SECRET,
+                ),
+            );
+        }
+
+        $method = is_string($method) ? ClientAuthenticationMethodsEnum::tryFrom($method) : null;
+        if (
+            $method !== ClientAuthenticationMethodsEnum::ClientSecretBasic &&
+            $method !== ClientAuthenticationMethodsEnum::ClientSecretPost
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s: \'%s\' must be client_secret_basic or client_secret_post.',
+                    $where,
+                    self::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD,
+                ),
+            );
+        }
+
+        $timeouts = [self::KEY_UPSTREAM_CONNECT_TIMEOUT => $connectTimeout, self::KEY_UPSTREAM_TIMEOUT => $timeout];
+
+        foreach ($timeouts as $key => $seconds) {
+            // Guzzle reads 0 as "no timeout", and so does cURL a timeout below a millisecond, which is exactly what
+            // must not happen on this path.
+            if (
+                !(is_int($seconds) || is_float($seconds)) ||
+                !($seconds >= self::MIN_UPSTREAM_TIMEOUT) ||
+                is_infinite((float)$seconds)
+            ) {
+                throw new ConfigurationError(
+                    sprintf('%s: \'%s\' must be a number of seconds, at least 0.001.', $where, $key),
+                );
+            }
+        }
+
+        return new IntrospectionUpstream(
+            $issuer,
+            $endpoint,
+            $clientId,
+            $clientSecret,
+            $method,
+            (float)$connectTimeout,
+            (float)$timeout,
         );
     }
 

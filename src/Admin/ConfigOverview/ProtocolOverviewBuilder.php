@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInte
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
@@ -1274,6 +1275,89 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ),
             ),
             $this->guardRow(
+                Translate::noop('Token Introspection Next Hop'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP,
+                function (): Row {
+                    $nextHop = $this->moduleConfig->getApiOAuth2TokenIntrospectionNextHop();
+
+                    if (is_null($nextHop)) {
+                        return new Row(
+                            Translate::noop('Token Introspection Next Hop'),
+                            Translate::noop('None'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP,
+                            Translate::noop(
+                                'None, so a token this OP did not issue is answered as inactive, unless the ' .
+                                'issuer map names an authorization server for its issuer.',
+                            ),
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Token Introspection Next Hop'),
+                        $this->describeIntrospectionUpstream($nextHop),
+                        ConfigOverviewValueTypeEnum::Json,
+                        ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP,
+                        Translate::noop(
+                            'Asked about a token this OP did not issue (AARC-G052 proxied token introspection), ' .
+                            'on behalf of a resource server only. The client secret is not shown.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Token Introspection Issuer Map'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP,
+                function (): Row {
+                    $issuerMap = $this->moduleConfig->getApiOAuth2TokenIntrospectionIssuerMap();
+
+                    if ($issuerMap === []) {
+                        return new Row(
+                            Translate::noop('Token Introspection Issuer Map'),
+                            Translate::noop('None'),
+                            ConfigOverviewValueTypeEnum::Text,
+                            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP,
+                        );
+                    }
+
+                    return new Row(
+                        Translate::noop('Token Introspection Issuer Map'),
+                        array_map($this->describeIntrospectionUpstream(...), $issuerMap),
+                        ConfigOverviewValueTypeEnum::Json,
+                        ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP,
+                        Translate::noop(
+                            'Each is asked about the tokens of the issuer it is listed under, instead of the ' .
+                            'next hop. The client secrets are not shown.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Token Introspection Upstream Failure Answers Inactive'),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE,
+                function (): Row {
+                    $answersInactive = $this->moduleConfig
+                        ->getApiOAuth2TokenIntrospectionUpstreamFailureAnswersInactive();
+
+                    return new Row(
+                        Translate::noop('Token Introspection Upstream Failure Answers Inactive'),
+                        $this->yesNo($answersInactive),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE,
+                        $answersInactive ?
+                        Translate::noop(
+                            'When no answer is had from upstream, the token is answered as inactive, as a literal ' .
+                            'reading of AARC-G052 section 2.4 has it. A resource server may cache that answer, ' .
+                            'and refuse a valid token for as long as it keeps it.',
+                        ) :
+                        Translate::noop(
+                            'When no answer is had from upstream, the introspection endpoint answers with a ' .
+                            'server error: the failure is this OP\'s, not a verdict on the token.',
+                        ),
+                    );
+                },
+            ),
+            $this->guardRow(
                 Translate::noop('API Tokens'),
                 ModuleConfig::OPTION_API_TOKENS,
                 fn(): Row => $this->buildSecretCountRow(
@@ -1299,6 +1383,25 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
         }
 
         return new Section(Translate::noop('API'), 'api', ...$rows);
+    }
+
+
+    /**
+     * An upstream as the overview shows it: everything but the client secret.
+     *
+     * @return array<string, string|float>
+     */
+    protected function describeIntrospectionUpstream(IntrospectionUpstream $upstream): array
+    {
+        return [
+            ModuleConfig::KEY_UPSTREAM_ISSUER => $upstream->getIssuer(),
+            ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => $upstream->getIntrospectionEndpoint(),
+            ModuleConfig::KEY_UPSTREAM_CLIENT_ID => $upstream->getClientId(),
+            ModuleConfig::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD =>
+            $upstream->getClientAuthenticationMethod()->value,
+            ModuleConfig::KEY_UPSTREAM_CONNECT_TIMEOUT => $upstream->getConnectTimeout(),
+            ModuleConfig::KEY_UPSTREAM_TIMEOUT => $upstream->getTimeout(),
+        ];
     }
 
 

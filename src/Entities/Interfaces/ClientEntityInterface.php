@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Entities\Interfaces;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
+use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
 {
@@ -206,4 +207,13 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * Whether the user's (scope-derived) claims should be released in the ID Token issued to this client.
      */
     public function getAddClaimsToIdToken(): bool;
+
+
+    /**
+     * Which issuers' tokens this client, as a resource server, may have introspected upstream on its behalf; null
+     * when every issuer is permitted.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException When the stored value can not be applied.
+     */
+    public function getIntrospectionForeignIssuerList(): ?ForeignIssuerList;
 }

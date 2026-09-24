@@ -13,6 +13,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
@@ -374,6 +376,86 @@ class ClientEntityTest extends TestCase
 
         $this->assertTrue($clientEntity->getAddClaimsToIdToken());
         $this->assertTrue($clientEntity->toArray()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
+    }
+
+
+    protected function withExtraMetadata(array $extraMetadata): ClientEntity
+    {
+        return new ClientEntity(
+            $this->id,
+            $this->secret,
+            $this->name,
+            $this->description,
+            $this->redirectUri,
+            $this->scopes,
+            $this->isEnabled,
+            $this->isConfidential,
+            $this->authSource,
+            $this->owner,
+            $this->postLogoutRedirectUri,
+            $this->backChannelLogoutUri,
+            $this->entityIdentifier,
+            $this->clientRegistrationTypes,
+            $this->federationJwks,
+            $this->jwks,
+            $this->jwksUri,
+            $this->signedJwksUri,
+            $this->registrationType,
+            $this->updatedAt,
+            $this->createdAt,
+            $this->expiresAt,
+            $this->isGeneric,
+            $extraMetadata,
+        );
+    }
+
+
+    /**
+     * A resource server without a foreign issuer list may have every issuer's tokens introspected upstream.
+     */
+    public function testHasNoForeignIssuerListByDefault(): void
+    {
+        $this->assertNull($this->mock()->getIntrospectionForeignIssuerList());
+        $this->assertNull($this->withExtraMetadata([])->getIntrospectionForeignIssuerList());
+    }
+
+
+    public function testReadsTheForeignIssuerListFromItsExtraMetadata(): void
+    {
+        $foreignIssuerList = $this->withExtraMetadata(
+            [ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['deny' => ['https://node-a.example.org']]],
+        )->getIntrospectionForeignIssuerList();
+
+        $this->assertInstanceOf(ForeignIssuerList::class, $foreignIssuerList);
+        $this->assertFalse($foreignIssuerList->isAllowList());
+        $this->assertSame(['https://node-a.example.org'], $foreignIssuerList->getIssuers());
+    }
+
+
+    /**
+     * A stored value which can not be applied is refused, never read as "no list".
+     */
+    public function testRefusesAForeignIssuerListWhichCanNotBeApplied(): void
+    {
+        $clientEntity = $this->withExtraMetadata(
+            [ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['https://node-a.example.org']],
+        );
+
+        $this->expectException(OidcException::class);
+
+        $clientEntity->getIntrospectionForeignIssuerList();
+    }
+
+
+    /**
+     * Never settable through client registration metadata, like the other administrator-only properties.
+     */
+    public function testTheForeignIssuerListIsAdministratorOnly(): void
+    {
+        $this->assertContains(
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS,
+            ClientEntity::ADMIN_ONLY_METADATA_KEYS,
+        );
     }
 
 

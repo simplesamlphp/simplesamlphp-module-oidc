@@ -385,6 +385,16 @@ optional, a class deciding per caller how much of an active token's
 introspection answer the caller is told (deny, fewer scopes, members withheld),
 and its constructor arguments (default: none, the whole answer is released). See
 [Release policy](8-api.md#release-policy).
+- `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP`,
+`ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP` and
+`ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE` -
+optional, AARC-G052 proxied token introspection: the authorization server asked
+about a token this OP did not issue on behalf of a resource server (default:
+none, such a token is answered `active: false`), authorization servers asked
+instead for particular issuers (default `[]`), and whether a failure to get an
+answer from upstream is answered `active: false` rather than with a server error
+(default `false`). See
+[Tokens this OP did not issue](8-api.md#tokens-this-op-did-not-issue).
 - `ModuleConfig::OPTION_PAR_REQUEST_URI_TTL` - optional, lifetime of a PAR
 `request_uri` (default `PT10M`).
 - `ModuleConfig::OPTION_REQUIRE_PUSHED_AUTHORIZATION_REQUESTS` - optional,
@@ -604,6 +614,14 @@ answers any unexpected failure while processing a request in the token error
 format (`{"error": "server_error", ...}`, HTTP 500, with the cause in the OP
 log rather than in the response) instead of with SimpleSAMLphp's HTML error
 page.
+- The token introspection endpoint now tells an access token from a refresh
+token by the token itself, and no longer by `token_type_hint`. Previously a
+hint naming the other type answered `active: false` for a valid token, and an
+unknown hint value answered `active: false` without looking the token up; RFC
+7662 section 2.1 has an authorization server search past a hint which does not
+locate the token, and lets it ignore the hint where it can detect the type
+itself. The hint is still accepted, and is passed on unchanged when a token this
+OP did not issue is introspected upstream.
 - Client property `is_federated` has been removed, as the OP implementation
 can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to

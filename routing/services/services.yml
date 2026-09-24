@@ -184,6 +184,13 @@ services:
     factory: [ '@SimpleSAML\Module\oidc\Factories\OAuth2Factory', 'build' ]
   SimpleSAML\OpenID\RequestObject:
     factory: [ '@SimpleSAML\Module\oidc\Factories\RequestObjectFactory', 'build' ]
+  # Builds the HTTP client of proxied token introspection, which asks an upstream authorization server about
+  # tokens this OP did not issue; the destination policy above is handed to it when a client is built.
+  SimpleSAML\OpenID\Factories\HttpClientDecoratorFactory:
+    arguments:
+      $logger: '@SimpleSAML\Module\oidc\Services\LoggerService'
+  # The library's type checks, for the claims of that client's answers.
+  SimpleSAML\OpenID\Helpers: ~
 
 
   # SSP

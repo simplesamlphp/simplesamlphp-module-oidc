@@ -411,9 +411,12 @@ following parameters:
 
 * __token__ (string, mandatory): The string value of the token.
 * __token_type_hint__ (string, optional): A hint about the type of the
-token submitted for introspection. Allowed values:
-  * `access_token`
-  * `refresh_token`
+token submitted for introspection, such as `access_token` or `refresh_token`.
+The endpoint tells the type from the token itself (an access token is a JWS, a
+refresh token of this OP never is), so the hint does not decide how a token is
+looked up, and a wrong one does not make a valid token inactive (RFC 7662
+section 2.1). It is passed on unchanged when a token this OP did not issue is
+introspected upstream.
 
 #### Response
 
@@ -486,7 +489,8 @@ The policy is asked once per answer, only about a token which is active and
 which the caller may ask about. It is given the caller (its identifier and its
 role: `client`, `resource_server`, `upstream_hub` or `administrative`), where
 the token comes from, the scopes the token was granted and the token's members
-without the user claims, and returns a decision
+without the user claims (for a token this OP did not issue, the upstream's whole
+answer), and returns a decision
 (`\SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision`):
 
 * `releaseAll()` -- the whole answer;
@@ -554,6 +558,117 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS => 
     'scopesByResourceServer' => ['analytics-rs' => ['openid']],
 ],
 ```
+
+#### Tokens this OP did not issue
+
+An EOSC Node's resource servers receive tokens issued by other Nodes, which only
+the issuing Node can vouch for.
+[AARC-G052](https://aarc-community.org/guidelines/aarc-g052/) proxied token
+introspection lets a resource server ask its own OP about such a token anyway:
+the OP asks an authorization server it trusts -- for an EOSC Node, the EOSC AAI
+Federation hub, which asks the issuing Node -- and passes the answer on.
+
+A token is one this OP did not issue when it is a JWS whose `iss` is not this
+OP's issuer. The `iss` is read without verifying the token, and only decides
+where the question goes: the upstream the issuer map names for exactly that
+issuer, otherwise the next hop, otherwise none, and the token is answered as
+`active: false`. Nothing about an upstream is ever taken from a token. The JWS
+is read with the same parser the OP validates its own tokens with, which also
+judges its `exp`, `nbf` and `iat` against the OP's clock (with the configured
+timestamp validation leeway): a token which has expired, or is not yet valid, is
+answered as `active: false` without asking anyone.
+
+```php
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => [
+    'issuer' => 'https://hub.example.org/',
+    'introspection_endpoint' => 'https://hub.example.org/introspect',
+    'client_id' => 'client-id-the-hub-issued-to-this-op',
+    'client_secret' => 'client-secret-the-hub-issued-to-this-op',
+    // 'client_authentication_method' => 'client_secret_basic', // or 'client_secret_post'
+    // 'connect_timeout' => 2, 'timeout' => 5,                   // seconds
+],
+```
+
+`api_oauth2_token_introspection_issuer_map` takes entries of the same shape,
+keyed by the issuer of the tokens each answers for. RFC 8414 discovery of an
+upstream is not supported; its introspection endpoint is named. An upstream can
+not be this OP itself.
+
+Only a caller in the `resource_server` role has a token this OP did not issue
+introspected upstream. Any other caller -- a client asking about a token, the
+upstream hub, an administrator or an API token -- is answered `active: false`:
+the hub asking about such a token would be its own question coming back.
+
+Before anything is sent, the token must be at most 16384 bytes, name a signing
+algorithm other than `none` (G052 section 4), and name an issuer which is an
+https URL without a query or fragment (RFC 8414 section 2), nor a user or a
+password; otherwise it is answered `active: false`. The OP does not verify the
+signature, which G052 section 4 does not require of it: the upstream does. The
+request is the OP's own, authenticated with the credentials the upstream issued
+to it -- the caller's are never passed on -- and carries the token and the caller's
+`token_type_hint`. It follows no redirect, goes through the outbound destination
+policy, and reads at most 100 KiB of answer. Of the protocol HTTP client options
+it takes over only how the upstream is reached and trusted (`verify`, `cert`,
+`ssl_key`, `proxy`, `version`, `force_ip_resolve`, `crypto_method`), never
+credentials, headers or cURL options, and it uses the upstream's own timeouts
+(at least 1 ms each).
+
+The answer:
+
+* upstream says `active: false` -- `active: false`, and nothing else the
+  upstream said is passed on (G052 section 3);
+* upstream says `active: true` -- its answer, through the release policy (see
+  below). The members describing the token (`iss`, `exp`, `iat`, `nbf`,
+  `token_type`, `client_id`, `jti`, which G052 section 3 forbids a proxy to
+  change, and `aud`) are passed on unchanged; `client_id` and `aud` are in the
+  issuer's namespace, and the resource server is the party to judge `aud`;
+* upstream reports a `token_type` other than `Bearer` -- `active: false` (G052
+  section 2.4: a token "which cannot be used as an OAuth 2.0 bearer token");
+* upstream names this OP as the token's issuer -- `active: false`;
+* the OP could not get an answer -- the upstream could not be reached, took too
+  long, answered with an HTTP error (a `429` included), answered with something
+  other than an introspection response (not a JSON object, `active` not a
+  boolean, a standard member of the wrong type), or refused the OP's own
+  credentials -- `server_error` (HTTP 500), logged as an error, and as critical
+  when the cause is the OP's own (its credentials refused, its destination
+  policy refusing the endpoint). This is not a verdict on the token, and a
+  resource server may cache an inactive answer. A deployment which needs the
+  literal reading of G052 section 2.4 (`active: false` whenever "AS1 can not
+  validate the token through any of the trusted AS", a transient failure
+  included) sets `api_oauth2_token_introspection_upstream_failure_answers_inactive`
+  to `true`. A configuration error of the OP's own -- an unusable upstream entry
+  or foreign issuer list, a release policy which fails -- is a `server_error`
+  whatever that option says.
+
+A resource server's client record may restrict which issuers' tokens it may have
+introspected upstream, with an allow list or a deny list of issuers
+(`introspection_foreign_issuers` in the client's extra metadata:
+`['allow' => [issuers]]` or `['deny' => [issuers]]`; without one, every issuer
+is permitted). It is administrator-only: never taken from Dynamic Client
+Registration or OpenID Federation registration metadata, and kept when a client
+updates its own registration. A deny is checked before anything is sent, on the
+issuer the token names: refusing on an unverified claim is safe, since whoever
+forged it can only refuse themselves. An allow is checked on the issuer the
+upstream's answer names, the only one to rely on; an answer which names none can
+not satisfy a list, and is answered `active: false`. A stored value which is
+neither shape is answered with a `server_error`, never read as "no list".
+
+The release policy is asked about such a token as about a local one, with an
+origin which says the token is foreign, which issuer it names, and whether that
+issuer is the upstream answer's (verified) or only the token's own. Its decision
+is applied the same way, with one difference: the claims in the answer are the
+issuer's, and which of them a scope carries is the issuer's mapping, so
+releasing fewer scopes narrows `scope` without removing any claim. A policy
+which narrows the scopes of such a token names the claims to withhold itself.
+
+Letting a resource server have foreign tokens introspected is the same trust
+decision about personal data as naming it a resource server: it is told the
+claims the issuer releases for every token it can present.
+
+Answers are not cached: every question about a token this OP did not issue is
+asked upstream.
 
 #### Sample 1
 

@@ -2549,3 +2549,39 @@ msgstr ""
 
 msgid "Values are not shown, since policy arguments can carry credentials."
 msgstr ""
+
+msgid "Token Introspection Next Hop"
+msgstr ""
+
+msgid ""
+"None, so a token this OP did not issue is answered as inactive, unless the "
+"issuer map names an authorization server for its issuer."
+msgstr ""
+
+msgid ""
+"Asked about a token this OP did not issue (AARC-G052 proxied token "
+"introspection), on behalf of a resource server only. The client secret is "
+"not shown."
+msgstr ""
+
+msgid "Token Introspection Issuer Map"
+msgstr ""
+
+msgid ""
+"Each is asked about the tokens of the issuer it is listed under, instead of "
+"the next hop. The client secrets are not shown."
+msgstr ""
+
+msgid "Token Introspection Upstream Failure Answers Inactive"
+msgstr ""
+
+msgid ""
+"When no answer is had from upstream, the token is answered as inactive, as a "
+"literal reading of AARC-G052 section 2.4 has it. A resource server may cache "
+"that answer, and refuse a valid token for as long as it keeps it."
+msgstr ""
+
+msgid ""
+"When no answer is had from upstream, the introspection endpoint answers with "
+"a server error: the failure is this OP's, not a verdict on the token."
+msgstr ""

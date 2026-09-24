@@ -26,10 +26,12 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
@@ -1874,6 +1876,290 @@ class ModuleConfigTest extends TestCase
             ['positional', 'named' => ['rs1' => ['openid']]],
             $sut->getApiOAuth2TokenIntrospectionReleasePolicyArguments(),
         );
+    }
+
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected static function upstreamConfig(array $overrides = []): array
+    {
+        return array_merge(
+            [
+                ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://hub.example.org/',
+                ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://hub.example.org/introspect',
+                ModuleConfig::KEY_UPSTREAM_CLIENT_ID => 'our-client-id',
+                ModuleConfig::KEY_UPSTREAM_CLIENT_SECRET => 'our-client-secret',
+            ],
+            $overrides,
+        );
+    }
+
+
+    /**
+     * No upstream unless the deployment configures one: a token this OP did not issue is then answered as
+     * inactive, and a failure upstream is answered as the OP's own.
+     *
+     * @throws \Exception
+     */
+    public function testReadsNoIntrospectionUpstreamByDefault(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertNull($sut->getApiOAuth2TokenIntrospectionNextHop());
+        $this->assertSame([], $sut->getApiOAuth2TokenIntrospectionIssuerMap());
+        $this->assertNull($sut->getApiOAuth2TokenIntrospectionUpstreamFor('https://node-a.example.org'));
+        $this->assertFalse($sut->getApiOAuth2TokenIntrospectionUpstreamFailureAnswersInactive());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsTheNextHopWithItsDefaults(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => self::upstreamConfig()],
+        ));
+
+        $nextHop = $sut->getApiOAuth2TokenIntrospectionNextHop();
+
+        $this->assertInstanceOf(IntrospectionUpstream::class, $nextHop);
+        $this->assertSame('https://hub.example.org/', $nextHop->getIssuer());
+        $this->assertSame('https://hub.example.org/introspect', $nextHop->getIntrospectionEndpoint());
+        $this->assertSame('our-client-id', $nextHop->getClientId());
+        $this->assertSame('our-client-secret', $nextHop->getClientSecret());
+        $this->assertSame(
+            ClientAuthenticationMethodsEnum::ClientSecretBasic,
+            $nextHop->getClientAuthenticationMethod(),
+        );
+        $this->assertSame(ModuleConfig::DEFAULT_UPSTREAM_CONNECT_TIMEOUT, $nextHop->getConnectTimeout());
+        $this->assertSame(ModuleConfig::DEFAULT_UPSTREAM_TIMEOUT, $nextHop->getTimeout());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsAnUpstreamsOwnAuthenticationMethodAndTimeouts(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => self::upstreamConfig([
+                    // RFC 6749 section 3.1 allows an endpoint a query component.
+                    ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://hub.example.org/introspect?v=2',
+                    ModuleConfig::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD => 'client_secret_post',
+                    ModuleConfig::KEY_UPSTREAM_CONNECT_TIMEOUT => 0.001,
+                    ModuleConfig::KEY_UPSTREAM_TIMEOUT => 2.5,
+                ]),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE => true,
+            ],
+        ));
+
+        $nextHop = $sut->getApiOAuth2TokenIntrospectionNextHop();
+
+        $this->assertInstanceOf(IntrospectionUpstream::class, $nextHop);
+        $this->assertSame('https://hub.example.org/introspect?v=2', $nextHop->getIntrospectionEndpoint());
+        $this->assertSame(ClientAuthenticationMethodsEnum::ClientSecretPost, $nextHop->getClientAuthenticationMethod());
+        $this->assertSame(0.001, $nextHop->getConnectTimeout());
+        $this->assertSame(2.5, $nextHop->getTimeout());
+        $this->assertTrue($sut->getApiOAuth2TokenIntrospectionUpstreamFailureAnswersInactive());
+    }
+
+
+    /**
+     * The issuer map names the upstream for exactly the issuer it is listed under; every other issuer goes to the
+     * next hop.
+     *
+     * @throws \Exception
+     */
+    public function testPrefersTheUpstreamTheIssuerMapNamesForExactlyThatIssuer(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => self::upstreamConfig(),
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP => [
+                    'https://node-a.example.org' => self::upstreamConfig([
+                        ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://node-a.example.org',
+                        ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://node-a.example.org/introspect',
+                    ]),
+                ],
+            ],
+        ));
+
+        $issuerMap = $sut->getApiOAuth2TokenIntrospectionIssuerMap();
+        $this->assertSame(['https://node-a.example.org'], array_keys($issuerMap));
+
+        $this->assertSame(
+            'https://node-a.example.org/introspect',
+            $sut->getApiOAuth2TokenIntrospectionUpstreamFor('https://node-a.example.org')?->getIntrospectionEndpoint(),
+        );
+        $this->assertSame(
+            'https://hub.example.org/introspect',
+            $sut->getApiOAuth2TokenIntrospectionUpstreamFor('https://node-a.example.org/')?->getIntrospectionEndpoint(),
+        );
+        $this->assertSame(
+            'https://hub.example.org/introspect',
+            $sut->getApiOAuth2TokenIntrospectionUpstreamFor('https://node-b.example.org')?->getIntrospectionEndpoint(),
+        );
+    }
+
+
+    public static function unusableUpstreamProvider(): array
+    {
+        return [
+            'no issuer' => [[ModuleConfig::KEY_UPSTREAM_ISSUER => null], "'issuer' must be an https URL"],
+            'an http issuer' => [
+                [ModuleConfig::KEY_UPSTREAM_ISSUER => 'http://hub.example.org'],
+                "'issuer' must be an https URL",
+            ],
+            'an issuer with a query' => [
+                [ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://hub.example.org/?a=b'],
+                "'issuer' must be an https URL",
+            ],
+            'this OP itself' => [
+                [ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://op.example.org'],
+                'the upstream can not be this OP itself',
+            ],
+            'no endpoint' => [
+                [ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => null],
+                "'introspection_endpoint' must be an https URL",
+            ],
+            'an http endpoint' => [
+                [ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'http://hub.example.org/introspect'],
+                "'introspection_endpoint' must be an https URL",
+            ],
+            'an issuer with a user and a password' => [
+                [ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://someone:secret@hub.example.org/'],
+                "'issuer' must be an https URL",
+            ],
+            'an endpoint with a user and a password' => [
+                [ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://someone:secret@hub.example.org/in'],
+                "'introspection_endpoint' must be an https URL",
+            ],
+            'an endpoint with a user' => [
+                [ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://someone@hub.example.org/introspect'],
+                "'introspection_endpoint' must be an https URL",
+            ],
+            'an endpoint with a fragment' => [
+                [ModuleConfig::KEY_UPSTREAM_INTROSPECTION_ENDPOINT => 'https://hub.example.org/introspect#a'],
+                "'introspection_endpoint' must be an https URL",
+            ],
+            'an empty client id' => [
+                [ModuleConfig::KEY_UPSTREAM_CLIENT_ID => ''],
+                "'client_id' and 'client_secret' must be non-empty strings",
+            ],
+            'no client secret' => [
+                [ModuleConfig::KEY_UPSTREAM_CLIENT_SECRET => null],
+                "'client_id' and 'client_secret' must be non-empty strings",
+            ],
+            'private_key_jwt' => [
+                [ModuleConfig::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD => 'private_key_jwt'],
+                "'client_authentication_method' must be client_secret_basic or client_secret_post",
+            ],
+            'an unknown method' => [
+                [ModuleConfig::KEY_UPSTREAM_CLIENT_AUTHENTICATION_METHOD => 'basic'],
+                "'client_authentication_method' must be client_secret_basic or client_secret_post",
+            ],
+            'no connect timeout' => [
+                [ModuleConfig::KEY_UPSTREAM_CONNECT_TIMEOUT => 0],
+                "'connect_timeout' must be a number of seconds, at least 0.001",
+            ],
+            'a negative timeout' => [
+                [ModuleConfig::KEY_UPSTREAM_TIMEOUT => -1],
+                "'timeout' must be a number of seconds, at least 0.001",
+            ],
+            'a timeout which is a string' => [
+                [ModuleConfig::KEY_UPSTREAM_TIMEOUT => '5'],
+                "'timeout' must be a number of seconds, at least 0.001",
+            ],
+            'an endless timeout' => [
+                [ModuleConfig::KEY_UPSTREAM_TIMEOUT => INF],
+                "'timeout' must be a number of seconds, at least 0.001",
+            ],
+            // cURL takes whole milliseconds, and would read this as 0: no timeout.
+            'a timeout below a millisecond' => [
+                [ModuleConfig::KEY_UPSTREAM_TIMEOUT => 0.0009],
+                "'timeout' must be a number of seconds, at least 0.001",
+            ],
+            'a timeout which is not a number' => [
+                [ModuleConfig::KEY_UPSTREAM_TIMEOUT => NAN],
+                "'timeout' must be a number of seconds, at least 0.001",
+            ],
+        ];
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('unusableUpstreamProvider')]
+    public function testRefusesAnUnusableUpstream(array $overrides, string $message): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => self::upstreamConfig($overrides),
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($message);
+
+        $sut->getApiOAuth2TokenIntrospectionNextHop();
+    }
+
+
+    public static function unusableIssuerMapProvider(): array
+    {
+        return [
+            'a key which is not an issuer' => [
+                ['node-a' => self::upstreamConfig()],
+                'the key must be the issuer of the tokens',
+            ],
+            'a list' => [[self::upstreamConfig()], 'the key must be the issuer of the tokens'],
+            "this OP's own issuer" => [
+                ['https://op.example.org' => self::upstreamConfig()],
+                "this OP's own tokens are answered here",
+            ],
+            'an entry which is not an array' => [
+                ['https://node-a.example.org' => 'https://node-a.example.org/introspect'],
+                'must be an array',
+            ],
+            'an unusable entry' => [
+                [
+                    'https://node-a.example.org' => self::upstreamConfig(
+                        [ModuleConfig::KEY_UPSTREAM_CLIENT_SECRET => ''],
+                    ),
+                ],
+                "api_oauth2_token_introspection_issuer_map[https://node-a.example.org]: 'client_id' and",
+            ],
+        ];
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('unusableIssuerMapProvider')]
+    public function testRefusesAnUnusableIssuerMap(array $issuerMap, string $message): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
+                ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP => $issuerMap,
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($message);
+
+        $sut->getApiOAuth2TokenIntrospectionIssuerMap();
     }
 
 

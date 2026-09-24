@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
+use SimpleSAML\Module\oidc\Exceptions\UpstreamIntrospectionException;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\Factories\IntrospectionReleasePolicyFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -34,6 +35,7 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
 use SimpleSAML\Module\oidc\Services\Introspection\IntrospectionReleasePolicyInterface;
 use SimpleSAML\Module\oidc\Services\Introspection\PassthroughIntrospectionReleasePolicy;
+use SimpleSAML\Module\oidc\Services\Introspection\ProxiedTokenIntrospector;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
@@ -46,6 +48,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\ParsedJws;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -55,6 +58,27 @@ use Throwable;
 #[AllowMockObjectsWithoutExpectations]
 class TokenIntrospectionControllerTest extends TestCase
 {
+    protected const string ISSUER = 'https://op.example.org';
+
+    /**
+     * Shaped as a compact JWS naming this OP as its issuer, so that it is looked up as an access token of this OP;
+     * whether it is one is the (mocked) validator's to say.
+     */
+    protected const string ACCESS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6ImF0K2p3dCJ9.' .
+    'eyJpc3MiOiJodHRwczovL29wLmV4YW1wbGUub3JnIiwianRpIjoianRpMSJ9.c2lnbmF0dXJl';
+
+    /**
+     * A compact JWS naming https://node-a.example.org as its issuer: a token this OP did not issue.
+     */
+    protected const string FOREIGN_ACCESS_TOKEN = 'eyJhbGciOiJSUzI1NiIsInR5cCI6ImF0K2p3dCJ9.' .
+    'eyJpc3MiOiJodHRwczovL25vZGUtYS5leGFtcGxlLm9yZyIsImp0aSI6ImZvcmVpZ24xIn0.c2lnbmF0dXJl';
+
+    /**
+     * A compact JWS naming no issuer.
+     */
+    protected const string ISSUERLESS_JWS = 'eyJhbGciOiJSUzI1NiJ9.eyJqdGkiOiJqdGkxIn0.c2lnbmF0dXJl';
+
+
     protected MockObject $moduleConfigMock;
 
     protected MockObject $authenticatedOAuth2ClientResolverMock;
@@ -81,12 +105,15 @@ class TokenIntrospectionControllerTest extends TestCase
 
     protected MockObject $introspectionReleasePolicyFactoryMock;
 
+    protected MockObject $proxiedTokenIntrospectorMock;
+
 
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getApiEnabled')->willReturn(true);
         $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionEndpointEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
 
         $this->authenticatedOAuth2ClientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
         $this->routesMock = $this->createMock(Routes::class);
@@ -104,6 +131,8 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->introspectionReleasePolicyFactoryMock = $this->createMock(IntrospectionReleasePolicyFactory::class);
         $this->introspectionReleasePolicyFactoryMock->method('build')
             ->willReturn(new PassthroughIntrospectionReleasePolicy());
+
+        $this->proxiedTokenIntrospectorMock = $this->createMock(ProxiedTokenIntrospector::class);
     }
 
 
@@ -121,6 +150,8 @@ class TokenIntrospectionControllerTest extends TestCase
         ?UserRepository $userRepository = null,
         ?ClaimTranslatorExtractor $claimTranslatorExtractor = null,
         ?IntrospectionReleasePolicyFactory $introspectionReleasePolicyFactory = null,
+        ?ProxiedTokenIntrospector $proxiedTokenIntrospector = null,
+        ?Jws $jws = null,
     ): TokenIntrospectionController {
         return new TokenIntrospectionController(
             $moduleConfig ?? $this->moduleConfigMock,
@@ -136,6 +167,9 @@ class TokenIntrospectionControllerTest extends TestCase
             $userRepository ?? $this->userRepositoryMock,
             $claimTranslatorExtractor ?? $this->claimTranslatorExtractorMock,
             $introspectionReleasePolicyFactory ?? $this->introspectionReleasePolicyFactoryMock,
+            $proxiedTokenIntrospector ?? $this->proxiedTokenIntrospectorMock,
+            // The library's own parser, which routes a presented token by its shape and its issuer.
+            $jws ?? new Jws(),
         );
     }
 
@@ -307,6 +341,9 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
+    /**
+     * A value which is not a JWS can only be a refresh token of this OP, and is looked up as one only.
+     */
     public function testInvokeReturnsActiveFalseIfTokenInvalid(): void
     {
         $requestMock = $this->createMock(Request::class);
@@ -320,10 +357,8 @@ class TokenIntrospectionControllerTest extends TestCase
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], null],
             ]);
 
-        $this->bearerTokenValidatorMock->expects($this->once())
-            ->method('ensureValidAccessToken')
-            ->with('invalid-token')
-            ->willThrowException(new JwsException('bad token'));
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+        $this->proxiedTokenIntrospectorMock->expects($this->never())->method('introspect');
 
         $this->oAuth2BridgeMock->expects($this->once())
             ->method('decrypt')
@@ -340,7 +375,13 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
-    public function testInvokeCallsAccessTokenFirstRefreshSecondIfNoHint(): void
+    /**
+     * RFC 7662 section 2.1: a hint is an optimisation, which the authorization server "MAY ignore ... particularly
+     * if it is able to detect the token type automatically". A refresh token of this OP is never a JWS, so it is
+     * found as one whatever the hint names, a wrong or an unknown value included.
+     */
+    #[DataProvider('anyTokenTypeHintProvider')]
+    public function testInvokeLooksAValueWhichIsNotAJwsUpAsARefreshTokenWhateverTheHint(?string $hint): void
     {
         $requestMock = $this->createMock(Request::class);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
@@ -349,18 +390,16 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'invalid-access-token'],
-                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], null],
+                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-refresh-token'],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], $hint],
             ]);
 
-        $this->bearerTokenValidatorMock->expects($this->once())
-            ->method('ensureValidAccessToken')
-            ->with('invalid-access-token')
-            ->willThrowException(new JwsException('bad token'));
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+        $this->proxiedTokenIntrospectorMock->expects($this->never())->method('introspect');
 
         $this->oAuth2BridgeMock->expects($this->once())
             ->method('decrypt')
-            ->with('invalid-access-token')
+            ->with('valid-refresh-token')
             ->willReturn(json_encode([
                 'expire_time' => time() + 3600,
                 'refresh_token_id' => 'ref-1',
@@ -382,6 +421,324 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
+    public static function anyTokenTypeHintProvider(): array
+    {
+        return [
+            'no hint' => [null],
+            'access_token' => ['access_token'],
+            'refresh_token' => ['refresh_token'],
+            'an unknown value' => ['id_token'],
+        ];
+    }
+
+
+    /**
+     * An access token is a JWS, found as one whatever the hint names; a JWS is never looked up as a refresh token.
+     */
+    #[DataProvider('anyTokenTypeHintProvider')]
+    public function testInvokeLooksAJwsNamingThisOpUpAsAnAccessTokenWhateverTheHint(?string $hint): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid'], tokenTypeHint: $hint);
+        $this->givenAccessTokenRecord('jti1');
+
+        $this->oAuth2BridgeMock->expects($this->never())->method('decrypt');
+        $this->proxiedTokenIntrospectorMock->expects($this->never())->method('introspect');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true && $data['jti'] === 'jti1'))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A JWS naming no issuer does not claim to be anyone else's either: it is validated here, which refuses it.
+     */
+    public function testInvokeValidatesAJwsNamingNoIssuerHere(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('client1'));
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ISSUERLESS_JWS],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], null],
+            ]);
+
+        $this->bearerTokenValidatorMock->expects($this->once())
+            ->method('ensureValidAccessToken')
+            ->with(self::ISSUERLESS_JWS)
+            ->willThrowException(new JwsException('bad token'));
+        $this->oAuth2BridgeMock->expects($this->never())->method('decrypt');
+        $this->proxiedTokenIntrospectorMock->expects($this->never())->method('introspect');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A JWS naming another issuer is a token this OP did not issue. It is asked about upstream with the caller and
+     * the hint as they came, never validated here, and the answer is the proxied introspector's.
+     */
+    public function testInvokeAsksAboutATokenOfAnotherIssuerUpstream(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('rs1'));
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionResourceServerClientIds')->willReturn(['rs1']);
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::FOREIGN_ACCESS_TOKEN],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'refresh_token'],
+            ]);
+
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+        $this->oAuth2BridgeMock->expects($this->never())->method('decrypt');
+
+        $answer = ['active' => true, 'iss' => 'https://node-a.example.org', 'sub' => 'someone'];
+        $this->proxiedTokenIntrospectorMock->expects($this->once())
+            ->method('introspect')
+            ->with(
+                self::FOREIGN_ACCESS_TOKEN,
+                $this->callback(
+                    fn(ParsedJws $jws): bool => $jws->getIssuer() === 'https://node-a.example.org',
+                ),
+                'refresh_token',
+                $this->callback(
+                    fn(IntrospectionAuthorization $caller): bool =>
+                        $caller->getCallerId() === 'rs1' &&
+                        $caller->getRole() === IntrospectionCallerRoleEnum::ResourceServer,
+                ),
+            )
+            ->willReturn($answer);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($answer)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public function testInvokeAnswersATokenOfAnotherIssuerTheProxiedIntrospectorRefusesAsInactive(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenAForeignTokenAskedAbout($requestMock);
+
+        $this->proxiedTokenIntrospectorMock->method('introspect')->willReturn(null);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * No answer from upstream is not a verdict on the token, so it is not answered as an inactive one, which a
+     * resource server may cache. The failure was logged where it happened, and is not logged again.
+     */
+    public function testInvokeAnswersAFailureToGetAnAnswerUpstreamAsAServerError(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenAForeignTokenAskedAbout($requestMock);
+
+        $this->proxiedTokenIntrospectorMock->method('introspect')
+            ->willThrowException(UpstreamIntrospectionException::unavailable('No answer from the hub.'));
+
+        $this->loggerServiceMock->expects($this->never())->method('error');
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * Anything else the proxied path throws (a misconfigured upstream, a release policy failure) is a server error
+     * too, logged here.
+     */
+    public function testInvokeAnswersAnyOtherFailureOnTheProxiedPathAsAServerError(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenAForeignTokenAskedAbout($requestMock);
+
+        $this->proxiedTokenIntrospectorMock->method('introspect')
+            ->willThrowException(new ConfigurationError('The next hop is misconfigured.'));
+
+        $this->loggerServiceMock->expects($this->once())->method('error');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    protected static function jws(array $header, array|string $payload): string
+    {
+        $segment = fn(string $json): string => rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
+
+        return $segment(json_encode((object)$header, JSON_THROW_ON_ERROR)) . '.' .
+        $segment(is_string($payload) ? $payload : json_encode((object)$payload, JSON_THROW_ON_ERROR)) .
+        '.c2lnbmF0dXJl';
+    }
+
+
+    public static function jwsValidatedHereProvider(): array
+    {
+        $nested = [];
+        for ($level = 0; $level < 100; $level++) {
+            $nested = ['x' => $nested];
+        }
+
+        return [
+            // Their lifetime is judged as the JWS is parsed; the validator refuses them for the same reason.
+            'another issuer\'s, expired' => [
+                self::jws(['alg' => 'RS256'], ['iss' => 'https://node-a.example.org', 'exp' => time() - 3600]),
+            ],
+            'another issuer\'s, not yet valid' => [
+                self::jws(['alg' => 'RS256'], ['iss' => 'https://node-a.example.org', 'nbf' => time() + 3600]),
+            ],
+            'naming an issuer which is not a string' => [
+                self::jws(['alg' => 'RS256'], ['iss' => ['https://node-a.example.org']]),
+            ],
+            // Valid JSON which PHP will not decode into an object, and which the library accepts.
+            'this OP\'s, with a member name starting with NUL' => [
+                self::jws(['alg' => 'RS256'], '{"iss":"https://op.example.org","x":{"\\u0000key":"value"}}'),
+            ],
+            'this OP\'s, nested deep' => [
+                self::jws(['alg' => 'RS256'], ['iss' => 'https://op.example.org', 'x' => $nested]),
+            ],
+        ];
+    }
+
+
+    /**
+     * What the library parses as a JWS is looked up as an access token of this OP unless it plainly names another
+     * issuer, so that the validator, which parses it the same way, gives the answer and the reason.
+     */
+    #[DataProvider('jwsValidatedHereProvider')]
+    public function testInvokeValidatesHereAJwsWhichDoesNotPlainlyNameAnotherIssuer(string $token): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('rs1'));
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionResourceServerClientIds')->willReturn(['rs1']);
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], $token],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], null],
+            ]);
+
+        $this->bearerTokenValidatorMock->expects($this->once())
+            ->method('ensureValidAccessToken')
+            ->with($token)
+            ->willThrowException(new JwsException('refused'));
+        $this->proxiedTokenIntrospectorMock->expects($this->never())->method('introspect');
+        $this->oAuth2BridgeMock->expects($this->never())->method('decrypt');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public static function valuesWhichAreNotAJwsProvider(): array
+    {
+        $jws = self::jws(['alg' => 'RS256'], ['iss' => 'https://node-a.example.org']);
+
+        return [
+            'an encrypted refresh token' => ['def50200a1b2c3d4e5f60718293a4b5c6d7e8f90'],
+            'four segments' => [$jws . '.c2ln'],
+            'little but dots' => [$jws . str_repeat('.', 100000)],
+            'a header which is not JSON' => ['bm90IGpzb24.eyJpc3MiOiJ4In0.c2ln'],
+        ];
+    }
+
+
+    /**
+     * What the library does not parse as a JWS can only be a refresh token of this OP.
+     */
+    #[DataProvider('valuesWhichAreNotAJwsProvider')]
+    public function testInvokeLooksAValueTheLibraryDoesNotParseAsAJwsUpAsARefreshToken(string $token): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('client1'));
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], $token],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
+            ]);
+
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+        $this->proxiedTokenIntrospectorMock->expects($this->never())->method('introspect');
+        $this->oAuth2BridgeMock->expects($this->once())
+            ->method('decrypt')
+            ->with($token)
+            ->willThrowException(new Exception('Unable to decrypt'));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    private function givenAForeignTokenAskedAbout(MockObject $requestMock): void
+    {
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('rs1'));
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionResourceServerClientIds')->willReturn(['rs1']);
+
+        $this->requestParamsResolverMock
+            ->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnMap([
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::FOREIGN_ACCESS_TOKEN],
+                ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], null],
+            ]);
+    }
+
+
     public function testInvokeWithTokenTypeHintAccessToken(): void
     {
         $requestMock = $this->createMock(Request::class);
@@ -391,7 +748,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -403,7 +760,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('valid-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         $this->givenAccessTokenRecord('jti2');
 
@@ -472,7 +829,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -488,7 +845,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('valid-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         $this->givenAccessTokenRecord('jti1');
 
@@ -597,7 +954,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'another-clients-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -610,7 +967,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('another-clients-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         // Refused before anything is read about the token's user, and before the release policy is asked.
         $this->accessTokenRepositoryMock->expects($this->never())->method('findById');
@@ -725,7 +1082,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'audienceless-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -736,7 +1093,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('audienceless-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
 
         $responseMock = $this->createMock(JsonResponse::class);
@@ -763,7 +1120,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'own-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -776,7 +1133,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('own-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         $this->givenAccessTokenRecord('own-jti');
 
@@ -806,7 +1163,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'access-token-of-a-client-it-serves'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -818,7 +1175,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('access-token-of-a-client-it-serves')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         $this->givenAccessTokenRecord('served-jti');
 
@@ -860,7 +1217,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'some-clients-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -872,7 +1229,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('some-clients-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         $this->givenAccessTokenRecord('some-jti');
 
@@ -994,7 +1351,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'access-token-of-a-client-of-this-op'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -1006,7 +1363,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('access-token-of-a-client-of-this-op')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
         $this->givenAccessTokenRecord('hub-jti');
 
@@ -1073,7 +1430,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], $tokenTypeHint],
             ]);
 
@@ -1089,7 +1446,7 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('ensureValidAccessToken')
-            ->with('valid-access-token')
+            ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
     }
 
@@ -1373,7 +1730,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'unknown-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -1400,7 +1757,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -1437,7 +1794,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -1579,7 +1936,6 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['openid', 'profile']);
         $this->givenAccessTokenRecord('jti1', 'user1');
         $this->givenUserRecord('user1', ['displayName' => ['Ada']]);
-        $this->moduleConfigMock->method('getIssuer')->willReturn('https://op.example.org');
         $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
             IntrospectionReleaseDecision::releaseAll());
 
@@ -1618,7 +1974,6 @@ class TokenIntrospectionControllerTest extends TestCase
     {
         $requestMock = $this->createMock(Request::class);
         $this->givenIntrospectableRefreshToken($requestMock, ['scopes' => ['openid', 'offline_access'], 'sub' => 's1']);
-        $this->moduleConfigMock->method('getIssuer')->willReturn('https://op.example.org');
         $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision =>
             IntrospectionReleaseDecision::releaseAll());
 
@@ -1711,7 +2066,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->requestParamsResolverMock
             ->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnMap([
-                ['token', $requestMock, [HttpMethodsEnum::POST], 'valid-access-token'],
+                ['token', $requestMock, [HttpMethodsEnum::POST], self::ACCESS_TOKEN],
                 ['token_type_hint', $requestMock, [HttpMethodsEnum::POST], 'access_token'],
             ]);
 
@@ -1762,7 +2117,8 @@ class TokenIntrospectionControllerTest extends TestCase
 
     /**
      * Without a token_type_hint, a denied access token is answered as inactive like any other, and the policy is
-     * asked once: the refresh token path tried after it does not find the token.
+     * asked once. The search ends there: a JWS is never looked up as a refresh token, so no decryption is tried
+     * (and no decryption failure logged) for a token which was found.
      */
     public function testInvokeAnswersADeniedAccessTokenWithoutATokenTypeHintAsInactive(): void
     {
@@ -1771,8 +2127,7 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->givenAccessTokenRecord('jti1');
         $policy = $this->givenReleasePolicy(fn(): IntrospectionReleaseDecision => IntrospectionReleaseDecision::deny());
 
-        // An access token is not an encrypted refresh token payload.
-        $this->oAuth2BridgeMock->method('decrypt')->willThrowException(new Exception('Unable to decrypt'));
+        $this->oAuth2BridgeMock->expects($this->never())->method('decrypt');
 
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())

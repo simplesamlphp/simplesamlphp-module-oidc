@@ -10,6 +10,7 @@ use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
@@ -90,6 +91,13 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_ADD_CLAIMS_TO_ID_TOKEN = 'add_claims_to_id_token';
 
     /**
+     * Which issuers' tokens this client, as a resource server, may have introspected upstream on its behalf
+     * (AARC-G052 proxied token introspection): `['allow' => [issuers]]` or `['deny' => [issuers]]`. Absent, every
+     * issuer is permitted. Stored as an entry inside the extra metadata JSON blob.
+     */
+    public const string KEY_INTROSPECTION_FOREIGN_ISSUERS = 'introspection_foreign_issuers';
+
+    /**
      * Client properties (metadata keys) which are "administrator-only":
      * they may only be set by a trusted administrator (via the admin UI / API,
      * i.e. ClientEntityFactory::fromData()), and MUST NOT be honored when they
@@ -103,6 +111,7 @@ class ClientEntity implements ClientEntityInterface
     public const array ADMIN_ONLY_METADATA_KEYS = [
         self::KEY_AUTH_PROC_FILTERS,
         self::KEY_ADD_CLAIMS_TO_ID_TOKEN,
+        self::KEY_INTROSPECTION_FOREIGN_ISSUERS,
     ];
 
 
@@ -536,6 +545,26 @@ class ClientEntity implements ClientEntityInterface
         return filter_var(
             $this->extraMetadata[self::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false,
             FILTER_VALIDATE_BOOLEAN,
+        );
+    }
+
+
+    /**
+     * Which issuers' tokens this client, as a resource server, may have introspected upstream on its behalf; null
+     * when it has no such list, and every issuer is permitted. Administrator-only, like the two above: a client
+     * able to set it through registration could lift a restriction the deployment put on it.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException When the stored value is not a list which can be
+     * applied. It is never read as "no list", which would lift the restriction.
+     */
+    public function getIntrospectionForeignIssuerList(): ?ForeignIssuerList
+    {
+        if (!is_array($this->extraMetadata)) {
+            return null;
+        }
+
+        return ForeignIssuerList::fromClientMetadata(
+            $this->extraMetadata[self::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null,
         );
     }
 

@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
+use SimpleSAML\Module\oidc\Exceptions\UpstreamIntrospectionException;
 use SimpleSAML\Module\oidc\Factories\IntrospectionReleasePolicyFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
+use SimpleSAML\Module\oidc\Services\Introspection\ProxiedTokenIntrospector;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
@@ -31,7 +33,9 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
+use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\ParsedJws;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -56,6 +60,8 @@ class TokenIntrospectionController
         protected readonly UserRepository $userRepository,
         protected readonly ClaimTranslatorExtractor $claimTranslatorExtractor,
         protected readonly IntrospectionReleasePolicyFactory $introspectionReleasePolicyFactory,
+        protected readonly ProxiedTokenIntrospector $proxiedTokenIntrospector,
+        protected readonly Jws $jws,
     ) {
         if (!$this->moduleConfig->getApiEnabled()) {
             $this->loggerService->warning('API capabilities not enabled.');
@@ -120,15 +126,16 @@ class TokenIntrospectionController
         );
 
         try {
-            $payload = null;
-            if (is_null($tokenTypeHintParam)) {
-                $payload = $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization) ??
-                $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
-            } elseif ($tokenTypeHintParam === 'access_token') {
-                $payload = $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization);
-            } elseif ($tokenTypeHintParam === 'refresh_token') {
-                $payload = $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
-            }
+            $payload = $this->resolvePayload($tokenParam, $tokenTypeHintParam, $introspectionAuthorization);
+        } catch (UpstreamIntrospectionException) {
+            // No answer about a token this OP did not issue, from the authorization server asked about it. Not a
+            // verdict on the token either, for the same reason as below; logged where it happened, at the level
+            // its cause deserves.
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Unable to process the introspection request.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
         } catch (Throwable $e) {
             // Again not a verdict, this time on the token: the OP could not read what it answers from (the resource
             // owner's record, say). Answering 'active: false' would have a resource server refuse a valid token,
@@ -147,6 +154,60 @@ class TokenIntrospectionController
         $payload ??= ['active' => false];
 
         return $this->routes->newJsonResponse($payload);
+    }
+
+
+    /**
+     * The answer about the presented token, or null for one to be answered as inactive.
+     *
+     * Which kind of token it is, is told from its shape, and the token_type_hint plays no part in that: RFC 7662
+     * section 2.1 lets an authorization server "ignore this parameter, particularly if it is able to detect the
+     * token type automatically", and a hint naming the wrong type would otherwise have to be searched past. An
+     * access token is a compact JWS, while a refresh token of this OP is an encrypted value which never is one, so
+     * each value is looked up as the one kind it can be. A JWS naming another issuer is a token this OP did not
+     * issue, and is asked about upstream (AARC-G052 proxied token introspection), the hint travelling with it
+     * unchanged.
+     *
+     * Both are read with the library's own parser, the one the validator uses, so that no token of this OP can be
+     * taken for something else here.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\UpstreamIntrospectionException When no answer was had from
+     * upstream.
+     * @throws \Throwable When a record can not be read, or the release policy fails: not a verdict on the token.
+     */
+    protected function resolvePayload(
+        string $tokenParam,
+        ?string $tokenTypeHintParam,
+        IntrospectionAuthorization $introspectionAuthorization,
+    ): ?array {
+        try {
+            $this->jws->jwsDecoratorBuilder()->fromToken($tokenParam);
+        } catch (JwsException) {
+            return $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
+        }
+
+        // Read without verifying it, and only to route the question. A token naming this OP, or no usable issuer,
+        // is validated here like any other, and one which only claims to be this OP's fails that. So is one whose
+        // lifetime is over or has not begun by this OP's clock, beyond the configured leeway: the parsed JWS judges
+        // that as it is built, the validator refuses it for the same reason and logs it, and there is no point in
+        // asking anyone else about it.
+        try {
+            $parsedJws = $this->jws->parsedJwsFactory()->fromToken($tokenParam);
+            $tokenIssuer = $parsedJws->getIssuer();
+        } catch (OpenIdException) {
+            return $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization);
+        }
+
+        if (!is_null($tokenIssuer) && $tokenIssuer !== $this->moduleConfig->getIssuer()) {
+            return $this->proxiedTokenIntrospector->introspect(
+                $tokenParam,
+                $parsedJws,
+                $tokenTypeHintParam,
+                $introspectionAuthorization,
+            );
+        }
+
+        return $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization);
     }
 
 
