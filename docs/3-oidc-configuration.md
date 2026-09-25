@@ -12,6 +12,7 @@ It complements the inline comments in `config/module_oidc.php`.
 - Apache Authorization header note
 - Private scopes
 - Attribute translation
+- Token introspection
 - Auth Proc filters (OIDC)
 - Client registration permissions
 - OpenID Connect Dynamic Client Registration
@@ -778,6 +779,128 @@ the administration area reports a fault on the option's own row:
   translation which yields a list — a private scope carrying the claim with
   `are_multiple_claim_values_allowed` set, and not a `json` mapping — and none
   of them can be an identity claim, which is a single value.
+
+## Token introspection
+
+The token introspection endpoint (RFC 7662) is one of the module's API
+endpoints, and what it answers is described with them, under
+[Token Introspection](8-api.md#token-introspection). This section covers what a
+deployment decides when it turns the endpoint on. Every option named here is
+off or empty by default, and the endpoint needs the API switch as well:
+
+```php
+<?php
+
+$config = [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_API_ENABLED => true,
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ENDPOINT_ENABLED => true,
+];
+```
+
+### Who may ask, and about which tokens
+
+Every caller authenticates, and its role decides what it is told:
+
+- **Client** — any client authenticating with its own credentials. It is told
+  about the tokens issued to it, and any other token is answered as not
+  active.
+- **Resource server** — a client an administrator made one in the admin client
+  form (**Resource Server (Token Introspection)**), or one named in
+  `OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS` by a
+  deployment which keeps its configuration as code. It is told about every
+  token this OP issued, and a token another authorization server issued is
+  introspected upstream for it ([below](#tokens-other-authorization-servers-issued)).
+- **Upstream hub** — a client named in
+  `OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS`: the
+  authorization server which performs AARC-G052 proxied token introspection
+  towards this OP on behalf of resource servers elsewhere (for an EOSC Node,
+  the EOSC AAI Federation hub). It is told about every token this OP issued.
+  A token another authorization server issued is never introspected upstream
+  for it, so its own question can not come back to it. The hub is named in the
+  configuration only, and a client can not be both the hub and a resource
+  server.
+- **Administrative** — an API token with an introspection scope, or a logged in
+  SimpleSAMLphp administrator. It is told about every token this OP issued, and
+  nothing is introspected upstream for it.
+
+**Making a client a resource server, or naming it as the hub, is a decision to
+trust it with personal data: it is trusted with the user claims of every token
+it can present.** The answer about an access token issued to a user carries the
+user claims the token's scopes release, and the answer about another
+authorization server's token carries what that server releases. A client can
+not ask for either role: registration metadata (Dynamic Client Registration,
+OpenID Federation) can not set the resource server setting, and the hub is
+named only in the configuration. A deployment which wants some callers told
+less writes a [release policy](8-api.md#release-policy).
+
+### Tokens other authorization servers issued
+
+A resource server may be handed a token another authorization server issued —
+at an EOSC Node, a token of another Node, which only that Node can vouch for.
+[AARC-G052](https://aarc-community.org/guidelines/aarc-g052/) proxied token
+introspection lets the resource server ask this OP anyway: the OP asks an
+authorization server it trusts and passes the answer on. An EOSC Node is on
+both sides of it, so it configures both directions:
+
+```php
+<?php
+
+$config = [
+    // The hub asks this OP about this OP's tokens, as the client registered here for it.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => [
+        'hub-client-id',
+    ],
+    // This OP asks the hub about other issuers' tokens, with the credentials the hub issued to it.
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_NEXT_HOP => [
+        'issuer' => 'https://hub.example.org/',
+        'introspection_endpoint' => 'https://hub.example.org/introspect',
+        'client_id' => 'client-id-the-hub-issued-to-this-op',
+        'client_secret' => 'client-secret-the-hub-issued-to-this-op',
+    ],
+];
+```
+
+`OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP` names an authorization server
+per token issuer instead, for a deployment which is itself a hub.
+`OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_FAILURE_ANSWERS_INACTIVE` makes a
+failure to get an answer from upstream an inactive token rather than a
+`server_error`, for a deployment which needs AARC-G052 section 2.4 read
+literally. Which tokens go upstream, what is checked before anything is sent,
+and how each answer is passed on is described under
+[Tokens this OP did not issue](8-api.md#tokens-this-op-did-not-issue).
+
+- **The request goes through the
+  [outbound destination policy](#outbound-destination-policy).** An upstream on
+  a private network has to be allowed there. Of
+  `OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS`, the request takes over the transport
+  settings only (a CA bundle in `verify`, a `proxy`, and the like).
+- **The upstream options are checked when they are read, not when
+  SimpleSAMLphp starts.** An unusable entry — an issuer which is not an https
+  URL, this OP's own issuer as the next hop, a missing client secret — is
+  reported on its row of the protocol configuration overview in the
+  administration area. Until it is fixed, the endpoint answers `server_error` to
+  a question it would take upstream: to every such question for a faulty
+  issuer map, which is read first, and to those the map does not cover for a
+  faulty next hop. Check the overview after changing them.
+
+### What the module leaves to the deployment
+
+- **Rate limiting.** The endpoint does not limit how often a caller asks. RFC
+  7662 section 4 warns that an endpoint left "un-throttled" lets an attacker
+  poll possible token values, and AARC-G052 section 4 says an authorization
+  server which performs proxied token introspection SHOULD limit the rate by
+  the identity of the resource server asking, since it may otherwise be
+  overloaded by its resource servers or be rate-limited by the issuing
+  authorization server. Limit the rate in front of the endpoint, at the web
+  server or a reverse proxy.
+- **Caching.** Upstream answers are not cached: every question the endpoint
+  takes upstream is asked there, however recently the same token was asked
+  about. AARC-G052 section 3 allows a cache, at a cost in freshness the module
+  does not take on.
+- **Audience.** No token this OP issues says at which resource servers it may
+  be used (an access token's `aud` names the client it was issued to), so the
+  endpoint makes no check of where a token may be used. A resource server which gives the
+  audience that meaning checks it itself. See [Audience](8-api.md#audience).
 
 ## Authentication Processing filters (OIDC)
 

@@ -38,6 +38,15 @@ response for an access token issued to a user carries, next to the token
 members of RFC 7662 section 2.2, the user claims the token's scopes release,
 read from the user record as it is now -- what the UserInfo endpoint releases
 for the same token. Check the API documentation for more details.
+- Support for AARC-G052 proxied token introspection. A resource server may ask
+the introspection endpoint about a token another authorization server issued
+(for an EOSC Node, a token of another Node): the OP asks an authorization
+server it trusts (the EOSC AAI Federation hub) and passes the answer on. Each
+caller of the endpoint has a role: a client is told about its own tokens, a
+resource server about every token, and an upstream hub about this OP's tokens,
+on behalf of resource servers elsewhere. A release policy of the deployment's
+own can tell a caller less. All of it is off until configured. See the
+[configuration guide](3-oidc-configuration.md#token-introspection).
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production. It has not been reviewed against the final OpenID4VCI 1.0

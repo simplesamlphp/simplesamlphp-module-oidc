@@ -58,7 +58,9 @@ OAuth 2.0:
   (the token and introspection endpoints also support `client_secret_basic`
   and `client_secret_post`)
 - [OAuth 2.0 Token Introspection (RFC 7662)](https://www.rfc-editor.org/rfc/rfc7662)
-  — optional endpoint, advertised as `introspection_endpoint` while enabled
+  — optional endpoint, advertised as `introspection_endpoint` while enabled;
+  with [AARC-G052](https://aarc-community.org/guidelines/aarc-g052/) proxied
+  token introspection for tokens other authorization servers issued
 - [JWT Profile for OAuth 2.0 Access Tokens (RFC 9068)](https://www.rfc-editor.org/rfc/rfc9068)
   — the access token JWT has the profile's shape (`typ: at+jwt`, `client_id`,
   `scope`); `aud` remains the client identifier, as resource indicators

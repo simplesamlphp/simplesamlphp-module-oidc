@@ -311,7 +311,12 @@ Response:
 ### Token Introspection
 
 Enables token introspection for OAuth2 access tokens and refresh tokens as per
-[RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662).
+[RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662), and, for tokens
+other authorization servers issued, AARC-G052 proxied token introspection (see
+[Tokens this OP did not issue](#tokens-this-op-did-not-issue)). What a
+deployment decides when it enables the endpoint -- who may ask, the upstream,
+what the module leaves to the deployment -- is in the configuration guide,
+under [Token introspection](3-oidc-configuration.md#token-introspection).
 
 Enable it in `config/module_oidc.php`:
 
@@ -412,6 +417,9 @@ token's configured name, or to a fingerprint of the token where it has none (two
 tokens configured under one name are therefore one caller), and to
 `simplesamlphp-admin` for an administrator.
 
+The endpoint does not limit how often a caller asks; see
+[what the module leaves to the deployment](3-oidc-configuration.md#what-the-module-leaves-to-the-deployment).
+
 #### Request
 
 The request is sent with `application/x-www-form-urlencoded` encoding with the
@@ -481,6 +489,32 @@ If the endpoint can not read the records it answers from (the token's, the
 user's), it responds with `server_error` (HTTP 500) rather than with an
 inactive token: the failure is the OP's, not a verdict on the token, and a
 resource server may cache the verdict.
+
+#### Audience
+
+The endpoint does not read a token's `aud` as saying where the token may be
+used. RFC 7662 section 4 has an authorization server check "[i]f the token can
+be used only at certain resource servers" whether it "can be used at the
+resource server making the introspection call", and no token this OP issues
+says so: an access token's `aud` is the identifier of the client it was issued
+to, since the module does not implement resource indicators (RFC 8707), and a
+refresh token has none. There is nothing for the OP to check. It reads `aud`
+only as the name of the client the token was issued to: to tell a client its
+own access tokens from other clients' (Authorization, above), and to report
+that client as `client_id`. That is whom the token was issued to, not where it
+may be used.
+
+A deployment may still give its tokens that meaning by a convention of its own
+-- a client which is to call one resource server only, say. The OP can not know
+of it, so the check is the resource server's. For a token this OP issued, the
+answer names the client the token was issued to in `client_id`, and in `aud`
+the audience an access token carries (for a refresh token, that client again).
+The answer about a token another authorization server issued passes on the
+`aud` and `client_id` the upstream reports, unchanged, although AARC-G052
+section 3 would let a proxy change the audience (both are optional in an
+introspection response, so an upstream may report neither). There `client_id`
+names one of that server's clients, and what its `aud` means is that server's
+convention, not this OP's. A release policy can not withhold either member.
 
 #### Release policy
 
@@ -676,8 +710,8 @@ Letting a resource server have foreign tokens introspected is the same trust
 decision about personal data as naming it a resource server: it is told the
 claims the issuer releases for every token it can present.
 
-Answers are not cached: every question about a token this OP did not issue is
-asked upstream.
+Answers are not cached: every question which passes the checks above is asked
+upstream, however recently the same token was asked about.
 
 #### Sample 1
 
