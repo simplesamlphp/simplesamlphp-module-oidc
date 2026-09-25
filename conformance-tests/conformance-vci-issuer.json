@@ -1,0 +1,110 @@
+{
+    "alias": "simplesamlphp-module-oidc-vci",
+    "description": "OpenID4VCI 1.0 issuer test plan (oid4vci-1_0-issuer-test-plan) against the local conformance OP",
+    "vci": {
+        "credential_issuer_url": "https://op.local.stack-dev.cirrusidentity.com",
+        "credential_configuration_id": "ResearchAndScholarshipCredentialDcSdJwt"
+    },
+    "client": {
+        "client_id": "_3eaf06703ec3a31c4b5b5577427f28ee5e76e83f5f",
+        "jwks": {
+            "keys": [
+                {
+                    "kty": "EC",
+                    "d": "C9AWp9_vYfHj-ckdYAo0aYk-ZGXOPwoKJEqmYGlqUGI",
+                    "use": "sig",
+                    "crv": "P-256",
+                    "kid": "vci-example-key-1",
+                    "x": "yHNp8QgNiVSxSxIH_n_nH23dpUDlNhbgvLKSrjK1hDs",
+                    "y": "3_rlpW_FXqghp8dKPpkjfvbfACQQFLFZwJXxOr319Ac",
+                    "alg": "ES256"
+                }
+            ]
+        }
+    },
+    "client2": {
+        "client_id": "_6aaba246b47b522de2eb46ac22cf54ed82b948848f",
+        "jwks": {
+            "keys": [
+                {
+                    "kty": "RSA",
+                    "d": "Nha1ReQVpOa1vsTz0oEcbtCd2UAbYWXhLr06CXXENXxDHWhTkXCaayh4kEOp6CNfY5b75tbBZB2hhxyY7vPNSmnvrIHn1YE5a321vHEti0GoNI9UGi2KhAO40Qu0ZPqvYCo3nfRsS-CWUWzchcKlqwiwuIwXOWPEGTnuKf-iqsqm6zNXB6zkIXb0Qkm5ByyGiF_wgOJLdlEx9hHlmHPiT_RKYbsQQ4mNqwOVnkInttzPiWmfY1cYN4qlxMYtIF7vb1pz1eWjZLlQpM37qQSxNXVeKNIUrs3NRyP-VDv47YFWDRLaPEPnnS7Y5RwJgeydTPHfZ91C2Q_m79KMGHSqkQ",
+                    "e": "AQAB",
+                    "kid": "fapi-jwt-assertion-20180817-2",
+                    "alg": "PS256",
+                    "n": "kne7a8IYQR6jweqpHAplq-XRGOuiVyF5Siy6_647OhOC8ppRIMV2O_wP6qK1AKCFb78Bb8qbRI3Mz-Tr9hCWm1BZQkD-HGbNowjVsOj7oB2nbNbGfqciTyT3kTG1f5PmeX2N4-f9zZM-J4Jmi9PdMjn2fkNl9oMCW9XaLHHzCU6f-vYftxdCnVQD7ZKr40HjoAeXjwdGhgzvuWSZHkhEqx_QMh8JskqP46PjsMykFWiryju9balCdS5yASf-Fno8pXMFEV1wgipy-FPlhB5FZtLwVvH9F2jAxRaWkRQzhM5hWugIUi8YobjoIwhrmJ04JTK-DGOlThJsNvS4QANDZw"
+                }
+            ]
+        }
+    },
+    "browser": [
+        {
+            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+            "tasks": [
+                {
+                    "task": "Login",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                    "commands": [
+                        [
+                            "text",
+                            "name",
+                            "username",
+                            "student",
+                            "optional"
+                        ],
+                        [
+                            "text",
+                            "name",
+                            "password",
+                            "studentpass",
+                            "optional"
+                        ],
+                        [
+                            "click",
+                            "id",
+                            "submit_button"
+                        ]
+                    ]
+                },
+                {
+                    "task": "Consent",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                    "commands": [
+                        [
+                            "click",
+                            "id",
+                            "submit_button"
+                        ]
+                    ]
+                },
+                {
+                    "task": "Post Login Redirect",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/postredirect*",
+                    "commands": [
+                        [
+                            "wait",
+                            "id",
+                            "submission_complete",
+                            10
+                        ]
+                    ]
+                },
+                {
+                    "task": "Verify Complete",
+                    "match": "*/test/a/simplesamlphp-module-oidc-vci/callback*",
+                    "commands": [
+                        [
+                            "wait",
+                            "id",
+                            "submission_complete",
+                            10
+                        ]
+                    ]
+                }
+            ]
+        }
+    ]
+}

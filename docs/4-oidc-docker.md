@@ -38,9 +38,10 @@ Actions conformance job runs this same script.
 
 ## Generate development certificates
 
-Every example below needs two locally generated key pairs: the TLS certificate
-`nginx-proxy` serves the OP with, and the RSA key pair the module signs tokens
-with. Neither is kept in Git, so a release archive never contains a private key.
+Every example below needs three locally generated key pairs: the TLS certificate
+`nginx-proxy` serves the OP with, the RSA key pair the module signs tokens with,
+and the EC key pair it signs verifiable credentials with. None is kept in Git, so
+a release archive never contains a private key.
 Run this once in a fresh checkout:
 
 ```bash
@@ -68,6 +69,8 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/config-override.php",target=/var/simplesamlphp/config/config-override.php,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.crt",target=/var/simplesamlphp/cert/oidc_module.crt,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.key",target=/var/simplesamlphp/cert/oidc_module.key,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.pub",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.pub,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.key",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.key,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
   -p 443:443 ssp-base:v2.5.3.1
 ```

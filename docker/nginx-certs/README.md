@@ -6,7 +6,7 @@ selects the key pair with `CERT_NAME=default`, so serving the OP over HTTPS at
 pair here.
 
 Those two files are **not** kept in Git. Generate them, together with the OIDC
-module signing key pair in `../ssp`, before starting the stack:
+module's signing key pairs in `../ssp`, before starting the stack:
 
 ```bash
 ./docker/generate-dev-certs.sh

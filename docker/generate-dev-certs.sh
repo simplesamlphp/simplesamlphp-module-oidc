@@ -25,6 +25,9 @@ tls_key="$docker_dir/nginx-certs/default.key"
 tls_certificate="$docker_dir/nginx-certs/default.crt"
 module_key="$docker_dir/ssp/oidc_module.key"
 module_public_key="$docker_dir/ssp/oidc_module.crt"
+# The key pair docker/ssp/module_oidc.php signs verifiable credentials with.
+vci_key="$docker_dir/ssp/oidc_module_vci_ec_p256_01.key"
+vci_public_key="$docker_dir/ssp/oidc_module_vci_ec_p256_01.pub"
 
 # docker-compose.yml publishes the OP as op.local.stack-dev.cirrusidentity.com
 # with CERT_NAME=default, so the certificate has to cover that name.
@@ -91,6 +94,25 @@ generate_module_key_pair() {
     chmod 644 "$module_public_key"
 }
 
+generate_vci_key_pair() {
+    if [ ! -f "$vci_key" ] || [ "$force" = true ]; then
+        echo 'Generating verifiable credential signing key (EC P-256) ...'
+
+        # Same commands as docs/2-oidc-installation.md gives for this key.
+        openssl ecparam -genkey -name prime256v1 -noout -out "$vci_key" >/dev/null 2>&1
+
+        # World readable for the same reason as the module signing key.
+        chmod 644 "$vci_key"
+    else
+        # As with the module signing key: derive the missing public half instead
+        # of rotating a key credentials may already have been signed with.
+        echo 'Deriving verifiable credential public key from the existing private key ...'
+    fi
+
+    openssl ec -in "$vci_key" -pubout -out "$vci_public_key" >/dev/null 2>&1
+    chmod 644 "$vci_public_key"
+}
+
 generated=false
 
 if needs_generating "$tls_key" || needs_generating "$tls_certificate"; then
@@ -100,6 +122,11 @@ fi
 
 if needs_generating "$module_key" || needs_generating "$module_public_key"; then
     generate_module_key_pair
+    generated=true
+fi
+
+if needs_generating "$vci_key" || needs_generating "$vci_public_key"; then
+    generate_vci_key_pair
     generated=true
 fi
 
