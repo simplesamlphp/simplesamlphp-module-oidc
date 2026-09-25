@@ -16,17 +16,22 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Auth;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Auth\Source;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
+use SimpleSAML\Module\oidc\Codebooks\IntrospectionCallerRoleEnum;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
+use SimpleSAML\Utils\Auth as SspUtilsAuth;
 
 /**
  * One statement in ClientForm is deliberately left uncovered: the `[automatic]` fallback in `getValues()` for a
@@ -38,6 +43,7 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
  */
 #[CoversClass(ClientForm::class)]
 #[UsesClass(Helpers::class)]
+#[UsesClass(ForeignIssuerList::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ClientFormTest extends TestCase
 {
@@ -56,6 +62,11 @@ class ClientFormTest extends TestCase
     protected Helpers $helpers;
 
     protected array $clientDataSample;
+
+    /**
+     * Whether the form is used by a SimpleSAMLphp administrator; true unless a test says otherwise.
+     */
+    protected bool $isAdministrator = true;
 
 
     /**
@@ -88,6 +99,12 @@ class ClientFormTest extends TestCase
 
         $this->sspBridgeAuthSourceMock = $this->createMock(Source::class);
         $this->sspBridgeAuthMock->method('source')->willReturn($this->sspBridgeAuthSourceMock);
+
+        $sspUtilsAuthMock = $this->createMock(SspUtilsAuth::class);
+        $sspUtilsAuthMock->method('isAdmin')->willReturnCallback(fn(): bool => $this->isAdministrator);
+        $sspBridgeUtilsMock = $this->createMock(Utils::class);
+        $sspBridgeUtilsMock->method('auth')->willReturn($sspUtilsAuthMock);
+        $this->sspBridgeMock->method('utils')->willReturn($sspBridgeUtilsMock);
 
         $this->clientDataSample = [
             'id' => 'clientId',
@@ -512,6 +529,365 @@ class ClientFormTest extends TestCase
         $sut = $this->sut()->setDefaults($data);
 
         $this->assertTrue($sut->getValues()[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
+    }
+
+
+    /**
+     * A form filled from the sample client's record (client id `clientId`), with the given stored properties, and
+     * then with the given submitted values.
+     */
+    protected function filledForm(array $stored = [], array $submitted = []): ClientForm
+    {
+        $this->sspBridgeAuthSourceMock->method('getSources')->willReturn(['default-sp']);
+
+        $sut = $this->sut()->setDefaults([...$this->clientDataSample, ...$stored]);
+        if ($submitted !== []) {
+            $sut->setValues($submitted);
+        }
+
+        return $sut;
+    }
+
+
+    public static function foreignIssuerListProvider(): array
+    {
+        return [
+            'an allow list' => [['allow' => ['https://node-a.example.org', 'https://node-b.example.org']]],
+            'an allow list of none' => [['allow' => []]],
+            'a deny list' => [['deny' => ['https://node-a.example.org']]],
+            'no list' => [null],
+        ];
+    }
+
+
+    /**
+     * The resource server setting and the foreign issuer list come back from the form as the client record keeps
+     * them, so an administrator's save no longer drops the list.
+     */
+    #[DataProvider('foreignIssuerListProvider')]
+    public function testSetDefaultsAndGetValuesRoundTripTheIntrospectionProperties(?array $foreignIssuerList): void
+    {
+        $sut = $this->filledForm([
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => $foreignIssuerList,
+        ]);
+
+        $values = $sut->getValues();
+        $this->assertTrue($values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER]);
+        $this->assertSame($foreignIssuerList, $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+        $this->assertArrayNotHasKey(ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE, $values);
+
+        $sut->validateIntrospectionResourceServer($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    public function testTheResourceServerSettingDefaultsToOff(): void
+    {
+        $values = $this->sut()->getValues();
+
+        $this->assertFalse($values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER]);
+        $this->assertNull($values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+    }
+
+
+    /**
+     * One issuer per line; surrounding blanks, empty lines and repeats are not kept.
+     */
+    public function testForeignIssuersAreReadOnePerLine(): void
+    {
+        $sut = $this->filledForm(
+            [ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true],
+            [
+                ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_DENY,
+                ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS =>
+                    " https://node-a.example.org \n\n\thttps://node-b.example.org\r\nhttps://node-a.example.org",
+            ],
+        );
+
+        $this->assertSame(
+            ['deny' => ['https://node-a.example.org', 'https://node-b.example.org']],
+            $sut->getValues()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS],
+        );
+    }
+
+
+    public static function refusedIntrospectionPropertiesProvider(): array
+    {
+        $allowNodeA = [
+            ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_ALLOW,
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'https://node-a.example.org',
+        ];
+
+        return [
+            'a foreign issuer list on a client which is not a resource server' => [
+                [],
+                $allowNodeA,
+                [],
+                'applies only to a resource server',
+            ],
+            'an empty deny list on a client which is not a resource server' => [
+                [],
+                [ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_DENY],
+                [],
+                'applies only to a resource server',
+            ],
+            'the upstream hub made a resource server' => [
+                [],
+                [ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true],
+                ['getApiOAuth2TokenIntrospectionUpstreamHubClientIds' => ['clientId']],
+                'is the upstream hub',
+            ],
+            'a foreign issuer list on the upstream hub' => [
+                [],
+                $allowNodeA,
+                ['getApiOAuth2TokenIntrospectionUpstreamHubClientIds' => ['clientId']],
+                'applies only to a resource server',
+            ],
+            'an issuer over plain http' => [
+                [],
+                [
+                    ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+                    ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_ALLOW,
+                    ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'http://node-a.example.org',
+                ],
+                [],
+                'not an issuer identifier',
+            ],
+            'an issuer with a query' => [
+                [],
+                [
+                    ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+                    ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_DENY,
+                    ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS =>
+                        "https://node-a.example.org\nhttps://x.example?a=b",
+                ],
+                [],
+                'not an issuer identifier',
+            ],
+            'issuers which are neither allowed nor denied' => [
+                [],
+                [
+                    ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+                    ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'https://node-a.example.org',
+                ],
+                [],
+                'neither allowed nor denied',
+            ],
+            'an unreadable stored list left without a choice' => [
+                [
+                    ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+                    ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['https://node-a.example.org'],
+                ],
+                [],
+                [],
+                'can not be read',
+            ],
+            'an unreadable stored list of a configured resource server left without a choice' => [
+                [ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['https://node-a.example.org']],
+                [],
+                ['getApiOAuth2TokenIntrospectionResourceServerClientIds' => ['clientId']],
+                'can not be read',
+            ],
+        ];
+    }
+
+
+    /**
+     * @param array<string, string[]> $configuredLists ModuleConfig getter => the client ids it returns.
+     */
+    #[DataProvider('refusedIntrospectionPropertiesProvider')]
+    public function testRefusesIntrospectionPropertiesWhichCanNotStand(
+        array $stored,
+        array $submitted,
+        array $configuredLists,
+        string $expectedError,
+    ): void {
+        foreach ($configuredLists as $getter => $clientIds) {
+            $this->moduleConfigMock->method($getter)->willReturn($clientIds);
+        }
+        $sut = $this->filledForm($stored, $submitted);
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertNotEmpty($this->ownErrors($sut));
+        $this->assertStringContainsString($expectedError, implode("\n", $this->ownErrors($sut)));
+    }
+
+
+    public static function storedListNotShownAsStoredProvider(): array
+    {
+        return [
+            'an entry with surrounding blanks' => [['allow' => [' https://node-a.example.org ']]],
+            'an entry holding a line break' => [
+                ['allow' => ["https://node-a.example.org\nhttps://node-b.example.org"]],
+            ],
+            'an entry over plain http' => [['deny' => ['http://node-a.example.org']]],
+            'a plain list instead of allow or deny' => [['https://node-a.example.org']],
+            'allow naming an issuer instead of a list' => [['allow' => 'https://node-a.example.org']],
+            'not a list at all' => ['not a list'],
+        ];
+    }
+
+
+    /**
+     * A stored entry which is not an issuer identifier would come back from the form changed (trimmed, split at a
+     * line break), and issuers are compared exactly, so saving it as shown could permit an issuer the stored list
+     * did not. Such a list is not shown, and a resource server's form refuses to be saved until one is chosen.
+     */
+    #[DataProvider('storedListNotShownAsStoredProvider')]
+    public function testAStoredListWhichCanNotBeShownAsStoredIsNeverSavedAsShown(mixed $stored): void
+    {
+        $sut = $this->filledForm([
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => $stored,
+        ]);
+
+        $this->assertTrue($sut->hasUnreadableForeignIssuerList());
+        $this->assertNull($sut->getValues()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertStringContainsString('can not be read', implode("\n", $this->ownErrors($sut)));
+    }
+
+
+    /**
+     * A list is only ever applied to a resource server, so an unreadable one stored for any other client lifts
+     * nothing when the form is saved without it; refusing would leave the client impossible to save.
+     */
+    public function testAnUnreadableStoredForeignIssuerListDoesNotHoldUpAClientWhichIsNotAResourceServer(): void
+    {
+        $sut = $this->filledForm([ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'not a list']);
+
+        $this->assertTrue($sut->hasUnreadableForeignIssuerList());
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertSame([], $this->ownErrors($sut));
+        $this->assertNull($sut->getValues()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+    }
+
+
+    /**
+     * A client the module configuration names a resource server is one whether or not its record says so, so it
+     * may have a foreign issuer list with the setting off.
+     */
+    public function testAConfiguredResourceServerMayHaveAForeignIssuerListWithoutTheSetting(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionResourceServerClientIds')
+            ->willReturn(['clientId']);
+        $sut = $this->filledForm(
+            [],
+            [
+                ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_ALLOW,
+                ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'https://node-a.example.org',
+            ],
+        );
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertSame([], $this->ownErrors($sut));
+        $this->assertSame(IntrospectionCallerRoleEnum::ResourceServer, $sut->getConfiguredIntrospectionRole());
+    }
+
+
+    /**
+     * A stored list which can not be read is not shown, and is never saved as "no list": the form refuses until a
+     * list is chosen again, which then replaces it.
+     */
+    public function testAnUnreadableStoredForeignIssuerListIsReplacedOnlyByAChoice(): void
+    {
+        $sut = $this->filledForm(
+            [
+                ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+                ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'not a list',
+            ],
+            [ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE => ForeignIssuerList::KEY_DENY],
+        );
+
+        $this->assertTrue($sut->hasUnreadableForeignIssuerList());
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertSame([], $this->ownErrors($sut));
+        $this->assertSame(['deny' => []], $sut->getValues()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+    }
+
+
+    /**
+     * A configuration which names the client in both roles is reported on the form instead of failing the page.
+     */
+    public function testReportsAClientNamedInBothConfiguredRoles(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')
+            ->willThrowException(new ConfigurationError('Client(s) clientId are named both in …'));
+        $sut = $this->filledForm();
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertCount(1, $this->ownErrors($sut));
+        $this->assertStringContainsString('Client(s) clientId are named both in …', $this->ownErrors($sut)[0]);
+        $this->assertNull($sut->getConfiguredIntrospectionRole());
+    }
+
+
+    public function testTheConfiguredIntrospectionRoleIsThatOfTheClientBeingEdited(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')
+            ->willReturn(['clientId']);
+
+        $this->assertNull($this->sut()->getConfiguredIntrospectionRole(), 'A client being added has no record.');
+        $this->assertSame(
+            IntrospectionCallerRoleEnum::UpstreamHub,
+            $this->filledForm()->getConfiguredIntrospectionRole(),
+        );
+    }
+
+
+    /**
+     * A user managing their own clients through the `client` permission gets a form without the administrator-only
+     * properties, and nothing it returns stands in for them; ClientController keeps what the client has.
+     */
+    public function testAFormForSomebodyOtherThanAnAdministratorHasNoAdministratorOnlyProperties(): void
+    {
+        $this->isAdministrator = false;
+        $sut = $this->filledForm([
+            ClientEntity::KEY_AUTH_PROC_FILTERS => [60 => ['class' => 'core:AttributeAdd']],
+            ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => true,
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'not a list',
+        ]);
+
+        $this->assertFalse($sut->editsAdminOnlyProperties());
+        foreach ($this->adminOnlyFieldNames() as $name) {
+            $this->assertNull($sut->getComponent($name, false), $name);
+            $this->assertArrayNotHasKey($name, $sut->getValues(), $name);
+        }
+
+        $sut->validateIntrospectionResourceServer($sut);
+        $sut->validateAuthProcFilters($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    public function testAnAdministratorsFormHasTheAdministratorOnlyProperties(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertTrue($sut->editsAdminOnlyProperties());
+        foreach ($this->adminOnlyFieldNames() as $name) {
+            $this->assertNotNull($sut->getComponent($name, false), $name);
+        }
+    }
+
+
+    /**
+     * @return string[]
+     */
+    protected function adminOnlyFieldNames(): array
+    {
+        return [...ClientEntity::ADMIN_ONLY_METADATA_KEYS, ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE];
     }
 
 

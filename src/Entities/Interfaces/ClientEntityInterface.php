@@ -210,6 +210,13 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
 
     /**
+     * Whether an administrator made this client a resource server at the token introspection endpoint. The module
+     * configuration can name further ones.
+     */
+    public function isIntrospectionResourceServer(): bool;
+
+
+    /**
      * Which issuers' tokens this client, as a resource server, may have introspected upstream on its behalf; null
      * when every issuer is permitted.
      *

@@ -98,6 +98,14 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_INTROSPECTION_FOREIGN_ISSUERS = 'introspection_foreign_issuers';
 
     /**
+     * Whether an administrator made this client a resource server at the token introspection endpoint: told about
+     * tokens issued to any client, and the only kind of caller for whom a token this OP did not issue is
+     * introspected upstream (AARC-G052). A client named in the module configuration is one as well. Stored as an
+     * entry inside the extra metadata JSON blob.
+     */
+    public const string KEY_INTROSPECTION_RESOURCE_SERVER = 'introspection_resource_server';
+
+    /**
      * Client properties (metadata keys) which are "administrator-only":
      * they may only be set by a trusted administrator (via the admin UI / API,
      * i.e. ClientEntityFactory::fromData()), and MUST NOT be honored when they
@@ -112,6 +120,7 @@ class ClientEntity implements ClientEntityInterface
         self::KEY_AUTH_PROC_FILTERS,
         self::KEY_ADD_CLAIMS_TO_ID_TOKEN,
         self::KEY_INTROSPECTION_FOREIGN_ISSUERS,
+        self::KEY_INTROSPECTION_RESOURCE_SERVER,
     ];
 
 
@@ -268,6 +277,11 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::Contacts->value => $this->getContacts(),
             self::KEY_AUTH_PROC_FILTERS => $this->getAuthProcFilters(),
             self::KEY_ADD_CLAIMS_TO_ID_TOKEN => $this->getAddClaimsToIdToken(),
+            self::KEY_INTROSPECTION_RESOURCE_SERVER => $this->isIntrospectionResourceServer(),
+            // As stored, so that a value which can not be read reaches the admin form as such (see
+            // getIntrospectionForeignIssuerList()) instead of throwing wherever a client is turned into an array.
+            self::KEY_INTROSPECTION_FOREIGN_ISSUERS =>
+            $this->extraMetadata[self::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null,
             self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
@@ -546,6 +560,19 @@ class ClientEntity implements ClientEntityInterface
             $this->extraMetadata[self::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false,
             FILTER_VALIDATE_BOOLEAN,
         );
+    }
+
+
+    /**
+     * Whether an administrator made this client a resource server at the token introspection endpoint. Only a JSON
+     * true does: this grants the user claims of every token the client can present, so nothing which merely reads
+     * as true is taken for it. Administrator-only: a client able to set it through registration could grant itself
+     * every other party's tokens.
+     */
+    public function isIntrospectionResourceServer(): bool
+    {
+        return is_array($this->extraMetadata) &&
+        ($this->extraMetadata[self::KEY_INTROSPECTION_RESOURCE_SERVER] ?? false) === true;
     }
 
 

@@ -265,6 +265,7 @@ class ClientController
                 $originalClient->getExpiresAt(),
                 $originalClient->getOwner(),
                 $originalClient->isGeneric(),
+                $originalClient->getExtraMetadata(),
             );
 
             // We have to make sure that the Entity Identifier is unique.
@@ -314,6 +315,7 @@ class ClientController
 
     /**
      * TODO v8 mivanci Move to ClientEntityFactory::fromRegistrationData on dynamic client registration implementation.
+     * @param array $storedExtraMetadata The extra metadata the client has now; empty for a client being added.
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     protected function buildClientEntityFromFormData(
@@ -326,6 +328,7 @@ class ClientController
         ?DateTimeImmutable $expiresAt = null,
         ?string $owner = null,
         bool $isGeneric = false,
+        array $storedExtraMetadata = [],
     ): ClientEntityInterface {
         $data = $form->getValues('array');
 
@@ -429,7 +432,7 @@ class ClientController
         $extraMetadata[ClaimsEnum::Contacts->value] = is_array($contacts) ? $contacts : [];
 
         // Per-client authproc filters. These are administrator-only (settable
-        // here, via the admin UI), and are deliberately never accepted from
+        // here, via the admin UI, by an administrator), and are deliberately never accepted from
         // client-supplied registration metadata. See
         // ClientEntityFactory::fromRegistrationData() and
         // ClientEntity::ADMIN_ONLY_METADATA_KEYS.
@@ -443,6 +446,30 @@ class ClientController
         // See ClientEntity::ADMIN_ONLY_METADATA_KEYS.
         $extraMetadata[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] =
         (bool)($data[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false);
+
+        // The client's role at the token introspection endpoint, and which foreign issuers' tokens it may have
+        // introspected upstream, administrator-only on the same terms: the role grants the user claims of every
+        // token the client can present. ClientForm refuses the combinations which can not stand.
+        $extraMetadata[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] =
+        ($data[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] ?? false) === true;
+        /** @var mixed $foreignIssuerList */
+        $foreignIssuerList = $data[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null;
+        if (is_array($foreignIssuerList)) {
+            $extraMetadata[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] = $foreignIssuerList;
+        }
+
+        // Only a SimpleSAMLphp administrator sets the administrator-only properties. A user managing their own
+        // clients through the `client` permission gets a form without them, and whatever such a request carries in
+        // their place is ignored: the client keeps the values it has, and a client they add has none.
+        if (!$this->authorization->isAdmin()) {
+            foreach (ClientEntity::ADMIN_ONLY_METADATA_KEYS as $adminOnlyMetadataKey) {
+                unset($extraMetadata[$adminOnlyMetadataKey]);
+                if (array_key_exists($adminOnlyMetadataKey, $storedExtraMetadata)) {
+                    /** @psalm-suppress MixedAssignment */
+                    $extraMetadata[$adminOnlyMetadataKey] = $storedExtraMetadata[$adminOnlyMetadataKey];
+                }
+            }
+        }
 
         return $this->clientEntityFactory->fromData(
             $identifier,

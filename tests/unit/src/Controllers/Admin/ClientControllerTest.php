@@ -469,6 +469,136 @@ class ClientControllerTest extends TestCase
     }
 
 
+    /**
+     * The form's submitted values with the administrator-only properties set as an administrator's form returns
+     * them; a request from anybody else could carry the same.
+     */
+    protected function formDataWithAdminOnlyProperties(): array
+    {
+        return [
+            ...$this->sampleFormData,
+            ClientEntity::KEY_AUTH_PROC_FILTERS => [60 => ['class' => 'core:PHP', 'code' => '']],
+            ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => true,
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['deny' => []],
+        ];
+    }
+
+
+    /**
+     * Edits the client `clientId`, whose record holds the given extra metadata, with the given form values, and
+     * returns the extra metadata the updated client is built with.
+     */
+    protected function extraMetadataSavedByEdit(array $storedExtraMetadata, array $formData): array
+    {
+        $request = Request::create('/edit?client_id=clientId', 'GET', ['client_id' => 'clientId']);
+
+        $this->clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
+        $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
+        $this->clientEntityMock->method('getExtraMetadata')->willReturn($storedExtraMetadata);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn($formData);
+
+        $savedExtraMetadata = null;
+        $updatedClientMock = $this->createMock(ClientEntityInterface::class);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments) use (&$savedExtraMetadata, $updatedClientMock) {
+                $savedExtraMetadata = $arguments[23];
+                return $updatedClientMock;
+            });
+        $this->clientRepositoryMock->expects($this->once())->method('update')->with($updatedClientMock);
+
+        $this->sut()->edit($request);
+
+        $this->assertIsArray($savedExtraMetadata);
+        return $savedExtraMetadata;
+    }
+
+
+    public function testAnAdministratorSetsTheAdministratorOnlyProperties(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+
+        $saved = $this->extraMetadataSavedByEdit([], $this->formDataWithAdminOnlyProperties());
+
+        $this->assertSame([60 => ['class' => 'core:PHP', 'code' => '']], $saved[ClientEntity::KEY_AUTH_PROC_FILTERS]);
+        $this->assertTrue($saved[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
+        $this->assertTrue($saved[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER]);
+        $this->assertSame(['deny' => []], $saved[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+    }
+
+
+    /**
+     * An administrator removing the foreign issuer list removes it from the record.
+     */
+    public function testAnAdministratorRemovesTheForeignIssuerList(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+
+        $saved = $this->extraMetadataSavedByEdit(
+            [ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['deny' => ['https://node-a.example.org']]],
+            [...$this->sampleFormData, ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => null],
+        );
+
+        $this->assertArrayNotHasKey(ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS, $saved);
+        $this->assertFalse($saved[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER]);
+    }
+
+
+    /**
+     * A user managing their own clients through the `client` permission neither sets nor changes the
+     * administrator-only properties, whatever the request carries: the client keeps what it has.
+     */
+    public function testSomebodyOtherThanAnAdministratorKeepsTheStoredAdministratorOnlyProperties(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(false);
+        $stored = [
+            ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => false,
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['allow' => ['https://node-a.example.org']],
+        ];
+
+        $saved = $this->extraMetadataSavedByEdit($stored, $this->formDataWithAdminOnlyProperties());
+
+        $this->assertArrayNotHasKey(ClientEntity::KEY_AUTH_PROC_FILTERS, $saved);
+        $this->assertFalse($saved[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
+        $this->assertArrayNotHasKey(ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER, $saved);
+        $this->assertSame(
+            ['allow' => ['https://node-a.example.org']],
+            $saved[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS],
+        );
+    }
+
+
+    /**
+     * A client such a user adds has none of them.
+     */
+    public function testAClientAddedBySomebodyOtherThanAnAdministratorHasNoAdministratorOnlyProperties(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(false);
+        $this->authorizationMock->method('getUserId')->willReturn('user@example.org');
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn($this->formDataWithAdminOnlyProperties());
+        $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
+
+        $savedExtraMetadata = null;
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments) use (&$savedExtraMetadata) {
+                $savedExtraMetadata = $arguments[23];
+                return $this->clientEntityMock;
+            });
+        $this->clientRepositoryMock->expects($this->once())->method('add');
+
+        $this->sut()->add();
+
+        $this->assertIsArray($savedExtraMetadata);
+        foreach (ClientEntity::ADMIN_ONLY_METADATA_KEYS as $adminOnlyMetadataKey) {
+            $this->assertArrayNotHasKey($adminOnlyMetadataKey, $savedExtraMetadata, $adminOnlyMetadataKey);
+        }
+    }
+
+
     public function testCanShowEditForm(): void
     {
         $request = Request::create(

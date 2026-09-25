@@ -359,8 +359,10 @@ answered with `active: false` for tokens issued to anyone else. It already
 holds its own tokens, so it learns nothing new about them, while another
 client's token would answer with that token's subject, scopes and lifetime.
 
-A deployment which runs a resource server as a client of its own names it in
-`config/module_oidc.php`, and that client may then introspect any token:
+A client which is a resource server may introspect any token. An administrator
+makes a client one in the admin client form (**Resource Server (Token
+Introspection)**), or a deployment which keeps its configuration as code names it
+in `config/module_oidc.php`; either is enough:
 
 ```php
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -370,11 +372,15 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS =
 ],
 ```
 
-This is configuration rather than client metadata on purpose: a client
-registering itself through Dynamic Client Registration must not be able to ask
-for the ability to read every other party's tokens. Naming a client there is a
-decision to trust it with personal data: a client on that list is trusted with
-the user claims of every token it can present (see the response below).
+Either way it is the deployment's decision, never the client's: the form's
+setting is an administrator-only client property, which Dynamic Client
+Registration and OpenID Federation registration metadata can not set and a
+client's update of its own registration keeps, since a client registering itself
+must not be able to ask for the ability to read every other party's tokens. Only
+a logged in SimpleSAMLphp administrator sees and sets it; a user managing their
+own clients through the `client` permission does not. Making a client a resource
+server is a decision to trust it with personal data: a resource server is trusted
+with the user claims of every token it can present (see the response below).
 
 A deployment whose tokens are introspected by an upstream hub on behalf of
 resource servers elsewhere -- the AS performing
@@ -392,10 +398,12 @@ ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS => [
 
 The hub may introspect any token this OP issued, as a resource server may, since
 introspecting tokens it did not receive itself is its whole function; it is the
-same trust decision. A client named in both lists is a configuration error, and
-until it is resolved the endpoint answers every request authenticated with OAuth2
-client credentials with a `server_error` (API Bearer Tokens and administrators
-are not affected).
+same trust decision. The hub is named in the configuration only. A client named
+in both lists is a configuration error, and until it is resolved the endpoint
+answers every request authenticated with OAuth2 client credentials with a
+`server_error` (API Bearer Tokens and administrators are not affected). A hub
+client which an administrator also made a resource server is the same error, for
+that client's requests; the admin client form refuses to save it.
 
 Requests authorized with an API Bearer Token holding an introspection scope,
 and those made by a logged in SimpleSAMLphp administrator, may introspect any
@@ -643,12 +651,13 @@ The answer:
   whatever that option says.
 
 A resource server's client record may restrict which issuers' tokens it may have
-introspected upstream, with an allow list or a deny list of issuers
-(`introspection_foreign_issuers` in the client's extra metadata:
+introspected upstream, with an allow list or a deny list of issuers (**Foreign
+Issuers** in the admin client form, one issuer identifier per line; stored as
+`introspection_foreign_issuers` in the client's extra metadata:
 `['allow' => [issuers]]` or `['deny' => [issuers]]`; without one, every issuer
-is permitted). It is administrator-only: never taken from Dynamic Client
-Registration or OpenID Federation registration metadata, and kept when a client
-updates its own registration. A deny is checked before anything is sent, on the
+is permitted). It is administrator-only on the same terms as the resource server
+setting, and the form refuses it on a client which is not a resource server.
+A deny is checked before anything is sent, on the
 issuer the token names: refusing on an unverified claim is safe, since whoever
 forged it can only refuse themselves. An allow is checked on the issuer the
 upstream's answer names, the only one to rely on; an answer which names none can

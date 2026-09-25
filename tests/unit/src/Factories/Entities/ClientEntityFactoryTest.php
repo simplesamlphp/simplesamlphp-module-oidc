@@ -364,6 +364,68 @@ class ClientEntityFactoryTest extends TestCase
     }
 
 
+    public static function selfRegistrationTypeProvider(): array
+    {
+        return [
+            'Dynamic Client Registration' => [RegistrationTypeEnum::Dynamic],
+            'OpenID Federation registration' => [RegistrationTypeEnum::FederatedAutomatic],
+        ];
+    }
+
+
+    /**
+     * A client registering itself must not be able to make itself a resource server at the token introspection
+     * endpoint: that would grant it the user claims of every token it can present.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('selfRegistrationTypeProvider')]
+    public function testFromRegistrationDataIgnoresTheAdminOnlyResourceServerSetting(
+        RegistrationTypeEnum $registrationType,
+    ): void {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+            ],
+            $registrationType,
+        );
+
+        $this->assertFalse($client->isIntrospectionResourceServer());
+        $this->assertArrayNotHasKey(ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER, $client->getExtraMetadata());
+    }
+
+
+    /**
+     * A client updating its own registration keeps the role an administrator gave it, whatever the update says:
+     * it can neither drop it (RFC 7592 update being a full replacement) nor turn it off.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('selfRegistrationTypeProvider')]
+    public function testFromRegistrationDataKeepsTheAdminSetResourceServerSettingOnAnUpdate(
+        RegistrationTypeEnum $registrationType,
+    ): void {
+        $existingClient = $this->createMock(ClientEntity::class);
+        $existingClient->method('getIdentifier')->willReturn('existing-client');
+        $existingClient->method('getExtraMetadata')->willReturn(
+            [ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true],
+        );
+
+        foreach ([[], [ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => false]] as $update) {
+            $client = $this->sut()->fromRegistrationData(
+                [ClaimsEnum::RedirectUris->value => ['https://example.org/cb'], ...$update],
+                $registrationType,
+                existingClient: $existingClient,
+            );
+
+            $this->assertTrue($client->isIntrospectionResourceServer());
+        }
+    }
+
+
     /**
      * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values) and informational
      * metadata (initiate_login_uri, software_id, software_version) are persisted from a registration request.

@@ -1188,14 +1188,16 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                         ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS,
                         $resourceServers === [] ?
                         Translate::noop(
-                            'None, so a client authenticating at the introspection endpoint is only ' .
-                            'told about tokens issued to itself, unless it is named as the upstream hub. ' .
+                            'None named here, so a client authenticating at the introspection endpoint is ' .
+                            'only told about tokens issued to itself, unless an administrator made it a ' .
+                            'resource server in its client record or it is named as the upstream hub. ' .
                             'API tokens and administrators are unaffected.',
                         ) :
                         Translate::noop(
                             'These clients may introspect tokens issued to any client, and not only ' .
                             'their own, so each one can read every other client\'s token subject and ' .
-                            'scopes, and the user claims those scopes release.',
+                            'scopes, and the user claims those scopes release. An administrator can make ' .
+                            'further clients resource servers in their client records.',
                         ),
                     );
                 },

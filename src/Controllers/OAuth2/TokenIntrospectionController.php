@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\OAuth2;
 
 use Exception;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -638,11 +639,12 @@ class TokenIntrospectionController
      * held to its own tokens, since anything else would let any registered client - including one which
      * registered itself through Dynamic Client Registration - read the subject, scopes and lifetime of
      * tokens belonging to every other client of this OP. The deployment names the clients which are more than
-     * that - its resource servers, and the upstream hub - and the administrative path (a logged in
-     * administrator, an API token) is its own role; see IntrospectionCallerRoleEnum.
+     * that - its resource servers, in the configuration or by an administrator in the client's record, and the
+     * upstream hub, in the configuration only - and the administrative path (a logged in administrator, an API
+     * token) is its own role; see IntrospectionCallerRoleEnum.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
-     * @throws \SimpleSAML\Error\ConfigurationError When a client is named in two roles, or there is no key to
+     * @throws \SimpleSAML\Error\ConfigurationError When a client is given two roles, or there is no key to
      * fingerprint an API token which has no name.
      * @throws \Exception
      */
@@ -658,7 +660,8 @@ class TokenIntrospectionController
             $resolvedClientAuthenticationMethod instanceof ResolvedClientAuthenticationMethod &&
             $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNotNone()
         ) {
-            $clientId = $resolvedClientAuthenticationMethod->getClient()->getIdentifier();
+            $client = $resolvedClientAuthenticationMethod->getClient();
+            $clientId = $client->getIdentifier();
 
             $this->loggerService->debug(
                 sprintf(
@@ -677,6 +680,19 @@ class TokenIntrospectionController
                     true,
                 )
             ) {
+                // Likewise a hub which an administrator also made a resource server: the two roles contradict
+                // each other however they were given.
+                if ($client->isIntrospectionResourceServer()) {
+                    throw new ConfigurationError(
+                        sprintf(
+                            'Client %s is named in %s, and its client record also makes it a resource server. A ' .
+                            'client introspects either as a resource server or as the upstream hub, not as both.',
+                            $clientId,
+                            ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+                        ),
+                    );
+                }
+
                 $this->loggerService->debug(
                     sprintf(
                         'Client %s is configured as the upstream hub, so it may introspect any token this OP ' .
@@ -689,6 +705,7 @@ class TokenIntrospectionController
             }
 
             if (
+                $client->isIntrospectionResourceServer() ||
                 in_array(
                     $clientId,
                     $this->moduleConfig->getApiOAuth2TokenIntrospectionResourceServerClientIds(),
@@ -697,8 +714,9 @@ class TokenIntrospectionController
             ) {
                 $this->loggerService->debug(
                     sprintf(
-                        'Client %s is configured as a resource server, so it may introspect any token.',
+                        'Client %s is a resource server (%s), so it may introspect any token.',
                         $clientId,
+                        $client->isIntrospectionResourceServer() ? 'set in its client record' : 'configured',
                     ),
                 );
 

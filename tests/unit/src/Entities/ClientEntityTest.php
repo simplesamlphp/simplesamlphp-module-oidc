@@ -287,6 +287,8 @@ class ClientEntityTest extends TestCase
                 'contacts' => [],
                 'authproc' => [],
                 'add_claims_to_id_token' => false,
+                'introspection_resource_server' => false,
+                'introspection_foreign_issuers' => null,
                 'registration_access_token' => null,
             ],
         );
@@ -455,6 +457,58 @@ class ClientEntityTest extends TestCase
         $this->assertContains(
             ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS,
             ClientEntity::ADMIN_ONLY_METADATA_KEYS,
+        );
+    }
+
+
+    /**
+     * Only an administrator makes a client a resource server, and only a JSON true does: the role grants the user
+     * claims of every token the client can present.
+     */
+    public function testIsAResourceServerOnlyWhenItsRecordSaysTrue(): void
+    {
+        $this->assertFalse($this->mock()->isIntrospectionResourceServer());
+        $this->assertFalse($this->withExtraMetadata([])->isIntrospectionResourceServer());
+
+        foreach ([false, 1, '1', 'true', 'yes', [true], null] as $notTrue) {
+            $this->assertFalse(
+                $this->withExtraMetadata([ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => $notTrue])
+                    ->isIntrospectionResourceServer(),
+                var_export($notTrue, true),
+            );
+        }
+
+        $resourceServer = $this->withExtraMetadata([ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true]);
+        $this->assertTrue($resourceServer->isIntrospectionResourceServer());
+        $this->assertTrue($resourceServer->toArray()[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER]);
+    }
+
+
+    public function testTheResourceServerSettingIsAdministratorOnly(): void
+    {
+        $this->assertContains(
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER,
+            ClientEntity::ADMIN_ONLY_METADATA_KEYS,
+        );
+    }
+
+
+    /**
+     * As stored, even when it can not be read, so that the admin form can tell it apart from no list; turning a
+     * client into an array does not throw for it.
+     */
+    public function testExportsTheForeignIssuerListAsStored(): void
+    {
+        $this->assertSame(
+            ['allow' => ['https://node-a.example.org']],
+            $this->withExtraMetadata(
+                [ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['allow' => ['https://node-a.example.org']]],
+            )->toArray()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS],
+        );
+        $this->assertSame(
+            'not a list',
+            $this->withExtraMetadata([ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'not a list'])
+                ->toArray()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS],
         );
     }
 

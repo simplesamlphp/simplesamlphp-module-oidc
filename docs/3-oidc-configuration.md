@@ -850,13 +850,17 @@ client filters as the "SP-side" list), exactly as SAML merges IdP and SP
 
 > **Security note:** Auth Proc filters name a PHP class that is instantiated and
 > executed on the OP during authentication. For this reason, per-client filters
-> can only be set by a trusted administrator through the admin UI / API. They are
+> can only be set by a logged in SimpleSAMLphp administrator through the admin
+> UI / API. A user managing their own clients through the `client` permission
+> (see [Client registration permissions](#client-registration-permissions))
+> neither sees nor changes them: the client keeps the filters it has. They are
 > **deliberately never accepted from client-supplied registration metadata**
 > (OIDC Dynamic Client Registration or OpenID Federation registration); any such
 > value present in registration metadata is ignored. This deny-list of
 > administrator-only client properties is defined in
 > `\SimpleSAML\Module\oidc\Entities\ClientEntity::ADMIN_ONLY_METADATA_KEYS` and
-> enforced in `ClientEntityFactory::fromRegistrationData()`.
+> enforced in `ClientEntityFactory::fromRegistrationData()` and, for the
+> `client` permission, in the admin client controller.
 
 Alternatively, if you only need a global filter to run for selected clients, you
 can keep using the global `authproc.oidc` option together with a
@@ -880,6 +884,12 @@ Permissions expose functionality to specific users. In the following
 example, a user's `eduPersonEntitlement` is examined. To perform an action
 requiring the `client` permission (register/edit/delete a client) the user
 needs one of the listed entitlements.
+
+Such a user manages their own clients, but not the administrator-only client
+properties (`ClientEntity::ADMIN_ONLY_METADATA_KEYS`: per-client Authentication
+Processing Filters, releasing user claims in the ID Token, the token
+introspection resource server setting and its foreign issuer list). Those are
+not shown to them, and a client keeps the values an administrator gave it.
 
 ```php
 <?php

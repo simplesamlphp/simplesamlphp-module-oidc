@@ -168,10 +168,12 @@ authentication the global (IdP-side) and per-client (SP-side) filters are merged
 by priority. The filters are stored together with the client (inside its extra
 metadata) and are managed from the client administration UI as a JSON object,
 using the same structure as the global filters. For security reasons, per-client
-filters can only be set by an administrator (via the admin UI / API) and are
-deliberately never accepted from client-supplied dynamic / OpenID Federation
-registration metadata (a filter names a PHP class executed on the OP, so
-honoring it from registration would be a remote code execution vector).
+filters can only be set by a logged in SimpleSAMLphp administrator (via the admin
+UI / API) and are deliberately never accepted from client-supplied dynamic /
+OpenID Federation registration metadata (a filter names a PHP class executed on
+the OP, so honoring it from registration would be a remote code execution
+vector). A user managing their own clients through the `client` permission
+neither sees nor changes them: the client keeps the filters it has.
   - Clients can now be configured with a new property related to the above:
     - Authentication Processing Filters (`authproc`)
 - Clients can now be configured to release the user's claims directly in the ID
@@ -187,11 +189,24 @@ privacy challenges (for example, ID token ending up in access logs), and as it
 increases the ID Token size. (Note: for the bare `id_token` implicit response
 type there is no access token to call UserInfo with, so the claims are already
 included in the ID Token regardless of this property.) For security reasons,
-it can only be set by an administrator (via the admin UI) and is
+it can only be set by a logged in SimpleSAMLphp administrator (via the admin UI),
+not by a user managing their own clients through the `client` permission, and is
 deliberately never accepted from client-supplied dynamic / OpenID Federation
 registration metadata.
   - Clients can now be configured with a new property related to the above:
     - Release user claims in ID Token (`add_claims_to_id_token`)
+- An administrator can make a client a resource server at the token
+introspection endpoint in the client administration UI: it may then introspect
+tokens issued to any client, and a token another authorization server issued is
+introspected upstream on its behalf (AARC-G052 proxied token introspection).
+A resource server is trusted with the user claims of every token it can present.
+The same form sets which other issuers' tokens a resource server may have
+introspected upstream (an allow list or a deny list). Both are administrator-only
+on the same terms as the two properties above. See
+[Token Introspection](8-api.md#token-introspection).
+  - Clients can now be configured with new properties related to the above:
+    - Resource server (`introspection_resource_server`)
+    - Foreign issuer list (`introspection_foreign_issuers`)
 - The encryption key (used to encrypt / decrypt artifacts like authorization
 codes and refresh tokens) can now optionally be set to a strong, pre-generated
 `\Defuse\Crypto\Key`, instead of always deriving it from the SimpleSAMLphp
@@ -368,7 +383,8 @@ optional, enables the OAuth2 token introspection endpoint as per RFC7662.
 - `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RESOURCE_SERVER_CLIENT_IDS` -
 optional, client IDs allowed to introspect tokens issued to any client (default
 `[]`). A client which authenticates at the introspection endpoint is otherwise
-(unless it is named as the upstream hub, below) told only about tokens issued to
+(unless an administrator made it a resource server in the client administration
+UI, or it is named as the upstream hub, below) told only about tokens issued to
 itself, and answered `active: false` for
 anyone else's. Name a resource server here if it introspects tokens issued to
 other clients; it is then trusted with the user claims of every token it can
@@ -378,7 +394,8 @@ are unaffected.
 optional, client IDs of the upstream hub which performs AARC-G052 proxied token
 introspection towards this OP (default `[]`). Such a client may introspect any
 token this OP issued, as a resource server may. A client named both here and as
-a resource server is a configuration error.
+a resource server (in the configuration, or in the client administration UI) is
+a configuration error. The hub is named in the configuration only.
 - `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY` and
 `ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_RELEASE_POLICY_ARGUMENTS` -
 optional, a class deciding per caller how much of an active token's

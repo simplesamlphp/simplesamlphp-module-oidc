@@ -223,11 +223,13 @@
             {% trans %}When enabled, the auth_time claim is always included in ID Tokens issued to this Client.{% endtrans %}
         </span>
 
+        {% if form.editsAdminOnlyProperties() %}
         <label for="">{{ 'Release User Claims in ID Token'|trans }}</label>
         {{ form.add_claims_to_id_token.control | raw }}
         <span class="pure-form-message">
             {% trans %}When enabled, the user's claims (resolved from the granted scopes) are included directly in the ID Token issued to this Client, in addition to being available from the UserInfo endpoint. This is useful for clients that do not call the UserInfo endpoint and rely solely on the ID Token to obtain user attributes. Leave it disabled (the default) unless a client needs it, as it opens some privacy challenges (for example, ID token ending up in access logs), and as it increases the ID Token size. For security reasons, this can only be set here (by an administrator) and is never accepted from dynamic / federation client registration.{% endtrans %}
         </span>
+        {% endif %}
 
         {% if form.hasConfiguredAcrValues() %}
         <label for="frm-default_acr_values">{{ 'Default ACR Values'|trans }}</label>
@@ -332,6 +334,7 @@
             {% trans %}Require this client to always sign a request object (even in case of OpenID Connect flavor which does not require signing). Make sure the client has a JWKS key configured if this option is enabled.{% endtrans %}
         </span>
 
+        {% if form.editsAdminOnlyProperties() %}
         <label for="frm-authproc">{{ 'Authentication Processing Filters'|trans }}</label>
         {{ form.authproc.control | raw }}
         <span class="pure-form-message">
@@ -339,6 +342,38 @@
         </span>
         {% if form.authproc.hasErrors %}
             <span class="pure-form-message red-text">{{ form.authproc.getError }}</span>
+        {% endif %}
+
+        <br>
+        <h4>{{ 'Token Introspection'|trans }}</h4>
+
+        {% set configuredIntrospectionRole = form.getConfiguredIntrospectionRole() %}
+        <label for="">{{ 'Resource Server (Token Introspection)'|trans }}</label>
+        {{ form.introspection_resource_server.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}When enabled, this Client is a resource server at the token introspection endpoint: it is told about tokens this OP issued to any client, not only its own, and a token another authorization server issued is introspected upstream on its behalf (AARC-G052 proxied token introspection). A resource server is trusted with the user claims of every token it can present. For security reasons, this can only be set here (by an administrator) and is never accepted from dynamic / federation client registration. The module configuration can also name resource servers; the upstream hub is named there only.{% endtrans %}
+        </span>
+        {% if configuredIntrospectionRole and configuredIntrospectionRole.value == 'resource_server' %}
+        <span class="pure-form-message">
+            {% trans %}The module configuration also names this Client a resource server, which makes it one whether or not this is enabled.{% endtrans %}
+        </span>
+        {% elseif configuredIntrospectionRole and configuredIntrospectionRole.value == 'upstream_hub' %}
+        <span class="pure-form-message">
+            {% trans %}The module configuration names this Client the upstream hub, so it can not also be a resource server.{% endtrans %}
+        </span>
+        {% endif %}
+
+        <label for="frm-introspection_foreign_issuers_mode">{{ 'Foreign Issuers'|trans }}</label>
+        {{ form.introspection_foreign_issuers_mode.control | raw }}
+        {{ form.introspection_foreign_issuers.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Which other authorization servers' tokens this resource server may have introspected upstream on its behalf, by issuer identifier, one per line, compared exactly. Allow: only the issuers listed (none at all when the list is empty). Deny: every issuer but those listed. Choose neither for no restriction. Applies only to a resource server, and never to tokens this OP issued. Like the option above, this can only be set here (by an administrator).{% endtrans %}
+        </span>
+        {% if form.hasUnreadableForeignIssuerList() %}
+        <span class="pure-form-message red-text">
+            {% trans %}The foreign issuer list stored for this Client can not be read, or holds an entry which is not an issuer identifier, so it is not shown. Choose allow or deny and list the issuers again.{% endtrans %}
+        </span>
+        {% endif %}
         {% endif %}
 
         <br>

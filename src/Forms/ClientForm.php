@@ -6,17 +6,22 @@ namespace SimpleSAML\Module\oidc\Forms;
 
 use JsonException;
 use Nette\Forms\Form;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Codebooks\IntrospectionCallerRoleEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
+use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
 use Traversable;
 
 /**
@@ -53,6 +58,31 @@ class ClientForm extends Form
      */
     final public const string REGEX_HTTP_URI_PATH = '/^http(s?):\/\/[^\s\/$.?#][^\s?#]*$/i';
 
+    /**
+     * Whether the issuers listed in the ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS field are the only ones
+     * allowed, or the ones denied. No choice means the client has no foreign issuer list.
+     */
+    final public const string FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE = 'introspection_foreign_issuers_mode';
+
+
+    /**
+     * Whether the form is used by a SimpleSAMLphp administrator, the only one who sets the administrator-only client
+     * properties (ClientEntity::ADMIN_ONLY_METADATA_KEYS). A user managing their own clients through the `client`
+     * permission gets a form without them, and ClientController keeps the values the client already has.
+     */
+    protected bool $isAdministrator;
+
+    /**
+     * The client whose record filled the form (setDefaults()); null while a client is being added.
+     */
+    protected ?string $clientIdentifier = null;
+
+    /**
+     * Whether that record holds a foreign issuer list the form can not show as it is stored; see
+     * self::hasUnreadableForeignIssuerList().
+     */
+    protected bool $hasUnreadableForeignIssuerList = false;
+
 
     /**
      * @throws \Exception
@@ -62,10 +92,85 @@ class ClientForm extends Form
         protected CsrfProtection $csrfProtection,
         protected SspBridge $sspBridge,
         protected Helpers $helpers,
+        protected readonly OpenIdHelpers $openIdHelpers = new OpenIdHelpers(),
     ) {
         parent::__construct();
 
+        $this->isAdministrator = $this->sspBridge->utils()->auth()->isAdmin();
+
         $this->buildForm();
+    }
+
+
+    /**
+     * Whether the administrator-only client properties are part of this form; see self::$isAdministrator.
+     */
+    public function editsAdminOnlyProperties(): bool
+    {
+        return $this->isAdministrator;
+    }
+
+
+    /**
+     * Whether the client's stored foreign issuer list can not be shown as it is stored: it can not be read at all,
+     * or an entry is not an issuer identifier. Such an entry would come back from the form changed (trimmed, or
+     * split at a line break), and since issuers are compared exactly, saving it would permit an issuer the stored
+     * list did not. The form then shows no list, and a resource server's form refuses to be saved until one is
+     * chosen again, since saving it as "no list" would lift whatever restriction it held.
+     */
+    public function hasUnreadableForeignIssuerList(): bool
+    {
+        return $this->hasUnreadableForeignIssuerList;
+    }
+
+
+    /**
+     * The introspection role the module configuration gives the client being edited: the upstream hub, or a
+     * resource server whatever its record says. Null for any other client, a client being added, and a
+     * configuration which names the client in both roles (self::validateIntrospectionResourceServer() reports
+     * that one).
+     */
+    public function getConfiguredIntrospectionRole(): ?IntrospectionCallerRoleEnum
+    {
+        try {
+            return $this->resolveConfiguredIntrospectionRole();
+        } catch (ConfigurationError) {
+            return null;
+        }
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError When the configuration names the client in both roles.
+     * @throws \Exception
+     */
+    protected function resolveConfiguredIntrospectionRole(): ?IntrospectionCallerRoleEnum
+    {
+        if (is_null($this->clientIdentifier)) {
+            return null;
+        }
+
+        if (
+            in_array(
+                $this->clientIdentifier,
+                $this->moduleConfig->getApiOAuth2TokenIntrospectionUpstreamHubClientIds(),
+                true,
+            )
+        ) {
+            return IntrospectionCallerRoleEnum::UpstreamHub;
+        }
+
+        if (
+            in_array(
+                $this->clientIdentifier,
+                $this->moduleConfig->getApiOAuth2TokenIntrospectionResourceServerClientIds(),
+                true,
+            )
+        ) {
+            return IntrospectionCallerRoleEnum::ResourceServer;
+        }
+
+        return null;
     }
 
 
@@ -246,6 +351,76 @@ class ClientForm extends Form
                     "Each Authentication Processing Filter object must have a string 'class' property: " .
                     var_export($filter, true),
                 );
+            }
+        }
+    }
+
+
+    /**
+     * Validate the client's role at the token introspection endpoint, which only an administrator sets. Refused:
+     * - making the upstream hub a resource server, since the two roles contradict each other (the hub is named in
+     *   the module configuration only);
+     * - a foreign issuer list on a client which is not a resource server, where it would never be applied;
+     * - an entry which is not an issuer identifier, which no token forwarded upstream can carry;
+     * - keeping, by choosing nothing, a stored list which the form can not show as it is stored.
+     *
+     * @throws \Exception
+     */
+    public function validateIntrospectionResourceServer(Form $form): void
+    {
+        if (!$this->isAdministrator) {
+            return;
+        }
+
+        $values = $form->getValues(self::TYPE_ARRAY);
+
+        $isResourceServer = ($values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] ?? false) === true;
+        /** @var mixed $foreignIssuerList */
+        $foreignIssuerList = $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null;
+
+        try {
+            $configuredRole = $this->resolveConfiguredIntrospectionRole();
+        } catch (ConfigurationError $e) {
+            $this->addError($e->getMessage());
+            return;
+        }
+
+        if ($isResourceServer && $configuredRole === IntrospectionCallerRoleEnum::UpstreamHub) {
+            $this->addError(
+                sprintf(
+                    'This client is the upstream hub (%s), so it can not also be a resource server.',
+                    ModuleConfig::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_UPSTREAM_HUB_CLIENT_IDS,
+                ),
+            );
+        }
+
+        $isResourceServer = $isResourceServer || $configuredRole === IntrospectionCallerRoleEnum::ResourceServer;
+
+        if (!is_array($foreignIssuerList)) {
+            // A list is only ever applied to a resource server, so for any other client there is nothing to lift.
+            if ($this->hasUnreadableForeignIssuerList && $isResourceServer) {
+                $this->addError(
+                    'The foreign issuer list stored for this client can not be read, or holds an entry which is not ' .
+                    'an issuer identifier. Choose allow or deny and list the issuers again (deny with no issuers ' .
+                    'permits every issuer).',
+                );
+            }
+
+            return;
+        }
+
+        if (!$isResourceServer) {
+            $this->addError(
+                'A foreign issuer list applies only to a resource server. Make the client one, or remove the list.',
+            );
+        }
+
+        /** @var mixed $issuers */
+        $issuers = reset($foreignIssuerList);
+        /** @var mixed $issuer */
+        foreach (is_array($issuers) ? $issuers : [] as $issuer) {
+            if (!is_string($issuer) || !$this->openIdHelpers->url()->isIssuerIdentifier($issuer)) {
+                $this->addError('Invalid foreign issuer (not an issuer identifier): ' . var_export($issuer, true));
             }
         }
     }
@@ -504,6 +679,38 @@ class ClientForm extends Form
             $values[ClientEntity::KEY_AUTH_PROC_FILTERS] = [];
         }
 
+        $values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] =
+        (bool)($values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] ?? false);
+
+        // The list as the client record keeps it (see ForeignIssuerList::fromClientMetadata()), or null for none.
+        /** @var mixed $foreignIssuersMode */
+        $foreignIssuersMode = $values[self::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE] ?? null;
+        unset($values[self::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE]);
+        /** @var mixed $foreignIssuers */
+        $foreignIssuers = $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? '';
+        $foreignIssuers = array_values(array_unique(array_map(
+            trim(...),
+            $this->helpers->str()->convertTextToArray(is_string($foreignIssuers) ? $foreignIssuers : ''),
+        )));
+        if (in_array($foreignIssuersMode, [ForeignIssuerList::KEY_ALLOW, ForeignIssuerList::KEY_DENY], true)) {
+            $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] = [$foreignIssuersMode => $foreignIssuers];
+        } else {
+            $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] = null;
+            if ($foreignIssuers !== []) {
+                $this->addError(
+                    'Foreign issuers are listed, but neither allowed nor denied. Choose one, or remove them.',
+                );
+            }
+        }
+
+        // Only an administrator's form has these fields; for anybody else, the values the client already has are
+        // kept (ClientController), so nothing here may stand in for them.
+        if (!$this->isAdministrator) {
+            foreach (ClientEntity::ADMIN_ONLY_METADATA_KEYS as $adminOnlyMetadataKey) {
+                unset($values[$adminOnlyMetadataKey]);
+            }
+        }
+
         return $values;
     }
 
@@ -635,6 +842,37 @@ class ClientForm extends Form
         (string)json_encode($authProcFilters, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) :
         '';
 
+        /** @var mixed $clientIdentifier */
+        $clientIdentifier = $values[ClientEntity::KEY_ID] ?? null;
+        $this->clientIdentifier = is_string($clientIdentifier) && $clientIdentifier !== '' ? $clientIdentifier : null;
+
+        $values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] =
+        ($values[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER] ?? false) === true;
+
+        try {
+            $foreignIssuerList = ForeignIssuerList::fromClientMetadata(
+                $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null,
+            );
+        } catch (OidcException) {
+            $foreignIssuerList = null;
+        }
+        $this->hasUnreadableForeignIssuerList = is_null($foreignIssuerList) ?
+        !is_null($values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null) :
+        array_filter(
+            $foreignIssuerList->getIssuers(),
+            fn(string $issuer): bool => !$this->openIdHelpers->url()->isIssuerIdentifier($issuer),
+        ) !== [];
+        if ($this->hasUnreadableForeignIssuerList) {
+            $foreignIssuerList = null;
+        }
+        $values[self::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE] = is_null($foreignIssuerList) ?
+        null :
+        ($foreignIssuerList->isAllowList() ? ForeignIssuerList::KEY_ALLOW : ForeignIssuerList::KEY_DENY);
+        $values[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] = implode(
+            "\n",
+            $foreignIssuerList?->getIssuers() ?? [],
+        );
+
         parent::setDefaults($values, $erase);
 
         return $this;
@@ -660,6 +898,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateJwksUri(...);
         $this->onValidate[] = $this->validateRequestUris(...);
         $this->onValidate[] = $this->validateAuthProcFilters(...);
+        $this->onValidate[] = $this->validateIntrospectionResourceServer(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -769,11 +1008,6 @@ class ClientForm extends Form
 
         $this->addCheckbox(ClaimsEnum::RequireAuthTime->value, Translate::noop('Require auth_time in ID Token'));
 
-        $this->addCheckbox(
-            ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN,
-            Translate::noop('Release User Claims in ID Token'),
-        );
-
         // Bound to the OP's supported ACRs (acr_values_supported). When the OP advertises no ACRs, this has no
         // items and the field is hidden in the template (a per-client default ACR cannot do anything in that case).
         $this->addMultiSelect(
@@ -809,11 +1043,50 @@ class ClientForm extends Form
         $this->addTextArea(ClaimsEnum::Contacts->value, Translate::noop('Contacts (one per line)'), null, 3)
             ->setHtmlAttribute('class', 'full-width');
 
+        if ($this->isAdministrator) {
+            $this->addAdministratorOnlyControls();
+        }
+    }
+
+
+    /**
+     * The controls of the administrator-only client properties (ClientEntity::ADMIN_ONLY_METADATA_KEYS); see
+     * self::$isAdministrator.
+     */
+    protected function addAdministratorOnlyControls(): void
+    {
+        $this->addCheckbox(
+            ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN,
+            Translate::noop('Release User Claims in ID Token'),
+        );
+
         $this->addTextArea(
             ClientEntity::KEY_AUTH_PROC_FILTERS,
             Translate::noop('Authentication Processing Filters'),
             null,
             5,
+        )->setHtmlAttribute('class', 'full-width');
+
+        $this->addCheckbox(
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER,
+            Translate::noop('Resource Server (Token Introspection)'),
+        );
+
+        $this->addSelect(
+            self::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE,
+            Translate::noop('Foreign Issuers'),
+        )->setHtmlAttribute('class', 'full-width')
+            ->setItems([
+                ForeignIssuerList::KEY_ALLOW => Translate::noop('Allow only the issuers listed'),
+                ForeignIssuerList::KEY_DENY => Translate::noop('Deny the issuers listed'),
+            ])
+            ->setPrompt(Translate::noop('-'));
+
+        $this->addTextArea(
+            ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS,
+            Translate::noop('Foreign Issuers (one per line)'),
+            null,
+            3,
         )->setHtmlAttribute('class', 'full-width');
     }
 

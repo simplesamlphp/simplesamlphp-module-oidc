@@ -254,13 +254,18 @@ class TokenIntrospectionControllerTest extends TestCase
      * @param string $clientId Identifier the client authenticated as. A caller is only told about tokens
      * issued to it, so this is what the tokens in these tests have to belong to.
      */
+    /**
+     * @param bool $isResourceServer Whether the client's record makes it a resource server.
+     */
     private function createValidResolvedClientAuthenticationMethodMock(
         string $clientId = 'client-id',
+        bool $isResourceServer = false,
     ): MockObject&ResolvedClientAuthenticationMethod {
         $mock = $this->createMock(ResolvedClientAuthenticationMethod::class);
         $mock->method('getClientAuthenticationMethod')->willReturn(ClientAuthenticationMethodsEnum::ClientSecretBasic);
         $clientMock = $this->createMock(ClientEntity::class);
         $clientMock->method('getIdentifier')->willReturn($clientId);
+        $clientMock->method('isIntrospectionResourceServer')->willReturn($isResourceServer);
         $mock->method('getClient')->willReturn($clientMock);
 
         return $mock;
@@ -1417,6 +1422,37 @@ class TokenIntrospectionControllerTest extends TestCase
 
 
     /**
+     * The hub is named in configuration only, and a hub client whose record an administrator also made a resource
+     * server holds two contradictory roles however they were given: the same configuration error as a client on
+     * both lists, answered before any token is looked at.
+     */
+    public function testInvokeAnswersAHubWhoseRecordMakesItAResourceServerAsAServerError(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')->willReturn(['hub']);
+
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('hub', isResourceServer: true));
+        $this->bearerTokenValidatorMock->expects($this->never())->method('ensureValidAccessToken');
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->stringContains('client record also makes it a resource server'),
+                ['exception' => ConfigurationError::class],
+            );
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('server_error', 'Unable to process the introspection request.', 500)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
      * @param ?string $type The token's 'typ' header; null for a token minted before the module wrote one.
      */
     private function givenIntrospectableAccessToken(
@@ -2054,6 +2090,7 @@ class TokenIntrospectionControllerTest extends TestCase
         ?string $roleListGetter,
         IntrospectionCallerRoleEnum $expectedRole,
         string $expectedCallerId,
+        bool $isResourceServerByRecord = false,
     ): void {
         $requestMock = $this->createMock(Request::class);
 
@@ -2061,9 +2098,13 @@ class TokenIntrospectionControllerTest extends TestCase
             $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn(null);
             $this->apiAuthorizationMock->method('requireCallerForAnyOfScope')->willReturn('ops-token');
         } else {
-            $this->moduleConfigMock->method((string)$roleListGetter)->willReturn([$clientId]);
+            if (!is_null($roleListGetter)) {
+                $this->moduleConfigMock->method($roleListGetter)->willReturn([$clientId]);
+            }
             $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
-                ->willReturn($this->createValidResolvedClientAuthenticationMethodMock($clientId));
+                ->willReturn(
+                    $this->createValidResolvedClientAuthenticationMethodMock($clientId, $isResourceServerByRecord),
+                );
         }
 
         $this->requestParamsResolverMock
@@ -2106,6 +2147,26 @@ class TokenIntrospectionControllerTest extends TestCase
                 'getApiOAuth2TokenIntrospectionResourceServerClientIds',
                 IntrospectionCallerRoleEnum::ResourceServer,
                 'rs1',
+            ],
+            'a resource server by its client record' => [
+                'rs1',
+                null,
+                IntrospectionCallerRoleEnum::ResourceServer,
+                'rs1',
+                true,
+            ],
+            'a resource server both configured and by its client record' => [
+                'rs1',
+                'getApiOAuth2TokenIntrospectionResourceServerClientIds',
+                IntrospectionCallerRoleEnum::ResourceServer,
+                'rs1',
+                true,
+            ],
+            'a client which is neither' => [
+                'client1',
+                null,
+                IntrospectionCallerRoleEnum::Client,
+                'client1',
             ],
             'the upstream hub' => [
                 'hub1',
