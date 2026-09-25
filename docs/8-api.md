@@ -360,8 +360,8 @@ holds its own tokens, so it learns nothing new about them, while another
 client's token would answer with that token's subject, scopes and lifetime.
 
 A client which is a resource server may introspect any token. An administrator
-makes a client one in the admin client form (**Resource Server (Token
-Introspection)**), or a deployment which keeps its configuration as code names it
+makes a client one in the admin client form (__Resource Server (Token
+Introspection)__), or a deployment which keeps its configuration as code names it
 in `config/module_oidc.php`; either is enough:
 
 ```php
@@ -651,8 +651,8 @@ The answer:
   whatever that option says.
 
 A resource server's client record may restrict which issuers' tokens it may have
-introspected upstream, with an allow list or a deny list of issuers (**Foreign
-Issuers** in the admin client form, one issuer identifier per line; stored as
+introspected upstream, with an allow list or a deny list of issuers (__Foreign
+Issuers__ in the admin client form, one issuer identifier per line; stored as
 `introspection_foreign_issuers` in the client's extra metadata:
 `['allow' => [issuers]]` or `['deny' => [issuers]]`; without one, every issuer
 is permitted). It is administrator-only on the same terms as the resource server
