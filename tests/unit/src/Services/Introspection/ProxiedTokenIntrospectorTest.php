@@ -29,6 +29,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\Jws;
 use Stringable;
 
@@ -95,6 +96,7 @@ class ProxiedTokenIntrospectorTest extends TestCase
             $this->clientRepositoryMock,
             $this->upstreamIntrospectionClientMock,
             $this->introspectionReleasePolicyFactoryMock,
+            new Helpers(),
         );
     }
 
@@ -253,6 +255,13 @@ class ProxiedTokenIntrospectorTest extends TestCase
             'an http issuer' => [self::token(payload: ['iss' => 'http://node-a.example.org'])],
             'an issuer with a query' => [self::token(payload: ['iss' => 'https://node-a.example.org/?a=b'])],
             'an issuer which is not a URL' => [self::token(payload: ['iss' => 'node-a'])],
+            'an issuer with a user' => [self::token(payload: ['iss' => 'https://someone@node-a.example.org'])],
+            // Both pass parse_url(), which turns a control character into '_' and stops reading a port at the first
+            // character which is not a digit.
+            'an issuer ending in a line break' => [self::token(payload: ['iss' => "https://node-a.example.org/\n"])],
+            'an issuer whose port is not all digits' => [
+                self::token(payload: ['iss' => 'https://node-a.example.org:443]/']),
+            ],
         ];
     }
 

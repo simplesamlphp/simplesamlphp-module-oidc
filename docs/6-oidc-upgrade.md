@@ -622,6 +622,14 @@ unknown hint value answered `active: false` without looking the token up; RFC
 locate the token, and lets it ignore the hint where it can detect the type
 itself. The hint is still accepted, and is passed on unchanged when a token this
 OP did not issue is introspected upstream.
+- Wherever the OP reads the `iss`, `sub` or `jti` claim, or the `alg`, `kid`
+or `typ` header, of a JWT presented to it (a client assertion, a request object,
+a Verifiable Credential proof, an ID token hint, an access token), a value which
+is not a JSON string is now refused. Previously a number or a boolean there was
+read as a string (`42` as `"42"`). RFC 7519 (section 2 and 4.1) and RFC 7515
+(section 4.1) define each of them as a string. A client which writes its
+identifier as a JSON number in its client assertion has to write it as a
+string. This comes with `simplesamlphp/openid` 0.10.
 - Client property `is_federated` has been removed, as the OP implementation
 can now only be a leaf entity in the federation context, and not a federation
 operator or intermediary entity. Previously, this property was used to

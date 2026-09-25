@@ -38,6 +38,7 @@ use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
 use SimpleSAML\OpenID\Did\DidWebResolver;
+use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
@@ -490,6 +491,7 @@ class ModuleConfig
         ?Configuration $sspConfig = null,
         protected readonly SspBridge $sspBridge = new SspBridge(),
         protected readonly ValueAbstracts $valueAbstracts = new ValueAbstracts(),
+        protected readonly OpenIdHelpers $openIdHelpers = new OpenIdHelpers(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
@@ -3414,7 +3416,7 @@ class ModuleConfig
         foreach ($issuerMap as $tokenIssuer => $upstream) {
             $where = sprintf('%s[%s]', self::OPTION_API_OAUTH2_TOKEN_INTROSPECTION_ISSUER_MAP, $tokenIssuer);
 
-            if (!is_string($tokenIssuer) || !IntrospectionUpstream::isIssuerIdentifier($tokenIssuer)) {
+            if (!is_string($tokenIssuer) || !$this->openIdHelpers->url()->isIssuerIdentifier($tokenIssuer)) {
                 throw new ConfigurationError(
                     sprintf('%s: the key must be the issuer of the tokens, an https URL.', $where),
                 );
@@ -3493,7 +3495,7 @@ class ModuleConfig
         /** @var mixed $timeout */
         $timeout = $config[self::KEY_UPSTREAM_TIMEOUT] ?? self::DEFAULT_UPSTREAM_TIMEOUT;
 
-        if (!is_string($issuer) || !IntrospectionUpstream::isIssuerIdentifier($issuer)) {
+        if (!is_string($issuer) || !$this->openIdHelpers->url()->isIssuerIdentifier($issuer)) {
             throw new ConfigurationError(
                 sprintf(
                     '%s: \'%s\' must be an https URL without a user, a password, a query or a fragment.',

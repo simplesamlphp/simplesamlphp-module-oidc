@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\RequestObject as ConnectRequestObject;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 use Throwable;
 
@@ -163,8 +164,27 @@ class RequestObjectRule extends AbstractRule
             );
         }
 
+        // The library reads the Request Object's 'alg' only now. One which is missing, not a string (RFC 7515 section
+        // 4.1.1) or not an algorithm the library knows can not tell whether the object is protected.
+        try {
+            $isProtected = $requestObject->isProtected();
+        } catch (OpenIdException $exception) {
+            $loggerService->notice(
+                'Authorization request rejected: request object algorithm is unusable: ' . $exception->getMessage(),
+                ['client_id' => $client->getIdentifier()],
+            );
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object algorithm (alg) is missing or not supported.',
+                $exception,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
+
         // If request object is not protected (signed), check if signature is required.
-        if (!$requestObject->isProtected()) {
+        if (!$isProtected) {
             $requireSigned = $this->moduleConfig->getRequireSignedRequestObject() ||
             $client->getRequireSignedRequestObject();
             if ($requireSigned) {
@@ -242,7 +262,19 @@ class RequestObjectRule extends AbstractRule
         ?string $stateValue,
         ResponseModeInterface $responseMode,
     ): void {
-        $audience = $requestObject->getAudience();
+        // An 'aud' which is neither a string nor an array of strings (RFC 7519 section 4.1.3) identifies nobody.
+        try {
+            $audience = $requestObject->getAudience();
+        } catch (OpenIdException $exception) {
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object audience (aud) is malformed.',
+                $exception,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
 
         // The claim is optional for these flavors; only validate it when present.
         if ($audience === null) {
@@ -280,7 +312,19 @@ class RequestObjectRule extends AbstractRule
         ?string $stateValue,
         ResponseModeInterface $responseMode,
     ): void {
-        $issuer = $requestObject->getIssuer();
+        // An 'iss' which is not a string (RFC 7519 section 4.1.1) can not be the client identifier.
+        try {
+            $issuer = $requestObject->getIssuer();
+        } catch (OpenIdException $exception) {
+            throw OidcServerException::invalidRequest(
+                'request',
+                'Request object issuer (iss) is malformed.',
+                $exception,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+            );
+        }
 
         // The claim is optional for these flavors; only validate it when present.
         if ($issuer === null) {

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -23,6 +24,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\RequestObject;
 use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
@@ -100,7 +102,7 @@ class RequestObjectRuleTest extends TestCase
     }
 
 
-    protected function prepareOidcRequest(): void
+    protected function prepareOidcRequest(?RequestObject $requestObject = null): void
     {
         // A `request` param signals a Request Object is present (by value).
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn('token');
@@ -108,7 +110,7 @@ class RequestObjectRuleTest extends TestCase
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn('openid');
         $this->requestObjectBagMock->method('get')
             ->willReturnMap([
-                [RequestObject::class, $this->requestObjectMock],
+                [RequestObject::class, $requestObject ?? $this->requestObjectMock],
             ]);
         $this->requestParamsResolverMock->method('getRequestObjectBag')
             ->willReturn($this->requestObjectBagMock);
@@ -460,5 +462,62 @@ class RequestObjectRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertNotEmpty($result->getValue());
+    }
+
+
+    protected static function unsignedRequestObject(array $header, array $payload): string
+    {
+        $segment = fn(array $data): string => rtrim(
+            strtr(base64_encode(json_encode((object)$data, JSON_THROW_ON_ERROR)), '+/', '-_'),
+            '=',
+        );
+
+        return $segment($header) . '.' . $segment($payload) . '.';
+    }
+
+
+    public static function unusableRequestObjectProvider(): array
+    {
+        return [
+            // RFC 7519 section 4.1.1: 'iss' is a string.
+            'an issuer which is a number' => [['alg' => 'none'], ['iss' => 42], 'issuer (iss)'],
+            'an issuer which is true' => [['alg' => 'none'], ['iss' => true], 'issuer (iss)'],
+            // RFC 7519 section 4.1.3: 'aud' is a string or an array of strings.
+            'an audience which is a number' => [['alg' => 'none'], ['aud' => 42], 'audience (aud)'],
+            // RFC 7515 section 4.1.1: 'alg' is a string, and REQUIRED.
+            'an algorithm which is a number' => [['alg' => 42], ['iss' => 'client123'], 'algorithm (alg)'],
+            'no algorithm' => [[], ['iss' => 'client123'], 'algorithm (alg)'],
+            'an algorithm the library does not know' => [['alg' => 'XS256'], ['iss' => 'client123'], 'algorithm (alg)'],
+        ];
+    }
+
+
+    /**
+     * The library reads these members of a Request Object which parses only when they are asked for. A value it
+     * can not use is the client's error, answered as an invalid request, and not a failure of the OP.
+     */
+    #[DataProvider('unusableRequestObjectProvider')]
+    public function testRefusesARequestObjectWithAnUnusableMemberAsAnInvalidRequest(
+        array $header,
+        array $payload,
+        string $member,
+    ): void {
+        $this->prepareOidcRequest(
+            (new Core())->requestObjectFactory()->fromToken(self::unsignedRequestObject($header, $payload)),
+        );
+
+        try {
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $this->resultBagStub,
+                $this->loggerServiceStub,
+                [],
+                $this->responseModeStub,
+            );
+            $this->fail('A Request Object whose ' . $member . ' is unusable must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertStringContainsString($member, (string)$exception->getHint());
+        }
     }
 }

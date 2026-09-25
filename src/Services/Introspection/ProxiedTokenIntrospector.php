@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectedTokenOrigin;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\Jws\ParsedJws;
 
 /**
@@ -48,6 +49,7 @@ class ProxiedTokenIntrospector
         protected readonly ClientRepository $clientRepository,
         protected readonly UpstreamIntrospectionClient $upstreamIntrospectionClient,
         protected readonly IntrospectionReleasePolicyFactory $introspectionReleasePolicyFactory,
+        protected readonly Helpers $helpers,
     ) {
     }
 
@@ -276,7 +278,7 @@ class ProxiedTokenIntrospector
         // Only ever used to pick an upstream from configuration, never to reach anything, but a value which is not
         // an https URL is not an issuer identifier (RFC 8414 section 2).
         $tokenIssuer = $parsedJws->getIssuer();
-        if (is_null($tokenIssuer) || !IntrospectionUpstream::isIssuerIdentifier($tokenIssuer)) {
+        if (is_null($tokenIssuer) || !$this->helpers->url()->isIssuerIdentifier($tokenIssuer)) {
             return 'its issuer is not an https URL without a user, a password, a query or a fragment';
         }
 

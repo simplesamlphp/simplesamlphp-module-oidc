@@ -627,9 +627,12 @@ class TokenIntrospectionControllerTest extends TestCase
             'another issuer\'s, not yet valid' => [
                 self::jws(['alg' => 'RS256'], ['iss' => 'https://node-a.example.org', 'nbf' => time() + 3600]),
             ],
-            'naming an issuer which is not a string' => [
+            // RFC 7519 section 4.1.1: 'iss' is a string. A value of another type names no issuer, and is not made one.
+            'naming an issuer which is a list' => [
                 self::jws(['alg' => 'RS256'], ['iss' => ['https://node-a.example.org']]),
             ],
+            'naming an issuer which is a number' => [self::jws(['alg' => 'RS256'], ['iss' => 42])],
+            'naming an issuer which is true' => [self::jws(['alg' => 'RS256'], ['iss' => true])],
             // Valid JSON which PHP will not decode into an object, and which the library accepts.
             'this OP\'s, with a member name starting with NUL' => [
                 self::jws(['alg' => 'RS256'], '{"iss":"https://op.example.org","x":{"\\u0000key":"value"}}'),

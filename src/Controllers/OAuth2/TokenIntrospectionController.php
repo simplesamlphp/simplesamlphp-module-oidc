@@ -33,7 +33,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
-use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Exceptions\JwsParseException;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\ParsedJws;
@@ -169,7 +169,8 @@ class TokenIntrospectionController
      * unchanged.
      *
      * Both are read with the library's own parser, the one the validator uses, so that no token of this OP can be
-     * taken for something else here.
+     * taken for something else here, and the value is parsed once: the library tells a value which is not a JWS at
+     * all from a JWS which fails a check as it is built.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\UpstreamIntrospectionException When no answer was had from
      * upstream.
@@ -180,20 +181,16 @@ class TokenIntrospectionController
         ?string $tokenTypeHintParam,
         IntrospectionAuthorization $introspectionAuthorization,
     ): ?array {
-        try {
-            $this->jws->jwsDecoratorBuilder()->fromToken($tokenParam);
-        } catch (JwsException) {
-            return $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
-        }
-
-        // Read without verifying it, and only to route the question. A token naming this OP, or no usable issuer,
-        // is validated here like any other, and one which only claims to be this OP's fails that. So is one whose
-        // lifetime is over or has not begun by this OP's clock, beyond the configured leeway: the parsed JWS judges
-        // that as it is built, the validator refuses it for the same reason and logs it, and there is no point in
-        // asking anyone else about it.
+        // Read without verifying it, and only to route the question. A token naming this OP, or no usable issuer
+        // (none, or one which is not a string as RFC 7519 section 4.1.1 has it), is validated here like any other,
+        // and one which only claims to be this OP's fails that. So is one whose lifetime is over or has not begun by
+        // this OP's clock, beyond the configured leeway: the parsed JWS judges that as it is built, the validator
+        // refuses it for the same reason and logs it, and there is no point in asking anyone else about it.
         try {
             $parsedJws = $this->jws->parsedJwsFactory()->fromToken($tokenParam);
             $tokenIssuer = $parsedJws->getIssuer();
+        } catch (JwsParseException) {
+            return $this->resolveRefreshTokenPayload($tokenParam, $introspectionAuthorization);
         } catch (OpenIdException) {
             return $this->resolveAccessTokenPayload($tokenParam, $introspectionAuthorization);
         }

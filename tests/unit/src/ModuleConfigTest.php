@@ -2020,6 +2020,16 @@ class ModuleConfigTest extends TestCase
                 [ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://hub.example.org/?a=b'],
                 "'issuer' must be an https URL",
             ],
+            // Both pass parse_url(), which turns a control character into '_' and stops reading a port at the first
+            // character which is not a digit.
+            'an issuer ending in a line break' => [
+                [ModuleConfig::KEY_UPSTREAM_ISSUER => "https://hub.example.org/\n"],
+                "'issuer' must be an https URL",
+            ],
+            'an issuer whose port is not all digits' => [
+                [ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://hub.example.org:443]/'],
+                "'issuer' must be an https URL",
+            ],
             'this OP itself' => [
                 [ModuleConfig::KEY_UPSTREAM_ISSUER => 'https://op.example.org'],
                 'the upstream can not be this OP itself',
@@ -2122,6 +2132,10 @@ class ModuleConfigTest extends TestCase
                 'the key must be the issuer of the tokens',
             ],
             'a list' => [[self::upstreamConfig()], 'the key must be the issuer of the tokens'],
+            'a key ending in a line break' => [
+                ["https://node-a.example.org\n" => self::upstreamConfig()],
+                'the key must be the issuer of the tokens',
+            ],
             "this OP's own issuer" => [
                 ['https://op.example.org' => self::upstreamConfig()],
                 "this OP's own tokens are answered here",

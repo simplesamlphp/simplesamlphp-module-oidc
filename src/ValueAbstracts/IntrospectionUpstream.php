@@ -28,25 +28,6 @@ class IntrospectionUpstream
     }
 
 
-    /**
-     * Whether the value is usable as an issuer identifier: "a URL that uses the "https" scheme and has no query
-     * or fragment components" (RFC 8414 section 2), and no user or password either, which no issuer identifier
-     * has any use for. Asked of an upstream's own issuer, and of the issuer a presented token names.
-     */
-    public static function isIssuerIdentifier(string $value): bool
-    {
-        $parts = parse_url($value);
-
-        return is_array($parts) &&
-        strtolower($parts['scheme'] ?? '') === 'https' &&
-        ($parts['host'] ?? '') !== '' &&
-        !isset($parts['user']) &&
-        !isset($parts['pass']) &&
-        !isset($parts['query']) &&
-        !isset($parts['fragment']);
-    }
-
-
     public function getIssuer(): string
     {
         return $this->issuer;
