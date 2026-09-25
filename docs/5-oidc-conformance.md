@@ -17,7 +17,7 @@ Clone, build, and run the conformance test suite:
 ```bash
 git clone https://gitlab.com/openid/conformance-suite.git
 cd conformance-suite
-git checkout release-v5.1.45
+git checkout release-v5.3.1
 MAVEN_CACHE=./m2 docker compose -f builder-compose.yml run builder
 docker compose up
 ```
