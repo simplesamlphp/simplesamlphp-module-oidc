@@ -1,0 +1,13 @@
+# The build context of docker/proxied-introspection-harness/Dockerfile is the checkout; only the module itself is
+# wanted in it.
+.git
+.idea
+.junie
+.agents
+.claude
+.codex
+build
+vendor
+composer.lock
+docker/nginx-certs
+docker/ssp/*.key

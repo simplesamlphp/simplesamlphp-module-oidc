@@ -1,0 +1,151 @@
+# Proxied token introspection harness (AARC-G052): three OPs of this module - node a, the hub h, node b - plus two
+# variants of b and an upstream mock, all on one private network over verified TLS. Who is who, and who holds which
+# credentials where, is in topology.php. Run it with docker/proxied-introspection-harness/run.sh; see "Proxied
+# introspection harness" in docs/4-oidc-docker.md.
+#
+# Every path is relative to the checkout: pass --project-directory . as run.sh does.
+
+name: oidc-proxied-introspection-harness
+
+x-op-node: &op-node
+  image: oidc-proxied-introspection-harness:local
+  pull_policy: never
+  depends_on:
+    pki:
+      condition: service_completed_successfully
+  volumes:
+    - ./:/var/simplesamlphp/staging-modules/oidc:ro
+    - pki:/harness/pki:ro
+    - ./docker/proxied-introspection-harness/topology.php:/harness/topology.php:ro
+    - ./docker/proxied-introspection-harness/seed.php:/harness/seed.php:ro
+    - ./docker/proxied-introspection-harness/run-on-start.sh:/opt/simplesaml/run-on-start.sh:ro
+    - ./docker/proxied-introspection-harness/module_oidc.php:/var/simplesamlphp/config/module_oidc.php:ro
+    - ./docker/ssp/authsources.php:/var/simplesamlphp/config/authsources.php:ro
+    - ./docker/ssp/config-override.php:/var/simplesamlphp/config/config-override.php:ro
+    - ./docker/apache-override.cf:/etc/apache2/sites-enabled/ssp-override.cf:ro
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fsS --cacert /harness/pki/ca.pem https://$${HARNESS_HOST}/.well-known/openid-configuration >/dev/null"]
+    interval: 3s
+    timeout: 5s
+    retries: 40
+
+x-op-environment: &op-environment
+  SSP_ADMIN_PASSWORD: harness-admin
+  APACHE_CERT_NAME: harness
+
+services:
+  # Creates the harness CA, a TLS certificate for each host and a token signing key pair for each node, once.
+  pki:
+    image: oidc-proxied-introspection-harness:local
+    build:
+      context: .
+      dockerfile: docker/proxied-introspection-harness/Dockerfile
+      args:
+        # Built by docker/build-ssp-base.sh; see docs/4-oidc-docker.md.
+        SSP_IMAGE: "${SSP_IMAGE:-ssp-base:v2.5.3.1}"
+    entrypoint: ["bash", "/harness/pki.sh"]
+    volumes:
+      - pki:/harness/pki
+      - ./docker/proxied-introspection-harness/pki.sh:/harness/pki.sh:ro
+
+  a:
+    <<: *op-node
+    environment:
+      <<: *op-environment
+      HARNESS_NODE: a
+      HARNESS_HOST: a.oidc.test
+    networks:
+      default:
+        aliases: [a.oidc.test]
+
+  h:
+    <<: *op-node
+    environment:
+      <<: *op-environment
+      HARNESS_NODE: h
+      HARNESS_HOST: h.oidc.test
+    networks:
+      default:
+        aliases: [h.oidc.test]
+
+  b:
+    <<: *op-node
+    environment:
+      <<: *op-environment
+      HARNESS_NODE: b
+      HARNESS_HOST: b.oidc.test
+    networks:
+      default:
+        aliases: [b.oidc.test]
+
+  b-literal:
+    <<: *op-node
+    environment:
+      <<: *op-environment
+      HARNESS_NODE: b-literal
+      HARNESS_HOST: b-literal.oidc.test
+    networks:
+      default:
+        aliases: [b-literal.oidc.test]
+
+  b-loop:
+    <<: *op-node
+    environment:
+      <<: *op-environment
+      HARNESS_NODE: b-loop
+      HARNESS_HOST: b-loop.oidc.test
+    networks:
+      default:
+        aliases: [b-loop.oidc.test]
+
+  upstream-mock:
+    image: oidc-proxied-introspection-harness:local
+    pull_policy: never
+    depends_on:
+      pki:
+        condition: service_completed_successfully
+    environment:
+      <<: *op-environment
+      HARNESS_HOST: upstream-mock.oidc.test
+    volumes:
+      - pki:/harness/pki:ro
+      - ./docker/proxied-introspection-harness/run-on-start.sh:/opt/simplesaml/run-on-start.sh:ro
+      - ./docker/proxied-introspection-harness/upstream-mock.php:/var/www/upstream-mock.php:ro
+    networks:
+      default:
+        aliases: [upstream-mock.oidc.test]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --cacert /harness/pki/ca.pem https://upstream-mock.oidc.test/upstream-mock.php/recorder/state >/dev/null"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  # The tests, from the checkout, with its own vendor directory (composer install on the host first). Started by
+  # run.sh once every node is healthy; not part of "up".
+  runner:
+    image: oidc-proxied-introspection-harness:local
+    pull_policy: never
+    profiles: [tests]
+    working_dir: /module
+    entrypoint: ["php", "vendor/bin/phpunit", "-c", "phpunit.proxied-introspection-harness.xml"]
+    environment:
+      HARNESS_CA: /harness/pki/ca.pem
+    volumes:
+      - ./:/module:ro
+      - pki:/harness/pki:ro
+    depends_on:
+      a:
+        condition: service_healthy
+      h:
+        condition: service_healthy
+      b:
+        condition: service_healthy
+      b-literal:
+        condition: service_healthy
+      b-loop:
+        condition: service_healthy
+      upstream-mock:
+        condition: service_healthy
+
+volumes:
+  pki:

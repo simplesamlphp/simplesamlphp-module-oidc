@@ -79,7 +79,8 @@
   "autoload-dev": {
     "psr-4": {
       "SimpleSAML\\Test\\Module\\oidc\\unit\\": "tests/unit/src/",
-      "SimpleSAML\\Test\\Module\\oidc\\integration\\": "tests/integration/src/"
+      "SimpleSAML\\Test\\Module\\oidc\\integration\\": "tests/integration/src/",
+      "SimpleSAML\\Test\\Module\\oidc\\ProxiedIntrospectionHarness\\": "tests/ProxiedIntrospectionHarness/src/"
     }
   },
   "extra": {
@@ -99,6 +100,10 @@
     ],
     "integration-tests": [
       "vendor/bin/phpunit --no-configuration -c phpunit.integration.xml --no-coverage"
+    ],
+    "harness-tests": [
+      "Composer\\Config::disableProcessTimeout",
+      "docker/proxied-introspection-harness/run.sh"
     ],
     "unit-tests": [
       "vendor/bin/phpunit --no-coverage"

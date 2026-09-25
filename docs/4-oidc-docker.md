@@ -9,6 +9,7 @@ This document shows how to run and test the module with Docker.
 - Testing AuthProc filters
 - Build image for conformance tests
 - Docker Compose
+- Proxied introspection harness
 
 ## Build the SimpleSAMLphp base image
 
@@ -184,3 +185,49 @@ OIDC_VERSION=dev-master docker compose -f docker/docker-compose.yml --project-di
 Visit the OP and verify a few clients exist:
 
 - [https://op.local.stack-dev.cirrusidentity.com/simplesaml/](https://op.local.stack-dev.cirrusidentity.com/simplesaml/)
+
+## Proxied introspection harness
+
+`docker/proxied-introspection-harness` runs three OPs of this module on one
+private Docker network, over TLS verified against a CA of the harness's own, to
+test AARC-G052 proxied token introspection end to end:
+
+- `a`, the node which issued the token;
+- `h`, a hub, which knows the other nodes through its issuer map;
+- `b`, a node as a deployment would configure it: its next hop is the hub.
+
+Two variants of `b` (`b-literal`, with
+`api_oauth2_token_introspection_upstream_failure_answers_inactive` on, and
+`b-loop`, with its own issuer as the next hop) and an upstream mock, which
+misbehaves in one way per path and records what reaches it, complete the
+picture. Who is who, and which credentials each holds where, is in
+`docker/proxied-introspection-harness/topology.php`; the tests are in
+`tests/ProxiedIntrospectionHarness`.
+
+It needs the SimpleSAMLphp base image (see above) and the checkout's own
+dependencies, since the tests run from the checkout:
+
+```bash
+composer install
+docker/proxied-introspection-harness/run.sh
+```
+
+The script builds the harness image, starts the nodes, runs the tests and
+removes everything again; on a failure it prints the containers' logs first.
+The CI workflow runs it on every push, in the job "Proxied introspection
+harness". The nodes mount the checkout, so a change to the module needs no
+rebuild. To keep the nodes running afterwards, and run the tests again, or only
+some of them:
+
+```bash
+docker/proxied-introspection-harness/run.sh --keep
+docker compose -f docker/proxied-introspection-harness/docker-compose.yml \
+  --project-directory . run --rm runner --filter IssuerList
+```
+
+This removes them, and the harness PKI with them:
+
+```bash
+docker compose -f docker/proxied-introspection-harness/docker-compose.yml \
+  --project-directory . down --volumes
+```

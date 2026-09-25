@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The proxied introspection harness tests. They run inside the harness, against its nodes:
+  docker/proxied-introspection-harness/run.sh.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         colors="true"
+         bootstrap="./vendor/autoload.php"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd"
+         cacheResult="false"
+         failOnEmptyTestSuite="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+>
+  <testsuites>
+    <testsuite name="Proxied introspection harness">
+      <directory>./tests/ProxiedIntrospectionHarness</directory>
+    </testsuite>
+  </testsuites>
+</phpunit>

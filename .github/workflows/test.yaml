@@ -313,3 +313,49 @@ jobs:
           docker compose -f docker-compose-dev.yml down || true
           sudo rm -rf mongo
 
+  proxied-introspection-harness:
+    name: Proxied introspection harness
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The SimpleSAMLphp ref the base image is built from, kept as in conformance-suite above: a released tag
+        # which satisfies composer.json, usable as a Docker tag.
+        ssp-composer-version: ["v2.5.3.1"]
+    steps:
+      - name: Setup PHP, with composer and extensions
+        uses: shivammathur/setup-php@v2 #https://github.com/shivammathur/setup-php
+        with:
+          # The tests run from the checkout, with its own dependencies; the nodes run on the base image's PHP.
+          php-version: "8.3"
+          extensions: mbstring, xml
+          tools: composer:v2
+          coverage: none
+
+      - uses: actions/checkout@v6
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo COMPOSER_CACHE="$(composer config cache-files-dir)" >> "$GITHUB_ENV"
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v5
+        with:
+          path: $COMPOSER_CACHE
+          key: "${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}"
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Build SimpleSAMLphp base image
+        # Same script as in conformance-suite, and as a developer runs locally.
+        run: ./docker/build-ssp-base.sh ${{ matrix.ssp-composer-version }}
+
+      - name: Run the proxied introspection harness
+        # Builds the harness image on the base image, starts nodes a, h and b and the rest, runs
+        # tests/ProxiedIntrospectionHarness against them and removes everything again. On a failure it prints the
+        # containers' logs first.
+        env:
+          SSP_IMAGE: ssp-base:${{ matrix.ssp-composer-version }}
+        run: ./docker/proxied-introspection-harness/run.sh
