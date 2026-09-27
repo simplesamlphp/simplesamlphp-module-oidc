@@ -20,14 +20,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\RequestObject;
 use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
+use Stringable;
 
 #[CoversClass(RequestObjectRule::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -47,7 +50,10 @@ class RequestObjectRuleTest extends TestCase
 
     protected Stub $requestStub;
 
-    protected Stub $loggerServiceStub;
+    protected LoggerService&MockObject $loggerServiceMock;
+
+    /** @var array<int,array{level:string,message:string,context:array}> */
+    protected array $logRecords = [];
 
     protected MockObject $jwksResolverMock;
 
@@ -74,7 +80,18 @@ class RequestObjectRuleTest extends TestCase
         $this->jarRequestObjectMock->method('getPayload')->willReturn(['payload']);
         $this->requestObjectBagMock = $this->createMock(RequestObjectBag::class);
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
-        $this->loggerServiceStub = $this->createStub(LoggerService::class);
+        $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        foreach (['debug', 'info', 'notice', 'warning', 'error'] as $level) {
+            $this->loggerServiceMock->method($level)->willReturnCallback(
+                function (string|Stringable $message, array $context = []) use ($level): void {
+                    $this->logRecords[] = [
+                        'level' => $level,
+                        'message' => (string)$message,
+                        'context' => $context,
+                    ];
+                },
+            );
+        }
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
         $this->helpers = new Helpers();
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
@@ -99,6 +116,21 @@ class RequestObjectRuleTest extends TestCase
             $jwksResolver,
             $moduleConfig,
         );
+    }
+
+
+    /**
+     * The records of one level, so that a test pins the event it is about without being coupled to the
+     * rule's entry trace.
+     *
+     * @return array<int,array{message:string,context:array}>
+     */
+    protected function logRecordsOfLevel(string $level): array
+    {
+        return array_values(array_map(
+            static fn(array $record): array => ['message' => $record['message'], 'context' => $record['context']],
+            array_filter($this->logRecords, static fn(array $record): bool => $record['level'] === $level),
+        ));
     }
 
 
@@ -143,11 +175,49 @@ class RequestObjectRuleTest extends TestCase
         $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
         $this->assertNull($result);
+    }
+
+
+    /**
+     * ClientRule resolves a client from a Request Object when a request registers automatically in OpenID
+     * Federation, and adds that object's payload to the result bag under this rule's key
+     * (`ClientRule::resolveFromFederation()`, line 387). The rule must not parse the same request a second
+     * time then: the bag is filled as that flow leaves it, source param included, and nothing is asked of
+     * the parser.
+     */
+    public function testSkipsARequestObjectWhichHasAlreadyBeenResolved(): void
+    {
+        // A `request` param is present, so there is a Request Object source for the rule to find.
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturnCallback(
+            fn(string $paramKey): ?string => $paramKey === ParamsEnum::Request->value ? 'not-a-jwt' : null,
+        );
+        $this->requestParamsResolverMock->expects($this->never())->method('getRequestObjectBag');
+
+        // Federation's automatic registration leaves the client in the bag as well, so a rule which did not
+        // skip would get as far as parsing rather than failing on a missing dependency.
+        $resultBag = new ResultBag();
+        $resultBag->add(new Result(RequestObjectRule::class, ['iss' => 'client123', 'scope' => 'openid']));
+        $resultBag->add(new Result(ClientRule::class, $this->clientStub));
+        $resultBag->add(new Result(ClientRedirectUriRule::class, 'https://example.com/redirect'));
+
+        $this->assertNull(
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $resultBag,
+                $this->loggerServiceMock,
+                [],
+                $this->responseModeStub,
+            ),
+        );
+        $this->assertContains(
+            'Request object has already been resolved, skipping rule ' . RequestObjectRule::class,
+            array_column($this->logRecordsOfLevel('debug'), 'message'),
+        );
     }
 
 
@@ -161,9 +231,80 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0:?string}>
+     */
+    public static function refusedRequestStateProvider(): array
+    {
+        return [
+            'the state the client sent comes back with the refusal' => ['state123'],
+            'a request which sent no state is refused without one' => [null],
+        ];
+    }
+
+
+    /**
+     * A `request` param which no flavour can parse leaves the bag empty rather than absent:
+     * `RequestObjectParser::fromToken()` swallows each factory's failure and returns the bag it has built,
+     * so it is this rule which decides what an empty one means. An OpenID Connect authorization request is
+     * judged by the OpenID Connect Core flavour, and without it there is nothing to judge.
+     */
+    #[DataProvider('refusedRequestStateProvider')]
+    public function testRefusesAnOidcRequestWhoseRequestObjectIsNotAnOidcOne(?string $state): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturnCallback(
+            fn(string $paramKey): ?string => $paramKey === ParamsEnum::Request->value ? 'not-a-jwt' : null,
+        );
+        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturnCallback(
+            fn(string $paramKey): ?string => $paramKey === ParamsEnum::Scope->value ? 'openid' : null,
+        );
+        // The real bag, empty, as the parser returns it when no factory could read the token.
+        $this->requestParamsResolverMock->method('getRequestObjectBag')->willReturn(new RequestObjectBag());
+
+        $resultBag = new ResultBag();
+        $resultBag->add(new Result(ClientRule::class, $this->clientStub));
+        $resultBag->add(new Result(ClientRedirectUriRule::class, 'https://example.com/redirect'));
+        if ($state !== null) {
+            $resultBag->add(new Result(StateRule::class, $state));
+        }
+
+        try {
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $resultBag,
+                $this->loggerServiceMock,
+                [],
+                $this->responseModeStub,
+            );
+            $this->fail('A request object which is not an OpenID Connect one must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('Request object is not a valid Request Object.', $exception->getHint());
+            $this->assertSame('https://example.com/redirect', $exception->getRedirectUri());
+            // The refusal is a redirect back to the client, so what it sent has to come back with it.
+            if ($state === null) {
+                $this->assertArrayNotHasKey('state', $exception->getPayload());
+            } else {
+                $this->assertSame($state, $exception->getPayload()['state']);
+            }
+        }
+
+        $this->assertSame(
+            [
+                [
+                    'message' => 'Authorization request rejected: request object is not a valid OpenID Connect ' .
+                        'Request Object.',
+                    'context' => ['client_id' => 'client123'],
+                ],
+            ],
+            $this->logRecordsOfLevel('notice'),
         );
     }
 
@@ -176,7 +317,7 @@ class RequestObjectRuleTest extends TestCase
         $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -197,7 +338,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -218,7 +359,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -239,7 +380,7 @@ class RequestObjectRuleTest extends TestCase
         $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -262,7 +403,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -282,7 +423,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -299,7 +440,7 @@ class RequestObjectRuleTest extends TestCase
         $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -320,7 +461,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -342,7 +483,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -358,7 +499,7 @@ class RequestObjectRuleTest extends TestCase
         $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -378,7 +519,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -399,7 +540,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -416,7 +557,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -433,7 +574,7 @@ class RequestObjectRuleTest extends TestCase
         $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -454,7 +595,7 @@ class RequestObjectRuleTest extends TestCase
         $result = $this->sut()->checkRule(
             $this->requestStub,
             $this->resultBagStub,
-            $this->loggerServiceStub,
+            $this->loggerServiceMock,
             [],
             $this->responseModeStub,
         );
@@ -510,7 +651,7 @@ class RequestObjectRuleTest extends TestCase
             $this->sut()->checkRule(
                 $this->requestStub,
                 $this->resultBagStub,
-                $this->loggerServiceStub,
+                $this->loggerServiceMock,
                 [],
                 $this->responseModeStub,
             );

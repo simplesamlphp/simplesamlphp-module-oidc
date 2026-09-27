@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use Exception;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -17,8 +18,10 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -273,5 +276,69 @@ class IdTokenHintRuleTest extends TestCase
             [],
             $this->responseModeStub,
         );
+    }
+
+
+    /**
+     * @return array<string,array{0:?string}>
+     */
+    public static function emptyIdTokenHintFlowProvider(): array
+    {
+        return [
+            // The authorization endpoint has a validated redirect URI, so the refusal is redirected there.
+            'the authorization flow, where a redirect URI has been validated' => ['https://rp.example.org/cb'],
+            // The end session endpoint runs no ClientRedirectUriRule, so the refusal is answered directly.
+            'the logout flow, where there is none' => [null],
+        ];
+    }
+
+
+    /**
+     * `id_token_hint=` is a hint the client announces and then does not send. It identifies no session, and
+     * accepting it as an absent hint would let a request the client got wrong pass as a request which asked
+     * for nothing. The refusal is made before the hint is parsed or any key is read.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('emptyIdTokenHintFlowProvider')]
+    public function testRefusesAnEmptyIdTokenHint(?string $redirectUri): void
+    {
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('');
+
+        $resultBagStub = $this->createStub(ResultBagInterface::class);
+        $resultBagStub->method('getOrFail')->willReturnCallback(
+            fn(string $key): Result => $key === StateRule::class ?
+                new Result(StateRule::class, 'state123') :
+                self::fail('The rule asked the bag for ' . $key . ', which this test does not model.'),
+        );
+        $resultBagStub->method('get')->willReturnCallback(
+            fn(string $key): ?Result => $key === ClientRedirectUriRule::class && $redirectUri !== null ?
+                new Result(ClientRedirectUriRule::class, $redirectUri) :
+                null,
+        );
+
+        $loggerServiceMock = $this->createMock(LoggerService::class);
+        $loggerServiceMock->expects($this->once())
+            ->method('notice')
+            ->with('Request rejected: `id_token_hint` was provided but empty.');
+        // Neither the hint nor this OP's keys are read: the refusal comes first.
+        $this->coreMock->expects($this->never())->method('idTokenHintFactory');
+        $this->jwksMock->expects($this->never())->method('jwksDecoratorFactory');
+
+        try {
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $resultBagStub,
+                $loggerServiceMock,
+                [],
+                $this->responseModeStub,
+            );
+            $this->fail('An empty id_token_hint must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('Received empty id_token_hint', $exception->getHint());
+            $this->assertSame($redirectUri, $exception->getRedirectUri());
+            $this->assertSame('state123', $exception->getPayload()['state']);
+        }
     }
 }
