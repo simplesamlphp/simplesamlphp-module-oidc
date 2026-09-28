@@ -91,6 +91,15 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected ?string $issuerState = null;
 
+    /**
+     * The Pushed Authorization Request URI (urn form) the request was made with, if any. It travels with the
+     * request through the login and the authproc round trips, so that the PAR can be consumed when the
+     * authorization response is issued rather than when the request is first validated.
+     *
+     * @see \SimpleSAML\Module\oidc\Server\AuthorizationServer::completeAuthorizationRequest()
+     */
+    protected ?string $pushedAuthorizationRequestUri = null;
+
     private ?ResponseModeInterface $responseMode = null;
 
 
@@ -352,6 +361,18 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setIssuerState(?string $issuerState): void
     {
         $this->issuerState = $issuerState;
+    }
+
+
+    public function getPushedAuthorizationRequestUri(): ?string
+    {
+        return $this->pushedAuthorizationRequestUri;
+    }
+
+
+    public function setPushedAuthorizationRequestUri(?string $pushedAuthorizationRequestUri): void
+    {
+        $this->pushedAuthorizationRequestUri = $pushedAuthorizationRequestUri;
     }
 
 

@@ -58,6 +58,8 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getParRequestUriTtl')->willReturn(new DateInterval('PT5M'));
+        $this->moduleConfigMock->method('sspConfig')
+            ->willReturn(Configuration::loadFromArray(['session.state.timeout' => 3600]));
         $this->helpers = new Helpers();
         $this->entityFactory = new PushedAuthorizationRequestEntityFactory(
             $this->moduleConfigMock,
@@ -164,20 +166,35 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
     }
 
 
+    /**
+     * A record is removed once it has been expired for longer than session.state.timeout (an hour here). One
+     * which expired more recently may belong to an authorization still waiting on an authproc, which consumes
+     * it when it completes, so it stays.
+     */
     public function testCanRemoveExpired(): void
     {
-        $expiredEntity = $this->entityFactory->fromData(
+        $longExpiredEntity = $this->entityFactory->fromData(
             'client123',
             [],
-            $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT1M')),
+            $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT61M')),
         );
-        $this->repository->persist($expiredEntity);
+        $this->repository->persist($longExpiredEntity);
+        $recentlyExpiredEntity = $this->entityFactory->fromData(
+            'client123',
+            [],
+            $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT59M')),
+        );
+        $this->repository->persist($recentlyExpiredEntity);
         $validEntity = $this->entityFactory->fromData('client123', []);
         $this->repository->persist($validEntity);
 
         $this->repository->removeExpired();
 
-        $this->assertNull($this->repository->find($expiredEntity->getRequestUri()));
+        $this->assertNull($this->repository->find($longExpiredEntity->getRequestUri()));
+        $this->assertInstanceOf(
+            PushedAuthorizationRequestEntity::class,
+            $this->repository->find($recentlyExpiredEntity->getRequestUri()),
+        );
         $this->assertInstanceOf(
             PushedAuthorizationRequestEntity::class,
             $this->repository->find($validEntity->getRequestUri()),

@@ -193,18 +193,7 @@ class CredentialIssuerMetadataService
             // signed_metadata
 
             // OPTIONAL
-            ClaimsEnum::Display->value => [
-                [
-                    ClaimsEnum::Name->value => $this->moduleConfig->getOrganizationName(),
-                    ClaimsEnum::Locale->value => 'en-US',
-                    ClaimsEnum::Description->value => $this->moduleConfig->getDescription() ?? 'SimpleSAMLphp Demo VCI',
-                    ClaimsEnum::Logo->value => [
-                        ClaimsEnum::Uri->value => $this->moduleConfig->getLogoUri(),
-                        ClaimsEnum::AltText->value => ($this->moduleConfig->getOrganizationName() ?? 'VCI') . ' logo',
-                    ],
-                ],
-
-            ],
+            ...$this->buildIssuerDisplay(),
 
             ClaimsEnum::CredentialConfigurationsSupported->value => $credentialConfigurationsSupported,
 
@@ -220,6 +209,46 @@ class CredentialIssuerMetadataService
         }
 
         return $metadata;
+    }
+
+
+    /**
+     * The Credential Issuer's own `display` entry, keyed for spreading into the document, or nothing at all.
+     *
+     * OpenID4VCI 1.0 section 12.2.4 gives that entry only `name`, `locale` and `logo`, and a `logo` must
+     * have a `uri`. So a name or a logo which is not configured is left out rather than published as null,
+     * and without either of them there is nothing to display, so the entry is left out as well.
+     *
+     * @return array<string, list<array<string, mixed>>>
+     */
+    protected function buildIssuerDisplay(): array
+    {
+        $name = $this->moduleConfig->getOrganizationName();
+        $name = $name === '' ? null : $name;
+        $logoUri = $this->moduleConfig->getLogoUri();
+        $logoUri = $logoUri === '' ? null : $logoUri;
+
+        if ($name === null && $logoUri === null) {
+            return [];
+        }
+
+        $display = [];
+
+        if ($name !== null) {
+            $display[ClaimsEnum::Name->value] = $name;
+        }
+
+        $display[ClaimsEnum::Locale->value] = 'en-US';
+
+        if ($logoUri !== null) {
+            $display[ClaimsEnum::Logo->value] = [ClaimsEnum::Uri->value => $logoUri];
+
+            if ($name !== null) {
+                $display[ClaimsEnum::Logo->value][ClaimsEnum::AltText->value] = $name . ' logo';
+            }
+        }
+
+        return [ClaimsEnum::Display->value => [$display]];
     }
 
 

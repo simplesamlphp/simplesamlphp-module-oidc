@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
@@ -84,6 +85,8 @@ class AuthorizationServerFactoryTest extends TestCase
 
     protected MockObject $loggerServiceMock;
 
+    protected MockObject $pushedAuthorizationRequestRepositoryMock;
+
     protected DateInterval $accessTokenDuration;
 
 
@@ -106,6 +109,9 @@ class AuthorizationServerFactoryTest extends TestCase
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
         $this->privateKeyMock = $this->createMock(CryptKey::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->pushedAuthorizationRequestRepositoryMock = $this->createMock(
+            PushedAuthorizationRequestRepository::class,
+        );
     }
 
 
@@ -159,6 +165,7 @@ class AuthorizationServerFactoryTest extends TestCase
             $this->privateKeyMock,
             $this->preAuthCodeGrantMock,
             $this->loggerServiceMock,
+            $this->pushedAuthorizationRequestRepositoryMock,
         );
     }
 
@@ -210,6 +217,21 @@ class AuthorizationServerFactoryTest extends TestCase
 
         $this->assertSame($this->requestRulesManagerMock, $this->propertyOf($server, 'requestRulesManager'));
         $this->assertSame($this->loggerServiceMock, $this->propertyOf($server, 'loggerService'));
+    }
+
+
+    /**
+     * The server consumes a pushed authorization request when it issues the response. Built without the
+     * repository, it would refuse every response to a request made with one.
+     */
+    public function testBuildsTheServerAroundThePushedAuthorizationRequestRepository(): void
+    {
+        $server = $this->sut()->build();
+
+        $this->assertSame(
+            $this->pushedAuthorizationRequestRepositoryMock,
+            $this->propertyOf($server, 'pushedAuthorizationRequestRepository'),
+        );
     }
 
 

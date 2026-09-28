@@ -4,8 +4,11 @@
 -- other relies on, and they answer to their own conformance suite alias, simplesamlphp-module-oidc-vci,
 -- which is the alias in conformance-tests/conformance-vci-issuer.json. The suite authenticates both with
 -- private_key_jwt, signing with the private halves of these keys held in that file; the secret only
--- satisfies the schema. The one scope is the one the credential configuration in docker/ssp/module_oidc.php
--- names, which is what the suite requests.
+-- satisfies the schema. Both keys are EC P-256: the suite also signs its credential key proofs with the
+-- client's key, and reads that key as an EC key. The one scope is the one the credential configuration in docker/ssp/module_oidc.php
+-- names, which is what the suite requests. The suite sends client 2's requests from the callback with a
+-- query string added (?dummy1=lorem&dummy2=ipsum), to check that it is compared exactly, so client 2 has
+-- those redirect URIs too.
 INSERT INTO oidc_client (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled, is_confidential, jwks, registration_type)
 VALUES (
     '_3eaf06703ec3a31c4b5b5577427f28ee5e76e83f5f',
@@ -27,10 +30,10 @@ VALUES (
     'VCI Conformance Client 2',
     'Client 2 for the OpenID4VCI issuer test plan, used by its multiple clients test',
     'example-userpass',
-    '["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc-vci\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc-vci\/callback"]',
+    '["https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc-vci\/callback","https:\/\/localhost.emobix.co.uk:8443\/test\/a\/simplesamlphp-module-oidc-vci\/callback?dummy1=lorem&dummy2=ipsum","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc-vci\/callback","https:\/\/www.certification.openid.net\/test\/a\/simplesamlphp-module-oidc-vci\/callback?dummy1=lorem&dummy2=ipsum"]',
     '["ResearchAndScholarshipCredentialDcSdJwt"]',
     1,
     1,
-    '{"keys":[{"kty":"RSA","e":"AQAB","kid":"fapi-jwt-assertion-20180817-2","alg":"PS256","n":"kne7a8IYQR6jweqpHAplq-XRGOuiVyF5Siy6_647OhOC8ppRIMV2O_wP6qK1AKCFb78Bb8qbRI3Mz-Tr9hCWm1BZQkD-HGbNowjVsOj7oB2nbNbGfqciTyT3kTG1f5PmeX2N4-f9zZM-J4Jmi9PdMjn2fkNl9oMCW9XaLHHzCU6f-vYftxdCnVQD7ZKr40HjoAeXjwdGhgzvuWSZHkhEqx_QMh8JskqP46PjsMykFWiryju9balCdS5yASf-Fno8pXMFEV1wgipy-FPlhB5FZtLwVvH9F2jAxRaWkRQzhM5hWugIUi8YobjoIwhrmJ04JTK-DGOlThJsNvS4QANDZw"}]}',
+    '{"keys":[{"kty":"EC","use":"sig","crv":"P-256","kid":"vci-conformance-client-2","x":"rPyeMbaj5YghbJLlBI4XUTi1bNazW4MJN5H5Na1UDpc","y":"mLSi9IXjY1Tdf8qZy28FEnnhBpzkskeSKuUUQ5XBmMo","alg":"ES256"}]}',
     'manual'
 );

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
@@ -81,11 +82,17 @@ class CredentialIssuerMetadataServiceTest extends TestCase
      */
     protected array $resolvableDidMethods;
 
+    protected ?string $organizationName;
+
+    protected ?string $logoUri;
+
 
     protected function setUp(): void
     {
         $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
         $this->resolvableDidMethods = ['did:jwk', 'did:key', 'did:web'];
+        $this->organizationName = 'Example University';
+        $this->logoUri = 'https://issuer.com/logo.png';
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
@@ -97,9 +104,12 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->didFactoryMock->method('build')->willReturn($this->didMock);
 
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
-        $this->moduleConfigMock->method('getOrganizationName')->willReturn('Example University');
+        $this->moduleConfigMock->method('getOrganizationName')
+            ->willReturnCallback(fn(): ?string => $this->organizationName);
+        // Configured, so that the display assertions show `description` stays out even when there is one:
+        // the issuer display has no such member.
         $this->moduleConfigMock->method('getDescription')->willReturn('Example credentials');
-        $this->moduleConfigMock->method('getLogoUri')->willReturn('https://issuer.com/logo.png');
+        $this->moduleConfigMock->method('getLogoUri')->willReturnCallback(fn(): ?string => $this->logoUri);
         $this->moduleConfigMock->method('getVciCredentialConfigurationsSupported')
             ->willReturn($this->credentialConfigurations());
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
@@ -211,12 +221,12 @@ class CredentialIssuerMetadataServiceTest extends TestCase
     {
         $metadata = $this->publishedMetadata();
 
+        // Exactly these members: the issuer display defines no `description`, although one is configured.
         $this->assertSame(
             [
                 [
                     ClaimsEnum::Name->value => 'Example University',
                     ClaimsEnum::Locale->value => 'en-US',
-                    ClaimsEnum::Description->value => 'Example credentials',
                     ClaimsEnum::Logo->value => [
                         ClaimsEnum::Uri->value => 'https://issuer.com/logo.png',
                         ClaimsEnum::AltText->value => 'Example University logo',
@@ -225,6 +235,76 @@ class CredentialIssuerMetadataServiceTest extends TestCase
             ],
             $metadata[ClaimsEnum::Display->value] ?? null,
         );
+    }
+
+
+    /**
+     * A member which is not configured is left out, never published as null. An empty string counts as not
+     * configured, since a `logo.uri` must be a URI and an empty name names nothing.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    #[DataProvider('partialIssuerDisplayProvider')]
+    public function testLeavesOutWhatIsNotConfiguredFromItsDisplay(
+        ?string $organizationName,
+        ?string $logoUri,
+        array $expectedDisplay,
+    ): void {
+        $this->organizationName = $organizationName;
+        $this->logoUri = $logoUri;
+
+        $this->assertSame([$expectedDisplay], $this->publishedMetadata()[ClaimsEnum::Display->value] ?? null);
+    }
+
+
+    public static function partialIssuerDisplayProvider(): array
+    {
+        $nameOnly = [
+            ClaimsEnum::Name->value => 'Example University',
+            ClaimsEnum::Locale->value => 'en-US',
+        ];
+        // Without a name there is nothing to say about the logo either.
+        $logoOnly = [
+            ClaimsEnum::Locale->value => 'en-US',
+            ClaimsEnum::Logo->value => [ClaimsEnum::Uri->value => 'https://issuer.com/logo.png'],
+        ];
+
+        return [
+            'no logo' => ['Example University', null, $nameOnly],
+            'an empty logo' => ['Example University', '', $nameOnly],
+            'no name' => [null, 'https://issuer.com/logo.png', $logoOnly],
+            'an empty name' => ['', 'https://issuer.com/logo.png', $logoOnly],
+        ];
+    }
+
+
+    /**
+     * A display with neither a name nor a logo would only state a language, so there is none.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    #[DataProvider('emptyIssuerDisplayProvider')]
+    public function testPublishesNoDisplayWithNothingToDisplay(?string $organizationName, ?string $logoUri): void
+    {
+        $this->organizationName = $organizationName;
+        $this->logoUri = $logoUri;
+
+        $metadata = $this->publishedMetadata();
+
+        $this->assertArrayNotHasKey(ClaimsEnum::Display->value, $metadata);
+        // The rest of the document is still there, so the missing display is not a missing document.
+        $this->assertSame(self::ISSUER, $metadata[ClaimsEnum::CredentialIssuer->value] ?? null);
+    }
+
+
+    public static function emptyIssuerDisplayProvider(): array
+    {
+        return [
+            'neither configured' => [null, null],
+            'both empty' => ['', ''],
+        ];
     }
 
 

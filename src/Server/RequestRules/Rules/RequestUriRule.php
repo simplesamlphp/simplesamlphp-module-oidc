@@ -28,7 +28,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *  - request and request_uri must not be used together (RFC 9101),
  *  - client_id is required when using request_uri,
  *  - Pushed Authorization Request URIs (RFC 9126, urn form): existence,
- *    expiration, one-time use (consume on validation) and client binding,
+ *    expiration, not yet consumed, and client binding (the request is
+ *    consumed when the authorization response is issued, in
+ *    AuthorizationServer::completeAuthorizationRequest()),
  *  - https Request URIs (Request Object by reference): the OP must support
  *    the request_uri parameter, and the Request Object must be resolvable
  *    (registration / federation policy is enforced in RequestParamsResolver),
@@ -193,19 +195,10 @@ class RequestUriRule extends AbstractRule
             );
         }
 
-        // Request URIs are one-time use. Consume it now (atomically, to prevent
-        // concurrent replays).
-        if (!$this->pushedAuthorizationRequestRepository->consume($requestUri)) {
-            $loggerService->warning(
-                'RequestUriRule: pushed authorization request concurrent consumption attempt.',
-                compact('requestUri'),
-            );
-            throw OidcServerException::invalidRequest(
-                ParamsEnum::RequestUri->value,
-                'Pushed authorization request has already been used.',
-            );
-        }
-
+        // Request URIs are one-time use, but it is not consumed here: the user
+        // agent comes back with it after the login, and that request is
+        // validated again. AuthorizationServer consumes it, atomically, when
+        // the authorization response is issued.
         return new Result($this->getKey(), $requestUri);
     }
 

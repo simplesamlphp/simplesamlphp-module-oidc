@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Repositories;
 
+use DateInterval;
 use PDO;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
@@ -143,13 +144,29 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
 
 
     /**
-     * Delete expired Pushed Authorization Request records.
+     * Delete Pushed Authorization Request records which no authorization can still use.
+     *
+     * A record outlives its expiry by SimpleSAMLphp's session.state.timeout. The request_uri is consumed when the
+     * authorization response is issued (AuthorizationServer::completeAuthorizationRequest()), and an
+     * authorization validated before the expiry may resume after it: an authproc such as consent is resumed
+     * from saved state, without validating the request_uri again, and that state lives for
+     * session.state.timeout. Deleted earlier, the record would be missing when that authorization is completed,
+     * and the consume would refuse it as a replay. An expired record can not start a new authorization, since
+     * RequestUriRule refuses it, so keeping it longer lets nothing else through.
+     *
+     * @throws \Exception
      */
     public function removeExpired(): void
     {
+        $stateTimeout = max(
+            0,
+            $this->moduleConfig->sspConfig()->getOptionalInteger('session.state.timeout', 60 * 60),
+        );
+        $cutoff = $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT' . $stateTimeout . 'S'));
+
         $this->database->write(
-            "DELETE FROM {$this->getTableName()} WHERE expires_at < :now",
-            ['now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value)],
+            "DELETE FROM {$this->getTableName()} WHERE expires_at < :cutoff",
+            ['cutoff' => $cutoff->format(DateFormatsEnum::DB_DATETIME->value)],
         );
     }
 }

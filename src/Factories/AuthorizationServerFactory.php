@@ -8,6 +8,7 @@ use League\OAuth2\Server\CryptKey;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
@@ -34,6 +35,7 @@ class AuthorizationServerFactory
         private readonly CryptKey $privateKey,
         private readonly PreAuthCodeGrant $preAuthCodeGrant,
         private readonly LoggerService $loggerService,
+        private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
     ) {
     }
 
@@ -49,6 +51,7 @@ class AuthorizationServerFactory
             $this->tokenResponse,
             $this->requestRulesManager,
             $this->loggerService,
+            $this->pushedAuthorizationRequestRepository,
         );
 
         $authorizationServer->enableGrantType(

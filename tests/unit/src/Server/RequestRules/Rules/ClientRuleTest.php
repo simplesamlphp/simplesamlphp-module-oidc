@@ -246,7 +246,7 @@ class ClientRuleTest extends TestCase
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
             ->willReturnCallback(fn(): ?string => $this->clientIdParam);
 
-        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequest')
+        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequestWithIssuerState')
             ->willReturnCallback(fn(): bool => $this->isVciRequest);
 
         $this->requestParamsResolverMock->method('getRequestObjectBag')

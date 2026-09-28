@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\Http;
+use SimpleSAML\Module\oidc\Helpers\Str;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
@@ -91,6 +92,7 @@ class RequestParamsResolverTest extends TestCase
             ->willReturn(array_merge($this->queryParams, $this->bodyParams));
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->helpersMock->method('http')->willReturn($this->httpHelperMock);
+        $this->helpersMock->method('str')->willReturn(new Str());
         $this->requestObjectMock = $this->createMock(RequestObject::class);
         $this->requestObjectMock->method('getPayload')->willReturn($this->requestObjectParams);
         $this->requestObjectFactoryMock = $this->createMock(RequestObjectFactory::class);
@@ -170,6 +172,8 @@ class RequestParamsResolverTest extends TestCase
         $httpHelperMock->method('getAllRequestParamsBasedOnAllowedMethods')->willReturn($params);
         $helpersMock = $this->createMock(Helpers::class);
         $helpersMock->method('http')->willReturn($httpHelperMock);
+        // A real one, so that a scope is split the way production splits it.
+        $helpersMock->method('str')->willReturn(new Str());
 
         return $helpersMock;
     }
@@ -792,14 +796,28 @@ class RequestParamsResolverTest extends TestCase
 
 
     /**
-     * A VCI authorization code request is recognised by response_type "code" together with an issuer_state,
-     * which only that flow carries. The issuer_state is read as a string, so a scalar of any type counts.
+     * Issuance enabled, with one credential configuration, whose id is therefore a scope.
+     */
+    protected function enableVciWithCredentialScope(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getVciScopes')
+            ->willReturn(['ResearchCredential' => ['description' => 'ResearchCredential']]);
+    }
+
+
+    /**
+     * A VCI authorization code request is recognised by response_type "code" together with any of what only
+     * that flow carries: an issuer_state, a scope which is a credential configuration id, or authorization
+     * details of type openid_credential. The issuer_state is read as a string, so a scalar of any type counts.
      */
     #[DataProvider('vciAuthorizationCodeRequestProvider')]
-    public function testTellsAVciAuthorizationCodeRequestByResponseTypeAndIssuerState(
+    public function testTellsAVciAuthorizationCodeRequestByResponseTypeAndWhatOnlyVciCarries(
         array $params,
         bool $isVciAuthorizationCodeRequest,
     ): void {
+        $this->enableVciWithCredentialScope();
+
         $this->assertSame(
             $isVciAuthorizationCodeRequest,
             $this->mock($this->helpersWithParams($params))
@@ -810,29 +828,166 @@ class RequestParamsResolverTest extends TestCase
 
     public static function vciAuthorizationCodeRequestProvider(): array
     {
+        $code = ['response_type' => 'code'];
+        $openIdCredential = '{"type":"openid_credential","credential_configuration_id":"ResearchCredential"}';
+
         return [
-            'code with an issuer state' => [['response_type' => 'code', 'issuer_state' => 'state123'], true],
-            'code with a numeric issuer state' => [['response_type' => 'code', 'issuer_state' => 123], true],
-            'code without an issuer state' => [['response_type' => 'code'], false],
+            'code with an issuer state' => [[...$code, 'issuer_state' => 'state123'], true],
+            'code with a numeric issuer state' => [[...$code, 'issuer_state' => 123], true],
+            // Cast to a string, a parameter sent as an array (issuer_state[]=...) would read as "Array".
+            'code with an issuer state sent as an array' => [[...$code, 'issuer_state' => ['state123']], false],
+            'code with a credential scope' => [[...$code, 'scope' => 'ResearchCredential'], true],
+            'code with a credential scope sent as an array' => [[...$code, 'scope' => ['ResearchCredential']], false],
+            'code with a credential scope among others' => [
+                [...$code, 'scope' => 'profile ResearchCredential email'],
+                true,
+            ],
+            'code with other scopes only' => [[...$code, 'scope' => 'openid profile'], false],
+            // A scope is a whole token: one which merely contains a credential configuration id is another scope.
+            'code with a scope extending a credential scope' => [[...$code, 'scope' => 'ResearchCredentials'], false],
+            'code with openid_credential authorization details' => [
+                [...$code, 'authorization_details' => '[' . $openIdCredential . ']'],
+                true,
+            ],
+            'code with openid_credential authorization details after another type' => [
+                [...$code, 'authorization_details' => '[{"type":"payment_initiation"},' . $openIdCredential . ']'],
+                true,
+            ],
+            'code with other authorization details only' => [
+                [...$code, 'authorization_details' => '[{"type":"payment_initiation"}]'],
+                false,
+            ],
+            // A single object rather than a list of them: its members are not authorization details.
+            'code with an openid_credential object which is not in a list' => [
+                [...$code, 'authorization_details' => $openIdCredential],
+                false,
+            ],
+            'code with authorization details which are not JSON' => [
+                [...$code, 'authorization_details' => '[{"type":"openid_credential"'],
+                false,
+            ],
+            // AuthorizationDetailsRule reads a JSON string only, so nothing else may make the request VCI.
+            'code with authorization details which are already decoded' => [
+                [...$code, 'authorization_details' => [['type' => 'openid_credential']]],
+                false,
+            ],
+            'code without any of them' => [$code, false],
             'another response type with an issuer state' => [
                 ['response_type' => 'id_token', 'issuer_state' => 'state123'],
                 false,
             ],
-            // Not a duplicate of the two negatives above: a rewrite which answers true for an empty request,
-            // or compares the two conditions for equality, passes both of them and fails this one.
+            'another response type with a credential scope' => [
+                ['response_type' => 'id_token', 'scope' => 'ResearchCredential'],
+                false,
+            ],
+            'another response type with openid_credential authorization details' => [
+                ['response_type' => 'id_token', 'authorization_details' => '[' . $openIdCredential . ']'],
+                false,
+            ],
+            // Not a duplicate of the negatives above: a rewrite which answers true for an empty request,
+            // or compares the conditions for equality, passes all of them and fails this one.
             'nothing at all' => [[], false],
         ];
     }
 
 
+    /**
+     * While issuance is disabled no request is a VCI one, whatever it carries. The request carries all three
+     * signals and the credential scope stays configured, so that nothing but the switch can make the answer
+     * false. (Correct code never gets as far as the scopes; the stub is for code which forgets the switch.)
+     */
+    public function testTellsNoVciAuthorizationCodeRequestWhileIssuanceIsDisabled(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getVciScopes')
+            ->willReturn(['ResearchCredential' => ['description' => 'ResearchCredential']]);
+        $resolver = $this->mock($this->helpersWithParams([
+            'response_type' => 'code',
+            'issuer_state' => 'state123',
+            'scope' => 'ResearchCredential',
+            'authorization_details' => '[{"type":"openid_credential"}]',
+        ]));
+
+        $this->assertFalse($resolver->isVciAuthorizationCodeRequest($this->requestMock, [HttpMethodsEnum::GET]));
+        $this->assertFalse(
+            $resolver->isVciAuthorizationCodeRequestWithIssuerState($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+
     public function testTellsAVciAuthorizationCodeRequestFromTheAllowedMethodsOnly(): void
     {
+        $this->enableVciWithCredentialScope();
+        $this->httpHelperMock->expects($this->atLeastOnce())->method('getAllRequestParamsBasedOnAllowedMethods')
+            ->with($this->identicalTo($this->requestMock), [HttpMethodsEnum::POST])
+            ->willReturn(['response_type' => 'code', 'scope' => 'ResearchCredential']);
+        $this->httpHelperMock->expects($this->never())->method('getAllRequestParams');
+
+        $this->assertTrue($this->mock()->isVciAuthorizationCodeRequest($this->requestMock, [HttpMethodsEnum::POST]));
+    }
+
+
+    /**
+     * The narrower detection, which the non-registered client fallback relies on, takes the issuer_state only:
+     * a wallet starting the flow on its own is a VCI request, but not one of these.
+     */
+    #[DataProvider('vciAuthorizationCodeRequestWithIssuerStateProvider')]
+    public function testTellsAVciAuthorizationCodeRequestWithIssuerStateByTheIssuerStateOnly(
+        array $params,
+        bool $isVciAuthorizationCodeRequestWithIssuerState,
+    ): void {
+        $this->enableVciWithCredentialScope();
+
+        $this->assertSame(
+            $isVciAuthorizationCodeRequestWithIssuerState,
+            $this->mock($this->helpersWithParams($params))
+                ->isVciAuthorizationCodeRequestWithIssuerState($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+
+    public static function vciAuthorizationCodeRequestWithIssuerStateProvider(): array
+    {
+        return [
+            'code with an issuer state' => [['response_type' => 'code', 'issuer_state' => 'state123'], true],
+            'code with an issuer state sent as an array' => [
+                ['response_type' => 'code', 'issuer_state' => ['state123']],
+                false,
+            ],
+            'code with a credential scope' => [['response_type' => 'code', 'scope' => 'ResearchCredential'], false],
+            'code with openid_credential authorization details' => [
+                ['response_type' => 'code', 'authorization_details' => '[{"type":"openid_credential"}]'],
+                false,
+            ],
+            'code with both of the other signals' => [
+                [
+                    'response_type' => 'code',
+                    'scope' => 'ResearchCredential',
+                    'authorization_details' => '[{"type":"openid_credential"}]',
+                ],
+                false,
+            ],
+            'code without any of them' => [['response_type' => 'code'], false],
+            'another response type with an issuer state' => [
+                ['response_type' => 'id_token', 'issuer_state' => 'state123'],
+                false,
+            ],
+            'nothing at all' => [[], false],
+        ];
+    }
+
+
+    public function testTellsAVciAuthorizationCodeRequestWithIssuerStateFromTheAllowedMethodsOnly(): void
+    {
+        $this->enableVciWithCredentialScope();
         $this->httpHelperMock->expects($this->atLeastOnce())->method('getAllRequestParamsBasedOnAllowedMethods')
             ->with($this->identicalTo($this->requestMock), [HttpMethodsEnum::POST])
             ->willReturn(['response_type' => 'code', 'issuer_state' => 'state123']);
         $this->httpHelperMock->expects($this->never())->method('getAllRequestParams');
 
-        $this->assertTrue($this->mock()->isVciAuthorizationCodeRequest($this->requestMock, [HttpMethodsEnum::POST]));
+        $this->assertTrue(
+            $this->mock()->isVciAuthorizationCodeRequestWithIssuerState($this->requestMock, [HttpMethodsEnum::POST]),
+        );
     }
 
 

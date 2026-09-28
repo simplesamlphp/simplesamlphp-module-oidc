@@ -134,7 +134,10 @@ class ClientRule extends AbstractRule
         }
 
         if (
-            $this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods) &&
+            $this->requestParamsResolver->isVciAuthorizationCodeRequestWithIssuerState(
+                $request,
+                $allowedServerRequestMethods,
+            ) &&
             $this->moduleConfig->getVciEnabled() &&
             $this->moduleConfig->getVciAllowNonRegisteredClients()
         ) {

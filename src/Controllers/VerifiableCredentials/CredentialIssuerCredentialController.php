@@ -10,6 +10,7 @@ use DateTimeInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -157,10 +158,12 @@ class CredentialIssuerCredentialController
         $issuerState = $accessToken->getIssuerState();
         if (
             !is_string($issuerState) &&
-            ($accessToken->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode)
+            ($accessToken->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode) &&
+            !$this->isIssuedToRegisteredClient($accessToken)
         ) {
             $this->loggerService->error(
-                'CredentialIssuerCredentialController::credential: Issuer state missing in access token.',
+                'CredentialIssuerCredentialController::credential: Issuer state missing in access token issued ' .
+                'to a client which is not registered.',
                 ['accessTokenState' => $accessToken->getState()],
             );
             return $this->routes->newJsonErrorResponse(
@@ -395,6 +398,30 @@ class CredentialIssuerCredentialController
                 'unsupported_credential_type',
                 sprintf('Credential ID "%s" is not supported.', $resolvedCredentialIdentifier),
                 400,
+            );
+        }
+
+        // Without an issuer state the token follows no offer, so what its scopes grant is all the registered
+        // client was authorized for, and the credential has to be among them. A configuration requested
+        // through authorization_details is among them too when it was granted: AuthCodeGrant adds those ids to
+        // the scopes, and the token endpoint keeps only the scopes the client is registered for.
+        if (
+            !is_string($issuerState) &&
+            ($accessToken->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode) &&
+            !$this->isCredentialConfigurationGranted($accessToken, $resolvedCredentialIdentifier)
+        ) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Credential configuration not granted by the ' .
+                'access token.',
+                [
+                    'credentialConfigurationId' => $resolvedCredentialIdentifier,
+                    'accessTokenId' => $accessToken->getIdentifier(),
+                ],
+            );
+            return $this->routes->newJsonErrorResponse(
+                'insufficient_scope',
+                'The access token does not grant the requested credential.',
+                403,
             );
         }
 
@@ -889,6 +916,36 @@ class CredentialIssuerCredentialController
                 'credentials' => $issuedCredentialsData,
             ],
         );
+    }
+
+
+    /**
+     * Whether the access token was issued to a registered client, which is what an authorization code token
+     * without an issuer_state needs to be. A wallet which starts the flow on its own sends no issuer_state, and
+     * the credential scopes it was granted are ones its registration allows (ScopeRepository::finalizeScopes());
+     * the credential it asks for is then checked against them (isCredentialConfigurationGranted()).
+     * The generic client stands in for wallets which are not registered, and ClientRule falls back to it only
+     * for a request carrying an issuer_state, so its tokens always need one to be redeemed here.
+     */
+    protected function isIssuedToRegisteredClient(AccessTokenEntity $accessToken): bool
+    {
+        $client = $accessToken->getClient();
+
+        return $client instanceof ClientEntityInterface && !$client->isGeneric();
+    }
+
+
+    protected function isCredentialConfigurationGranted(
+        AccessTokenEntity $accessToken,
+        string $credentialConfigurationId,
+    ): bool {
+        foreach ($accessToken->getScopes() as $scope) {
+            if ($scope->getIdentifier() === $credentialConfigurationId) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 

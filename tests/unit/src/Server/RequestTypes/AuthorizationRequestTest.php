@@ -163,6 +163,7 @@ class AuthorizationRequestTest extends TestCase
         $this->assertNull($authorizationRequest->getAuthorizationDetails());
         $this->assertNull($authorizationRequest->getBoundClientId());
         $this->assertNull($authorizationRequest->getBoundRedirectUri());
+        $this->assertNull($authorizationRequest->getPushedAuthorizationRequestUri());
 
         // Both of these decide what is issued, so neither may default to yes.
         $this->assertFalse($authorizationRequest->getAddClaimsToIdToken());
@@ -291,6 +292,13 @@ class AuthorizationRequestTest extends TestCase
                 static fn(AuthorizationRequest $r, mixed $v): mixed => $r->setBoundRedirectUri((string)$v),
                 static fn(AuthorizationRequest $r): mixed => $r->getBoundRedirectUri(),
                 self::REDIRECT_URI,
+            ],
+            'pushed authorization request URI' => [
+                static fn(AuthorizationRequest $r, mixed $v): mixed => $r->setPushedAuthorizationRequestUri(
+                    (string)$v,
+                ),
+                static fn(AuthorizationRequest $r): mixed => $r->getPushedAuthorizationRequestUri(),
+                'urn:ietf:params:oauth:request_uri:abc123',
             ],
         ];
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Utils;
 
+use JsonException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
@@ -502,25 +503,139 @@ class RequestParamsResolver
 
 
     /**
+     * Whether this is an OpenID4VCI authorization code request, which, unlike an OpenID Connect one, need not
+     * carry the openid scope. It is one only while Verifiable Credential issuance is enabled, for response_type
+     * "code", and when the request carries something only that flow asks for:
+     *  - an issuer_state, which a wallet takes from a Credential Offer (OpenID4VCI 1.0 section 5.1.3);
+     *  - a scope which is a credential configuration id, the way a wallet starts the flow on its own;
+     *  - authorization_details with an entry of type openid_credential (OpenID4VCI 1.0 section 5.1.1).
+     *
+     * None of the three is validated here. Each is only a claim the request makes, and the rules which own the
+     * parameters decide whether it holds. None is cast to a string either, so a parameter sent as an array
+     * (issuer_state[]=...) is not read as the string "Array".
+     *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function isVciAuthorizationCodeRequest(
         Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): bool {
-        return
-            // Only applies to VCI Authorization Code flow.
-        $this->getAsStringBasedOnAllowedMethods(
-            ParamsEnum::ResponseType->value,
+        if (!$this->isVciCodeRequest($request, $allowedMethods)) {
+            return false;
+        }
+
+        return $this->hasIssuerState($request, $allowedMethods) ||
+        $this->hasVciScope($request, $allowedMethods) ||
+        $this->hasOpenIdCredentialAuthorizationDetails($request, $allowedMethods);
+    }
+
+
+    /**
+     * Whether this is an OpenID4VCI authorization code request carrying an issuer_state, that is one which says
+     * it follows a Credential Offer. The issuer_state value is not checked here.
+     *
+     * This is the narrower of the two detections. It is what lets a client which is not registered fall back to
+     * the generic VCI client, when that is allowed, so a wallet starting the flow on its own does not qualify.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    public function isVciAuthorizationCodeRequestWithIssuerState(
+        Request|ServerRequestInterface $request,
+        array $allowedMethods,
+    ): bool {
+        return $this->isVciCodeRequest($request, $allowedMethods) &&
+        $this->hasIssuerState($request, $allowedMethods);
+    }
+
+
+    /**
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    protected function isVciCodeRequest(Request|ServerRequestInterface $request, array $allowedMethods): bool
+    {
+        return $this->moduleConfig->getVciEnabled() &&
+        $this->getBasedOnAllowedMethods(ParamsEnum::ResponseType->value, $request, $allowedMethods) === 'code';
+    }
+
+
+    /**
+     * Any scalar counts, since IssuerStateRule reads the value as a string and a request object may carry a
+     * number.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    protected function hasIssuerState(Request|ServerRequestInterface $request, array $allowedMethods): bool
+    {
+        return is_scalar(
+            $this->getBasedOnAllowedMethods(ParamsEnum::IssuerState->value, $request, $allowedMethods),
+        );
+    }
+
+
+    /**
+     * The scope is split the way ScopeRule splits it, and matched against the scopes issuance adds, which are the
+     * credential configuration ids.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function hasVciScope(Request|ServerRequestInterface $request, array $allowedMethods): bool
+    {
+        $scopeParam = $this->getBasedOnAllowedMethods(ParamsEnum::Scope->value, $request, $allowedMethods);
+
+        if (!is_string($scopeParam)) {
+            return false;
+        }
+
+        $vciScopes = array_map('strval', array_keys($this->moduleConfig->getVciScopes()));
+
+        return array_intersect($this->helpers->str()->convertScopesStringToArray($scopeParam), $vciScopes) !== [];
+    }
+
+
+    /**
+     * Only a JSON string is looked into, since that is the only form AuthorizationDetailsRule reads.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    protected function hasOpenIdCredentialAuthorizationDetails(
+        Request|ServerRequestInterface $request,
+        array $allowedMethods,
+    ): bool {
+        $authorizationDetailsParam = $this->getBasedOnAllowedMethods(
+            ParamsEnum::AuthorizationDetails->value,
             $request,
             $allowedMethods,
-        ) === 'code' &&
-            // Issuer State is only used for VCI Authorization Code flow requests, so use it as a form of detection.
-        is_string($this->getAsStringBasedOnAllowedMethods(
-            ParamsEnum::IssuerState->value,
-            $request,
-            $allowedMethods,
-        ));
+        );
+
+        if (!is_string($authorizationDetailsParam)) {
+            return false;
+        }
+
+        try {
+            $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return false;
+        }
+
+        if (!is_array($authorizationDetails)) {
+            return false;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($authorizationDetails as $authorizationDetail) {
+            if (is_array($authorizationDetail) && ($authorizationDetail['type'] ?? null) === 'openid_credential') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

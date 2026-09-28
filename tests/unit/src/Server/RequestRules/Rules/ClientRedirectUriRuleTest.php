@@ -62,7 +62,7 @@ class ClientRedirectUriRuleTest extends TestCase
         $this->responseModeMock = $this->createMock(ResponseModeInterface::class);
 
         // Off unless a test turns it on, so the ordinary path cannot accidentally take the wallet escape.
-        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequest')->willReturn(false);
+        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequestWithIssuerState')->willReturn(false);
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
         $this->moduleConfigMock->method('getVciAllowNonRegisteredClients')->willReturn(false);
     }
@@ -190,7 +190,7 @@ class ClientRedirectUriRuleTest extends TestCase
         // Both switches on, but an ordinary authorization request must still be held to the registered URI.
         $requestParamsResolver = $this->createMock(RequestParamsResolver::class);
         $requestParamsResolver->method('getAsStringBasedOnAllowedMethods')->willReturn('openid-credential-offer://x');
-        $requestParamsResolver->method('isVciAuthorizationCodeRequest')->willReturn(false);
+        $requestParamsResolver->method('isVciAuthorizationCodeRequestWithIssuerState')->willReturn(false);
 
         $moduleConfig = $this->createMock(ModuleConfig::class);
         $moduleConfig->method('getVciEnabled')->willReturn(true);
@@ -216,7 +216,7 @@ class ClientRedirectUriRuleTest extends TestCase
     {
         $requestParamsResolver = $this->createMock(RequestParamsResolver::class);
         $requestParamsResolver->method('getAsStringBasedOnAllowedMethods')->willReturn('openid-credential-offer://x');
-        $requestParamsResolver->method('isVciAuthorizationCodeRequest')->willReturn(true);
+        $requestParamsResolver->method('isVciAuthorizationCodeRequestWithIssuerState')->willReturn(true);
 
         $moduleConfig = $this->createMock(ModuleConfig::class);
         $moduleConfig->method('getVciEnabled')->willReturn(true);
@@ -252,7 +252,7 @@ class ClientRedirectUriRuleTest extends TestCase
     {
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn($redirectUri);
-        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequest')->willReturn(true);
+        $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequestWithIssuerState')->willReturn(true);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);

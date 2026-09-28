@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule
@@ -146,5 +147,37 @@ class RequiredOpenIdScopeRuleTest extends TestCase
         $this->expectException(OidcServerException::class);
 
         $this->sut()->checkRule($this->requestStub, $resultBag, $this->loggerServiceStub, [], $this->responseModeStub);
+    }
+
+
+    /**
+     * An OpenID4VCI authorization code request need not carry openid. Whether a request is one is the
+     * resolver's call, made from the methods the rule is allowed to read, and with the broad detection:
+     * a wallet starting the flow on its own carries no issuer_state.
+     *
+     * @throws \Throwable
+     */
+    public function testCheckRulePassesWithoutOpenIdScopeForAVciRequest(): void
+    {
+        $resultBag = new ResultBag();
+        $resultBag->add($this->redirectUriResult);
+        $resultBag->add($this->stateResult);
+        $resultBag->add(new Result(ScopeRule::class, ['ResearchCredential' => new ScopeEntity('ResearchCredential')]));
+        $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
+        $requestParamsResolverMock->expects($this->once())->method('isVciAuthorizationCodeRequest')
+            ->with($this->identicalTo($this->requestStub), [HttpMethodsEnum::POST])
+            ->willReturn(true);
+        $requestParamsResolverMock->expects($this->never())->method('isVciAuthorizationCodeRequestWithIssuerState');
+
+        $result = $this->sut($requestParamsResolverMock)->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+            [HttpMethodsEnum::POST],
+        );
+
+        $this->assertTrue($result?->getValue());
     }
 }

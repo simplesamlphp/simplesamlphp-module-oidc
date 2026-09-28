@@ -19,7 +19,9 @@ use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\IssuerStateEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
@@ -153,6 +155,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected bool $issuerStateIsValid = true;
 
+    /** Whether the access token's client is the generic one standing in for wallets which are not registered. */
+    protected bool $clientIsGeneric = false;
+
+    /** @var \SimpleSAML\Module\oidc\Entities\ScopeEntity[] The scopes the access token grants. */
+    protected array $tokenScopes = [];
+
     /** @var ?array<string,mixed> */
     protected ?array $credentialConfiguration = null;
 
@@ -225,6 +233,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->authorizationDetails = null;
         $this->issuerState = null;
         $this->issuerStateIsValid = true;
+        $this->clientIsGeneric = false;
+        $this->tokenScopes = [];
         $this->credentialConfiguration = [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
         ];
@@ -281,6 +291,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ->willReturnCallback(fn(): ?array => $this->authorizationDetails);
         $this->accessTokenMock->method('getIssuerState')
             ->willReturnCallback(fn(): ?string => $this->issuerState);
+        $clientMock = $this->createMock(ClientEntityInterface::class);
+        $clientMock->method('isGeneric')->willReturnCallback(fn(): bool => $this->clientIsGeneric);
+        $this->accessTokenMock->method('getClient')->willReturn($clientMock);
+        $this->accessTokenMock->method('getScopes')->willReturnCallback(fn(): array => $this->tokenScopes);
         $this->accessTokenMock->method('isRevoked')
             ->willReturnCallback(fn(): bool => $this->accessTokenIsRevoked);
         $this->accessTokenRepositoryMock->method('findById')->with('token_id')->willReturnCallback(
@@ -1131,18 +1145,76 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * The authorization-code flow records an issuer state when the offer is made, and the credential
-     * request is only redeemable against it. A token which carries none is one this endpoint can not
-     * tie back to an offer.
+     * The generic client stands in for wallets which are not registered, and gets a token only for a request
+     * following an offer, so the issuer state is what its credential request is redeemable against. A token
+     * of it carrying none is one this endpoint can not tie back to anything.
      */
-    public function testRefusesAnAuthorizationCodeFlowCarryingNoIssuerState(): void
+    public function testRefusesAnAuthorizationCodeFlowOfTheGenericClientCarryingNoIssuerState(): void
     {
         $this->flowType = FlowTypeEnum::VciAuthorizationCode;
         $this->issuerState = null;
+        $this->clientIsGeneric = true;
 
         $this->dispatch();
 
         $this->assertRefusedWith('invalid_credential_request', 401);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * A registered wallet may start the authorization code flow on its own, without an offer, and so without
+     * an issuer state: its registration is what allowed the credential scope it was granted. There is then no
+     * issuer state to check or to spend.
+     */
+    public function testIssuesForAnAuthorizationCodeFlowOfARegisteredClientCarryingNoIssuerState(): void
+    {
+        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+        $this->issuerState = null;
+        $this->tokenScopes = [new ScopeEntity(self::CONFIGURATION_ID)];
+
+        $this->issuerStateRepositoryMock->expects($this->never())->method('findValid');
+        $this->issuerStateRepositoryMock->expects($this->never())->method('revoke');
+
+        $this->issue();
+
+        $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    /**
+     * Without an offer, the token's scopes are all the client was authorized for, so a credential they do not
+     * name is refused, however much the client is registered.
+     */
+    public function testRefusesACredentialTheTokenOfARegisteredClientDoesNotGrant(): void
+    {
+        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+        $this->issuerState = null;
+        $this->tokenScopes = [new ScopeEntity('another_configuration')];
+
+        $this->issue();
+
+        $this->assertRefusedWith('insufficient_scope', 403);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * Authorization details are kept on the token as they were requested, while its scopes are what the token
+     * endpoint left of them for this client. So the credential they name still has to be among the scopes.
+     */
+    public function testRefusesAnAuthorizationDetailOfARegisteredClientTheTokenDoesNotGrant(): void
+    {
+        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+        $this->issuerState = null;
+        $this->authorizationDetails = [$this->authorizationDetail(self::CONFIGURATION_ID)];
+        $this->tokenScopes = [];
+        $this->requestData = [ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID];
+        $this->validatedProofs = [$this->validatedProof()];
+
+        $this->dispatch();
+
+        $this->assertRefusedWith('insufficient_scope', 403);
         $this->assertSame([], $this->signedPayloads);
     }
 

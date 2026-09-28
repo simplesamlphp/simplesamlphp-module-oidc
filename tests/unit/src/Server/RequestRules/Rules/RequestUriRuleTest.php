@@ -227,32 +227,20 @@ class RequestUriRuleTest extends TestCase
     }
 
 
-    public function testThrowsIfPushedAuthorizationRequestConsumptionFails(): void
+    /**
+     * A valid pushed request is accepted, and not consumed: the user agent comes back with the same request_uri
+     * after the login, and that request is validated again. It is consumed when the response is issued.
+     *
+     * @see \SimpleSAML\Test\Module\oidc\unit\Server\AuthorizationServerTest
+     */
+    public function testCanUseValidPushedAuthorizationRequestUriWithoutConsumingIt(): void
     {
         $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
         $this->parEntityMock->method('isExpired')->willReturn(false);
         $this->parEntityMock->method('isConsumed')->willReturn(false);
         $this->parEntityMock->method('getClientId')->willReturn('client123');
         $this->pushedAuthorizationRequestRepositoryMock->method('find')->willReturn($this->parEntityMock);
-        $this->pushedAuthorizationRequestRepositoryMock->method('consume')->willReturn(false);
-
-        $this->expectException(OidcServerException::class);
-        $this->checkRule();
-    }
-
-
-    public function testCanUseValidPushedAuthorizationRequestUri(): void
-    {
-        $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
-        $this->parEntityMock->method('isExpired')->willReturn(false);
-        $this->parEntityMock->method('isConsumed')->willReturn(false);
-        $this->parEntityMock->method('getClientId')->willReturn('client123');
-        $this->pushedAuthorizationRequestRepositoryMock->method('find')->willReturn($this->parEntityMock);
-        // Request URI is consumed at validation time (one-time use).
-        $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())
-            ->method('consume')
-            ->with(self::PAR_REQUEST_URI)
-            ->willReturn(true);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('consume');
 
         $result = $this->checkRule();
 
