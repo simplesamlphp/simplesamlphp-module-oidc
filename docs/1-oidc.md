@@ -68,6 +68,8 @@ OAuth 2.0:
 - [JWT-Secured Authorization Request, JAR (RFC 9101)](https://www.rfc-editor.org/rfc/rfc9101)
   — `request` and `request_uri`
 - [OAuth 2.0 Pushed Authorization Requests, PAR (RFC 9126)](https://www.rfc-editor.org/rfc/rfc9126)
+- [OAuth 2.0 Authorization Server Issuer Identification (RFC 9207)](https://www.rfc-editor.org/rfc/rfc9207)
+  — `iss` in every authorization response, error responses included
 - [OAuth 2.0 Dynamic Client Registration Protocol (RFC 7591)](https://www.rfc-editor.org/rfc/rfc7591)
   and [OAuth 2.0 Dynamic Client Registration Management Protocol (RFC 7592)](https://www.rfc-editor.org/rfc/rfc7592)
   — client register / read / update / delete at the `registration_endpoint`;

@@ -87,6 +87,15 @@ in the OP discovery metadata via the `response_modes_supported` claim.
   (`query`, `fragment`, `form_post`) are allowed, so existing clients are
   unaffected. It can be narrowed, for example to `form_post` only, to protect
   against browser-swapping attacks (if supported by the client).
+- Authorization Server Issuer Identification as per RFC 9207. Every
+authorization response, error responses included, now carries the OP's issuer
+identifier in an `iss` parameter, in every response mode, so a client which
+talks to more than one authorization server can tell which one answered (a
+defence against mix-up attacks). It is the `issuer` value of the discovery
+metadata, which now also advertises
+`authorization_response_iss_parameter_supported: true`. RFC 6749 has a client
+ignore a parameter it does not recognize in a successful authorization response
+(sections 4.1.2 and 4.2.2).
 - The grant types (flows) the OP runs can now be narrowed with the
 `enabled_grant_types` option. It defaults to every grant type the module
 implements (`authorization_code`, `implicit`, `refresh_token`), so an upgraded

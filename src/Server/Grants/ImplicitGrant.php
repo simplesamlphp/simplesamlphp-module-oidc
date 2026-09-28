@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -71,6 +72,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         UserRepository $userRepository,
         SubjectResolver $subjectResolver,
         AccessTokenClaimsResolver $accessTokenClaimsResolver,
+        protected readonly ModuleConfig $moduleConfig,
     ) {
         parent::__construct($accessTokenTTL);
 
@@ -329,6 +331,9 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         );
 
         $responseParams['id_token'] = $idToken->getToken();
+        // RFC 9207 section 2: the issuer identifier, the same value as the ID Token's iss (section 2.4). Error
+        // responses get it in AuthorizationController.
+        $responseParams['iss'] = $this->moduleConfig->getIssuer();
 
         $responseMode = $authorizationRequest->getResponseMode() ?? new FragmentResponseMode();
         $response = $responseMode->buildResponse(

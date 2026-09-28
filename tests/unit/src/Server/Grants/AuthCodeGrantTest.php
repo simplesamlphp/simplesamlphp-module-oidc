@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Scope;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -65,6 +66,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -115,6 +117,8 @@ class AuthCodeGrantTest extends TestCase
 
     private const string STATE = 'opaque-state-value';
 
+    private const string ISSUER = 'https://op.example.org';
+
     private const string CODE_VERIFIER = 'ZG9uLXQtdXNlLXRoaXMtdmVyaWZpZXItaW4tcHJvZHVjdGlvbg';
 
 
@@ -148,6 +152,8 @@ class AuthCodeGrantTest extends TestCase
 
     private ScopeRepositoryInterface&MockObject $scopeRepositoryMock;
 
+    private ModuleConfig&MockObject $moduleConfigMock;
+
     private Key $encryptionKey;
 
     /** Whether the granted scopes are treated as containing offline_access. */
@@ -180,6 +186,8 @@ class AuthCodeGrantTest extends TestCase
         $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
         $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
         $this->scopeRepositoryMock = $this->createMock(ScopeRepositoryInterface::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
         // key derivation on every encrypt and decrypt, which this many round trips would make noticeably slow.
@@ -912,6 +920,38 @@ class AuthCodeGrantTest extends TestCase
     }
 
 
+    public function testNamesItselfAsTheIssuerInTheAuthorizationResponse(): void
+    {
+        // RFC 9207: the client compares iss with the issuer it sent the request to, to detect a mix-up.
+        $this->expectAuthCodeToBeIssued();
+
+        $query = $this->redirectQueryOf(
+            $this->sut()->completeOidcAuthorizationRequest($this->approvedAuthorizationRequest()),
+        );
+
+        $this->assertSame(self::ISSUER, $query['iss'] ?? null);
+    }
+
+
+    public function testHandsTheIssuerToTheResponseModeTheRequestAskedFor(): void
+    {
+        // fragment and form_post render whatever parameters they are given, so the issuer has to be among them.
+        $responseModeMock = $this->createMock(ResponseModeInterface::class);
+        $responseModeMock->expects($this->once())
+            ->method('buildResponse')
+            ->with(self::REDIRECT_URI, $this->callback(
+                static fn(array $params): bool => ($params['iss'] ?? null) === self::ISSUER,
+            ))
+            ->willReturn($this->createMock(AbstractResponseType::class));
+
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setResponseMode($responseModeMock);
+        $this->expectAuthCodeToBeIssued();
+
+        $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
+    }
+
+
     public function testStampsTheIssuedCodeWithTheFlowItBelongsTo(): void
     {
         $verifiableCredentialRequest = $this->approvedAuthorizationRequest();
@@ -1094,6 +1134,7 @@ class AuthCodeGrantTest extends TestCase
             $this->userRepositoryMock,
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
+            $this->moduleConfigMock,
         );
 
         $grant->setEncryptionKey($this->encryptionKey);

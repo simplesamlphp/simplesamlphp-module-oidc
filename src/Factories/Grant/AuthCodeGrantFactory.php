@@ -61,6 +61,7 @@ class AuthCodeGrantFactory
             $this->userRepository,
             $this->subjectResolver,
             $this->accessTokenClaimsResolver,
+            $this->moduleConfig,
         );
         $authCodeGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 

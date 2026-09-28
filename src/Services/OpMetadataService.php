@@ -129,6 +129,8 @@ class OpMetadataService
         }
 
         $this->metadata[ClaimsEnum::ResponseModesSupported->value] = $this->moduleConfig->getSupportedResponseModes();
+        // RFC 9207 section 3: every authorization response carries the iss parameter.
+        $this->metadata[ClaimsEnum::AuthorizationResponseIssParameterSupported->value] = true;
 
         if (!(empty($uiLocalesSupported = $this->uiLocalesResolver->getSupportedUiLocales()))) {
             $this->metadata[ClaimsEnum::UiLocalesSupported->value] = $uiLocalesSupported;

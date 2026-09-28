@@ -122,8 +122,27 @@ class AuthorizationController
 
             return $response;
         } catch (OAuthServerException $exception) {
+            $this->addIssuerToRedirectedError($exception);
             return $this->errorResponder->forException($exception);
         }
+    }
+
+
+    /**
+     * Add the issuer identifier to an error which is redirected back to the client. RFC 9207 section 2 has the
+     * iss parameter in every authorization response, error responses included; the grants add it to the
+     * successful ones. An error which is not redirected goes to the user agent, not to the client, and is left as
+     * it is.
+     */
+    protected function addIssuerToRedirectedError(OAuthServerException $exception): void
+    {
+        if (!$exception->hasRedirect()) {
+            return;
+        }
+
+        $payload = $exception->getPayload();
+        $payload['iss'] = $this->moduleConfig->getIssuer();
+        $exception->setPayload($payload);
     }
 
 

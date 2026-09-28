@@ -132,6 +132,7 @@ class ImplicitGrantFactoryTest extends TestCase
         $this->assertSame($this->userRepositoryMock, $this->propertyOf($grant, 'userRepository'));
         $this->assertSame($this->subjectResolverMock, $this->propertyOf($grant, 'subjectResolver'));
         $this->assertSame($this->accessTokenClaimsResolverMock, $this->propertyOf($grant, 'accessTokenClaimsResolver'));
+        $this->assertSame($this->moduleConfigMock, $this->propertyOf($grant, 'moduleConfig'));
     }
 
 

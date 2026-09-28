@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
+use Closure;
+use League\OAuth2\Server\Exception\OAuthServerException;
+use Nyholm\Psr7\Response as PsrResponse;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -104,6 +107,9 @@ class AuthorizationControllerTest extends TestCase
     protected MockObject $responseHeaderBagMock;
 
     protected MockObject $httpFoundationFactoryMock;
+
+    /** What the controller handed to ErrorResponder::forException(); see captureTheErrorGivenToTheResponder(). */
+    protected ?OAuthServerException $errorGivenToTheResponder = null;
 
 
     /**
@@ -548,6 +554,89 @@ class AuthorizationControllerTest extends TestCase
             ->with('Access-Control-Allow-Origin', '*');
 
         $this->mock()->authorization($this->symfonyRequestMock);
+    }
+
+
+    public static function redirectedErrorProvider(): array
+    {
+        return [
+            // Factories rather than exceptions: the controller changes the exception it is given, and a data
+            // set's object is shared by every run of it.
+            'raised by the module' => [
+                static fn(): OAuthServerException => OidcServerException::accessDenied(
+                    'denied',
+                    'https://rp.example.org/cb',
+                    null,
+                    'the-state',
+                ),
+            ],
+            'raised by the league library' => [
+                static fn(): OAuthServerException => OAuthServerException::accessDenied(
+                    'denied',
+                    'https://rp.example.org/cb',
+                ),
+            ],
+        ];
+    }
+
+
+    /**
+     * RFC 9207 section 2 has the iss parameter in error responses as well, so an error redirected back to the
+     * client carries it next to what it had, whichever library raised it, and the redirect the error renders
+     * to has it.
+     *
+     * @param \Closure(): \League\OAuth2\Server\Exception\OAuthServerException $makeException
+     * @throws \Throwable
+     */
+    #[DataProvider('redirectedErrorProvider')]
+    public function testAddsTheIssuerToAnErrorRedirectedBackToTheClient(Closure $makeException): void
+    {
+        $exception = $makeException();
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::OIDC_OP_METADATA['issuer']);
+        $this->authorizationServerStub->method('validateAuthorizationRequest')->willThrowException($exception);
+        $expectedPayload = $exception->getPayload() + ['iss' => self::OIDC_OP_METADATA['issuer']];
+        $this->captureTheErrorGivenToTheResponder();
+
+        $response = $this->mock()->authorization($this->symfonyRequestMock);
+
+        $this->assertSame($this->symfonyResponseMock, $response);
+        $this->assertSame($expectedPayload, $this->errorGivenToTheResponder?->getPayload());
+
+        $location = $exception->generateHttpResponse(new PsrResponse())->getHeaderLine('Location');
+        parse_str((string)parse_url($location, PHP_URL_QUERY), $redirectedWith);
+        $this->assertSame(self::OIDC_OP_METADATA['issuer'], $redirectedWith['iss'] ?? null);
+    }
+
+
+    /**
+     * An error which is not redirected goes to the user agent rather than to the client, so it is no
+     * authorization response and gets no issuer.
+     *
+     * @throws \Throwable
+     */
+    public function testLeavesAnErrorWhichIsNotRedirectedAsItIs(): void
+    {
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::OIDC_OP_METADATA['issuer']);
+        $exception = OidcServerException::serverError('failure');
+        $this->authorizationServerStub->method('validateAuthorizationRequest')->willThrowException($exception);
+        $expectedPayload = $exception->getPayload();
+        $this->captureTheErrorGivenToTheResponder();
+
+        $this->mock()->authorization($this->symfonyRequestMock);
+
+        $this->assertSame($expectedPayload, $this->errorGivenToTheResponder?->getPayload());
+    }
+
+
+    private function captureTheErrorGivenToTheResponder(): void
+    {
+        $this->errorResponderMock->expects($this->once())
+            ->method('forException')
+            ->willReturnCallback(function (OAuthServerException $error): Response {
+                $this->errorGivenToTheResponder = $error;
+
+                return $this->symfonyResponseMock;
+            });
     }
 
 

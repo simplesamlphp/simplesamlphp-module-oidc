@@ -196,6 +196,7 @@ class OpMetadataServiceTest extends TestCase
                 'backchannel_logout_supported' => true,
                 'backchannel_logout_session_supported' => true,
                 'response_modes_supported' => ['query', 'fragment', 'form_post'],
+                'authorization_response_iss_parameter_supported' => true,
                 'ui_locales_supported' => ['en', 'pt-BR'],
             ],
             $this->sut()->getMetadata(),

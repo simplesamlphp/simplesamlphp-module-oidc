@@ -33,6 +33,7 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
@@ -142,6 +143,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         UserRepository $userRepository,
         SubjectResolver $subjectResolver,
         AccessTokenClaimsResolver $accessTokenClaimsResolver,
+        protected readonly ModuleConfig $moduleConfig,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -292,6 +294,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             [
                 'code'  => $this->encrypt($jsonPayload),
                 'state' => $authorizationRequest->getState(),
+                // RFC 9207 section 2: the issuer identifier, so the client can tell which authorization server
+                // answered. Error responses get it in AuthorizationController.
+                'iss'   => $this->moduleConfig->getIssuer(),
             ],
         );
 

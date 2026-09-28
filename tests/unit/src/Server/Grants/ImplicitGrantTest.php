@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterfa
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -129,6 +130,8 @@ class ImplicitGrantTest extends TestCase
 
     private const int AUTH_TIME = 1234567890;
 
+    private const string ISSUER = 'https://op.example.org';
+
 
     protected MockObject $idTokenBuilderMock;
 
@@ -153,6 +156,8 @@ class ImplicitGrantTest extends TestCase
     protected MockObject $serverRequestMock;
 
     protected MockObject $loggerServiceMock;
+
+    protected ModuleConfig&MockObject $moduleConfigMock;
 
     /** Response mode in the incoming bag, which is the one the rule check is told to run under. */
     private ResponseModeInterface $incomingResponseMode;
@@ -201,6 +206,8 @@ class ImplicitGrantTest extends TestCase
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
         $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
 
         $this->incomingResponseMode = new QueryResponseMode();
         $this->checkedResponseMode = new FragmentResponseMode();
@@ -238,6 +245,7 @@ class ImplicitGrantTest extends TestCase
             $this->userRepositoryMock,
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
+            $this->moduleConfigMock,
         );
 
         $implicitGrant->setScopeRepository($scopeRepository);
@@ -755,6 +763,38 @@ class ImplicitGrantTest extends TestCase
     }
 
 
+    public static function issuerResponseProvider(): array
+    {
+        return [
+            'id_token, in the fragment by default' => ['id_token', false, PHP_URL_FRAGMENT],
+            'id_token token, in the fragment by default' => ['id_token token', false, PHP_URL_FRAGMENT],
+            'id_token, in the query the request asked for' => ['id_token', true, PHP_URL_QUERY],
+        ];
+    }
+
+
+    /**
+     * RFC 9207: the response names the issuer, which is the ID Token's iss as well (section 2.4), so a client
+     * talking to more than one authorization server can tell which one answered. Every response type the grant
+     * answers carries it, in whichever response mode the request negotiated.
+     */
+    #[DataProvider('issuerResponseProvider')]
+    public function testTheResponseNamesTheIssuer(string $responseType, bool $inTheQuery, int $component): void
+    {
+        $this->scopesAreFinalizedAs(new ScopeEntity('openid'));
+        $this->accessTokenIsIssued();
+        $this->idTokenIsBuilt('the-id-token');
+
+        $authorizationRequest = $this->authorizationRequest(
+            responseType: $responseType,
+            responseMode: $inTheQuery ? new QueryResponseMode() : null,
+        );
+        $params = $this->paramsIn($this->locationOf($this->completed($authorizationRequest)), $component);
+
+        $this->assertSame(self::ISSUER, $params['iss'] ?? null);
+    }
+
+
     /**
      * state is optional, and a request without one gets a response without one: http_build_query() drops the
      * null the grant puts in the response parameters unconditionally, so neither redirect mode emits it.
@@ -1208,6 +1248,7 @@ class ImplicitGrantTest extends TestCase
                 $this->userRepositoryMock,
                 $this->subjectResolverMock,
                 $this->accessTokenClaimsResolverMock,
+                $this->moduleConfigMock,
             ])
             ->onlyMethods(['issueAccessToken'])
             ->getMock();

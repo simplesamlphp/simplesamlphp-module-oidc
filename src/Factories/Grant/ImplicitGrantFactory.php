@@ -46,6 +46,7 @@ class ImplicitGrantFactory
             $this->userRepository,
             $this->subjectResolver,
             $this->accessTokenClaimsResolver,
+            $this->moduleConfig,
         );
     }
 }
