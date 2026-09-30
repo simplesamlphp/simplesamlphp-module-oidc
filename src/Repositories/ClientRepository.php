@@ -91,7 +91,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($clientIdentifier));
 
         if (is_array($cachedState)) {
-            return $this->clientEntityFactory->fromState($cachedState);
+            $clientEntity = $this->clientEntityFactory->fromState($cachedState);
+
+            if ($this->isOwnedBy($clientEntity, $owner)) {
+                return $clientEntity;
+            }
         }
 
         /**
@@ -138,7 +142,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         $cachedState = $this->protocolCache?->get(null, $this->getCacheKey($entityIdentifier));
 
         if (is_array($cachedState)) {
-            return $this->clientEntityFactory->fromState($cachedState);
+            $clientEntity = $this->clientEntityFactory->fromState($cachedState);
+
+            if ($this->isOwnedBy($clientEntity, $owner)) {
+                return $clientEntity;
+            }
         }
 
         /**
@@ -206,11 +214,24 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
 
+    /**
+     * Whether a client taken from the cache may be returned to a lookup restricted to an owner. The cache holds a
+     * client whoever looked it up, the protocol endpoints included, so the owner filter the query applies has to be
+     * applied to a cached client too. A client the owner does not have is looked up in the database, which answers
+     * for the owner (and whose owner may have changed since the client was cached).
+     */
+    private function isOwnedBy(ClientEntityInterface $clientEntity, ?string $owner): bool
+    {
+        return is_null($owner) || $clientEntity->getOwner() === $owner;
+    }
+
+
     private function addOwnerWhereClause(string $query, array $params, ?string $owner = null): array
     {
         if (isset($owner)) {
             $params['ownerFilter'] = $owner;
-            if (stripos($query, ' where ') > 0) {
+            // A query written over several lines may have a line break next to its WHERE.
+            if (preg_match('/\swhere\s/i', $query) === 1) {
                 $query .= ' AND owner = :ownerFilter';
             } else {
                 $query .= ' WHERE owner = :ownerFilter';

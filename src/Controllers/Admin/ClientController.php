@@ -280,7 +280,8 @@ class ClientController
                 $this->logger->warning($message, $updatedClient->getState());
                 $this->sessionMessagesService->addMessage($message);
             } else {
-                $this->clientRepository->update($updatedClient);
+                $authedUserId = $this->authorization->isAdmin() ? null : $this->authorization->getUserId();
+                $this->clientRepository->update($updatedClient, $authedUserId);
 
                 // Also persist allowed origins for this client.
                 is_array($allowedOrigins = $form->getValues('array')['allowed_origin'] ?? []) ||
