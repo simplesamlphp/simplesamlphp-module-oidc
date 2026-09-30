@@ -372,6 +372,221 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($result);
     }
 
+
+    /**
+     * RFC 6749 section 2.3.1: the client ID and the secret are each form-urlencoded before they are joined, so a
+     * colon in either travels as `%3A` and the split at the first colon falls between them.
+     */
+    public function testForClientSecretBasicDecodesFormUrlencodedCredentials(): void
+    {
+        $clientId = 'urn:example:client';
+        $clientSecret = 'a+b/c=d%41:e f';
+        $client = $this->confidentialClient($clientId, $clientSecret);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(urlencode($clientId) . ':' . urlencode($clientSecret))]);
+        $this->clientRepositoryMock->expects($this->once())->method('findById')
+            ->with($clientId)->willReturn($client);
+
+        $result = $this->sut()->forClientSecretBasic($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($client, $result->getClient());
+        $this->assertSame(
+            ClientAuthenticationMethodsEnum::ClientSecretBasic,
+            $result->getClientAuthenticationMethod(),
+        );
+    }
+
+
+    /**
+     * A client which does not encode, and whose secret decoding would change - a `+` would become a space, `%41`
+     * an `A` - is refused on the decoded pair and authenticated on the pair as it sent it.
+     */
+    public function testForClientSecretBasicTakesCredentialsSentWithoutEncoding(): void
+    {
+        $clientSecret = 'a+b/c=d%41:e';
+        $client = $this->confidentialClient(self::CLIENT_ID, $clientSecret);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':' . $clientSecret)]);
+        $this->clientRepositoryMock->expects($this->exactly(2))->method('findById')
+            ->with(self::CLIENT_ID)->willReturn($client);
+
+        $result = $this->sut()->forClientSecretBasic($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($client, $result->getClient());
+    }
+
+
+    /**
+     * The same for a client ID, where the client is already known from the request: the decoded ID is not the
+     * client's, the ID as sent is.
+     */
+    public function testForClientSecretBasicTakesAnIdSentWithoutEncodingForAPreFetchedClient(): void
+    {
+        $clientId = 'client+one%41';
+        $client = $this->confidentialClient($clientId, self::CLIENT_SECRET);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode($clientId . ':' . self::CLIENT_SECRET)]);
+        $this->clientRepositoryMock->expects($this->never())->method('findById');
+
+        $result = $this->sut()->forClientSecretBasic($this->serverRequestMock, $client);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($client, $result->getClient());
+    }
+
+
+    public function testForClientSecretBasicRefusesWhenNeitherTheDecodedNorTheSentPairAuthenticates(): void
+    {
+        $client = $this->confidentialClient(self::CLIENT_ID, self::CLIENT_SECRET);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':wrong+secret')]);
+        $this->clientRepositoryMock->expects($this->exactly(2))->method('findById')
+            ->with(self::CLIENT_ID)->willReturn($client);
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage(
+            'Basic auth credentials refused, form-urldecoded (Client secret is not valid.) and as sent ' .
+            '(Client secret is not valid.).',
+        );
+
+        $this->sut()->forClientSecretBasic($this->serverRequestMock);
+    }
+
+
+    /**
+     * Credentials which decoding leaves as they are make one pair, and it is tried once.
+     */
+    public function testForClientSecretBasicTriesCredentialsWhichDecodingLeavesUnchangedOnce(): void
+    {
+        $client = $this->confidentialClient(self::CLIENT_ID, self::CLIENT_SECRET);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':wrong-secret')]);
+        $this->clientRepositoryMock->expects($this->once())->method('findById')
+            ->with(self::CLIENT_ID)->willReturn($client);
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage('Client secret is not valid.');
+
+        $this->sut()->forClientSecretBasic($this->serverRequestMock);
+    }
+
+
+    /**
+     * A failure of the OP's own while the decoded pair is tried is no refusal of it, so the pair as sent is not
+     * tried after it, and the failure comes out as itself.
+     */
+    public function testForClientSecretBasicDoesNotTryTheSentPairAfterAFailureOfTheOp(): void
+    {
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode(self::CLIENT_ID . ':some+secret')]);
+        $databaseFailure = new RuntimeException('Database error: SQLSTATE[HY000] [2002] Connection refused');
+        $this->clientRepositoryMock->expects($this->once())->method('findById')
+            ->willThrowException($databaseFailure);
+
+        $this->expectExceptionObject($databaseFailure);
+
+        $this->sut()->forClientSecretBasic($this->serverRequestMock);
+    }
+
+
+    /**
+     * A client ID which decoding changes, sent as it is: the decoded ID names no client, the ID as sent does.
+     */
+    public function testForClientSecretBasicTakesAnIdSentWithoutEncoding(): void
+    {
+        $clientId = 'client+one';
+        $client = $this->confidentialClient($clientId, self::CLIENT_SECRET);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode($clientId . ':' . self::CLIENT_SECRET)]);
+        $this->clientRepositoryMock->expects($this->exactly(2))->method('findById')
+            ->willReturnMap([['client one', null, null], [$clientId, null, $client]]);
+
+        $result = $this->sut()->forClientSecretBasic($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($client, $result->getClient());
+    }
+
+
+    /**
+     * A decoded pair which names a client registered for another method is refused like any other, so the pair
+     * as sent is tried after it, and the client it names, registered for client_secret_basic, is the one
+     * authenticated. The two share a secret here only so that the decoded pair gets as far as the method check.
+     */
+    public function testForClientSecretBasicTriesTheSentPairWhenTheDecodedOneNamesAClientOfAnotherMethod(): void
+    {
+        $clientOfPost = $this->confidentialClient('clientA', self::CLIENT_SECRET, 'client_secret_post');
+        $clientOfBasic = $this->confidentialClient('client%41', self::CLIENT_SECRET, 'client_secret_basic');
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode('client%41:' . self::CLIENT_SECRET)]);
+        $this->clientRepositoryMock->method('findById')
+            ->willReturnMap([['clientA', null, $clientOfPost], ['client%41', null, $clientOfBasic]]);
+
+        $result = $this->sut()->forClientSecretBasic($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($clientOfBasic, $result->getClient());
+    }
+
+
+    /**
+     * RFC 6749 Appendix B has the decoded octets taken as UTF-8, so a pair which decodes to anything else was not
+     * form-urlencoded, and only the pair as sent is tried. An ID which decodes to one with a NUL is not looked up
+     * either: PostgreSQL refuses to compare one, and the request would fail instead of the pair being refused.
+     */
+    #[DataProvider('credentialsWhichDoNotDecodeToAPairProvider')]
+    public function testForClientSecretBasicTriesOnlyTheSentPairWhenTheDecodedOneCanNotBeAPair(
+        string $clientId,
+        string $clientSecret,
+    ): void {
+        $client = $this->confidentialClient($clientId, $clientSecret);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode($clientId . ':' . $clientSecret)]);
+        $this->clientRepositoryMock->expects($this->once())->method('findById')
+            ->with($clientId)->willReturn($client);
+
+        $result = $this->sut()->forClientSecretBasic($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($client, $result->getClient());
+    }
+
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function credentialsWhichDoNotDecodeToAPairProvider(): array
+    {
+        return [
+            'an ID which decodes to one that is not UTF-8' => ['client%FF', self::CLIENT_SECRET],
+            'a secret which decodes to one that is not UTF-8' => [self::CLIENT_ID, 'secret+%C3%28'],
+            'an ID which decodes to one with a NUL' => ['client%00', self::CLIENT_SECRET],
+        ];
+    }
+
+
+    /**
+     * An enabled, confidential client of the given ID and secret, and of the given registered method, if any. The
+     * shared client mock's ID is fixed.
+     */
+    protected function confidentialClient(
+        string $clientId,
+        string $clientSecret,
+        ?string $tokenEndpointAuthMethod = null,
+    ): Stub&ClientEntityInterface {
+        $client = $this->createStub(ClientEntityInterface::class);
+        $client->method('getIdentifier')->willReturn($clientId);
+        $client->method('getSecret')->willReturn($clientSecret);
+        $client->method('isEnabled')->willReturn(true);
+        $client->method('isExpired')->willReturn(false);
+        $client->method('isConfidential')->willReturn(true);
+        $client->method('getTokenEndpointAuthMethod')->willReturn($tokenEndpointAuthMethod);
+
+        return $client;
+    }
+
     // -----------------------------------------------------------------------
     // forClientSecretPost
     // -----------------------------------------------------------------------

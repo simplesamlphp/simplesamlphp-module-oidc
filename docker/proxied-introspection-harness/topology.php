@@ -54,6 +54,18 @@ foreach (
     $mockIssuerMap[$upstream['issuer']] = $upstream;
 }
 
+// Secrets which form-urlencoding changes, with a colon, the separator of a Basic Authorization header, in the middle.
+// RFC 6749 section 2.3.1 has a client form-urlencode its ID and secret before it joins them in that header, and
+// many clients join them as they are, so each of these authenticates at its node in more than one way:
+// - the hub's client at node a: with client_secret_basic, form-urlencoded, when the hub asks node a (the upstream
+//   introspection client encodes), and as it is, when a test asks node a;
+// - node b's client at the hub: with client_secret_basic, form-urlencoded, when node b asks its next hop;
+// - the hub's client at node b: with client_secret_post, when the hub asks node b, and with client_secret_basic in
+//   every way a test sends it.
+$hubSecretAtA = 'hub-h+secret/at=a%41:holds-a-colon';
+$nodeBSecretAtHub = 'node-b+secret/at=h%41:holds-a-colon';
+$hubSecretAtB = 'hub-h+secret/at=b%41:holds-a-colon';
+
 // Every client is confidential, and authenticates with its secret.
 $client = static fn(string $secret, array $extraMetadata = []): array => [
     'secret' => $secret,
@@ -78,7 +90,7 @@ return [
             'issuer' => 'https://a.oidc.test',
             'clients' => [
                 'rp-a' => $relyingParty('rp-a-secret'),
-                'hub-h' => $client('hub-h-secret-at-a'),
+                'hub-h' => $client($hubSecretAtA),
             ],
             'resource_server_client_ids' => [],
             'upstream_hub_client_ids' => ['hub-h'],
@@ -91,7 +103,7 @@ return [
             'host' => 'h.oidc.test',
             'issuer' => 'https://h.oidc.test',
             'clients' => [
-                'node-b' => $client('node-b-secret-at-h'),
+                'node-b' => $client($nodeBSecretAtHub),
                 'rs-h' => $client('rs-h-secret'),
             ],
             'resource_server_client_ids' => ['node-b', 'rs-h'],
@@ -102,13 +114,13 @@ return [
                     'issuer' => 'https://a.oidc.test',
                     'introspection_endpoint' => $introspectionEndpoint('a.oidc.test'),
                     'client_id' => 'hub-h',
-                    'client_secret' => 'hub-h-secret-at-a',
+                    'client_secret' => $hubSecretAtA,
                 ],
                 'https://b.oidc.test' => [
                     'issuer' => 'https://b.oidc.test',
                     'introspection_endpoint' => $introspectionEndpoint('b.oidc.test'),
                     'client_id' => 'hub-h',
-                    'client_secret' => 'hub-h-secret-at-b',
+                    'client_secret' => $hubSecretAtB,
                     'client_authentication_method' => 'client_secret_post',
                 ],
             ],
@@ -120,7 +132,7 @@ return [
             'issuer' => 'https://b.oidc.test',
             'clients' => [
                 'rp-b' => $relyingParty('rp-b-secret'),
-                'hub-h' => $client('hub-h-secret-at-b'),
+                'hub-h' => $client($hubSecretAtB),
                 // A resource server by its client record, the way an administrator makes one in the admin UI, and
                 // allowed node a's tokens only.
                 'rs-allowed' => $client('rs-allowed-secret', [
@@ -140,7 +152,7 @@ return [
                 'issuer' => 'https://h.oidc.test',
                 'introspection_endpoint' => $introspectionEndpoint('h.oidc.test'),
                 'client_id' => 'node-b',
-                'client_secret' => 'node-b-secret-at-h',
+                'client_secret' => $nodeBSecretAtHub,
             ],
             'issuer_map' => $mockIssuerMap,
             'upstream_failure_answers_inactive' => false,

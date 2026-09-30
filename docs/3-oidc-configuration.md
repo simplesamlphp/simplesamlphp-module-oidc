@@ -49,7 +49,9 @@ Notes:
     for the generic client of verifiable credential issuance. It can not be the
     ID of an existing client in any letter case.
   - A client secret given by hand is printable ASCII without spaces, from 32 to
-    255 characters.
+    255 characters. The client may send it in an `Authorization: Basic` header
+    form-urlencoded, as RFC 6749 section 2.3.1 has it, or as it is, whatever
+    characters it holds.
 - The client ID can not be changed once the client exists: its tokens and
   codes, and the module configuration, name the client by it.
 - Client IDs are matched exactly, letter case included, whatever the database.

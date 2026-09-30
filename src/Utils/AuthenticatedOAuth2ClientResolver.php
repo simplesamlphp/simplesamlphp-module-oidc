@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils;
 
 use Psr\Http\Message\ServerRequestInterface;
+use SensitiveParameter;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
@@ -298,6 +299,77 @@ class AuthenticatedOAuth2ClientResolver
             return null;
         }
 
+        // RFC 6749 section 2.3.1: the client ID and the secret are each form-urlencoded (Appendix B) before
+        // they are joined with the colon, so each is decoded after the split. Many clients do not encode, and
+        // for one whose credentials hold a `+` or a `%` decoding changes what it sent, so the pair as sent is
+        // tried when the decoded one is refused: a client which authenticated before decoding was added still
+        // does. Either pair authenticates only with the secret of the client it names.
+        $formDecodedClientId = urldecode($clientId);
+        $formDecodedClientSecret = urldecode($clientSecret);
+
+        if (
+            ($formDecodedClientId === $clientId && $formDecodedClientSecret === $clientSecret) ||
+            !$this->isFormDecodedBasicCredentialsPair($formDecodedClientId, $formDecodedClientSecret)
+        ) {
+            return $this->authenticateBasicCredentials($clientId, $clientSecret, $preFetchedClient);
+        }
+
+        try {
+            return $this->authenticateBasicCredentials(
+                $formDecodedClientId,
+                $formDecodedClientSecret,
+                $preFetchedClient,
+            );
+        } catch (AuthorizationException $formDecodedRefusal) {
+            $this->loggerService->debug(
+                'Form-urldecoded basic auth credentials refused (' . $formDecodedRefusal->getMessage() .
+                '), trying them as sent.',
+            );
+        }
+
+        try {
+            return $this->authenticateBasicCredentials($clientId, $clientSecret, $preFetchedClient);
+        } catch (AuthorizationException $asSentRefusal) {
+            throw new AuthorizationException(
+                'Basic auth credentials refused, form-urldecoded (' . $formDecodedRefusal->getMessage() .
+                ') and as sent (' . $asSentRefusal->getMessage() . ').',
+                previous: $asSentRefusal,
+            );
+        }
+    }
+
+
+    /**
+     * Whether a pair decoded from a Basic Authorization header can be what the client form-urlencoded. RFC 6749
+     * Appendix B has the decoded octets taken as UTF-8, so a pair which is not UTF-8 was not encoded that way,
+     * and only the pair as sent can be the client's. Nor can an ID which holds a NUL: no client ID does, and
+     * PostgreSQL refuses to compare one, so looking it up would fail the request instead of refusing the pair.
+     */
+    protected function isFormDecodedBasicCredentialsPair(
+        string $formDecodedClientId,
+        #[SensitiveParameter]
+        string $formDecodedClientSecret,
+    ): bool {
+        return preg_match('//u', $formDecodedClientId) === 1 &&
+        preg_match('//u', $formDecodedClientSecret) === 1 &&
+        !str_contains($formDecodedClientId, "\0");
+    }
+
+
+    /**
+     * The client a Basic Authorization header names, when the secret it carries is that client's and the client
+     * may authenticate with client_secret_basic. The registered method is checked here, and not only once a
+     * method has resolved, so that a decoded pair which names a client registered for another method is refused
+     * like any other, and the pair as sent is tried after it.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     */
+    protected function authenticateBasicCredentials(
+        string $clientId,
+        #[SensitiveParameter]
+        string $clientSecret,
+        ?ClientEntityInterface $preFetchedClient,
+    ): ResolvedClientAuthenticationMethod {
         $this->loggerService->debug('Client ID from basic auth: ' . $clientId);
 
         $client = $this->resolveClientOrFail($clientId, $preFetchedClient);
@@ -322,10 +394,14 @@ class AuthenticatedOAuth2ClientResolver
 
         $this->loggerService->debug('Client credentials from basic auth validated.');
 
-        return new ResolvedClientAuthenticationMethod(
+        $resolved = new ResolvedClientAuthenticationMethod(
             $client,
             ClientAuthenticationMethodsEnum::ClientSecretBasic,
         );
+
+        $this->enforceRegisteredTokenEndpointAuthMethod($resolved);
+
+        return $resolved;
     }
 
 

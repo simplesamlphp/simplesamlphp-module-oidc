@@ -53,6 +53,8 @@ final class ProxiedIntrospectionTest extends TestCase
         $token = $this->tokenOfA();
 
         $atA = $this->activeAnswer($this->harness->introspect('a', 'hub-h', $token));
+        // Node b asks the hub, and the hub asks node a, each with client_secret_basic, form-urlencoded, and a secret
+        // which that encoding changes (topology.php).
         $atB = $this->activeAnswer($this->harness->introspect('b', 'rs-allowed', $token));
 
         $this->assertSame($this->harness->issuer('a'), $atB['iss'] ?? null);
@@ -96,6 +98,37 @@ final class ProxiedIntrospectionTest extends TestCase
         $atH = $this->activeAnswer($this->harness->introspect('h', 'rs-h', $token));
 
         $this->assertEquals($atB, $atH);
+    }
+
+
+    /**
+     * RFC 6749 section 2.3.1 has a client form-urlencode its ID and secret before it joins them in a Basic
+     * Authorization header, and many clients join them as they are. The hub's secret at node b holds a `+`, a `/`, an
+     * `=`, a `%41` and a colon, so that the encoding changes it and so does decoding what was not encoded, and it
+     * authenticates however it is sent.
+     */
+    #[DataProvider('clientAuthenticationProvider')]
+    public function testASecretWhichFormUrlencodingChangesAuthenticatesHoweverItIsSent(
+        string $clientAuthentication,
+    ): void {
+        $answer = $this->activeAnswer(
+            $this->harness->introspect('b', 'hub-h', $this->tokenOfB(), clientAuthentication: $clientAuthentication),
+        );
+
+        $this->assertSame($this->harness->issuer('b'), $answer['iss'] ?? null);
+    }
+
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function clientAuthenticationProvider(): array
+    {
+        return [
+            Harness::CLIENT_SECRET_BASIC_AS_IS => [Harness::CLIENT_SECRET_BASIC_AS_IS],
+            Harness::CLIENT_SECRET_BASIC_FORM_URLENCODED => [Harness::CLIENT_SECRET_BASIC_FORM_URLENCODED],
+            Harness::CLIENT_SECRET_POST => [Harness::CLIENT_SECRET_POST],
+        ];
     }
 
 

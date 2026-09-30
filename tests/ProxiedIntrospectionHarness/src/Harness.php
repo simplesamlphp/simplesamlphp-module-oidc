@@ -29,6 +29,16 @@ final class Harness
     public const string INTROSPECTION_PATH = '/simplesaml/module.php/oidc/api/oauth2/token-introspection';
 
     /**
+     * Ways a client authenticates with its secret: in a Basic Authorization header, with its ID and secret joined
+     * as they are or form-urlencoded first (RFC 6749 section 2.3.1), or in the request body.
+     */
+    public const string CLIENT_SECRET_BASIC_AS_IS = 'client_secret_basic, as is';
+
+    public const string CLIENT_SECRET_BASIC_FORM_URLENCODED = 'client_secret_basic, form-urlencoded';
+
+    public const string CLIENT_SECRET_POST = 'client_secret_post';
+
+    /**
      * Redirects a login may take: authorization endpoint to login page, and back through SimpleSAMLphp.
      */
     private const int MAX_REDIRECTS = 10;
@@ -175,24 +185,46 @@ final class Harness
 
 
     /**
-     * The node's introspection answer to the client, which authenticates with its secret (client_secret_basic).
+     * The node's introspection answer to the client, which authenticates with its secret: by default with
+     * client_secret_basic, the client ID and secret joined as they are, as many clients send them.
      */
     public function introspect(
         string $node,
         string $clientId,
         string $token,
         ?string $tokenTypeHint = null,
+        string $clientAuthentication = self::CLIENT_SECRET_BASIC_AS_IS,
     ): IntrospectionAnswer {
         $formParams = ['token' => $token];
         if (!is_null($tokenTypeHint)) {
             $formParams['token_type_hint'] = $tokenTypeHint;
         }
 
+        $clientSecret = $this->clientSecret($node, $clientId);
+        $headers = ['Accept' => 'application/json'];
+        $options = [];
+
+        switch ($clientAuthentication) {
+            case self::CLIENT_SECRET_BASIC_AS_IS:
+                $options[RequestOptions::AUTH] = [$clientId, $clientSecret];
+                break;
+            case self::CLIENT_SECRET_BASIC_FORM_URLENCODED:
+                // RFC 6749 section 2.3.1.
+                $credentials = urlencode($clientId) . ':' . urlencode($clientSecret);
+                $headers['Authorization'] = 'Basic ' . base64_encode($credentials);
+                break;
+            case self::CLIENT_SECRET_POST:
+                $formParams['client_id'] = $clientId;
+                $formParams['client_secret'] = $clientSecret;
+                break;
+            default:
+                throw new RuntimeException('No such way to authenticate a client: ' . $clientAuthentication);
+        }
+
         $response = $this->httpClient->request('POST', $this->url($node, self::INTROSPECTION_PATH), [
-            RequestOptions::AUTH => [$clientId, $this->clientSecret($node, $clientId)],
             RequestOptions::FORM_PARAMS => $formParams,
-            RequestOptions::HEADERS => ['Accept' => 'application/json'],
-        ]);
+            RequestOptions::HEADERS => $headers,
+        ] + $options);
 
         return new IntrospectionAnswer(
             $response->getStatusCode(),

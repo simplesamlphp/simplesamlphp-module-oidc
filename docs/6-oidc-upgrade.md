@@ -628,6 +628,14 @@ table's IDs case-insensitively by default, so a request naming a client in
 another letter case used to find it there (never on PostgreSQL or SQLite).
 Generated client IDs are in lower case. A client which sends its ID in
 another letter case has to be corrected.
+- The client ID and secret in an `Authorization: Basic` header are now decoded
+as RFC 6749 section 2.3.1 has a client encode them: each is form-urlencoded
+(`application/x-www-form-urlencoded`) before the two are joined with the colon.
+A client which encodes them, and whose secret holds a character the encoding
+changes, such as `+`, `/`, `=` or `%`, used to be refused; this module's own
+upstream introspection client is one. A client which sends them as they are
+still authenticates: when the decoded pair is refused, the pair as sent is
+tried.
 - The token endpoint no longer requires the `client_id` request parameter when
 the client identity is conveyed by the client authentication method itself, in
 line with the specifications. For example, with `private_key_jwt` the client is
