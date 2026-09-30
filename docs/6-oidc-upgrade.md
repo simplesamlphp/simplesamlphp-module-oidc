@@ -47,6 +47,12 @@ resource server about every token, and an upstream hub about this OP's tokens,
 on behalf of resource servers elsewhere. A release policy of the deployment's
 own can tell a caller less. All of it is off until configured. See the
 [configuration guide](3-oidc-configuration.md#token-introspection).
+- An administrator adding a client in the admin UI may give its client ID and
+secret, for example the ones another authorization server issued for it; left
+empty, each is generated as before. Resetting a client's secret likewise takes
+a new secret from an administrator. The client ID of an existing client still
+can not be changed. See
+[Relying Party (RP) administration](3-oidc-configuration.md#relying-party-rp-administration).
 - Initial support for OpenID for Verifiable Credential Issuance
 (OpenID4VCI). Note that the implementation is experimental. You should not use
 it in production. It has not been reviewed against the final OpenID4VCI 1.0
@@ -616,6 +622,12 @@ for the full behaviour, including address pinning and its configuration.
 
 Low-impact changes:
 
+- A client is now found only by its client ID exactly as registered, letter
+case included, whatever the database. MySQL and MariaDB compare the client
+table's IDs case-insensitively by default, so a request naming a client in
+another letter case used to find it there (never on PostgreSQL or SQLite).
+Generated client IDs are in lower case. A client which sends its ID in
+another letter case has to be corrected.
 - The token endpoint no longer requires the `client_id` request parameter when
 the client identity is conveyed by the client authentication method itself, in
 line with the specifications. For example, with `private_key_jwt` the client is

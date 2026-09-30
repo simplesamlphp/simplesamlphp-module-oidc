@@ -100,6 +100,7 @@ class ClientController
             [
                 'client' => $client,
                 'allowedOrigins' => $allowedOrigins,
+                'setsGivenSecret' => $this->authorization->isAdmin(),
             ],
             RoutesEnum::AdminClients->value,
         );
@@ -107,6 +108,11 @@ class ClientController
 
 
     /**
+     * Replace the client's secret with a generated one or, from a SimpleSAMLphp administrator, with the one given in
+     * `new_secret`: the authorization server which issued the client its secret may have issued another (see
+     * ClientForm::forNewClient()). Anybody else is given a generated secret whatever the request carries, as the
+     * page without the field would give them.
+     *
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
      */
     public function resetSecret(Request $request): Response
@@ -119,11 +125,29 @@ class ClientController
             throw new OidcException('Client secret does not match on secret reset.');
         }
 
-        $client->restoreSecret($this->sspBridge->utils()->random()->generateID());
+        $givenSecret = $this->authorization->isAdmin() ? trim($request->request->getString('new_secret')) : '';
+
+        if ($givenSecret !== '' && ($problems = $this->helpers->client()->problemsWithGivenSecret($givenSecret))) {
+            $this->sessionMessagesService->addMessage(Translate::noop('Client secret has not been changed.'));
+            foreach ($problems as $problem) {
+                $this->sessionMessagesService->addMessage($problem);
+            }
+
+            return $this->routes->newRedirectResponseToModuleUrl(
+                RoutesEnum::AdminClientsShow->value,
+                [ParametersEnum::ClientId->value => $client->getIdentifier()],
+            );
+        }
+
+        $client->restoreSecret(
+            $givenSecret !== '' ? $givenSecret : $this->sspBridge->utils()->random()->generateID(),
+        );
         $authedUserId = $this->authorization->isAdmin() ? null : $this->authorization->getUserId();
         $this->clientRepository->update($client, $authedUserId);
 
-        $message = Translate::noop('Client secret has been reset.');
+        $message = $givenSecret !== '' ?
+        Translate::noop('Client secret has been set.') :
+        Translate::noop('Client secret has been reset.');
         $this->logger->info($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
         $this->sessionMessagesService->addMessage($message);
 
@@ -169,6 +193,8 @@ class ClientController
     public function add(): Response
     {
         $form = $this->formFactory->build(ClientForm::class);
+        $form instanceof ClientForm || throw new OidcException('Unexpected client form.');
+        $form->forNewClient();
 
         if ($form->isSuccess()) {
             $createdAt = $this->helpers->dateTime()->getUtc();
@@ -176,10 +202,12 @@ class ClientController
 
             $owner = $this->authorization->isAdmin() ? null : $this->authorization->getUserId();
 
+            [$givenIdentifier, $givenSecret] = $this->givenClientCredentials($form);
+
             $client = $this->buildClientEntityFromFormData(
                 $form,
-                $this->sspBridge->utils()->random()->generateID(),
-                $this->sspBridge->utils()->random()->generateID(),
+                $givenIdentifier ?? $this->sspBridge->utils()->random()->generateID(),
+                $givenSecret ?? $this->sspBridge->utils()->random()->generateID(),
                 RegistrationTypeEnum::Manual,
                 $updatedAt,
                 $createdAt,
@@ -187,8 +215,12 @@ class ClientController
                 $owner,
             );
 
-            if ($this->clientRepository->findById($client->getIdentifier())) {
-                $message = Translate::noop('Client with generated ID already exists.');
+            if ($this->clientRepository->isIdentifierTakenIgnoringCase($client->getIdentifier())) {
+                $message = is_null($givenIdentifier) ?
+                Translate::noop('Client with generated ID already exists.') :
+                Translate::noop(
+                    'Client with given ID, or with one differing from it only in letter case, already exists.',
+                );
                 $this->logger->warning($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
                 $this->sessionMessagesService->addMessage($message);
             } elseif (
@@ -311,6 +343,32 @@ class ClientController
             ],
             RoutesEnum::AdminClients->value,
         );
+    }
+
+
+    /**
+     * The client ID and secret given on the form for adding a client (ClientForm::forNewClient()), each null when
+     * left empty. Only a SimpleSAMLphp administrator gives them: anybody else's form has no such fields, and whatever
+     * their request carries in their place is ignored.
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    protected function givenClientCredentials(ClientForm $form): array
+    {
+        if (!$this->authorization->isAdmin()) {
+            return [null, null];
+        }
+
+        $values = $form->getValues('array');
+        /** @var mixed $identifier */
+        $identifier = $values[ClientForm::FIELD_CLIENT_ID] ?? null;
+        /** @var mixed $secret */
+        $secret = $values[ClientForm::FIELD_CLIENT_SECRET] ?? null;
+
+        return [
+            is_string($identifier) && $identifier !== '' ? $identifier : null,
+            is_string($secret) && $secret !== '' ? $secret : null,
+        ];
     }
 
 

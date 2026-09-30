@@ -82,6 +82,15 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
 
 
     /**
+     * The client with exactly this ID, letter case included, whatever the database.
+     *
+     * The client table sets no collation, so MySQL and MariaDB compare its IDs case-insensitively by default (and, with
+     * some collations, ignore trailing spaces), where PostgreSQL and SQLite compare them exactly. A row the database
+     * found for an ID which is not exactly its own is not the client asked for.
+     *
+     * A cached client has to be checked the same way: a client is cached under its ID and under its entity identifier
+     * alike (self::getCacheKey()), so the entry found for an ID may be the client whose entity identifier that is.
+     *
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -93,7 +102,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         if (is_array($cachedState)) {
             $clientEntity = $this->clientEntityFactory->fromState($cachedState);
 
-            if ($this->isOwnedBy($clientEntity, $owner)) {
+            if ($clientEntity->getIdentifier() === $clientIdentifier && $this->isOwnedBy($clientEntity, $owner)) {
                 return $clientEntity;
             }
         }
@@ -124,6 +133,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         }
         // @codeCoverageIgnoreEnd
 
+        if (($row[ClientEntity::KEY_ID] ?? null) !== $clientIdentifier) {
+            return null;
+        }
+
         $clientEntity = $this->clientEntityFactory->fromState($row);
 
         $this->protocolCache?->set(
@@ -136,6 +149,58 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
     }
 
 
+    /**
+     * Whether this ID can not be given to a new client: the database already holds it, as its collation compares
+     * IDs, or holds one differing from it only in the case of ASCII letters.
+     *
+     * Everywhere else a client ID is matched exactly (self::findById()). The table's primary key, however, is
+     * compared as the database's collation has it: case-insensitively by default on MySQL and MariaDB (and, with an
+     * accent-insensitive collation, "café" as "cafe"), exactly on PostgreSQL and SQLite. Whatever the database takes
+     * for the same ID is taken, since the insert would fail on it. Beyond that, a new ID which differs from a stored
+     * one only in letter case is refused on every database, so that every database accepts the same IDs.
+     *
+     * The letters are folded here rather than with SQL's LOWER(), which follows the database's locale: under a
+     * Turkish one, PostgreSQL lower-cases "I" to a dotless "ı", and "CLIENT" would not fold to "client". PHP's
+     * strtolower() folds ASCII letters only, whatever the locale. The database narrows the IDs to compare to those
+     * of the same length: an ID which folds to an ASCII one is ASCII itself, and has as many characters as bytes,
+     * whichever of the two a database's LENGTH() counts.
+     */
+    public function isIdentifierTakenIgnoringCase(string $clientIdentifier): bool
+    {
+        $sameToTheDatabase = $this->database->read(
+            "SELECT id FROM {$this->getTableName()} WHERE id = :id",
+            [
+                'id' => $clientIdentifier,
+            ],
+        );
+
+        if ($sameToTheDatabase->fetchAll() !== []) {
+            return true;
+        }
+
+        $sameLength = $this->database->read(
+            "SELECT id FROM {$this->getTableName()} WHERE LENGTH(id) = :length",
+            [
+                'length' => [strlen($clientIdentifier), PDO::PARAM_INT],
+            ],
+        );
+
+        $foldedIdentifier = strtolower($clientIdentifier);
+        /** @var mixed $storedIdentifier */
+        foreach ($sameLength->fetchAll(PDO::FETCH_COLUMN) as $storedIdentifier) {
+            if (is_string($storedIdentifier) && strtolower($storedIdentifier) === $foldedIdentifier) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
+     * A cached client is taken only if it has this entity identifier: the entry may be the client whose ID it is
+     * (see self::findById()).
+     */
     public function findByEntityIdentifier(string $entityIdentifier, ?string $owner = null): ?ClientEntityInterface
     {
         /** @var ?array $cachedState */
@@ -144,7 +209,10 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         if (is_array($cachedState)) {
             $clientEntity = $this->clientEntityFactory->fromState($cachedState);
 
-            if ($this->isOwnedBy($clientEntity, $owner)) {
+            if (
+                $clientEntity->getEntityIdentifier() === $entityIdentifier &&
+                $this->isOwnedBy($clientEntity, $owner)
+            ) {
                 return $clientEntity;
             }
         }

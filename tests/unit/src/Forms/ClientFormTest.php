@@ -883,6 +883,127 @@ class ClientFormTest extends TestCase
 
 
     /**
+     * The client ID and secret are given by hand only on an administrator's form for adding a client. The form for
+     * editing one has no such fields, since the ID of an existing client never changes.
+     */
+    public function testOnlyAnAdministratorAddingAClientGivesItsIdAndSecret(): void
+    {
+        $credentialFields = [ClientForm::FIELD_CLIENT_ID, ClientForm::FIELD_CLIENT_SECRET];
+
+        $addingForm = $this->sut()->forNewClient();
+        $this->assertTrue($addingForm->takesGivenClientCredentials());
+        foreach ($credentialFields as $name) {
+            $this->assertNotNull($addingForm->getComponent($name, false), $name);
+        }
+
+        $editingForm = $this->sut();
+        $this->assertFalse($editingForm->takesGivenClientCredentials());
+        foreach ($credentialFields as $name) {
+            $this->assertNull($editingForm->getComponent($name, false), $name);
+        }
+
+        $this->isAdministrator = false;
+        $usersAddingForm = $this->sut()->forNewClient();
+        $this->assertFalse($usersAddingForm->takesGivenClientCredentials());
+        foreach ($credentialFields as $name) {
+            $this->assertNull($usersAddingForm->getComponent($name, false), $name);
+        }
+    }
+
+
+    public function testForNewClientMayBeCalledTwice(): void
+    {
+        $sut = $this->sut()->forNewClient()->forNewClient();
+
+        $this->assertTrue($sut->takesGivenClientCredentials());
+    }
+
+
+    /**
+     * A value left empty comes back as null, which has it generated; a value given comes back without the whitespace
+     * a copy may have brought along.
+     */
+    public function testAGivenIdAndSecretComeBackTrimmedAndAnEmptyOneAsNull(): void
+    {
+        $sut = $this->filledForm()->forNewClient();
+
+        $sut->setValues([
+            ClientForm::FIELD_CLIENT_ID => '  MozillaThunderbird ',
+            ClientForm::FIELD_CLIENT_SECRET => '',
+        ]);
+        $values = $sut->getValues();
+        $this->assertSame('MozillaThunderbird', $values[ClientForm::FIELD_CLIENT_ID]);
+        $this->assertNull($values[ClientForm::FIELD_CLIENT_SECRET]);
+
+        $sut->setValues([ClientForm::FIELD_CLIENT_ID => ' ', ClientForm::FIELD_CLIENT_SECRET => str_repeat('s', 32)]);
+        $values = $sut->getValues();
+        $this->assertNull($values[ClientForm::FIELD_CLIENT_ID]);
+        $this->assertSame(str_repeat('s', 32), $values[ClientForm::FIELD_CLIENT_SECRET]);
+    }
+
+
+    public function testAGivenIdAndSecretAreValidatedWhenTheFormIs(): void
+    {
+        $sut = $this->filledForm()->forNewClient();
+        $sut->setValues([ClientForm::FIELD_CLIENT_ID => 'vci_client', ClientForm::FIELD_CLIENT_SECRET => 'too short']);
+
+        $sut->validate();
+
+        $errors = implode("\n", $this->ownErrors($sut));
+        $this->assertStringContainsString('"vci_"', $errors);
+        $this->assertStringContainsString('at least 32', $errors);
+        $this->assertStringContainsString('printable ASCII', $errors);
+    }
+
+
+    public function testAGivenIdAndSecretWhichMayBeUsedPassValidation(): void
+    {
+        $sut = $this->filledForm()->forNewClient();
+        $sut->setValues([
+            ClientForm::FIELD_CLIENT_ID => 'https://rp.example.org/client',
+            ClientForm::FIELD_CLIENT_SECRET => '+/=%:' . str_repeat('s', 27),
+        ]);
+
+        $sut->validateGivenClientCredentials($sut);
+
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    /**
+     * The module configuration names the upstream hub by its client ID, which an administrator adding the hub's
+     * client gives by hand. That client can then not be made a resource server, as an existing one can not.
+     */
+    public function testAClientAddedUnderTheHubsConfiguredIdCanNotBeMadeAResourceServer(): void
+    {
+        $this->moduleConfigMock->method('getApiOAuth2TokenIntrospectionUpstreamHubClientIds')
+            ->willReturn(['myaccessid-client']);
+        $sut = $this->sut()->forNewClient();
+        $sut->setValues([
+            ClientForm::FIELD_CLIENT_ID => ' myaccessid-client ',
+            ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
+        ]);
+
+        $sut->validateIntrospectionResourceServer($sut);
+
+        $this->assertSame(IntrospectionCallerRoleEnum::UpstreamHub, $sut->getConfiguredIntrospectionRole());
+        $this->assertCount(1, $this->ownErrors($sut));
+        $this->assertStringContainsString('upstream hub', $this->ownErrors($sut)[0]);
+    }
+
+
+    public function testFieldsLeftEmptyAreNotValidated(): void
+    {
+        $sut = $this->filledForm()->forNewClient();
+        $sut->setValues([ClientForm::FIELD_CLIENT_ID => '', ClientForm::FIELD_CLIENT_SECRET => '']);
+
+        $sut->validateGivenClientCredentials($sut);
+
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    /**
      * @return string[]
      */
     protected function adminOnlyFieldNames(): array

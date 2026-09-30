@@ -40,7 +40,22 @@ Notes:
 
 - Clients can be public or confidential.
 - Public clients using Authorization Code flow must send PKCE parameters.
-- Client ID and secret are generated; use the "show" button to reveal.
+- Client ID and secret are generated unless an administrator gives them when
+  adding the client, for example the ones another authorization server issued
+  for it (an EOSC Node registers the EOSC AAI Federation hub with the client
+  ID and secret the hub issued). Use the "show" button to reveal them.
+  - A client ID given by hand is printable ASCII without spaces, at most 191
+    characters, and not `0`. It can not start with `vci_`, which is reserved
+    for the generic client of verifiable credential issuance. It can not be the
+    ID of an existing client in any letter case.
+  - A client secret given by hand is printable ASCII without spaces, from 32 to
+    255 characters.
+- The client ID can not be changed once the client exists: its tokens and
+  codes, and the module configuration, name the client by it.
+- Client IDs are matched exactly, letter case included, whatever the database.
+- "Reset" on the client's page replaces its secret with a generated one. An
+  administrator may give the new secret there instead, for example when the
+  authorization server which issued it has issued another.
 
 ## Cron integration
 
@@ -1013,6 +1028,8 @@ properties (`ClientEntity::ADMIN_ONLY_METADATA_KEYS`: per-client Authentication
 Processing Filters, releasing user claims in the ID Token, the token
 introspection resource server setting and its foreign issuer list). Those are
 not shown to them, and a client keeps the values an administrator gave it.
+Nor do they give a client ID or secret by hand: those of their clients are
+generated.
 
 ```php
 <?php

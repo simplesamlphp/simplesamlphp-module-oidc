@@ -2597,3 +2597,62 @@ msgstr ""
 
 msgid "Foreign Issuers (one per line)"
 msgstr ""
+
+msgid "Client ID"
+msgstr ""
+
+msgid "Client Secret"
+msgstr ""
+
+msgid ""
+"Leave empty to have the client ID generated. Give it only when the client "
+"already has one, for example one issued by another authorization server. "
+"Printable ASCII characters without spaces, at most 191. The client ID can "
+"not be changed later."
+msgstr ""
+
+msgid ""
+"Leave empty to have the client secret generated. Give it only when the "
+"client already has one. Printable ASCII characters without spaces, from 32 "
+"to 255."
+msgstr ""
+
+msgid "The client ID may be at most 191 characters long."
+msgstr ""
+
+msgid ""
+"The client ID may not start with \"vci_\", which is reserved for the "
+"generic client for verifiable credential issuance."
+msgstr ""
+
+msgid ""
+"The client ID may only contain printable ASCII characters, and no spaces."
+msgstr ""
+
+msgid "The client secret may be at most 255 characters long."
+msgstr ""
+
+msgid ""
+"The client secret may only contain printable ASCII characters, and no "
+"spaces."
+msgstr ""
+
+msgid "The client secret must be at least 32 characters long."
+msgstr ""
+
+msgid "Client secret has been set."
+msgstr ""
+
+msgid "Client secret has not been changed."
+msgstr ""
+
+msgid ""
+"Client with given ID, or with one differing from it only in letter case, "
+"already exists."
+msgstr ""
+
+msgid "New secret (leave empty to generate one)"
+msgstr ""
+
+msgid "The client ID may not be \"0\"."
+msgstr ""

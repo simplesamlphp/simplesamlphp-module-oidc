@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils as SspBridgeUtils;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -20,11 +21,14 @@ use SimpleSAML\Module\oidc\Factories\FormFactory;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\Client as ClientHelper;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Utils\Random as SspRandom;
+use SimpleSAML\XHTML\Template;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(ClientController::class)]
@@ -344,15 +348,227 @@ class ClientControllerTest extends TestCase
         $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
             ->willReturn($this->clientEntityMock);
 
-        $this->clientRepositoryMock->expects($this->once())->method('findById')
-            ->willReturn($this->createMock(ClientEntityInterface::class));
+        $this->clientRepositoryMock->expects($this->once())->method('isIdentifierTakenIgnoringCase')
+            ->with('clientId')
+            ->willReturn(true);
 
         $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
-            ->with($this->stringContains('exists'));
+            ->with($this->stringContains('generated ID already exists'));
 
         $this->clientRepositoryMock->expects($this->never())->method('add');
 
         $this->sut()->add();
+    }
+
+
+    public function testAnAdministratorAddsAClientWithAGivenIdAndSecret(): void
+    {
+        $givenSecret = str_repeat('s', 32);
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+        $this->clientFormMock->expects($this->once())->method('forNewClient');
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn([
+            ...$this->sampleFormData,
+            ClientForm::FIELD_CLIENT_ID => 'MozillaThunderbird',
+            ClientForm::FIELD_CLIENT_SECRET => $givenSecret,
+        ]);
+        $this->clientEntityMock->method('getIdentifier')->willReturn('MozillaThunderbird');
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with('MozillaThunderbird', $givenSecret)
+            ->willReturn($this->clientEntityMock);
+        $this->clientRepositoryMock->expects($this->once())->method('isIdentifierTakenIgnoringCase')
+            ->with('MozillaThunderbird')
+            ->willReturn(false);
+
+        $this->clientRepositoryMock->expects($this->once())->method('add')->with($this->clientEntityMock);
+
+        $this->sut()->add();
+    }
+
+
+    /**
+     * What an administrator leaves empty is generated, each value on its own.
+     */
+    public function testAnAdministratorMayGiveTheIdAlone(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+        $this->generatedIdentifierIs('_generated');
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn([
+            ...$this->sampleFormData,
+            ClientForm::FIELD_CLIENT_ID => 'MozillaThunderbird',
+            ClientForm::FIELD_CLIENT_SECRET => null,
+        ]);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with('MozillaThunderbird', '_generated')
+            ->willReturn($this->clientEntityMock);
+
+        $this->sut()->add();
+    }
+
+
+    public function testAGivenIdTakenInAnyLetterCaseIsRefused(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn([
+            ...$this->sampleFormData,
+            ClientForm::FIELD_CLIENT_ID => 'MozillaThunderbird',
+        ]);
+        $this->clientEntityMock->method('getIdentifier')->willReturn('MozillaThunderbird');
+        $this->clientEntityFactoryMock->method('fromData')->willReturn($this->clientEntityMock);
+        $this->clientRepositoryMock->method('isIdentifierTakenIgnoringCase')->willReturn(true);
+
+        $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
+            ->with($this->stringContains('letter case'));
+        $this->clientRepositoryMock->expects($this->never())->method('add');
+
+        $this->sut()->add();
+    }
+
+
+    /**
+     * A user managing their own clients has no fields for the ID and secret; a request carrying them anyway gets
+     * generated ones.
+     */
+    public function testAClientIdAndSecretFromSomebodyOtherThanAnAdministratorAreIgnored(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(false);
+        $this->authorizationMock->method('getUserId')->willReturn('user@example.org');
+        $this->generatedIdentifierIs('_generated');
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn([
+            ...$this->sampleFormData,
+            ClientForm::FIELD_CLIENT_ID => 'MozillaThunderbird',
+            ClientForm::FIELD_CLIENT_SECRET => str_repeat('s', 32),
+        ]);
+
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with('_generated', '_generated')
+            ->willReturn($this->clientEntityMock);
+
+        $this->sut()->add();
+    }
+
+
+    public function testTheAddFormIsTheFormForANewClient(): void
+    {
+        $this->clientFormMock->expects($this->once())->method('forNewClient');
+        $this->clientFormMock->method('isSuccess')->willReturn(false);
+
+        $this->sut()->add();
+    }
+
+
+    public function testAnAdministratorSetsAGivenSecret(): void
+    {
+        $givenSecret = str_repeat('s', 32);
+        $request = Request::create(
+            '/resetSecret?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '123', 'new_secret' => " $givenSecret "],
+        );
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+        $this->clientEntityMock->method('getSecret')->willReturn('123');
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $clientHelperMock = $this->createMock(ClientHelper::class);
+        $clientHelperMock->expects($this->once())->method('problemsWithGivenSecret')->with($givenSecret)
+            ->willReturn([]);
+        $this->helpersMock->method('client')->willReturn($clientHelperMock);
+
+        $this->clientEntityMock->expects($this->once())->method('restoreSecret')->with($givenSecret);
+        $this->clientRepositoryMock->expects($this->once())->method('update')->with($this->clientEntityMock, null);
+        $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
+            ->with('Client secret has been set.');
+
+        $this->sut()->resetSecret($request);
+    }
+
+
+    public function testAGivenSecretWhichCanNotBeUsedLeavesTheSecretAsItIs(): void
+    {
+        $request = Request::create(
+            '/resetSecret?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '123', 'new_secret' => 'short'],
+        );
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+        $this->clientEntityMock->method('getSecret')->willReturn('123');
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $clientHelperMock = $this->createMock(ClientHelper::class);
+        $clientHelperMock->method('problemsWithGivenSecret')->willReturn(['The client secret is too short.']);
+        $this->helpersMock->method('client')->willReturn($clientHelperMock);
+
+        $messages = [];
+        $this->sessionMessagesServiceMock->method('addMessage')->willReturnCallback(
+            function (string $message) use (&$messages): void {
+                $messages[] = $message;
+            },
+        );
+        $this->clientEntityMock->expects($this->never())->method('restoreSecret');
+        $this->clientRepositoryMock->expects($this->never())->method('update');
+
+        $this->sut()->resetSecret($request);
+
+        $this->assertSame(['Client secret has not been changed.', 'The client secret is too short.'], $messages);
+    }
+
+
+    public function testAGivenSecretFromSomebodyOtherThanAnAdministratorIsIgnored(): void
+    {
+        $request = Request::create(
+            '/resetSecret?client_id=clientId',
+            'POST',
+            ['client_id' => 'clientId', 'secret' => '123', 'new_secret' => str_repeat('s', 32)],
+        );
+        $this->authorizationMock->method('isAdmin')->willReturn(false);
+        $this->authorizationMock->method('getUserId')->willReturn('user@example.org');
+        $this->generatedIdentifierIs('_generated');
+        $this->clientEntityMock->method('getSecret')->willReturn('123');
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->helpersMock->expects($this->never())->method('client');
+
+        $this->clientEntityMock->expects($this->once())->method('restoreSecret')->with('_generated');
+        $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
+            ->with('Client secret has been reset.');
+
+        $this->sut()->resetSecret($request);
+    }
+
+
+    public function testTheClientPageOffersAGivenSecretToAnAdministratorOnly(): void
+    {
+        $request = Request::create('/', 'GET', ['client_id' => 'clientId']);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $isAdmin = true;
+        $this->authorizationMock->method('isAdmin')->willReturnCallback(function () use (&$isAdmin): bool {
+            return $isAdmin;
+        });
+        $this->authorizationMock->method('getUserId')->willReturn('user@example.org');
+
+        $offered = [];
+        $this->templateFactoryMock->method('build')->willReturnCallback(
+            function (string $template, array $data) use (&$offered): Template {
+                $offered[] = $data['setsGivenSecret'];
+                return $this->createMock(Template::class);
+            },
+        );
+
+        $this->sut()->show($request);
+        $isAdmin = false;
+        $this->sut()->show($request);
+
+        $this->assertSame([true, false], $offered);
+    }
+
+
+    protected function generatedIdentifierIs(string $identifier): void
+    {
+        $randomMock = $this->createMock(SspRandom::class);
+        $randomMock->method('generateID')->willReturn($identifier);
+        $sspUtilsMock = $this->createMock(SspBridgeUtils::class);
+        $sspUtilsMock->method('random')->willReturn($randomMock);
+        $this->sspBridgeMock->method('utils')->willReturn($sspUtilsMock);
     }
 
 

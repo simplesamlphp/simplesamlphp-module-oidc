@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -372,7 +373,7 @@ class ClientRepositoryTest extends TestCase
     {
         $protocolCacheMock = $this->createMock(ProtocolCache::class);
         $protocolCacheMock->expects($this->once())->method('get')->willReturn(['state']);
-
+        $this->clientEntityMock->method('getIdentifier')->willReturn('clientid');
 
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
             ->with(['state'])
@@ -386,6 +387,113 @@ class ClientRepositoryTest extends TestCase
         );
 
         $this->assertInstanceOf(ClientEntityInterface::class, $sut->findById('clientid'));
+    }
+
+
+    /**
+     * MySQL and MariaDB compare the client table's IDs case-insensitively by default; SQLite, which this test runs
+     * on, does not. The second half stands in for such a database with one which returns the row whatever the ID's
+     * letter case: the repository must refuse a row whose ID is not exactly the one asked for.
+     */
+    public function testAClientIsFoundOnlyByItsIdExactly(): void
+    {
+        $client = self::getClient('MozillaThunderbird');
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
+
+        $this->assertSame($client, $this->repository->findById('MozillaThunderbird'));
+        $this->assertNull($this->repository->findById('mozillathunderbird'));
+        $this->assertNull($this->repository->findById('MozillaThunderbird '));
+
+        $caseInsensitiveDatabase = $this->createMock(Database::class);
+        $statement = $this->createMock(PDOStatement::class);
+        $statement->method('fetchAll')->willReturn([[ClientEntity::KEY_ID => 'MozillaThunderbird']]);
+        $caseInsensitiveDatabase->method('read')->willReturn($statement);
+        $sut = new ClientRepository(new ModuleConfig(), $caseInsensitiveDatabase, null, $this->clientEntityFactoryMock);
+
+        $this->assertNull($sut->findById('mozillathunderbird'));
+        $this->assertSame($client, $sut->findById('MozillaThunderbird'));
+    }
+
+
+    /**
+     * A client is cached under its ID and under its entity identifier alike, so the entry found for an ID may be the
+     * client whose entity identifier that is. It is not taken for the client with that ID.
+     */
+    public function testACachedClientIsTakenOnlyForItsOwnIdOrEntityIdentifier(): void
+    {
+        $clientWithThatId = self::getClient('https://rp.example.org');
+        $clientWithThatEntityIdentifier = self::getClient('otherClientId', entityId: 'https://rp.example.org');
+        $this->repository->add($clientWithThatId);
+        $this->repository->add($clientWithThatEntityIdentifier);
+
+        $this->clientEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $state): ClientEntityInterface => $state === ['cached'] ?
+                $clientWithThatEntityIdentifier :
+                ($state[ClientEntity::KEY_ID] === 'https://rp.example.org' ?
+                    $clientWithThatId :
+                    $clientWithThatEntityIdentifier),
+        );
+        $sut = $this->repositoryWithCacheHolding(['cached']);
+        $this->assertSame($clientWithThatId, $sut->findById('https://rp.example.org'));
+
+        $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
+        $this->clientEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $state): ClientEntityInterface => $state === ['cached'] ?
+                $clientWithThatId :
+                ($state[ClientEntity::KEY_ID] === 'https://rp.example.org' ?
+                    $clientWithThatId :
+                    $clientWithThatEntityIdentifier),
+        );
+        $sut = $this->repositoryWithCacheHolding(['cached']);
+        $this->assertSame($clientWithThatEntityIdentifier, $sut->findByEntityIdentifier('https://rp.example.org'));
+    }
+
+
+    public function testAnIdIsTakenWhateverItsLetterCase(): void
+    {
+        $this->repository->add(self::getClient('MozillaThunderbird'));
+
+        $this->assertTrue($this->repository->isIdentifierTakenIgnoringCase('MozillaThunderbird'));
+        $this->assertTrue($this->repository->isIdentifierTakenIgnoringCase('mozillathunderbird'));
+        $this->assertTrue($this->repository->isIdentifierTakenIgnoringCase('MOZILLATHUNDERBIRD'));
+        $this->assertFalse($this->repository->isIdentifierTakenIgnoringCase('MozillaThunderbird2'));
+        $this->assertFalse($this->repository->isIdentifierTakenIgnoringCase('MozillaThunderbirb'));
+    }
+
+
+    /**
+     * An ID the database takes for the same is taken, whatever PHP makes of it: with an accent-insensitive collation,
+     * MySQL finds "café" for "cafe", and would refuse to insert it. The stand-in database here finds a row for any ID.
+     */
+    public function testAnIdTheDatabaseTakesForTheSameIsTaken(): void
+    {
+        $accentInsensitiveDatabase = $this->createMock(Database::class);
+        $statement = $this->createMock(PDOStatement::class);
+        $statement->method('fetchAll')->willReturn([[ClientEntity::KEY_ID => 'https://rp.example.org/café']]);
+        $accentInsensitiveDatabase->expects($this->once())->method('read')
+            ->with($this->stringEndsWith('WHERE id = :id'), ['id' => 'https://rp.example.org/cafe'])
+            ->willReturn($statement);
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $accentInsensitiveDatabase,
+            null,
+            $this->clientEntityFactoryMock,
+        );
+
+        $this->assertTrue($sut->isIdentifierTakenIgnoringCase('https://rp.example.org/cafe'));
+    }
+
+
+    /**
+     * The folding covers ASCII letters; an ID with other characters is found when it is exactly the one stored.
+     */
+    public function testAnIdWhichIsNotAsciiIsTakenWhenStoredExactly(): void
+    {
+        $this->repository->add(self::getClient('https://rp.example.org/klijent-č'));
+
+        $this->assertTrue($this->repository->isIdentifierTakenIgnoringCase('https://rp.example.org/klijent-č'));
+        $this->assertFalse($this->repository->isIdentifierTakenIgnoringCase('https://rp.example.org/klijent-c'));
     }
 
 
@@ -531,6 +639,7 @@ class ClientRepositoryTest extends TestCase
     {
         $protocolCacheMock = $this->createMock(ProtocolCache::class);
         $protocolCacheMock->expects($this->once())->method('get')->willReturn(['state']);
+        $this->clientEntityMock->method('getEntityIdentifier')->willReturn('entityId');
 
         $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
             ->with(['state'])

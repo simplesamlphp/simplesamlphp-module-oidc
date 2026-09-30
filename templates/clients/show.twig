@@ -107,6 +107,11 @@
                           action="{{ routes.urlAdminClientsResetSecret(client.getIdentifier) }}">
                         {{- client.secret -}}
                         <input type="hidden" name="secret" value="{{ client.secret }}">
+                        {% if setsGivenSecret|default(false) %}
+                        <input type="text" name="new_secret" autocomplete="off" spellcheck="false"
+                               aria-label="{{ 'New secret (leave empty to generate one)'|trans }}"
+                               placeholder="{{ 'New secret (leave empty to generate one)'|trans }}">
+                        {% endif %}
                         <button type="submit" class="pure-button button-small confirm-action"
                                 data-confirm-text="{{ 'Are you sure you want to reset client secret?'|trans }}"
                                 data-confirm-id="{{ client.getIdentifier }}"

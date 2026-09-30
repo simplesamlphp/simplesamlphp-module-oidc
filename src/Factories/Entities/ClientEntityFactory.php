@@ -23,6 +23,13 @@ use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 class ClientEntityFactory
 {
     /**
+     * The start of the generic client's ID for verifiable credential issuance (self::getGenericForVci()). A client ID
+     * given by hand may not start with it (Helpers\Client::problemsWithGivenIdentifier()), since
+     * ClientRepository::getGenericForVci() overwrites a client which has the generic client's ID.
+     */
+    final public const string GENERIC_VCI_CLIENT_ID_PREFIX = 'vci_';
+
+    /**
      * Informational ("store & echo") client metadata that is persisted as-is
      * into the extra metadata blob when present in registration data, so it
      * can be echoed back in registration/read responses. These carry no
@@ -638,7 +645,7 @@ class ClientEntityFactory
 
     public function getGenericForVci(): ClientEntityInterface
     {
-        $clientId = 'vci_' .
+        $clientId = self::GENERIC_VCI_CLIENT_ID_PREFIX .
         hash('sha256', 'vci_'  . $this->moduleConfig->sspConfig()->getString('secretsalt'));
 
         $clientSecret = $this->helpers->random()->getIdentifier();

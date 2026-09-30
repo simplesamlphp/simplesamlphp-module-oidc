@@ -16,6 +16,20 @@
     {{ form['_token_'].control | raw }}
 
     <fieldset>
+        {% if form.takesGivenClientCredentials() %}
+        <label for="frm-client_id">{{ 'Client ID'|trans }}</label>
+        {{ form.client_id.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Leave empty to have the client ID generated. Give it only when the client already has one, for example one issued by another authorization server. Printable ASCII characters without spaces, at most 191. The client ID can not be changed later.{% endtrans %}
+        </span>
+
+        <label for="frm-client_secret">{{ 'Client Secret'|trans }}</label>
+        {{ form.client_secret.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}Leave empty to have the client secret generated. Give it only when the client already has one. Printable ASCII characters without spaces, from 32 to 255.{% endtrans %}
+        </span>
+        {% endif %}
+
         <label for="frm-name">{{ 'Name'|trans }}</label>
         {{ form.name.control | raw }}
         {% if form.name.hasErrors %}

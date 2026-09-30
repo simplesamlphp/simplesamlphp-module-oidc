@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Forms;
 
 use JsonException;
+use Nette\Forms\Controls\BaseControl;
 use Nette\Forms\Form;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Locale\Translate;
@@ -64,6 +65,14 @@ class ClientForm extends Form
      */
     final public const string FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE = 'introspection_foreign_issuers_mode';
 
+    /**
+     * The client ID and secret given by hand, on an administrator's form for adding a client; see
+     * self::forNewClient(). Null in the values when left empty, which has them generated.
+     */
+    final public const string FIELD_CLIENT_ID = 'client_id';
+
+    final public const string FIELD_CLIENT_SECRET = 'client_secret';
+
 
     /**
      * Whether the form is used by a SimpleSAMLphp administrator, the only one who sets the administrator-only client
@@ -112,6 +121,83 @@ class ClientForm extends Form
 
 
     /**
+     * Make this the form for adding a client. An administrator's form then has two fields more, for a client ID and a
+     * client secret given by hand: another authorization server may have issued them already, as MyAccessID does for
+     * the client it introspects tokens with. Either one left empty is generated. A user managing their own clients
+     * does not get the fields: an ID they chose could take the entity identifier of an OpenID Federation relying
+     * party before it registers. The ID of an existing client never changes, since its tokens, codes and the module
+     * configuration name it.
+     */
+    public function forNewClient(): static
+    {
+        if ($this->isAdministrator && is_null($this->getComponent(self::FIELD_CLIENT_ID, false))) {
+            $this->addText(self::FIELD_CLIENT_ID, Translate::noop('Client ID'))
+                ->setHtmlAttribute('class', 'full-width')
+                ->setHtmlAttribute('autocomplete', 'off')
+                ->setHtmlAttribute('spellcheck', 'false');
+            $this->addText(self::FIELD_CLIENT_SECRET, Translate::noop('Client Secret'))
+                ->setHtmlAttribute('class', 'full-width')
+                ->setHtmlAttribute('autocomplete', 'off')
+                ->setHtmlAttribute('spellcheck', 'false');
+            $this->onValidate[] = $this->validateGivenClientCredentials(...);
+        }
+
+        return $this;
+    }
+
+
+    /**
+     * Whether this is an administrator's form for adding a client, with the fields for a client ID and secret given
+     * by hand; see self::forNewClient().
+     */
+    public function takesGivenClientCredentials(): bool
+    {
+        return !is_null($this->getComponent(self::FIELD_CLIENT_ID, false));
+    }
+
+
+    /**
+     * The client ID an administrator gave on the form for adding a client, as self::getValues() returns it; null when
+     * none is given, or when this is not that form.
+     */
+    protected function givenClientIdentifier(): ?string
+    {
+        $control = $this->getComponent(self::FIELD_CLIENT_ID, false);
+        /** @var mixed $value */
+        $value = $control instanceof BaseControl ? $control->getValue() : null;
+        $value = is_string($value) ? trim($value) : '';
+
+        return $value === '' ? null : $value;
+    }
+
+
+    /**
+     * Validate the client ID and secret given by hand (self::forNewClient()). A field left empty has its value
+     * generated, and is not validated. Whether another client has the ID already is for ClientController to find.
+     */
+    public function validateGivenClientCredentials(Form $form): void
+    {
+        $values = $form->getValues(self::TYPE_ARRAY);
+
+        /** @var mixed $clientId */
+        $clientId = $values[self::FIELD_CLIENT_ID] ?? null;
+        if (is_string($clientId) && $clientId !== '') {
+            foreach ($this->helpers->client()->problemsWithGivenIdentifier($clientId) as $problem) {
+                $this->addError($problem);
+            }
+        }
+
+        /** @var mixed $clientSecret */
+        $clientSecret = $values[self::FIELD_CLIENT_SECRET] ?? null;
+        if (is_string($clientSecret) && $clientSecret !== '') {
+            foreach ($this->helpers->client()->problemsWithGivenSecret($clientSecret) as $problem) {
+                $this->addError($problem);
+            }
+        }
+    }
+
+
+    /**
      * Whether the client's stored foreign issuer list can not be shown as it is stored: it can not be read at all,
      * or an entry is not an issuer identifier. Such an entry would come back from the form changed (trimmed, or
      * split at a line break), and since issuers are compared exactly, saving it would permit an issuer the stored
@@ -125,10 +211,10 @@ class ClientForm extends Form
 
 
     /**
-     * The introspection role the module configuration gives the client being edited: the upstream hub, or a
-     * resource server whatever its record says. Null for any other client, a client being added, and a
-     * configuration which names the client in both roles (self::validateIntrospectionResourceServer() reports
-     * that one).
+     * The introspection role the module configuration gives the client being edited, or the client being added
+     * under the ID an administrator gave it: the upstream hub, or a resource server whatever its record says. Null
+     * for any other client, a client being added with a generated ID, and a configuration which names the client in
+     * both roles (self::validateIntrospectionResourceServer() reports that one).
      */
     public function getConfiguredIntrospectionRole(): ?IntrospectionCallerRoleEnum
     {
@@ -146,13 +232,15 @@ class ClientForm extends Form
      */
     protected function resolveConfiguredIntrospectionRole(): ?IntrospectionCallerRoleEnum
     {
-        if (is_null($this->clientIdentifier)) {
+        $clientIdentifier = $this->clientIdentifier ?? $this->givenClientIdentifier();
+
+        if (is_null($clientIdentifier)) {
             return null;
         }
 
         if (
             in_array(
-                $this->clientIdentifier,
+                $clientIdentifier,
                 $this->moduleConfig->getApiOAuth2TokenIntrospectionUpstreamHubClientIds(),
                 true,
             )
@@ -162,7 +250,7 @@ class ClientForm extends Form
 
         if (
             in_array(
-                $this->clientIdentifier,
+                $clientIdentifier,
                 $this->moduleConfig->getApiOAuth2TokenIntrospectionResourceServerClientIds(),
                 true,
             )
@@ -700,6 +788,17 @@ class ClientForm extends Form
                 $this->addError(
                     'Foreign issuers are listed, but neither allowed nor denied. Choose one, or remove them.',
                 );
+            }
+        }
+
+        // Only an administrator's form for adding a client has these (self::forNewClient()). Left empty, the value is
+        // generated (ClientController::add()).
+        foreach ([self::FIELD_CLIENT_ID, self::FIELD_CLIENT_SECRET] as $credentialField) {
+            if (array_key_exists($credentialField, $values)) {
+                /** @var mixed $credential */
+                $credential = $values[$credentialField];
+                $credential = is_string($credential) ? trim($credential) : '';
+                $values[$credentialField] = $credential === '' ? null : $credential;
             }
         }
 
