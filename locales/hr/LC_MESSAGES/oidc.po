@@ -2744,8 +2744,14 @@ msgid ""
 "already exists."
 msgstr ""
 
-msgid "New secret (leave empty to generate one)"
+msgid "The client ID may not be \"0\"."
 msgstr ""
 
-msgid "The client ID may not be \"0\"."
+msgid "New secret (optional)"
+msgstr ""
+
+msgid ""
+"Leave empty to have a new secret generated. Give one only when the secret "
+"was issued elsewhere, for example by another authorization server: "
+"printable ASCII characters without spaces, from 32 to 255."
 msgstr ""

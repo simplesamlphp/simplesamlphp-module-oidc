@@ -104,6 +104,30 @@ table.client-table {
     font-weight: bolder;
 }
 
+/* The client secret on a line of its own, then the new secret field and the reset button side by side. */
+.client-secret-value {
+    overflow-wrap: anywhere;
+}
+
+.client-secret-reset {
+    display: flex;
+    align-items: stretch;
+    gap: 0.5em;
+    max-width: 40em;
+    margin-top: 0.5em;
+}
+
+.client-secret-reset input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+}
+
+.client-secret-reset button {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
 
 
 /* Configuration overview screens */
