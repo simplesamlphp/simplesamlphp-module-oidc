@@ -396,6 +396,30 @@ class ClientControllerTest extends TestCase
         $this->sut()->edit($request);
     }
 
+    /**
+     * A user managing their own clients saves their client with the owner filter, as a secret reset and a delete
+     * do; an administrator saves any client.
+     */
+    public function testAnEditIsSavedForTheOwnerOnly(): void
+    {
+        $request = Request::create('/edit?client_id=clientId', 'GET', ['client_id' => 'clientId']);
+        $this->authorizationMock->method('isAdmin')->willReturn(false);
+        $this->authorizationMock->method('getUserId')->willReturn('user@example.org');
+        $this->clientEntityMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
+        $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
+        $this->clientRepositoryMock->expects($this->once())->method('findById')
+            ->with('clientId', 'user@example.org')->willReturn($this->clientEntityMock);
+        $updatedClientMock = $this->createMock(ClientEntityInterface::class);
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn($this->sampleFormData);
+        $this->clientEntityFactoryMock->method('fromData')->willReturn($updatedClientMock);
+
+        $this->clientRepositoryMock->expects($this->once())->method('update')
+            ->with($updatedClientMock, 'user@example.org');
+
+        $this->sut()->edit($request);
+    }
+
     public function testWontEditIfClientEntityIdentifierExists(): void
     {
         $request = Request::create(

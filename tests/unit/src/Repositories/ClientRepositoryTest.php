@@ -389,6 +389,65 @@ class ClientRepositoryTest extends TestCase
         $this->assertInstanceOf(ClientEntityInterface::class, $sut->findById('clientid'));
     }
 
+    /**
+     * The protocol endpoints cache every client they look up, with no owner. A user managing their own clients
+     * (the `client` permission) must not be given such a client by its ID when it is not theirs.
+     */
+    public function testACachedClientIsNotReturnedToALookupForAnotherOwner(): void
+    {
+        $client = self::getClient('clientid', owner: 'otherUser');
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
+
+        $sut = $this->repositoryWithCacheHolding(['state']);
+
+        $this->assertNull($sut->findById('clientid', 'homer@example.com'));
+        $this->assertSame($client, $sut->findById('clientid', 'otherUser'));
+        $this->assertSame($client, $sut->findById('clientid'));
+    }
+
+    public function testACachedClientIsNotReturnedToALookupByEntityIdentifierForAnotherOwner(): void
+    {
+        $client = self::getClient('clientid', owner: 'otherUser', entityId: 'entityId');
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
+
+        $sut = $this->repositoryWithCacheHolding(['state']);
+
+        $this->assertNull($sut->findByEntityIdentifier('entityId', 'homer@example.com'));
+        $this->assertSame($client, $sut->findByEntityIdentifier('entityId', 'otherUser'));
+        $this->assertSame($client, $sut->findByEntityIdentifier('entityId'));
+    }
+
+    /**
+     * A cached client with another owner is looked up in the database, which has the owner the client has now.
+     */
+    public function testTheDatabaseAnswersForAnOwnerTheCachedClientDoesNotHave(): void
+    {
+        $staleClient = self::getClient('clientid', owner: 'otherUser');
+        $currentClient = self::getClient('clientid', owner: 'homer@example.com');
+        $this->repository->add($currentClient);
+        $this->clientEntityFactoryMock->expects($this->exactly(2))->method('fromState')
+            ->willReturnOnConsecutiveCalls($staleClient, $currentClient);
+
+        $sut = $this->repositoryWithCacheHolding(['state']);
+
+        $this->assertSame($currentClient, $sut->findById('clientid', 'homer@example.com'));
+    }
+
+    protected function repositoryWithCacheHolding(array $state): ClientRepository
+    {
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('get')->willReturn($state);
+
+        return new ClientRepository(
+            new ModuleConfig(),
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->clientEntityFactoryMock,
+        );
+    }
+
     public function testCanFindByEntityIdentifier(): void
     {
         $client = self::getClient(id: 'clientId', entityId: 'entityId');
@@ -442,6 +501,27 @@ class ClientRepositoryTest extends TestCase
         $this->clientEntityFactoryMock->expects($this->atLeastOnce())->method('fromState')->willReturn($client);
 
         $this->assertCount(1, $this->repository->findAllFederated());
+    }
+
+    /**
+     * Their queries have a line break after WHERE, so the owner filter has to be added to them with AND.
+     */
+    public function testTheQueriesWrittenOverSeveralLinesTakeAnOwner(): void
+    {
+        $client = self::getClient(
+            id: 'clientId',
+            owner: 'otherUser',
+            entityId: 'entityId',
+            isFederated: true,
+            federationJwks: [],
+        );
+        $this->repository->add($client);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
+
+        $this->assertSame($client, $this->repository->findByEntityIdentifier('entityId', 'otherUser'));
+        $this->assertNull($this->repository->findByEntityIdentifier('entityId', 'homer@example.com'));
+        $this->assertCount(1, $this->repository->findAllFederated('otherUser'));
+        $this->assertCount(0, $this->repository->findAllFederated('homer@example.com'));
     }
 
     public function testCanFindByEntityIdFromCache(): void
