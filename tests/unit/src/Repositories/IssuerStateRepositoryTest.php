@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
 #[CoversClass(IssuerStateRepository::class)]
 #[UsesClass(IssuerStateEntity::class)]
@@ -139,12 +140,16 @@ class IssuerStateRepositoryTest extends TestCase
     }
 
 
-    public function testCanRevoke(): void
+    /**
+     * An offer is redeemed once: the first consume spends the state, and every later one is refused.
+     */
+    public function testConsumeSpendsAValidIssuerStateOnce(): void
     {
         $entity = $this->entityFactory->buildNew();
         $this->repository->persist($entity);
 
-        $this->repository->revoke($entity->getValue());
+        $this->assertTrue($this->repository->consume($entity->getValue()));
+        $this->assertFalse($this->repository->consume($entity->getValue()));
 
         $foundEntity = $this->repository->find($entity->getValue());
         $this->assertInstanceOf(IssuerStateEntity::class, $foundEntity);
@@ -153,14 +158,103 @@ class IssuerStateRepositoryTest extends TestCase
     }
 
 
-    public function testCanRemoveInvalid(): void
+    /**
+     * An offer which expired before it was redeemed can not be redeemed any more, and is left as it was.
+     */
+    public function testConsumeRefusesAnExpiredIssuerState(): void
+    {
+        $createdAt = $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT10M'));
+        $entity = $this->entityFactory->buildNew(
+            null,
+            $createdAt,
+            $createdAt->add(new DateInterval('PT5M')),
+        );
+        $this->repository->persist($entity);
+
+        $this->assertFalse($this->repository->consume($entity->getValue()));
+
+        $foundEntity = $this->repository->find($entity->getValue());
+        $this->assertInstanceOf(IssuerStateEntity::class, $foundEntity);
+        $this->assertFalse($foundEntity->isRevoked());
+    }
+
+
+    /**
+     * A state spent for a token which was then not issued is given back, and can be redeemed again.
+     */
+    public function testReleaseGivesBackASpentIssuerState(): void
+    {
+        $entity = $this->entityFactory->buildNew();
+        $this->repository->persist($entity);
+        $this->assertTrue($this->repository->consume($entity->getValue()));
+
+        $this->repository->release($entity->getValue());
+
+        $this->assertInstanceOf(IssuerStateEntity::class, $this->repository->findValid($entity->getValue()));
+        $this->assertTrue($this->repository->consume($entity->getValue()));
+    }
+
+
+    public function testReleaseDropsTheCachedIssuerState(): void
+    {
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->once())
+            ->method('delete')
+            ->with('phpunit_oidc_vci_issuer_state_some-issuer-state');
+
+        $repository = new IssuerStateRepository(
+            $this->moduleConfigMock,
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->entityFactory,
+            $this->helpers,
+        );
+
+        $repository->release('some-issuer-state');
+    }
+
+
+    public function testConsumeRefusesAnUnknownIssuerState(): void
+    {
+        $this->assertFalse($this->repository->consume('unknown-issuer-state-value'));
+    }
+
+
+    /**
+     * The database decides whether a state was spent; a cached copy read before the consume would still say
+     * it is valid, so the consume drops it.
+     */
+    public function testConsumeDropsTheCachedIssuerState(): void
+    {
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->once())
+            ->method('delete')
+            ->with('phpunit_oidc_vci_issuer_state_some-issuer-state');
+
+        $repository = new IssuerStateRepository(
+            $this->moduleConfigMock,
+            Database::getInstance(),
+            $protocolCacheMock,
+            $this->entityFactory,
+            $this->helpers,
+        );
+
+        $this->assertFalse($repository->consume('some-issuer-state'));
+    }
+
+
+    /**
+     * Only expired states go. A spent one stays until it expires, so that a redemption whose tokens could not
+     * be issued can still give it back.
+     */
+    public function testRemoveExpiredKeepsSpentStatesUntilTheyExpire(): void
     {
         $validEntity = $this->entityFactory->buildNew();
         $this->repository->persist($validEntity);
 
-        $revokedEntity = $this->entityFactory->buildNew();
-        $this->repository->persist($revokedEntity);
-        $this->repository->revoke($revokedEntity->getValue());
+        $spentEntity = $this->entityFactory->buildNew();
+        $this->repository->persist($spentEntity);
+        $this->repository->consume($spentEntity->getValue());
 
         $createdAt = $this->helpers->dateTime()->getUtc()->sub(new DateInterval('PT10M'));
         $expiredEntity = $this->entityFactory->buildNew(
@@ -170,10 +264,27 @@ class IssuerStateRepositoryTest extends TestCase
         );
         $this->repository->persist($expiredEntity);
 
-        $this->repository->removeInvalid();
+        $this->repository->removeExpired();
 
         $this->assertInstanceOf(IssuerStateEntity::class, $this->repository->find($validEntity->getValue()));
-        $this->assertNull($this->repository->find($revokedEntity->getValue()));
+        $this->assertInstanceOf(IssuerStateEntity::class, $this->repository->find($spentEntity->getValue()));
         $this->assertNull($this->repository->find($expiredEntity->getValue()));
+    }
+
+
+    /**
+     * The cleanup may run between a redemption spending a state and giving it back after its tokens could not
+     * be issued. The state is still there to give back.
+     */
+    public function testAStateSpentBeforeTheCleanupCanStillBeGivenBack(): void
+    {
+        $entity = $this->entityFactory->buildNew();
+        $this->repository->persist($entity);
+        $this->assertTrue($this->repository->consume($entity->getValue()));
+
+        $this->repository->removeExpired();
+        $this->repository->release($entity->getValue());
+
+        $this->assertInstanceOf(IssuerStateEntity::class, $this->repository->findValid($entity->getValue()));
     }
 }

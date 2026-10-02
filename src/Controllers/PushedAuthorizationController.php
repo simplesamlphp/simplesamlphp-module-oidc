@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
@@ -106,6 +107,9 @@ class PushedAuthorizationController
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
+            // A pushed request following a Credential Offer is refused here when its offer can no longer be
+            // redeemed, rather than only once the End-User has logged in.
+            IssuerStateRule::class,
         ];
 
         $resultBag = $this->requestRulesManager->check(

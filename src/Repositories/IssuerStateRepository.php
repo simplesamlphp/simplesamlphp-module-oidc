@@ -90,16 +90,55 @@ class IssuerStateRepository extends AbstractDatabaseRepository
     }
 
 
-    public function revoke(string $value): void
+    /**
+     * Atomically spend an issuer state which is still valid. Returns true only for the call which spent it.
+     *
+     * A Credential Offer's issuer state is redeemed once, when the authorization code carrying it is exchanged
+     * for an access token. The database is the source of truth for that: a conditional update lets only one
+     * request change a valid state to revoked, even when concurrent requests read the same cached entity.
+     */
+    public function consume(string $value): bool
     {
-        $issuerState = $this->find($value);
+        $stmt = "UPDATE {$this->getTableName()} SET is_revoked = :revoked " .
+        "WHERE value = :value AND is_revoked = :not_revoked AND expires_at >= :now";
 
-        if ($issuerState === null) {
-            return;
-        }
+        $affected = $this->database->write(
+            $stmt,
+            [
+                'value' => $value,
+                'revoked' => [true, PDO::PARAM_BOOL],
+                'not_revoked' => [false, PDO::PARAM_BOOL],
+                'now' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
+            ],
+        );
 
-        $issuerState->revoke();
-        $this->update($issuerState);
+        // Never let a stale cached entity report the state as still valid.
+        $this->protocolCache?->delete($this->getCacheKey($value));
+
+        return $affected === 1;
+    }
+
+
+    /**
+     * Give back an issuer state which consume() spent for a token that was then not issued, so that the wallet
+     * can retry the code it holds. Only a spent state is changed; one which has expired meanwhile stays
+     * unusable all the same, since findValid() and consume() check the expiry as well.
+     */
+    public function release(string $value): void
+    {
+        $stmt = "UPDATE {$this->getTableName()} SET is_revoked = :not_revoked " .
+        "WHERE value = :value AND is_revoked = :revoked";
+
+        $this->database->write(
+            $stmt,
+            [
+                'value' => $value,
+                'revoked' => [true, PDO::PARAM_BOOL],
+                'not_revoked' => [false, PDO::PARAM_BOOL],
+            ],
+        );
+
+        $this->protocolCache?->delete($this->getCacheKey($value));
     }
 
 
@@ -163,28 +202,18 @@ EOS
 
 
     /**
-     * Remove invalid issuer state entities (expired or revoked).
-     * @return void
+     * Remove expired issuer states. A spent one is kept until it expires, so that a redemption whose tokens
+     * could not be issued still finds it to give back (AuthCodeGrant, release()); it can not be redeemed in
+     * the meantime, since consume() and findValid() refuse a spent state.
      */
-    public function removeInvalid(): void
+    public function removeExpired(): void
     {
-        $stmt = sprintf(
-            <<<EOS
-            DELETE FROM %s
-            WHERE
-                expires_at < :expires_at OR
-                is_revoked = :is_revoked
-EOS
-            ,
-            $this->getTableName(),
+        $this->database->write(
+            "DELETE FROM {$this->getTableName()} WHERE expires_at < :expires_at",
+            [
+                'expires_at' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
+            ],
         );
-
-        $data = [
-            'expires_at' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
-            'is_revoked' => true,
-        ];
-
-        $this->database->write($stmt, $this->preparePdoState($data));
     }
 
 

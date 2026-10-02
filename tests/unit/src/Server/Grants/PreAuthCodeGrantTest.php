@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
@@ -763,6 +764,7 @@ class PreAuthCodeGrantTest extends TestCase
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
             $this->createStub(ModuleConfig::class),
+            $this->createStub(IssuerStateRepository::class),
         );
     }
 

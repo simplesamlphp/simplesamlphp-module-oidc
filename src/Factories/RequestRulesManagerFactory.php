@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
@@ -82,6 +83,7 @@ class RequestRulesManagerFactory
         private readonly QueryResponseMode $queryResponseMode,
         private readonly FragmentResponseMode $fragmentResponseMode,
         private readonly FormPostResponseMode $formPostResponseMode,
+        private readonly IssuerStateRepository $issuerStateRepository,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -106,7 +108,7 @@ class RequestRulesManagerFactory
     {
         return [
             new StateRule($this->requestParamsResolver, $this->helpers),
-            new IssuerStateRule($this->requestParamsResolver, $this->helpers),
+            new IssuerStateRule($this->requestParamsResolver, $this->helpers, $this->issuerStateRepository),
             new ClientRule(
                 $this->requestParamsResolver,
                 $this->helpers,

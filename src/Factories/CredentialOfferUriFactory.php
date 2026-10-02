@@ -168,13 +168,16 @@ class CredentialOfferUriFactory
         }
 
         $txCode = null;
-        $userEmail = null;
         $userEmailAttributeName ??= $this->moduleConfig->getDefaultUsersEmailAttributeName();
         if ($useTxCode) {
             $userEmail = $this->getUserEmail($userEmailAttributeName, $userAttributes);
             $txCodeDescription = 'Please provide the one-time code that was sent to e-mail ' . $userEmail;
             $txCode = $this->buildTxCode($txCodeDescription);
             $this->loggerService->debug('Generated transaction code for delivery by email.');
+
+            // Delivered before the code is stored, so that a delivery which fails leaves behind no code
+            // waiting for a transaction code nobody received.
+            $this->sendTxCodeByEmail($txCode, $userEmail);
         }
 
         $authCodeIdGenerationAttempts = 3;
@@ -226,10 +229,6 @@ class CredentialOfferUriFactory
                 ],
             ],
         );
-
-        if ($txCode instanceof TxCode && $userEmail !== null) {
-            $this->sendTxCodeByEmail($txCode, $userEmail);
-        }
 
         return $this->buildUri($credentialOffer->jsonSerialize());
     }

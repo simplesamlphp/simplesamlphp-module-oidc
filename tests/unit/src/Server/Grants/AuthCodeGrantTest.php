@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 
+use ArrayObject;
 use Closure;
 use DateInterval;
 use DateTimeImmutable;
@@ -25,6 +26,7 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
@@ -41,6 +43,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\AuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
@@ -59,6 +62,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
@@ -121,6 +125,8 @@ class AuthCodeGrantTest extends TestCase
 
     private const string CODE_VERIFIER = 'ZG9uLXQtdXNlLXRoaXMtdmVyaWZpZXItaW4tcHJvZHVjdGlvbg';
 
+    private const string ISSUER_STATE = 'issuer-state-of-a-credential-offer';
+
 
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
 
@@ -154,6 +160,8 @@ class AuthCodeGrantTest extends TestCase
 
     private ModuleConfig&MockObject $moduleConfigMock;
 
+    private IssuerStateRepository&MockObject $issuerStateRepositoryMock;
+
     private Key $encryptionKey;
 
     /** Whether the granted scopes are treated as containing offline_access. */
@@ -167,6 +175,9 @@ class AuthCodeGrantTest extends TestCase
 
     /** What the access token factory was last called with, for assertions on values with no other outlet. */
     private array $accessTokenFactoryArguments = [];
+
+    /** @var string[] The rules the grant last asked the rules manager to check, in order. */
+    private array $checkedRules = [];
 
 
     protected function setUp(): void
@@ -188,6 +199,7 @@ class AuthCodeGrantTest extends TestCase
         $this->scopeRepositoryMock = $this->createMock(ScopeRepositoryInterface::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
         // key derivation on every encrypt and decrypt, which this many round trips would make noticeably slow.
@@ -468,6 +480,207 @@ class AuthCodeGrantTest extends TestCase
                 'redirect_uri' => 'https://attacker.example.org/callback',
             ]),
         );
+    }
+
+    // Credential Offer redemption.
+
+    /**
+     * The code of a request which followed a Credential Offer carries the offer's issuer state, and redeeming
+     * the code spends it. The token carries the state on, which is how the credential endpoint knows the token
+     * followed an offer.
+     */
+    public function testSpendsTheIssuerStateOfACredentialOfferCodeAndCarriesItOntoTheToken(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+        $this->issuerStateRepositoryMock->expects($this->once())
+            ->method('consume')
+            ->with(self::ISSUER_STATE)
+            ->willReturn(true);
+        $this->issuerStateRepositoryMock->expects($this->never())->method('release');
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        // The double receives the factory's arguments by position, and the issuer state is the thirteenth.
+        $this->assertSame(self::ISSUER_STATE, $this->accessTokenFactoryArguments[12]);
+    }
+
+
+    /**
+     * An offer is redeemed once. A second code obtained with it, by the same wallet or another, gets no token,
+     * and neither does a code whose offer expired before it was redeemed. Unlike a replayed code, it revokes
+     * nothing: the tokens of the code which did redeem the offer are not this code's, and a refusal which
+     * revoked them would let whoever holds a copy of an offer cut off the wallet it was meant for.
+     */
+    public function testRefusesACodeWhoseCredentialOfferCanNoLongerBeRedeemed(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(false);
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+
+        $this->assertRejects('invalid_grant', $this->request());
+    }
+
+
+    /**
+     * The offer is spent before the tokens are issued. Should the issuance fail, what was issued for the code
+     * is revoked and then the offer given back, so the wallet can retry the code it still holds instead of
+     * holding an offer used up for no token, and the failure goes on to the client as it was. Revoked first,
+     * so that a failure to revoke leaves the offer spent rather than two sets of tokens from it.
+     */
+    public function testGivesTheOfferBackWhenTheTokenCanNotBeIssued(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $failure = new RuntimeException('The access token could not be built.');
+        $this->accessTokenEntityFactoryMock->method('fromData')->willThrowException($failure);
+        $calls = $this->recordRecoveryCalls();
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->request(),
+                $this->responseType(),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The failure to issue the token must reach the caller.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($failure, $exception);
+        }
+
+        $this->assertSame(
+            [
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+                ['release', self::ISSUER_STATE],
+            ],
+            $calls->getArrayCopy(),
+        );
+    }
+
+
+    /**
+     * A refresh token is issued after the access token, so a failure there comes once an access token was
+     * persisted. The offer is given back all the same, and the access token, which never reached the wallet,
+     * is revoked with it.
+     */
+    public function testGivesTheOfferBackWhenTheRefreshTokenCanNotBeIssued(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->expectAccessTokenToBeIssued();
+        $this->offlineAccessGranted = true;
+        $failure = new RuntimeException('The refresh token could not be persisted.');
+        $this->refreshTokenIssuerMock->method('issue')->willThrowException($failure);
+        $calls = $this->recordRecoveryCalls();
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->request(),
+                $this->responseType(),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The failure to issue the refresh token must reach the caller.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($failure, $exception);
+        }
+
+        $this->assertSame(
+            [
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+                ['release', self::ISSUER_STATE],
+            ],
+            $calls->getArrayCopy(),
+        );
+    }
+
+
+    /**
+     * The offer is given back only once what was issued for the code is revoked. Should the revocation fail,
+     * the offer stays spent: given back with the tokens still live, a retry of the code would take a second
+     * set of tokens from one offer.
+     */
+    public function testKeepsTheOfferSpentWhenWhatWasIssuedCanNotBeRevoked(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->accessTokenEntityFactoryMock->method('fromData')
+            ->willThrowException(new RuntimeException('The access token could not be built.'));
+        $this->accessTokenRepositoryMock->method('revokeByAuthCodeId')
+            ->willThrowException(new RuntimeException('The tokens could not be revoked.'));
+        $this->issuerStateRepositoryMock->expects($this->never())->method('release');
+
+        $this->expectException(RuntimeException::class);
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+    }
+
+
+    /**
+     * Without an offer there is nothing to give back when the token can not be issued.
+     */
+    public function testGivesNothingBackForACodeWhichFollowedNoOfferWhenTheTokenCanNotBeIssued(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+        $failure = new RuntimeException('The access token could not be built.');
+        $this->accessTokenEntityFactoryMock->method('fromData')->willThrowException($failure);
+        $this->issuerStateRepositoryMock->expects($this->never())->method('release');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->request(),
+                $this->responseType(),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The failure to issue the token must reach the caller.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($failure, $exception);
+        }
+    }
+
+
+    /**
+     * A request which fails another check does not use the offer up: the issuer state is spent only once every
+     * other check has passed, so the wallet can still redeem the offer with a request which passes them.
+     */
+    public function testDoesNotSpendTheIssuerStateOfACodeWhoseRequestFailsAnotherCheck(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->rulesReturn(codeVerifier: 'a-completely-different-verifier');
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+
+        $this->assertRejects('invalid_grant', $this->requestFor($this->payloadWithChallenge()));
+    }
+
+
+    /**
+     * A wallet which started the flow on its own followed no offer, so its code has no issuer state to spend.
+     */
+    public function testSpendsNoIssuerStateForACodeWhichFollowedNoOffer(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+    }
+
+
+    /**
+     * Only an OpenID4VCI code follows an offer. An issuer state on a code of another flow names no offer this
+     * server issued the code against, and is not spent.
+     */
+    public function testSpendsNoIssuerStateForACodeOfAnotherFlow(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::OidcAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
     }
 
     // Successful redemption.
@@ -811,6 +1024,31 @@ class AuthCodeGrantTest extends TestCase
     }
 
 
+    /**
+     * PromptRule and MaxAgeRule may send the End-User to log in (prompt=login, an expired max_age). A request
+     * naming a Credential Offer which can not be redeemed is refused before either runs, so nobody is asked to
+     * log in for an offer which is then refused.
+     */
+    public function testChecksTheIssuerStateBeforeAnyRuleWhichMaySendTheUserToLogIn(): void
+    {
+        $this->validatedAuthorizationRequest();
+
+        $issuerState = array_search(IssuerStateRule::class, $this->checkedRules, true);
+        $this->assertIsInt($issuerState, 'The issuer state of an authorization request is not checked.');
+        $this->assertLessThan(array_search(PromptRule::class, $this->checkedRules, true), $issuerState);
+        $this->assertLessThan(array_search(MaxAgeRule::class, $this->checkedRules, true), $issuerState);
+    }
+
+
+    public function testDoesNotLogTheIssuerStateValue(): void
+    {
+        // The issuer state is what lets a wallet redeem a Credential Offer, so only its presence may be recorded.
+        $this->validatedAuthorizationRequest(ruleResults: [IssuerStateRule::class => self::ISSUER_STATE]);
+
+        $this->assertSecretsWereNotLogged(self::ISSUER_STATE);
+    }
+
+
     public function testBindsTheUsedClientIdAndRedirectUriWhenTheClientIsGeneric(): void
     {
         // A generic client stands in for many wallets, so the identifiers actually used have to be recorded
@@ -1135,6 +1373,7 @@ class AuthCodeGrantTest extends TestCase
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
             $this->moduleConfigMock,
+            $this->issuerStateRepositoryMock,
         );
 
         $grant->setEncryptionKey($this->encryptionKey);
@@ -1287,6 +1526,8 @@ class AuthCodeGrantTest extends TestCase
         bool $isGeneric = false,
         bool $isRevoked = false,
         ?array $grantTypes = null,
+        ?string $issuerState = null,
+        ?FlowTypeEnum $flowType = null,
     ): AuthCodeEntity {
         $client = $this->createMock(ClientEntity::class);
         $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -1301,8 +1542,10 @@ class AuthCodeGrantTest extends TestCase
             self::USER_ID,
             self::REDIRECT_URI,
             isRevoked: $isRevoked,
+            flowTypeEnum: $flowType,
             boundClientId: self::CLIENT_ID,
             boundRedirectUri: self::REDIRECT_URI,
+            issuerState: $issuerState,
         );
 
         $this->authCodeRepositoryMock->method('findById')->willReturn($authCode);
@@ -1420,7 +1663,13 @@ class AuthCodeGrantTest extends TestCase
         }
 
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
-        $this->requestRulesManagerMock->method('check')->willReturn($checked);
+        $this->requestRulesManagerMock->method('check')->willReturnCallback(
+            function (ServerRequestInterface $request, array $rules) use ($checked): ResultBag {
+                $this->checkedRules = $rules;
+
+                return $checked;
+            },
+        );
 
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->resolverReturnsTheRequestBody($this->requestParamsResolverMock);
@@ -1597,6 +1846,33 @@ class AuthCodeGrantTest extends TestCase
             AcrResponseTypeInterface::class,
             SessionIdResponseTypeInterface::class,
         ]);
+    }
+
+
+    /**
+     * Record, in order, the revocations by authorization code and the release of an issuer state, which the
+     * recovery from a failed issuance makes.
+     */
+    private function recordRecoveryCalls(): ArrayObject
+    {
+        $calls = new ArrayObject();
+        $this->accessTokenRepositoryMock->method('revokeByAuthCodeId')->willReturnCallback(
+            function (string $authCodeId) use ($calls): void {
+                $calls->append(['access', $authCodeId]);
+            },
+        );
+        $this->refreshTokenRepositoryMock->method('revokeByAuthCodeId')->willReturnCallback(
+            function (string $authCodeId) use ($calls): void {
+                $calls->append(['refresh', $authCodeId]);
+            },
+        );
+        $this->issuerStateRepositoryMock->method('release')->willReturnCallback(
+            function (string $value) use ($calls): void {
+                $calls->append(['release', $value]);
+            },
+        );
+
+        return $calls;
     }
 
 

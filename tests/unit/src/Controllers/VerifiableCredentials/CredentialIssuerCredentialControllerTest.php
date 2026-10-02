@@ -21,7 +21,6 @@ use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\Controllers\VerifiableCredentials\CredentialIssuerCredentialController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entities\IssuerStateEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
@@ -29,7 +28,6 @@ use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
-use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -110,8 +108,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected MockObject $vciIssuerIdentityRepositoryMock;
 
-    protected MockObject $issuerStateRepositoryMock;
-
     protected MockObject $openId4VciProofValidatorMock;
 
     protected MockObject $vciContextResolverMock;
@@ -166,8 +162,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected ?array $authorizationDetails = null;
 
     protected ?string $issuerState = null;
-
-    protected bool $issuerStateIsValid = true;
 
     /** Whether the access token's client is the generic one standing in for wallets which are not registered. */
     protected bool $clientIsGeneric = false;
@@ -228,7 +222,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ),
         );
         $this->vciIssuerIdentityRepositoryMock = $this->createMock(VciIssuerIdentityRepository::class);
-        $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->openId4VciProofValidatorMock = $this->createMock(OpenId4VciProofValidator::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
         $this->credentialStatusIssuerMock = $this->createMock(CredentialStatusIssuer::class);
@@ -253,7 +246,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->accessTokenUserIdentifier = 'user123';
         $this->authorizationDetails = null;
         $this->issuerState = null;
-        $this->issuerStateIsValid = true;
         $this->clientIsGeneric = false;
         $this->tokenScopes = [];
         $this->credentialConfiguration = [
@@ -331,12 +323,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ->willReturnCallback(fn(): bool => $this->accessTokenIsRevoked);
         $this->accessTokenRepositoryMock->method('findById')->with('token_id')->willReturnCallback(
             fn(): ?AccessTokenEntity => $this->accessTokenIsFound ? $this->accessTokenMock : null,
-        );
-
-        $this->issuerStateRepositoryMock->method('findValid')->willReturnCallback(
-            fn(): ?IssuerStateEntity => $this->issuerStateIsValid
-                ? $this->createMock(IssuerStateEntity::class)
-                : null,
         );
 
         // What a key proof has to satisfy to get this far is OpenId4VciProofValidatorTest's subject.
@@ -639,7 +625,6 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->requestParamsResolverMock,
             $this->userRepositoryMock,
             $this->vciIssuerIdentityResolverMock,
-            $this->issuerStateRepositoryMock,
             $this->vciIssuerIdentityRepositoryMock,
             $this->openId4VciProofValidatorMock,
             $this->vciContextResolverMock,
@@ -1477,17 +1462,13 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     /**
      * A registered wallet may start the authorization code flow on its own, without an offer, and so without
-     * an issuer state: its registration is what allowed the credential scope it was granted. There is then no
-     * issuer state to check or to spend.
+     * an issuer state: its registration is what allowed the credential scope it was granted.
      */
     public function testIssuesForAnAuthorizationCodeFlowOfARegisteredClientCarryingNoIssuerState(): void
     {
         $this->flowType = FlowTypeEnum::VciAuthorizationCode;
         $this->issuerState = null;
         $this->tokenScopes = [new ScopeEntity(self::CONFIGURATION_ID)];
-
-        $this->issuerStateRepositoryMock->expects($this->never())->method('findValid');
-        $this->issuerStateRepositoryMock->expects($this->never())->method('revoke');
 
         $this->issue();
 
@@ -1532,47 +1513,21 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     }
 
 
-    public function testRefusesAnIssuerStateWhichIsNoLongerValid(): void
+    /**
+     * A token which followed an offer serves as many credential requests as its lifetime allows, as any other
+     * does (OpenID4VCI 1.0 section 14.3). The offer was spent when the code carrying it was exchanged for the
+     * token, so this endpoint has nothing left to spend, and a second request is answered as the first was.
+     */
+    public function testIssuesAgainstATokenWhichFollowedAnOfferForEveryRequestItMakes(): void
     {
         $this->flowType = FlowTypeEnum::VciAuthorizationCode;
         $this->issuerState = 'issuer-state-1';
-        $this->issuerStateIsValid = false;
-
-        $response = $this->dispatch();
-
-        $this->assertRefusedWith('invalid_credential_request', 401);
-        $this->assertChallengesForABearerToken($response);
-        $this->assertSame([], $this->signedPayloads);
-    }
-
-
-    /**
-     * One offer, one credential request: the state is spent as soon as it has been redeemed, so the
-     * same authorization can not be presented again for a second credential.
-     */
-    public function testSpendsTheIssuerStateOnceCredentialsAreIssued(): void
-    {
-        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
-        $this->issuerState = 'issuer-state-1';
-
-        $this->issuerStateRepositoryMock->expects($this->once())->method('revoke')->with('issuer-state-1');
+        $this->clientIsGeneric = true;
 
         $this->issue();
-
-        $this->assertCount(1, $this->signedPayloads);
-    }
-
-
-    /**
-     * A pre-authorized-code flow has no issuer state to spend, and nothing is revoked on its behalf.
-     */
-    public function testSpendsNoIssuerStateForAPreAuthorizedCodeFlow(): void
-    {
-        $this->issuerStateRepositoryMock->expects($this->never())->method('revoke');
-
         $this->issue();
 
-        $this->assertCount(1, $this->signedPayloads);
+        $this->assertCount(2, $this->signedPayloads);
     }
 
 

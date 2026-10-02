@@ -38,6 +38,13 @@ services:
       - ./docker/ssp/authsources.php:/var/simplesamlphp/config/authsources.php:ro
       - ./docker/ssp/config-override.php:/var/simplesamlphp/config/config-override.php:ro
       - ./docker/apache-override.cf:/etc/apache2/sites-enabled/ssp-override.cf:ro
+  # Catches the mail the OP sends (docker/ssp/config-override.php) and delivers none of it. The OpenID4VCI
+  # conformance runs read the transaction code of a pre-authorized Credential Offer from it, through its API
+  # on the published port (conformance-tests/vci-offer-driver.py); its web UI is on the same port.
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    ports:
+      - "127.0.0.1:8025:8025"
 # oidc-rp still need work
 #  oidc-rp:
 #    ports:

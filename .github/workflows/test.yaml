@@ -304,6 +304,36 @@ jobs:
         # docs/5-oidc-conformance.md for the variants and what they leave out.
         run: |
           ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-skips.json "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" ./main/conformance-tests/conformance-vci-issuer.json
+      - name: Run VCI issuer conformance tests (credential offer, RAR, signed request objects)
+        # The same plan with the flow started by a Credential Offer, the credential asked for through
+        # authorization_details, and the authorization request sent as a signed Request Object. Each test
+        # waits for an offer, which run-test-plan.py never sends, so conformance-tests/vci-offer-driver.py
+        # runs beside it, getting one from the OP's credential offer API and handing it to the test. Two more
+        # expected failures apply to these variants, in conformance-tests/vci-issuer-offer-warnings.json (a
+        # file of their own, since the runner fails on an entry no test matched): the suite sending the second
+        # client on with the first client's offer, fixed on its master, and the unknown-configuration test
+        # sending what OpenID4VCI 1.0 section 8.2 does not allow once authorization_details was used. A driver
+        # which failed would leave every test waiting out the runner's own limit, hence the timeout.
+        timeout-minutes: 15
+        run: |
+          python3 ./main/conformance-tests/vci-offer-driver.py &
+          DRIVER=$!
+          STATUS=0
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file "./main/conformance-tests/vci-issuer-warnings.json|./main/conformance-tests/vci-issuer-offer-warnings.json" --expected-skips-file ./main/conformance-tests/vci-issuer-skips.json "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated][authorization_request_type=rar][openid=plain_oauth][fapi_request_method=signed_non_repudiation][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" ./main/conformance-tests/conformance-vci-issuer.json || STATUS=$?
+          kill $DRIVER || true
+          exit $STATUS
+      - name: Run VCI issuer conformance tests (pre-authorized code)
+        # The pre-authorized code grant, its offer carrying a transaction code. The OP mails the code to the
+        # user, and the driver reads it from the Mailpit container which catches the OP's mail
+        # (docker/docker-compose.yml).
+        timeout-minutes: 15
+        run: |
+          python3 ./main/conformance-tests/vci-offer-driver.py --use-tx-code &
+          DRIVER=$!
+          STATUS=0
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-skips.json "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=pre_authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" ./main/conformance-tests/conformance-vci-issuer.json || STATUS=$?
+          kill $DRIVER || true
+          exit $STATUS
       - name: Dump OP logs
         if: failure()
         working-directory: ./main

@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialOfferApiController;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
@@ -449,6 +450,132 @@ class VciCredentialOfferApiControllerTest extends TestCase
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
+    /**
+     * The transaction code is mailed to the user, so user attributes holding no email address can not carry
+     * one. That is the caller's mistake, answered as one, and nothing is built or stored for it.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testRefusesATransactionCodeWithoutAnEmailAddressToSendItTo(): void
+    {
+        $this->credentialOfferUriFactoryMock->expects($this->once())
+            ->method('getUserEmail')
+            ->with('mail', ['givenName' => ['John']])
+            ->willThrowException(new RuntimeException("Could not extract user email: No such attribute 'mail'."));
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildPreAuthorized');
+
+        $response = $this->sut()->credentialOffer($this->request([
+            'credential_configuration_id' => self::CONFIGURATION_ID,
+            'grant_type' => GrantTypesEnum::PreAuthorizedCode->value,
+            'user_attributes' => ['givenName' => ['John']],
+            'use_tx_code' => true,
+            'users_email_attribute_name' => 'mail',
+        ]));
+
+        $this->assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+        $this->assertSame('invalid_request', $this->jsonOf($response)['error'] ?? null);
+    }
+
+
+    /**
+     * Named by neither the request nor its authentication source, the address is looked for where the
+     * factory will look for it: under the default email attribute.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testLooksForTheEmailAddressUnderTheDefaultAttributeWhenNothingNamesAnother(): void
+    {
+        $this->moduleConfigMock->method('getDefaultUsersEmailAttributeName')->willReturn('defaultMail');
+        $this->credentialOfferUriFactoryMock->expects($this->once())
+            ->method('getUserEmail')
+            ->with('defaultMail', ['defaultMail' => ['user@example.org']])
+            ->willReturn('user@example.org');
+        $this->credentialOfferUriFactoryMock->expects($this->once())->method('buildPreAuthorized');
+
+        $response = $this->sut()->credentialOffer($this->request([
+            'credential_configuration_id' => self::CONFIGURATION_ID,
+            'grant_type' => GrantTypesEnum::PreAuthorizedCode->value,
+            'user_attributes' => ['defaultMail' => ['user@example.org']],
+            'use_tx_code' => true,
+        ]));
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+    }
+
+
+    /**
+     * Without a transaction code nothing is mailed, so no address is needed.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testNeedsNoEmailAddressWithoutATransactionCode(): void
+    {
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('getUserEmail');
+
+        $response = $this->sut()->credentialOffer($this->request([
+            'credential_configuration_id' => self::CONFIGURATION_ID,
+            'grant_type' => GrantTypesEnum::PreAuthorizedCode->value,
+        ]));
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+    }
+
+
+    /**
+     * A failure to build the offer -- storage, or the mail carrying a transaction code -- is this server's,
+     * and is answered as a JSON error like every other answer of this API, not left to reach SimpleSAMLphp's
+     * HTML error page. What went wrong goes to the log, not to the caller.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('grantTypeProvider')]
+    public function testAnswersAFailureToBuildTheOfferAsAJsonServerError(string $grantType): void
+    {
+        // A fresh double: the one from setUp() already answers both builds, and a mock keeps its first stub.
+        $this->credentialOfferUriFactoryMock = $this->createMock(CredentialOfferUriFactory::class);
+        $failure = new RuntimeException('technicalcontact_email must be changed from the default value');
+        $this->credentialOfferUriFactoryMock->method('buildForAuthorization')->willThrowException($failure);
+        $this->credentialOfferUriFactoryMock->method('buildPreAuthorized')->willThrowException($failure);
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('technicalcontact_email must be changed from the default value'));
+
+        $response = $this->sut()->credentialOffer($this->request([
+            'credential_configuration_id' => self::CONFIGURATION_ID,
+            'grant_type' => $grantType,
+        ]));
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame(
+            ['error' => 'server_error', 'error_description' => 'Credential Offer could not be built.'],
+            $this->jsonOf($response),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function grantTypeProvider(): array
+    {
+        return [
+            'authorization code' => [GrantTypesEnum::AuthorizationCode->value],
+            'pre-authorized code' => [GrantTypesEnum::PreAuthorizedCode->value],
+        ];
+    }
+
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected function jsonOf(Response $response): array
+    {
+        $data = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($data);
+
+        return $data;
+    }
+
+
     public function testIgnoresUserAttributesWhichAreNotASetOfThem(): void
     {
         $this->credentialOfferUriFactoryMock->expects($this->once())

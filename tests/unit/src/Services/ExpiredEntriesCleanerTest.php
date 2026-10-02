@@ -68,7 +68,7 @@ class ExpiredEntriesCleanerTest extends TestCase
             ->method('removeExpired');
 
         $this->issuerStateRepositoryMock->expects($this->once())
-            ->method('removeInvalid');
+            ->method('removeExpired');
 
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())
             ->method('removeExpired');

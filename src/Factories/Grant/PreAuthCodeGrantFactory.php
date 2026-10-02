@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
@@ -37,6 +38,7 @@ class PreAuthCodeGrantFactory
         private readonly UserRepository $userRepository,
         private readonly SubjectResolver $subjectResolver,
         private readonly AccessTokenClaimsResolver $accessTokenClaimsResolver,
+        private readonly IssuerStateRepository $issuerStateRepository,
     ) {
     }
 
@@ -62,6 +64,7 @@ class PreAuthCodeGrantFactory
             $this->subjectResolver,
             $this->accessTokenClaimsResolver,
             $this->moduleConfig,
+            $this->issuerStateRepository,
         );
         $preAuthCodeGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 

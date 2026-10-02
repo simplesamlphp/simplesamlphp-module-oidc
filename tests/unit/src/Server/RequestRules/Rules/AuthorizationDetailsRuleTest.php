@@ -130,8 +130,9 @@ class AuthorizationDetailsRuleTest extends TestCase
 
 
     /**
-     * Run the rule over a raw `authorization_details` parameter value, with credential issuance either on
-     * or off.
+     * Run the rule over an `authorization_details` parameter value, with credential issuance either on or
+     * off. The value is the serialized JSON a query or form parameter carries, or the decoded array a
+     * Request Object claim holds.
      *
      * The resolver stub here answers every call with the same value, which cannot tell which parameter was
      * asked for or with which allowed methods. That is what the two wiring tests below are for, and they
@@ -143,9 +144,9 @@ class AuthorizationDetailsRuleTest extends TestCase
      *
      * @throws \Throwable
      */
-    protected function check(?string $parameterValue, bool $vciEnabled = true): ?Result
+    protected function check(mixed $parameterValue, bool $vciEnabled = true): ?Result
     {
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')
             ->willReturn($parameterValue);
         $this->moduleConfigStub->method('getVciEnabled')->willReturn($vciEnabled);
 
@@ -208,7 +209,7 @@ class AuthorizationDetailsRuleTest extends TestCase
      */
     protected function assertRefusedWithHint(
         string $expectedHint,
-        ?string $parameterValue,
+        mixed $parameterValue,
         bool $vciEnabled = true,
     ): void {
         try {
@@ -260,7 +261,7 @@ class AuthorizationDetailsRuleTest extends TestCase
 
         $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $requestParamsResolverMock->expects($this->once())
-            ->method('getAsStringBasedOnAllowedMethods')
+            ->method('getBasedOnAllowedMethods')
             ->with(
                 self::PARAM,
                 $this->identicalTo($this->requestStub),
@@ -296,7 +297,7 @@ class AuthorizationDetailsRuleTest extends TestCase
 
         $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $requestParamsResolverMock->expects($this->once())
-            ->method('getAsStringBasedOnAllowedMethods')
+            ->method('getBasedOnAllowedMethods')
             ->with(
                 self::PARAM,
                 $this->identicalTo($this->requestStub),
@@ -605,6 +606,47 @@ class AuthorizationDetailsRuleTest extends TestCase
      *
      * @throws \Throwable
      */
+    /**
+     * In a Request Object, and so in a pushed request which used one, `authorization_details` is a claim
+     * holding the JSON array itself rather than its serialization (RFC 9396 section 3: the encoding depends
+     * on the context). Read as a string it would be "Array", and the details would be dropped unnoticed.
+     *
+     * @throws \Throwable
+     */
+    public function testYieldsTheAuthorizationDetailsARequestObjectCarriesDecoded(): void
+    {
+        $authorizationDetails = [$this->validDetail(), $this->validDetail('org.iso.18013.5.1.mDL')];
+
+        $result = $this->check($authorizationDetails);
+
+        $this->assertNotNull($result);
+        $this->assertSame($authorizationDetails, $result->getValue());
+    }
+
+
+    /**
+     * Decoded details are checked as the serialized ones are: an entry which is not an object is refused.
+     *
+     * @throws \Throwable
+     */
+    public function testRefusesADecodedDetailWhichIsNotAnObject(): void
+    {
+        $this->assertRefusedWithHint('Malformed authorization_details parameter value.', ['openid_credential']);
+    }
+
+
+    /**
+     * A Request Object claim which is neither the serialized details nor an array of them is ignored, as a
+     * serialized value which decodes to something other than an array is.
+     *
+     * @throws \Throwable
+     */
+    public function testIgnoresADecodedValueWhichIsNotAnArray(): void
+    {
+        $this->assertNull($this->check(true));
+    }
+
+
     public function testYieldsTheDecodedAuthorizationDetailsVerbatim(): void
     {
         $authorizationDetails = [

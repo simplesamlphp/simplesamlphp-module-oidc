@@ -16,7 +16,6 @@ use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
-use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -81,7 +80,6 @@ class CredentialIssuerCredentialController
         // 500 on a request this endpoint refuses outright. Nothing is built until there is a credential
         // to sign.
         protected readonly VciIssuerIdentityResolver $vciIssuerIdentityResolver,
-        protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
         protected readonly OpenId4VciProofValidator $openId4VciProofValidator,
         protected readonly VciContextResolver $vciContextResolver,
@@ -208,17 +206,9 @@ class CredentialIssuerCredentialController
             );
         }
 
-        if (is_string($issuerState) && $this->issuerStateRepository->findValid($issuerState) === null) {
-            $this->loggerService->warning(
-                'Issuer state not valid or expired.',
-                ['issuerState' => $issuerState, 'accessTokenId' => $accessToken->getIdentifier()],
-            );
-            return $this->routes->newJsonErrorResponse(
-                'invalid_credential_request',
-                'Issuer state not valid.',
-                401,
-            );
-        }
+        // An issuer state on the token is not checked again here. The token endpoint spent it when it exchanged
+        // the code carrying it for this token (AuthCodeGrant), so the token can be used for as many credential
+        // requests as its lifetime allows, like one which followed no offer (OpenID4VCI 1.0 section 14.3).
 
         if (
             isset($requestData[ClaimsEnum::CredentialConfigurationId->value]) &&
@@ -956,11 +946,6 @@ class CredentialIssuerCredentialController
                     ['issuer' => $issuerIdentity->getIssuer(), 'error' => $throwable->getMessage()],
                 );
             }
-        }
-
-        if (is_string($issuerState)) {
-            $this->loggerService->debug('Revoking issuer state.', ['issuerState' => $issuerState]);
-            $this->issuerStateRepository->revoke($issuerState);
         }
 
         $this->loggerService->info('Credential issuance request completed successfully.', [

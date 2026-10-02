@@ -1,0 +1,25 @@
+[
+    {
+        "comment": "With a Credential Offer and the authorization code grant, suite release v5.3.1 sends the second client to PAR with the issuer_state of the first client's offer. The module redeems an offer once, at the token endpoint, so that state is spent and the PAR is refused (invalid_request, issuer_state). Fixed on the suite's master in 2f97fd5c8 (issue 1988), which has the second client wait for an offer of its own; remove this entry once the release CI uses carries it.",
+        "test-name": "oid4vci-1_0-issuer-happy-flow-multiple-clients*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": {
+            "vci_authorization_code_flow_variant": "issuer_initiated",
+            "vci_grant_type": "authorization_code"
+        },
+        "current-block": "*",
+        "condition": "CheckPAREndpointResponse201WithNoError",
+        "expected-result": "failure"
+    },
+    {
+        "comment": "With authorization_details the token response returns credential_identifiers, and OpenID4VCI 1.0 section 8.2 then requires credential_identifier and does not allow credential_configuration_id. The test sends a random credential_configuration_id alone and expects unknown_credential_configuration; the module answers invalid_credential_request, as section 8.3.1.2 has it for a request missing a required parameter or carrying one it may not.",
+        "test-name": "oid4vci-1_0-issuer-fail-unknown-credential-configuration*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": {
+            "authorization_request_type": "rar"
+        },
+        "current-block": "*",
+        "condition": "VCIValidateCredentialErrorResponse",
+        "expected-result": "failure"
+    }
+]

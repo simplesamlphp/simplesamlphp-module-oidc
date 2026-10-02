@@ -866,9 +866,17 @@ class RequestParamsResolverTest extends TestCase
                 [...$code, 'authorization_details' => '[{"type":"openid_credential"'],
                 false,
             ],
-            // AuthorizationDetailsRule reads a JSON string only, so nothing else may make the request VCI.
+            // A Request Object claim holds the details decoded, and AuthorizationDetailsRule reads them so too.
             'code with authorization details which are already decoded' => [
                 [...$code, 'authorization_details' => [['type' => 'openid_credential']]],
+                true,
+            ],
+            'code with decoded authorization details of other types only' => [
+                [...$code, 'authorization_details' => [['type' => 'payment_initiation']]],
+                false,
+            ],
+            'code with a decoded openid_credential object which is not in a list' => [
+                [...$code, 'authorization_details' => ['type' => 'openid_credential']],
                 false,
             ],
             'code without any of them' => [$code, false],

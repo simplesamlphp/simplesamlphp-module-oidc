@@ -18,5 +18,15 @@ $config = [
         // logs oidc-op` shows them - see the log dump the conformance workflow runs on failure. A refused
         // outbound destination is only visible there.
         'logging.handler' => 'errorlog',
+        // Mail goes to the Mailpit container of docker/docker-compose.yml, which keeps it rather than
+        // delivering it: the transaction code of a pre-authorized Credential Offer is read from there in the
+        // OpenID4VCI conformance runs. SimpleSAMLphp refuses to send mail from the default technical contact.
+        'technicalcontact_email' => 'oidc-conformance@example.org',
+        'mail.transport.method' => 'smtp',
+        'mail.transport.options' => [
+            'host' => 'mailpit',
+            'port' => 1025,
+            'sender' => 'oidc-conformance@example.org',
+        ],
 
     ] + $config;

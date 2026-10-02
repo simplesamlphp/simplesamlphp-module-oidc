@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use DateInterval;
 use DateTimeImmutable;
+use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -602,6 +603,27 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->assertSame(
             'Please provide the one-time code that was sent to e-mail told@example.org',
             $offer['grants'][self::PRE_AUTHORIZED_GRANT]['tx_code']['description'],
+        );
+    }
+
+
+    /**
+     * The transaction code is mailed before the pre-authorized code is stored, so a mail which can not be sent
+     * leaves no code behind waiting for a transaction code nobody received.
+     */
+    public function testStoresNoCodeWhenTheTransactionCodeCanNotBeMailed(): void
+    {
+        $this->emailFactoryMock->method('build')
+            ->willThrowException(new Exception('technicalcontact_email must be changed from the default value'));
+        $this->authCodeRepositoryMock->expects($this->never())->method('persistNewAuthCode');
+
+        $this->expectException(Exception::class);
+        $this->expectExceptionMessage('technicalcontact_email must be changed from the default value');
+
+        $this->sut()->buildPreAuthorized(
+            ['credential-configuration'],
+            ['uid' => ['user-1'], 'mail' => ['user@example.org']],
+            useTxCode: true,
         );
     }
 

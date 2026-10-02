@@ -103,6 +103,24 @@ conformance-suite/scripts/run-test-plan.py \
   --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-skips.json \
   "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer.json
+
+# OpenID4VCI issuer, flows started by a Credential Offer: keep the offer driver
+# running in the background for the length of each run (it gives up after an hour)
+python3 ${OIDC_MODULE_FOLDER}/conformance-tests/vci-offer-driver.py &
+conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file "${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-warnings.json|${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-offer-warnings.json" \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-skips.json \
+  "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated][authorization_request_type=rar][openid=plain_oauth][fapi_request_method=signed_non_repudiation][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer.json
+kill %1
+
+python3 ${OIDC_MODULE_FOLDER}/conformance-tests/vci-offer-driver.py --use-tx-code &
+conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-skips.json \
+  "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=pre_authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer.json
+kill %1
 ```
 
 ### Dynamic Client Registration notes
@@ -207,14 +225,36 @@ certification goes through the HAIP issuer plan, which needs client
 attestation, and this module does not support client attestation. A passing run
 is a test result, not a certification.
 
-The run uses the two clients seeded by `docker/conformance-vci.sql` and the suite
-configuration in `conformance-tests/conformance-vci-issuer.json`, with these
-variants:
+The runs use the two clients seeded by `docker/conformance-vci.sql` and the suite
+configuration in `conformance-tests/conformance-vci-issuer.json`. CI runs the plan
+three times, over these flows:
 
 - `vci_grant_type=authorization_code`,
-  `vci_authorization_code_flow_variant=wallet_initiated` and
-  `authorization_request_type=simple`: the wallet starts the flow itself and asks
-  for the credential by its scope, through PAR.
+  `vci_authorization_code_flow_variant=wallet_initiated`,
+  `authorization_request_type=simple` and `fapi_request_method=unsigned`: the
+  wallet starts the flow itself and asks for the credential by its scope,
+  through PAR.
+- `vci_grant_type=authorization_code`,
+  `vci_authorization_code_flow_variant=issuer_initiated`,
+  `authorization_request_type=rar` and
+  `fapi_request_method=signed_non_repudiation`: the flow starts from a
+  Credential Offer, the wallet asks for the credential through
+  `authorization_details`, and the authorization request is a signed Request
+  Object, pushed through PAR.
+- `vci_grant_type=pre_authorization_code` with
+  `vci_authorization_code_flow_variant=issuer_initiated`: a Credential Offer
+  carrying a pre-authorized code and a transaction code.
+
+In an offer flow each test waits for the issuer to hand it a Credential Offer,
+and for a pre-authorized code also the transaction code, which the suite's plan
+runner does not do. `conformance-tests/vci-offer-driver.py` stands in for that:
+run in the background for the length of the run, it gets each offer from the
+OP's [credential offer API](8-api.md#credential-offer) and hands it to the
+waiting test. The OP mails the transaction code to the user, and the driver reads
+it from the Mailpit container of the Docker stack, which catches the OP's mail.
+
+All three runs share these variants:
+
 - `credential_format=sd_jwt_vc`: the conformance image's `dc+sd-jwt` credential
   configuration, `ResearchAndScholarshipCredentialDcSdJwt`.
 - `client_auth_type=private_key_jwt`: the only one of the plan's client
@@ -223,13 +263,12 @@ variants:
   supports neither. The suite sends DPoP proofs, and when the token endpoint
   answers with a Bearer token it carries on with that and records no failure, so
   sender-constrained tokens are not tested.
-- `fapi_profile=vci` (not `vci_haip`), `fapi_request_method=unsigned` and
-  `vci_credential_encryption=plain`. The `openid` and `fapi_response_mode`
-  variants do not apply to this profile.
+- `fapi_profile=vci` (not `vci_haip`) and `vci_credential_encryption=plain`.
+  The `openid` and `fapi_response_mode` variants do not apply to this profile.
 
-Every test which runs passes, apart from one check, which
-`conformance-tests/vci-issuer-warnings.json` records as an expected failure: the
-signature of the Status List Token. The conformance image turns Token Status
+Every test which runs passes, apart from the checks
+`conformance-tests/vci-issuer-warnings.json` records as expected failures. One
+applies to every run: the signature of the Status List Token. The conformance image turns Token Status
 Lists on, so each credential carries a `status` claim, and the suite fetches the
 token it points at, parses it, reads the credential's status from it and checks
 its content type. In the batch test it also checks that the credentials of a
@@ -241,6 +280,26 @@ status (draft 21, section 11.3). Outside HAIP, however, the suite verifies a
 Status List Token only against a `jwk` embedded in its header or the server's
 JWKS, and it fetches that key set only for OpenID Connect or JARM, so here it
 has no key to verify with.
+
+Two more apply to the offer run only, and are recorded apart from the others, in
+`conformance-tests/vci-issuer-offer-warnings.json`, since the runner fails on an
+expected failure which no test of its run produced:
+
+- The multiple-clients test. At `release-v5.3.1` the suite sends the second
+  client to PAR with the issuer state of the first client's offer. The module
+  redeems an offer once, when its code is exchanged for an access token, so the
+  second client's request is refused. The suite's `master` has the second client
+  wait for an offer of its own; the entry goes once a release CI uses carries
+  that.
+- The unknown credential configuration test, under
+  `authorization_request_type=rar`. With `authorization_details` the token
+  response returns `credential_identifiers`, and OpenID4VCI 1.0 section 8.2 then
+  requires `credential_identifier` and does not allow
+  `credential_configuration_id`. The test sends an unknown
+  `credential_configuration_id` alone and expects
+  `unknown_credential_configuration`; the module answers
+  `invalid_credential_request`, the code section 8.3.1.2 gives a request missing
+  a required parameter or carrying one it may not.
 
 The suite skips three tests, each for an optional feature the module does not
 offer, and `conformance-tests/vci-issuer-skips.json` lists them: signed
@@ -254,9 +313,9 @@ also offers CBC suites, which the suite warns about.
 
 What the run leaves out:
 
-- The plan's other variants: the issuer-initiated flow (a credential offer), the
-  pre-authorized code grant, and authorization requests carrying
-  `authorization_details`.
+- Combinations of the variants beyond the three runs, such as
+  `authorization_details` in a wallet-initiated flow or an unsigned request
+  with an offer.
 - The W3C credential formats (`jwt_vc_json`, `vc+sd-jwt`). The plan tests only
   `dc+sd-jwt` and `mso_mdoc`.
 - Revocation and suspension. The plan reads only the status of credentials it

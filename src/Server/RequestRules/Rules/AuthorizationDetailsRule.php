@@ -48,7 +48,8 @@ class AuthorizationDetailsRule extends AbstractRule
     ): ?Result {
         $loggerService->debug('AuthorizationDetailsRule::checkRule.');
 
-        $authorizationDetailsParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+        /** @psalm-suppress MixedAssignment */
+        $authorizationDetailsParam = $this->requestParamsResolver->getBasedOnAllowedMethods(
             ParamsEnum::AuthorizationDetails->value,
             $request,
             $allowedServerRequestMethods,
@@ -59,17 +60,26 @@ class AuthorizationDetailsRule extends AbstractRule
             return null;
         }
 
-        $loggerService->debug(
-            'AuthorizationDetailsRule: authorization_details parameter value: ' . $authorizationDetailsParam,
-        );
-
-        try {
-            $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            $loggerService->error(
-                'AuthorizationDetailsRule: Could not JSON decode authorization_details parameter value.',
+        // The encoding depends on where the parameter travels (RFC 9396 section 3). As a query or form
+        // parameter it is the serialized JSON. In a Request Object, and so in a pushed request which used one,
+        // it is a claim holding the decoded JSON array itself.
+        if (is_string($authorizationDetailsParam)) {
+            $loggerService->debug(
+                'AuthorizationDetailsRule: authorization_details parameter value: ' . $authorizationDetailsParam,
             );
-            return null;
+
+            try {
+                /** @psalm-suppress MixedAssignment */
+                $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                $loggerService->error(
+                    'AuthorizationDetailsRule: Could not JSON decode authorization_details parameter value.',
+                );
+                return null;
+            }
+        } else {
+            /** @psalm-suppress MixedAssignment */
+            $authorizationDetails = $authorizationDetailsParam;
         }
 
         if (!is_array($authorizationDetails)) {

@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\CodeChallengeVerifiersRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\RequestRuleInterface;
@@ -78,7 +79,7 @@ class RequestRulesManagerFactoryTest extends TestCase
      * Constructor parameters across all of those rules, counted so that the wiring test cannot pass by
      * asserting nothing. Adding a dependency to any rule is expected to move this number.
      */
-    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 90;
+    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 91;
 
 
     private ModuleConfig&MockObject $moduleConfigMock;
@@ -125,6 +126,8 @@ class RequestRulesManagerFactoryTest extends TestCase
 
     private FormPostResponseMode&MockObject $formPostResponseModeMock;
 
+    private IssuerStateRepository&MockObject $issuerStateRepositoryMock;
+
     private FederationCache&MockObject $federationCacheMock;
 
     private ProtocolCache&MockObject $protocolCacheMock;
@@ -156,6 +159,7 @@ class RequestRulesManagerFactoryTest extends TestCase
         $this->queryResponseModeMock = $this->createMock(QueryResponseMode::class);
         $this->fragmentResponseModeMock = $this->createMock(FragmentResponseMode::class);
         $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
+        $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->federationCacheMock = $this->createMock(FederationCache::class);
         $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
     }
@@ -191,6 +195,7 @@ class RequestRulesManagerFactoryTest extends TestCase
             $this->queryResponseModeMock,
             $this->fragmentResponseModeMock,
             $this->formPostResponseModeMock,
+            $this->issuerStateRepositoryMock,
             $withFederationCache ? $this->federationCacheMock : null,
             $this->protocolCacheMock,
         );
@@ -223,6 +228,7 @@ class RequestRulesManagerFactoryTest extends TestCase
             FormPostResponseMode::class => $this->formPostResponseModeMock,
             FragmentResponseMode::class => $this->fragmentResponseModeMock,
             Helpers::class => $this->helpersMock,
+            IssuerStateRepository::class => $this->issuerStateRepositoryMock,
             Jwks::class => $this->jwksMock,
             JwksResolver::class => $this->jwksResolverMock,
             LoggerService::class => $this->loggerMock,

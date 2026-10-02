@@ -28,7 +28,10 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
@@ -247,6 +250,38 @@ class PushedAuthorizationControllerTest extends TestCase
 
         $response = $this->sut()->__invoke($this->serverRequestMock);
         $this->assertSame($this->responseMock, $response);
+    }
+
+
+    /**
+     * A pushed request which follows a Credential Offer is checked for an offer which can still be redeemed, as
+     * the authorization endpoint checks one. The rule reads the state and the redirect URI from the result
+     * bag, so it has to run after the rules which put them there.
+     */
+    public function testChecksTheIssuerStateAfterTheRulesItReadsFrom(): void
+    {
+        $this->serverRequestMock->method('getMethod')->willReturn('POST');
+        $this->serverRequestMock->method('getParsedBody')->willReturn(['response_type' => 'code']);
+        $this->prepareAuthenticatedClient();
+        $this->pushedAuthorizationRequestEntityFactoryMock->method('fromData')->willReturn($this->parEntityMock);
+
+        $checkedRules = null;
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->once())->method('check')->willReturnCallback(
+            function (ServerRequestInterface $request, array $rules) use (&$checkedRules): ResultBag {
+                $checkedRules = $rules;
+
+                return $this->resultBagMock;
+            },
+        );
+
+        $this->sut()->__invoke($this->serverRequestMock);
+
+        $this->assertIsArray($checkedRules);
+        $position = array_search(IssuerStateRule::class, $checkedRules, true);
+        $this->assertIsInt($position, 'The issuer state of a pushed request is not checked.');
+        $this->assertGreaterThan(array_search(StateRule::class, $checkedRules, true), $position);
+        $this->assertGreaterThan(array_search(ClientRedirectUriRule::class, $checkedRules, true), $position);
     }
 
 

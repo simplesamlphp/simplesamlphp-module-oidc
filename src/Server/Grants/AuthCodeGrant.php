@@ -38,6 +38,7 @@ use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Interfaces\AuthorizationValidatableWithRequestRules;
@@ -85,6 +86,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use Throwable;
 
 use function array_key_exists;
 
@@ -144,6 +146,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         SubjectResolver $subjectResolver,
         AccessTokenClaimsResolver $accessTokenClaimsResolver,
         protected readonly ModuleConfig $moduleConfig,
+        protected readonly IssuerStateRepository $issuerStateRepository,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -717,71 +720,118 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
         : null;
 
-        // Issue and persist new access token
-        $accessToken = $this->issueAccessToken(
-            $accessTokenTTL,
-            $client,
-            $authCodePayload->user_id,
-            $scopes,
-            $authCodePayload->auth_code_id,
-            $claims,
-            $storedAuthCodeEntity->getFlowTypeEnum(),
-            $storedAuthCodeEntity->getAuthorizationDetails(),
-            $storedAuthCodeEntity->getBoundClientId(),
-            $storedAuthCodeEntity->getBoundRedirectUri(),
-            $storedAuthCodeEntity->getIssuerState(),
-        );
-        $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
-        $responseType->setAccessToken($accessToken);
-
-        // Set nonce in response if the auth code had one set.
+        // A Credential Offer is redeemed once: its issuer state is spent here, with the first code carrying it,
+        // and any other code obtained with the same offer gets no token. Spent at this point rather than at the
+        // credential endpoint, so that the access token serves as many credential requests as its lifetime
+        // allows (OpenID4VCI 1.0 section 14.3), and only after every other check of this request, so that one
+        // which fails them does not use the offer up.
+        $issuerState = $storedAuthCodeEntity->getIssuerState();
+        $spentIssuerState = null;
         if (
-            $responseType instanceof NonceResponseTypeInterface &&
-            property_exists($authCodePayload, 'nonce') &&
-            ! empty($authCodePayload->nonce)
+            $issuerState !== null &&
+            $storedAuthCodeEntity->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode
         ) {
-            $responseType->setNonce($authCodePayload->nonce);
-        }
-
-        if (
-            $responseType instanceof AuthTimeResponseTypeInterface &&
-            property_exists($authCodePayload, 'auth_time') &&
-            ! empty($authCodePayload->auth_time)
-        ) {
-            $responseType->setAuthTime($authCodePayload->auth_time);
-        }
-
-        if (
-            $responseType instanceof AcrResponseTypeInterface &&
-            property_exists($authCodePayload, 'acr') &&
-            ! empty($authCodePayload->acr)
-        ) {
-            $responseType->setAcr($authCodePayload->acr);
-        }
-
-        if (
-            $responseType instanceof SessionIdResponseTypeInterface &&
-            property_exists($authCodePayload, 'session_id') &&
-            ! empty($authCodePayload->session_id)
-        ) {
-            $responseType->setSessionId($authCodePayload->session_id);
-        }
-
-        // Release refresh token if it is requested by using offline_access scope. With the refresh token grant
-        // disabled the scope is not among the supported ones (ModuleConfig::getScopes()), so validateScopes()
-        // above has already refused it: no refresh token is issued which the token endpoint would then refuse.
-        if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
-            // Issue and persist new refresh token if given
-            $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
-
-            if ($refreshToken !== null) {
-                $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
-                $responseType->setRefreshToken($refreshToken);
+            if (!$this->issuerStateRepository->consume($issuerState)) {
+                $this->loggerService->warning(
+                    'Token request rejected: the issuer state the authorization code carries was already ' .
+                    'redeemed or has expired.',
+                    ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+                );
+                throw OAuthServerException::invalidGrant(
+                    'The Credential Offer this code was issued for was already redeemed or has expired.',
+                );
             }
+
+            $spentIssuerState = $issuerState;
         }
 
-        // Revoke used auth code
-        $this->authCodeRepository->revokeAuthCode($authCodePayload->auth_code_id);
+        // Should anything below fail once the offer above was spent, whatever this request issued for the code
+        // never reached the wallet. It is revoked and the offer given back, so the wallet can retry the code it
+        // still holds rather than hold an offer used up for no token. Revoked first: a failure there leaves the
+        // offer spent, rather than two sets of tokens from it. Not covered is a failure after this method
+        // returns, while the authorization server renders the token response: the offer then stays spent, and
+        // the wallet needs a new one.
+        try {
+            // Issue and persist new access token
+            $accessToken = $this->issueAccessToken(
+                $accessTokenTTL,
+                $client,
+                $authCodePayload->user_id,
+                $scopes,
+                $authCodePayload->auth_code_id,
+                $claims,
+                $storedAuthCodeEntity->getFlowTypeEnum(),
+                $storedAuthCodeEntity->getAuthorizationDetails(),
+                $storedAuthCodeEntity->getBoundClientId(),
+                $storedAuthCodeEntity->getBoundRedirectUri(),
+                $issuerState,
+            );
+            $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
+            $responseType->setAccessToken($accessToken);
+
+            // Set nonce in response if the auth code had one set.
+            if (
+                $responseType instanceof NonceResponseTypeInterface &&
+                property_exists($authCodePayload, 'nonce') &&
+                ! empty($authCodePayload->nonce)
+            ) {
+                $responseType->setNonce($authCodePayload->nonce);
+            }
+
+            if (
+                $responseType instanceof AuthTimeResponseTypeInterface &&
+                property_exists($authCodePayload, 'auth_time') &&
+                ! empty($authCodePayload->auth_time)
+            ) {
+                $responseType->setAuthTime($authCodePayload->auth_time);
+            }
+
+            if (
+                $responseType instanceof AcrResponseTypeInterface &&
+                property_exists($authCodePayload, 'acr') &&
+                ! empty($authCodePayload->acr)
+            ) {
+                $responseType->setAcr($authCodePayload->acr);
+            }
+
+            if (
+                $responseType instanceof SessionIdResponseTypeInterface &&
+                property_exists($authCodePayload, 'session_id') &&
+                ! empty($authCodePayload->session_id)
+            ) {
+                $responseType->setSessionId($authCodePayload->session_id);
+            }
+
+            // Release refresh token if it is requested by using offline_access scope. With the refresh token grant
+            // disabled the scope is not among the supported ones (ModuleConfig::getScopes()), so validateScopes()
+            // above has already refused it: no refresh token is issued which the token endpoint would then refuse.
+            if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
+                // Issue and persist new refresh token if given
+                $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
+
+                if ($refreshToken !== null) {
+                    $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
+                    $responseType->setRefreshToken($refreshToken);
+                }
+            }
+
+            // Revoke used auth code
+            $this->authCodeRepository->revokeAuthCode($authCodePayload->auth_code_id);
+        } catch (Throwable $exception) {
+            // validateAuthorizationCode() refused any other repository type already. Checked again for the
+            // type checker, and so that the offer is never given back without the revocation.
+            if (
+                $spentIssuerState !== null &&
+                $this->accessTokenRepository instanceof AccessTokenRepositoryInterface &&
+                $this->refreshTokenRepository instanceof RefreshTokenRepositoryInterface
+            ) {
+                $this->accessTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
+                $this->refreshTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
+                $this->issuerStateRepository->release($spentIssuerState);
+            }
+
+            throw $exception;
+        }
 
         $this->loggerService->notice(
             'Authorization code redeemed; access token issued.',
@@ -896,6 +946,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ClientIdRule::class,
             ResponseTypeRule::class,
             RequestObjectRule::class,
+            // IssuerStateRule must run before PromptRule and MaxAgeRule, which may send the End-User to log in
+            // (prompt=login, an expired max_age): a request naming an offer which can not be redeemed is refused
+            // before that.
+            IssuerStateRule::class,
             // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
             // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
             LoginHintRule::class,
@@ -911,7 +965,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
-            IssuerStateRule::class,
             AuthorizationDetailsRule::class,
             UiLocalesRule::class,
         ];
@@ -1058,7 +1111,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $authorizationRequest->setFlowType($flowType);
 
         $issuerState = $resultBag->get(IssuerStateRule::class)?->getValue();
-        $this->loggerService->debug('AuthCodeGrant: Issuer state: ', ['issuerState' => $issuerState]);
+        $this->loggerService->debug(
+            'AuthCodeGrant: Issuer state present: ',
+            ['issuerStatePresent' => $issuerState !== null],
+        );
         $authorizationRequest->setIssuerState($issuerState);
 
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();

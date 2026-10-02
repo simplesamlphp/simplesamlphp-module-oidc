@@ -1776,6 +1776,14 @@ $config = [
      * (optional) Issuer State TTL (validity duration), with the given example.
      * If not set, falls back to Authorization Code TTL. For duration format
      * info, check https://www.php.net/manual/en/dateinterval.construct.php
+     *
+     * The issuer state is what ties a wallet's authorization request to the
+     * authorization code Credential Offer it follows. An offer is redeemed
+     * once, when the code obtained with it is exchanged for an access token,
+     * and only within this time: an authorization request carrying a spent
+     * or expired issuer state is refused, and so is the token request for a
+     * code obtained with one. The access token then serves credential
+     * requests for its own lifetime.
      */
     ModuleConfig::OPTION_VCI_ISSUER_STATE_TTL => 'PT10M', // 10 minutes
 

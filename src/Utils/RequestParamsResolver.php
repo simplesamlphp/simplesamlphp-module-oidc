@@ -600,7 +600,8 @@ class RequestParamsResolver
 
 
     /**
-     * Only a JSON string is looked into, since that is the only form AuthorizationDetailsRule reads.
+     * Read the way AuthorizationDetailsRule reads it: the serialized JSON of a query or form parameter, or the
+     * decoded array a Request Object claim holds (RFC 9396 section 3).
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
@@ -609,20 +610,20 @@ class RequestParamsResolver
         Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): bool {
-        $authorizationDetailsParam = $this->getBasedOnAllowedMethods(
+        /** @psalm-suppress MixedAssignment */
+        $authorizationDetails = $this->getBasedOnAllowedMethods(
             ParamsEnum::AuthorizationDetails->value,
             $request,
             $allowedMethods,
         );
 
-        if (!is_string($authorizationDetailsParam)) {
-            return false;
-        }
-
-        try {
-            $authorizationDetails = json_decode($authorizationDetailsParam, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            return false;
+        if (is_string($authorizationDetails)) {
+            try {
+                /** @psalm-suppress MixedAssignment */
+                $authorizationDetails = json_decode($authorizationDetails, true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException) {
+                return false;
+            }
         }
 
         if (!is_array($authorizationDetails)) {

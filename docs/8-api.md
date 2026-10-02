@@ -130,6 +130,20 @@ pre-authorized code grant to populate credential data.
 
 The response is a JSON object with the `credential_offer_uri` field containing the credential offer URI string value.
 
+An offer for the authorization code grant is redeemed once: when the wallet exchanges the code it obtained with the
+offer for an access token. That has to happen within the issuer state lifetime (`vci_issuer_state_ttl`); the access
+token then serves credential requests for its own lifetime.
+
+The transaction code is mailed with SimpleSAMLphp's mail settings (`mail.transport.method` and
+`mail.transport.options` in `config/config.php`), and SimpleSAMLphp sends no mail while `technicalcontact_email` has
+its default value. Errors are answered as JSON objects with `error` and `error_description`:
+
+* `400` `invalid_request`: a parameter is missing or not supported, or `use_tx_code` is set and the user attributes
+hold no email address to send the transaction code to.
+* `401` `unauthorized`: the bearer token is missing or carries none of the scopes this endpoint accepts.
+* `500` `server_error`: the offer could not be built, for example because the transaction code could not be mailed.
+The cause is in the log.
+
 #### Sample 1
 
 Request a credential offer to issue a credential with the ID `ResearchAndScholarshipCredentialDcSdJwt` using the

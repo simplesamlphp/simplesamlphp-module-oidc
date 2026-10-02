@@ -34,7 +34,7 @@ class ExpiredEntriesCleaner
         $this->accessTokenRepository->removeExpired();
         $this->authCodeRepository->removeExpired();
         $this->refreshTokenRepository->removeExpired();
-        $this->issuerStateRepository->removeInvalid();
+        $this->issuerStateRepository->removeExpired();
         $this->pushedAuthorizationRequestRepository->removeExpired();
     }
 }

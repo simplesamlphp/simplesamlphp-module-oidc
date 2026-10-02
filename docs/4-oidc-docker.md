@@ -193,6 +193,11 @@ Visit the OP and verify a few clients exist:
 
 - [https://op.local.stack-dev.cirrusidentity.com/simplesaml/](https://op.local.stack-dev.cirrusidentity.com/simplesaml/)
 
+The stack also runs [Mailpit](https://mailpit.axllent.org/), which catches the
+mail the OP sends and delivers none of it, such as the transaction code of a
+pre-authorized Credential Offer. Its web UI and API are at
+[http://127.0.0.1:8025/](http://127.0.0.1:8025/).
+
 ## Proxied introspection harness
 
 `docker/proxied-introspection-harness` runs three OPs of this module on one

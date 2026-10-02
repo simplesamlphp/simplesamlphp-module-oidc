@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Api;
 
+use RuntimeException;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
@@ -15,6 +16,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class VciCredentialOfferApiController
 {
@@ -139,53 +141,89 @@ class VciCredentialOfferApiController
 
         $credentialOfferUri = null;
 
-        if ($grantTypeEnum === GrantTypesEnum::AuthorizationCode) {
-            $this->loggerService->debug(
-                'VciCredentialOfferApiController: AuthorizationCode Grant Type provided. Building credential ' .
-                'offer for Authorization Code Flow.',
-            );
-            $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
-                [$credentialConfigurationId],
-            );
-        }
-
-        if ($grantTypeEnum === GrantTypesEnum::PreAuthorizedCode) {
-            $this->loggerService->debug(
-                'VciCredentialOfferApiController: PreAuthorizedCode Grant Type provided. Building credential ' .
-                'offer for Pre-authorized Code Flow.',
-            );
-
-            /** @psalm-suppress MixedAssignment */
-            $userAttributes = $input['user_attributes'] ?? [];
-            $userAttributes = is_array($userAttributes) ? $userAttributes : [];
-            $useTxCode = boolval($input['use_tx_code'] ?? false);
-            /** @psalm-suppress MixedAssignment */
-            $usersEmailAttributeName = $input['users_email_attribute_name'] ?? null;
-            $usersEmailAttributeName = is_string($usersEmailAttributeName) ? $usersEmailAttributeName : null;
-            /** @psalm-suppress MixedAssignment */
-            $authenticationSourceId = $input['authentication_source_id'] ?? null;
-            $authenticationSourceId = is_string($authenticationSourceId) ? $authenticationSourceId : null;
-
-            if (is_null($usersEmailAttributeName) && is_string($authenticationSourceId)) {
-                $usersEmailAttributeName = $this->moduleConfig->getUsersEmailAttributeNameForAuthSourceId(
-                    $authenticationSourceId,
+        // Building an offer stores what it grants and may mail a transaction code. A failure there is this
+        // server's (storage, mail delivery), and is answered as one in JSON, as every other answer of this API
+        // is, rather than left to reach SimpleSAMLphp's HTML error page.
+        try {
+            if ($grantTypeEnum === GrantTypesEnum::AuthorizationCode) {
+                $this->loggerService->debug(
+                    'VciCredentialOfferApiController: AuthorizationCode Grant Type provided. Building credential ' .
+                    'offer for Authorization Code Flow.',
+                );
+                $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
+                    [$credentialConfigurationId],
                 );
             }
 
-            $this->loggerService->debug(
-                'VciCredentialOfferApiController: Pre-authorized credential-offer request accepted.',
-                [
-                    'useTxCode' => $useTxCode,
-                    'authenticationSourceId' => $authenticationSourceId,
-                    'usersEmailAttributeName' => $usersEmailAttributeName,
-                ],
-            );
+            if ($grantTypeEnum === GrantTypesEnum::PreAuthorizedCode) {
+                $this->loggerService->debug(
+                    'VciCredentialOfferApiController: PreAuthorizedCode Grant Type provided. Building credential ' .
+                    'offer for Pre-authorized Code Flow.',
+                );
 
-            $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
-                [$credentialConfigurationId],
-                $userAttributes,
-                $useTxCode,
-                $usersEmailAttributeName,
+                /** @psalm-suppress MixedAssignment */
+                $userAttributes = $input['user_attributes'] ?? [];
+                $userAttributes = is_array($userAttributes) ? $userAttributes : [];
+                $useTxCode = boolval($input['use_tx_code'] ?? false);
+                /** @psalm-suppress MixedAssignment */
+                $usersEmailAttributeName = $input['users_email_attribute_name'] ?? null;
+                $usersEmailAttributeName = is_string($usersEmailAttributeName) ? $usersEmailAttributeName : null;
+                /** @psalm-suppress MixedAssignment */
+                $authenticationSourceId = $input['authentication_source_id'] ?? null;
+                $authenticationSourceId = is_string($authenticationSourceId) ? $authenticationSourceId : null;
+
+                if (is_null($usersEmailAttributeName) && is_string($authenticationSourceId)) {
+                    $usersEmailAttributeName = $this->moduleConfig->getUsersEmailAttributeNameForAuthSourceId(
+                        $authenticationSourceId,
+                    );
+                }
+
+                $this->loggerService->debug(
+                    'VciCredentialOfferApiController: Pre-authorized credential-offer request accepted.',
+                    [
+                        'useTxCode' => $useTxCode,
+                        'authenticationSourceId' => $authenticationSourceId,
+                        'usersEmailAttributeName' => $usersEmailAttributeName,
+                    ],
+                );
+
+                // The transaction code goes to the user's email address, so attributes holding none are the
+                // caller's mistake, answered as one before anything is stored.
+                if ($useTxCode) {
+                    try {
+                        $this->credentialOfferUriFactory->getUserEmail(
+                            $usersEmailAttributeName ?? $this->moduleConfig->getDefaultUsersEmailAttributeName(),
+                            $userAttributes,
+                        );
+                    } catch (RuntimeException $exception) {
+                        $this->loggerService->notice(
+                            'VciCredentialOfferApiController: No email address for the transaction code: ' .
+                            $exception->getMessage(),
+                        );
+                        return $this->routes->newJsonErrorResponse(
+                            error: 'invalid_request',
+                            description: 'User attributes hold no email address to send the transaction code to.',
+                            httpCode: Response::HTTP_BAD_REQUEST,
+                        );
+                    }
+                }
+
+                $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
+                    [$credentialConfigurationId],
+                    $userAttributes,
+                    $useTxCode,
+                    $usersEmailAttributeName,
+                );
+            }
+        } catch (Throwable $exception) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: Credential Offer could not be built: ' . $exception->getMessage(),
+                ['grantType' => $grantType],
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Credential Offer could not be built.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
             );
         }
 
