@@ -27,6 +27,11 @@ RUN /opt/simplesaml/module-setup.sh
 ADD docker/ssp/module_oidc.php /var/simplesamlphp/config/module_oidc.php
 ADD docker/ssp/authsources.php /var/simplesamlphp/config/authsources.php
 ADD docker/ssp/config-override.php /var/simplesamlphp/config/config-override.php
+# Bring the seeded database up to the schema of the module being built. docker/conformance.sql is a dump
+# taken at some earlier schema, so the migrations it has not seen run here and a new migration needs no new
+# dump. The script exits 0 whatever happens, so its output decides whether the build goes on.
+RUN php /var/simplesamlphp/modules/oidc/bin/install.php | tee /tmp/oidc-install.log \
+    && ! grep -q 'There was an error' /tmp/oidc-install.log
 ADD docker/ssp/oidc_module.crt /var/simplesamlphp/cert/oidc_module.crt
 ADD docker/ssp/oidc_module.key /var/simplesamlphp/cert/oidc_module.key
 ADD docker/ssp/oidc_module_vci_ec_p256_01.pub /var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.pub

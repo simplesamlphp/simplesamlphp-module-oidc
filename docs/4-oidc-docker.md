@@ -162,6 +162,10 @@ docker exec ssp-oidc-dev-image sqlite3 /var/simplesamlphp/data/mydb.sq3 '.dump' 
   > docker/conformance.sql
 ```
 
+Building the image runs the module's database migrations over that seed, so the
+database always has the schema of the module being built, and a new migration
+needs no new dump.
+
 Conformance tests are easier to run locally. See [Conformance](5-oidc-conformance.md).
 
 ## Docker Compose

@@ -99,6 +99,7 @@ conformance-suite/scripts/run-test-plan.py \
 
 # OpenID4VCI issuer (see "OpenID4VCI issuer plan" below)
 conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-warnings.json \
   --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-skips.json \
   "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer.json
@@ -226,10 +227,25 @@ variants:
   `vci_credential_encryption=plain`. The `openid` and `fapi_response_mode`
   variants do not apply to this profile.
 
-Every test which runs passes. The suite skips three, each for an optional feature
-the module does not offer, and `conformance-tests/vci-issuer-skips.json` lists
-them: signed credential issuer metadata, key attestations, and credential
-response encryption. The GitHub Actions step is a blocking gate.
+Every test which runs passes, apart from one check, which
+`conformance-tests/vci-issuer-warnings.json` records as an expected failure: the
+signature of the Status List Token. The conformance image turns Token Status
+Lists on, so each credential carries a `status` claim, and the suite fetches the
+token it points at, parses it, reads the credential's status from it and checks
+its content type. In the batch test it also checks that the credentials of a
+batch do not each point at a list of their own, and that their indices are
+unpredictable. The signature is what it can not check. The token names its key
+the way the credential does, by the same `did:jwk` `kid`, which is what the
+Token Status List draft recommends when the credential issuer also issues the
+status (draft 21, section 11.3). Outside HAIP, however, the suite verifies a
+Status List Token only against a `jwk` embedded in its header or the server's
+JWKS, and it fetches that key set only for OpenID Connect or JARM, so here it
+has no key to verify with.
+
+The suite skips three tests, each for an optional feature the module does not
+offer, and `conformance-tests/vci-issuer-skips.json` lists them: signed
+credential issuer metadata, key attestations, and credential response
+encryption. The GitHub Actions step is a blocking gate.
 
 The plan's additional-requests test also checks the OP's TLS configuration. The
 conformance image restricts TLS 1.2 to the four cipher suites RFC 9325 (BCP 195)
@@ -243,9 +259,8 @@ What the run leaves out:
   `authorization_details`.
 - The W3C credential formats (`jwt_vc_json`, `vc+sd-jwt`). The plan tests only
   `dc+sd-jwt` and `mso_mdoc`.
-- Token Status Lists. The conformance image does not enable them, so the issued
-  credential carries no `status` claim and the plan's status list checks do not
-  run.
+- Revocation and suspension. The plan reads only the status of credentials it
+  has just been issued, so it never sees one which is not valid.
 - The DIIP profile, for which no conformance suite exists. What the module claims
   there is a self-assessment against the specification text rather than a test
   result, and it is backed by unit tests instead. The claim and the roles it

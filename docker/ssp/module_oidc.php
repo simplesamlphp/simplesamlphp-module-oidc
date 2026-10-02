@@ -252,6 +252,15 @@ $config = [
             ClaimsEnum::Vct->value => 'ResearchAndScholarshipCredentialDcSdJwt',
         ],
     ],
+    // Token Status Lists, so that the plan's status checks run: without them a credential carries no `status`
+    // claim and the suite skips every check of it. On the default key profile (did:jwk), whose token signature
+    // the suite can not verify; conformance-tests/vci-issuer-warnings.json records that.
+    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+        'conformance' => [
+            'credential_configurations' => ['ResearchAndScholarshipCredentialDcSdJwt'],
+        ],
+    ],
     ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
         'ResearchAndScholarshipCredentialDcSdJwt' => [
             ['uid' => ['eduPersonPrincipalName']],

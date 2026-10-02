@@ -1,0 +1,29 @@
+[
+    {
+        "comment": "The Status List Token names its signing key by the same did:jwk kid as the credential does, as the Token Status List draft recommends when the credential issuer also issues the status (draft 21, section 11.3). Outside HAIP the suite verifies the token only against a jwk embedded in its header or the server JWKS, which it fetches only for OpenID Connect or JARM, so here it has no key to verify with. Every other status check runs and passes.",
+        "test-name": "oid4vci-1_0-issuer-happy-flow*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": "*",
+        "current-block": "*",
+        "condition": "VerifyStatusListTokenSignatureUsingEmbeddedJwk",
+        "expected-result": "failure"
+    },
+    {
+        "comment": "The Status List Token names its signing key by the same did:jwk kid as the credential does, as the Token Status List draft recommends when the credential issuer also issues the status (draft 21, section 11.3). Outside HAIP the suite verifies the token only against a jwk embedded in its header or the server JWKS, which it fetches only for OpenID Connect or JARM, so here it has no key to verify with. Every other status check runs and passes.",
+        "test-name": "oid4vci-1_0-issuer-batch-issuance*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": "*",
+        "current-block": "*",
+        "condition": "VerifyStatusListTokenSignatureUsingEmbeddedJwk",
+        "expected-result": "failure"
+    },
+    {
+        "comment": "The Status List Token names its signing key by the same did:jwk kid as the credential does, as the Token Status List draft recommends when the credential issuer also issues the status (draft 21, section 11.3). Outside HAIP the suite verifies the token only against a jwk embedded in its header or the server JWKS, which it fetches only for OpenID Connect or JARM, so here it has no key to verify with. Every other status check runs and passes.",
+        "test-name": "oid4vci-1_0-issuer-fail-on-access-token-in-query*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": "*",
+        "current-block": "*",
+        "condition": "VerifyStatusListTokenSignatureUsingEmbeddedJwk",
+        "expected-result": "failure"
+    }
+]
