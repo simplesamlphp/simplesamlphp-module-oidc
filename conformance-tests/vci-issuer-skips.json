@@ -1,0 +1,20 @@
+[
+    {
+        "comment": "Optional feature not supported: signed credential issuer metadata (signed_metadata). The issuer serves its metadata as plain application/json, so the suite skips this test.",
+        "test-name": "oid4vci-1_0-issuer-metadata-test-signed*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": "*"
+    },
+    {
+        "comment": "Optional feature not supported: key attestations. The credential configuration takes the jwt proof type without key_attestations_required, so the suite skips this test.",
+        "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": "*"
+    },
+    {
+        "comment": "Optional feature not supported: credential response encryption. The plan runs with vci_credential_encryption=plain, so the suite skips this test.",
+        "test-name": "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm*",
+        "configuration-filename": "*conformance-vci-issuer.json",
+        "variant": "*"
+    }
+]

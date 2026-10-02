@@ -295,6 +295,13 @@ jobs:
         # See docs/5-oidc-conformance.md for the inventory.
         run: |
           ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/dynamic-warnings.json --expected-skips-file ./main/conformance-tests/dynamic-skips.json "oidcc-dynamic-certification-test-plan[response_type=code]" ./main/conformance-tests/conformance-dynamic-ci.json
+      - name: Run VCI issuer conformance tests
+        # The OpenID4VCI 1.0 issuer plan: the wallet-initiated authorization code flow for the dc+sd-jwt
+        # credential. Every test which runs passes; the three the suite skips for optional features the
+        # module does not offer are listed in conformance-tests/vci-issuer-skips.json, so this step is a
+        # blocking gate. See docs/5-oidc-conformance.md for the variants and what they leave out.
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-skips-file ./main/conformance-tests/vci-issuer-skips.json "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" ./main/conformance-tests/conformance-vci-issuer.json
       - name: Dump OP logs
         if: failure()
         working-directory: ./main

@@ -96,6 +96,12 @@ conformance-suite/scripts/run-test-plan.py \
   --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/dynamic-skips.json \
   "oidcc-dynamic-certification-test-plan[response_type=code]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-dynamic-ci.json
+
+# OpenID4VCI issuer (see "OpenID4VCI issuer plan" below)
+conformance-suite/scripts/run-test-plan.py \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-skips.json \
+  "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer.json
 ```
 
 ### Dynamic Client Registration notes
@@ -187,15 +193,62 @@ not a practical fit for validating PAR on this general-purpose OP. Instead, the
 RFC 9126 (PAR) and related `request` / `request_uri` MUST-level requirements are
 tracked, and mapped to the unit tests that cover them, in
 `conformance-tests/rfc9126-par-compliance.md`. Keep that checklist in sync when
-changing PAR or request-object behaviour.
+changing PAR or request-object behaviour. The OpenID4VCI issuer plan below sends
+its authorization requests through PAR, so CI exercises the endpoint on that
+flow, but the plan is no substitute for the checklist.
 
-## Verifiable Credentials are not covered by these plans
+## OpenID4VCI issuer plan
 
-The certification profiles above are OpenID Connect ones, and nothing in them
-exercises OpenID4VCI, Token Status Lists or the DIIP profile. No equivalent
-certification programme exists to run against those, so what the module claims
-there is a self-assessment against the specification text rather than a test
-result, and it is backed by unit tests instead. The claim and the roles it
-covers are in [OIDC Module](1-oidc.md#note-on-the-diip-profile); the readings
-this module makes of individual profile requirements are in
-[Configuration](3-oidc-configuration.md#three-interpretations-this-module-makes).
+CI also runs the OpenID Foundation's OpenID4VCI 1.0 issuer test plan,
+`oid4vci-1_0-issuer-test-plan`. At the suite release CI uses (`release-v5.3.1`)
+the suite labels this plan alpha and outside its certification programme:
+certification goes through the HAIP issuer plan, which needs client
+attestation, and this module does not support client attestation. A passing run
+is a test result, not a certification.
+
+The run uses the two clients seeded by `docker/conformance-vci.sql` and the suite
+configuration in `conformance-tests/conformance-vci-issuer.json`, with these
+variants:
+
+- `vci_grant_type=authorization_code`,
+  `vci_authorization_code_flow_variant=wallet_initiated` and
+  `authorization_request_type=simple`: the wallet starts the flow itself and asks
+  for the credential by its scope, through PAR.
+- `credential_format=sd_jwt_vc`: the conformance image's `dc+sd-jwt` credential
+  configuration, `ResearchAndScholarshipCredentialDcSdJwt`.
+- `client_auth_type=private_key_jwt`: the only one of the plan's client
+  authentication methods this module supports.
+- `sender_constrain=dpop`: the plan offers only DPoP and mTLS, and the module
+  supports neither. The suite sends DPoP proofs, and when the token endpoint
+  answers with a Bearer token it carries on with that and records no failure, so
+  sender-constrained tokens are not tested.
+- `fapi_profile=vci` (not `vci_haip`), `fapi_request_method=unsigned` and
+  `vci_credential_encryption=plain`. The `openid` and `fapi_response_mode`
+  variants do not apply to this profile.
+
+Every test which runs passes. The suite skips three, each for an optional feature
+the module does not offer, and `conformance-tests/vci-issuer-skips.json` lists
+them: signed credential issuer metadata, key attestations, and credential
+response encryption. The GitHub Actions step is a blocking gate.
+
+The plan's additional-requests test also checks the OP's TLS configuration. The
+conformance image restricts TLS 1.2 to the four cipher suites RFC 9325 (BCP 195)
+section 4.2 recommends, in `docker/apache-override.cf`; Apache's default list
+also offers CBC suites, which the suite warns about.
+
+What the run leaves out:
+
+- The plan's other variants: the issuer-initiated flow (a credential offer), the
+  pre-authorized code grant, and authorization requests carrying
+  `authorization_details`.
+- The W3C credential formats (`jwt_vc_json`, `vc+sd-jwt`). The plan tests only
+  `dc+sd-jwt` and `mso_mdoc`.
+- Token Status Lists. The conformance image does not enable them, so the issued
+  credential carries no `status` claim and the plan's status list checks do not
+  run.
+- The DIIP profile, for which no conformance suite exists. What the module claims
+  there is a self-assessment against the specification text rather than a test
+  result, and it is backed by unit tests instead. The claim and the roles it
+  covers are in [OIDC Module](1-oidc.md#note-on-the-diip-profile); the readings
+  this module makes of individual profile requirements are in
+  [Configuration](3-oidc-configuration.md#three-interpretations-this-module-makes).

@@ -1,3 +1,9 @@
+# TLS 1.2 cipher suites: only the four RFC 9325 (BCP 195) section 4.2 recommends, ECDHE with AES-GCM.
+# Apache's default (HIGH:!aNULL) also offers CBC suites, which the OpenID4VCI issuer conformance plan warns
+# about (RequireOnlyBCP195RecommendedCiphersForTLS12). Without a protocol prefix the directive leaves the
+# TLS 1.3 suites at OpenSSL's defaults.
+SSLCipherSuite ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+
 RewriteEngine On
 RewriteRule ^/.well-known/openid-configuration(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/openid-configuration$1 [PT]
 RewriteRule ^/.well-known/openid-federation(.*) /${SSP_APACHE_ALIAS}module.php/oidc/.well-known/openid-federation$1 [PT]

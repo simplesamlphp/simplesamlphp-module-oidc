@@ -392,6 +392,13 @@ plans against the module (using the OpenID conformance suite). See
   are not (yet) supported; they are tracked as expected failures. See
   [OpenID Conformance](5-oidc-conformance.md) for details.
 
+CI also runs the OpenID Foundation's OpenID4VCI 1.0 issuer test plan
+(`oid4vci-1_0-issuer-test-plan`), which the suite labels alpha and outside its
+certification programme, for the wallet-initiated authorization code flow and the
+`dc+sd-jwt` credential. See
+[OpenID4VCI issuer plan](5-oidc-conformance.md#openid4vci-issuer-plan) for the
+variants and what the run leaves out.
+
 Some specifications are not covered by these OpenID Connect certification
 profiles. In particular, PAR (RFC 9126) and the `request` / `request_uri`
 handling are validated separately: their MUST-level requirements are tracked
