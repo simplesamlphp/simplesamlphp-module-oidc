@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 
 use DateInterval;
+use DateTimeImmutable;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
@@ -1354,6 +1355,39 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                             'How long a credential of each configuration stays valid. Configurations ' .
                             'which are not listed issue credentials which never expire.',
                         ),
+                    );
+                },
+            ),
+            $this->guardRow(
+                Translate::noop('Time Claim Granularity'),
+                ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+                function (): Row {
+                    $granularity = $this->moduleConfig->getVciTimeClaimGranularity();
+                    $isConfigured = $this->moduleConfig->config()
+                        ->hasValue(ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY);
+                    $isOff = (new DateTimeImmutable('@0'))->add($granularity)->getTimestamp() === 0;
+
+                    return $this->buildDurationRow(
+                        Translate::noop('Time Claim Granularity'),
+                        $granularity,
+                        ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+                        match (true) {
+                            $isOff => Translate::noop(
+                                'No time at all, so credentials state to the second when they were issued ' .
+                                'and when they expire, and the credentials of one batch can be linked by ' .
+                                'those times.',
+                            ),
+                            $isConfigured => Translate::noop(
+                                'Credentials state when they were issued rounded down to this, and when ' .
+                                'they expire rounded up, so that the credentials of one batch can not be ' .
+                                'linked by those times.',
+                            ),
+                            default => Translate::noop(
+                                'Not configured, so this falls back to 1 day. Credentials state when they ' .
+                                'were issued rounded down to it, and when they expire rounded up, so that ' .
+                                'the credentials of one batch can not be linked by those times.',
+                            ),
+                        },
                     );
                 },
             ),

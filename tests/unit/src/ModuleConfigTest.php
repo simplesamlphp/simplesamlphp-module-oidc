@@ -1463,6 +1463,86 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * A day, the example RFC 9901 section 10.1 gives, so that credentials are unlinkable by their times
+     * unless an operator chooses otherwise.
+     *
+     * @throws \Exception
+     */
+    public function testRoundsTimeClaimsToADayByDefault(): void
+    {
+        $granularity = $this->sut()->getVciTimeClaimGranularity();
+
+        $this->assertSame(
+            [0, 0, 1, 0, 0, 0],
+            [$granularity->y, $granularity->m, $granularity->d, $granularity->h, $granularity->i, $granularity->s],
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('timeClaimGranularityProvider')]
+    public function testResolvesTheConfiguredTimeClaimGranularity(string $configured, string $expected): void
+    {
+        $granularity = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => $configured],
+        ))->getVciTimeClaimGranularity();
+
+        $this->assertSame($expected, $granularity->format('%dd %hh %im %ss'));
+    }
+
+
+    /**
+     * @return array<string,array{0: string, 1: string}>
+     */
+    public static function timeClaimGranularityProvider(): array
+    {
+        return [
+            'an hour' => ['PT1H', '0d 1h 0m 0s'],
+            'a week, as seven days' => ['P1W', '7d 0h 0m 0s'],
+            'ninety minutes, kept as given' => ['PT90M', '0d 0h 90m 0s'],
+            'no time at all, which turns rounding off' => ['PT0S', '0d 0h 0m 0s'],
+        ];
+    }
+
+
+    /**
+     * A month or a year has no fixed length to round on, and anything which is not a duration string is
+     * refused where it is written rather than when a credential is issued.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unusableTimeClaimGranularityProvider')]
+    public function testRefusesAnUnusableTimeClaimGranularity(mixed $configured, string $message): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($message);
+
+        $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => $configured],
+        ))->getVciTimeClaimGranularity();
+    }
+
+
+    /**
+     * @return array<string,array{0: mixed, 1: string}>
+     */
+    public static function unusableTimeClaimGranularityProvider(): array
+    {
+        return [
+            'a month' => ['P1M', 'no fixed length'],
+            'a year' => ['P1Y', 'no fixed length'],
+            'a day and a month' => ['P1M1D', 'no fixed length'],
+            'not a duration' => ['a day', 'not a valid duration'],
+            'not a string' => [86400, 'duration string'],
+        ];
+    }
+
+
+    /**
      * The metadata this module publishes has always said a key proof is required, so requiring one is
      * what an unlisted configuration keeps doing. Issuing credentials which are bound to nothing is the
      * thing an operator opts into.

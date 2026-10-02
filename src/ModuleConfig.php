@@ -378,6 +378,8 @@ class ModuleConfig
 
     final public const string OPTION_VCI_CREDENTIAL_TTLS = 'vci_credential_ttls';
 
+    final public const string OPTION_VCI_TIME_CLAIM_GRANULARITY = 'vci_time_claim_granularity';
+
     final public const string OPTION_VCI_CREDENTIAL_BINDING_POLICIES = 'vci_credential_binding_policies';
 
     final public const string OPTION_VCI_CACHE_ADAPTER = 'vci_cache_adapter';
@@ -2408,6 +2410,64 @@ class ModuleConfig
     public function getVciCredentialTtlFor(string $credentialConfigurationId): ?DateInterval
     {
         return $this->getVciCredentialTtls()[$credentialConfigurationId] ?? null;
+    }
+
+
+    /**
+     * What the times a credential states are rounded to: when it was issued down, and when it expires up,
+     * both on the UTC epoch. `PT0S` turns the rounding off.
+     *
+     * RFC 9901 section 10.1 has the time claims of credentials issued as a batch "either be randomized
+     * within a time period considered appropriate ... or rounded": they are issued in the same instant, and
+     * stating it to the second would let verifiers link them. Rounded here, which is deterministic and
+     * makes every credential issued within the same period look alike, not only those of one batch. A day
+     * by default, the section's own example. Only weeks, days, hours, minutes and seconds are accepted,
+     * since a month or a year has no fixed length to round on.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciTimeClaimGranularity(): DateInterval
+    {
+        /** @var mixed $value */
+        $value = $this->config()->getOptionalValue(self::OPTION_VCI_TIME_CLAIM_GRANULARITY, 'P1D');
+
+        if (!is_string($value)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" must be a duration string, %s given.',
+                    self::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+                    get_debug_type($value),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        try {
+            $granularity = new DateInterval($value);
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is not a valid duration: %s',
+                    self::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+                    $throwable->getMessage(),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        if ($granularity->y !== 0 || $granularity->m !== 0) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" must be given in weeks, days, hours, minutes or seconds, since a month or ' .
+                    'a year has no fixed length to round on; "%s" given.',
+                    self::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+                    $value,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $granularity;
     }
 
 

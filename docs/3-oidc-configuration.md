@@ -413,6 +413,15 @@ The credential states which key it is held by in a `cnf` claim, in every format:
 the key itself when the proof sent one inline. `credentialSubject.id` is not
 equivalent to it — a verifier checking holder binding reads `cnf`.
 
+A `dc+sd-jwt` credential bound to a key carries no `sub`. The holder identifier
+a proof resolves to is the DID of its key, which `cnf` already names, and for a
+key sent inline it is a `did:jwk` made from that key, one per key: the
+credentials of a batch would each carry their own, where OpenID4VCI has a batch
+share one Credential Dataset. The W3C formats keep the holder DID in
+`credentialSubject.id`, their data model's way of naming the holder, and in
+`sub`. A credential bound to no key carries a `sub` this issuer derives from the
+user, as before.
+
 ### Three interpretations this module makes
 
 **The `iss` claim is not required to be a DID.** DIIP v5 says implementations
@@ -456,6 +465,29 @@ without leaving the process, so they do not count against the fetch limit —
 under `did:jwk` every key is its own DID, and a batch of eight proofs is eight
 distinct DIDs. These are fixed limits on what a request may cost this issuer,
 not settings.
+
+### Issuance and expiry times
+
+The credentials of one request are issued in the same instant, so times stated
+to the second would let verifiers link the credentials of a batch to each other,
+which is what issuing a batch is meant to prevent. RFC 9901 (SD-JWT), section
+10.1, has such times rounded or randomized. This module rounds them, in every
+format: when a credential was issued (`iat` and `nbf`, and `issuanceDate` or
+`validFrom` in the W3C formats) down, and when it expires (`exp`, and
+`expirationDate` or `validUntil`) up, to whole multiples of a granularity
+counted from the Unix epoch, so on UTC boundaries.
+
+```php
+ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => 'P1D',
+```
+
+The default is a day, the RFC's own example. The expiry is rounded up from the
+moment of issuance plus the lifetime set in `OPTION_VCI_CREDENTIAL_TTLS`, so a
+credential is valid for at least its lifetime and less than two granularities
+longer, and is never issued already expired, however short the lifetime. The
+granularity is given in weeks, days, hours, minutes or seconds; a month or a
+year has no fixed length to round on and is refused. `PT0S` turns rounding off,
+and credentials then state their times to the second.
 
 ## Enabled grant types (flows)
 

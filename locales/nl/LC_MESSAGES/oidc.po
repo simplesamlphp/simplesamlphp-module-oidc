@@ -1697,6 +1697,27 @@ msgid ""
 "which are not listed issue credentials which never expire."
 msgstr ""
 
+msgid "Time Claim Granularity"
+msgstr ""
+
+msgid ""
+"No time at all, so credentials state to the second when they were issued "
+"and when they expire, and the credentials of one batch can be linked by "
+"those times."
+msgstr ""
+
+msgid ""
+"Credentials state when they were issued rounded down to this, and when they "
+"expire rounded up, so that the credentials of one batch can not be linked "
+"by those times."
+msgstr ""
+
+msgid ""
+"Not configured, so this falls back to 1 day. Credentials state when they "
+"were issued rounded down to it, and when they expire rounded up, so that "
+"the credentials of one batch can not be linked by those times."
+msgstr ""
+
 msgid "Credential Status (API)"
 msgstr ""
 

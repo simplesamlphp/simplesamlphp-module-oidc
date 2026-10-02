@@ -296,7 +296,11 @@ credential will therefore never carry `validUntil`, which is its data model
 rather than a gap — but one issued from a configuration with no lifetime carries
 no expiry at all, in any of the three. See [Credential
 expiry](3-oidc-configuration.md#credential-expiry), which also covers why a
-credential that never expires holds its Status List open for good.
+credential that never expires holds its Status List open for good. The window
+is stated rounded, to a day by default (`OPTION_VCI_TIME_CLAIM_GRANULARITY`):
+its start down and its end up, so that the credentials of one batch can not be
+linked by their times. See [Issuance and expiry
+times](3-oidc-configuration.md#issuance-and-expiry-times).
 
 A third setting decides whether credentials name a federation at all. The
 profile's Trust Establishment section — optional in v5 — profiles OpenID

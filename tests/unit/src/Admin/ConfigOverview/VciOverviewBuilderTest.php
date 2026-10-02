@@ -1058,6 +1058,10 @@ class VciOverviewBuilderTest extends TestCase
                 [ModuleConfig::OPTION_VCI_NONCE_TTL => 'not-a-duration'],
                 ModuleConfig::OPTION_VCI_NONCE_TTL,
             ],
+            'time claim granularity in months' => [
+                [ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => 'P1M'],
+                ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+            ],
             'vci enabled not a bool' => [
                 [ModuleConfig::OPTION_VCI_ENABLED => 'nope'],
                 ModuleConfig::OPTION_VCI_ENABLED,
@@ -2253,6 +2257,46 @@ class VciOverviewBuilderTest extends TestCase
         // Says what those lists cost, since they can never be retired.
         $this->assertStringContainsString('never expire', (string)$noneRow->getNote());
         $this->assertStringContainsString('never be retired', (string)$noneRow->getNote());
+    }
+
+
+    /**
+     * The granularity is shown with what it does to the credentials: rounded times by default and when
+     * configured, and times to the second, which link a batch, when it is set to no time at all.
+     */
+    #[DataProvider('timeClaimGranularityProvider')]
+    public function testShowsTheTimeClaimGranularity(array $overrides, string $value, string $noteFragment): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder($overrides)->build(),
+            ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame($value, $row->getValue());
+        $this->assertStringContainsString($noteFragment, (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * @return array<string,array{0: array<string,string>, 1: string, 2: string}>
+     */
+    public static function timeClaimGranularityProvider(): array
+    {
+        return [
+            'not configured' => [[], '1 day (P1D)', 'falls back to 1 day'],
+            'configured' => [
+                [ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => 'PT1H'],
+                '1 hour (PT1H)',
+                'rounded down to this',
+            ],
+            'turned off' => [
+                [ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => 'PT0S'],
+                '0 seconds (PT0S)',
+                'can be linked',
+            ],
+        ];
     }
 
 

@@ -1812,6 +1812,18 @@ $config = [
 //    ],
 
     /**
+     * (optional) What the times a credential states are rounded to: when it
+     * was issued is rounded down, and when it expires is rounded up, to whole
+     * multiples of this duration counted from the Unix epoch, so on UTC
+     * boundaries. The credentials of one request are issued in the same
+     * instant, and times stated to the second would let verifiers link them
+     * (RFC 9901, section 10.1). Weeks, days, hours, minutes and seconds only,
+     * since a month or a year has no fixed length to round on. 'PT0S' turns
+     * the rounding off. Default is 'P1D' (1 day).
+     */
+//    ModuleConfig::OPTION_VCI_TIME_CLAIM_GRANULARITY => 'P1D',
+
+    /**
      * (optional) Whether each credential configuration binds its credentials to
      * a key the wallet proves it holds. Configurations which are not listed
      * here are proof-bound, which is the default.

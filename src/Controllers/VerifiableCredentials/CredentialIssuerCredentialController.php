@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\VerifiableCredentials;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -85,11 +87,44 @@ class CredentialIssuerCredentialController
         protected readonly VciContextResolver $vciContextResolver,
         protected readonly CredentialStatusIssuer $credentialStatusIssuer,
         protected readonly Helpers $helpers,
+        protected readonly ErrorResponder $errorResponder,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
             throw OidcServerException::forbidden('Verifiable Credential capabilities not enabled.');
         }
+    }
+
+
+    /**
+     * An OAuth error raised on the way is answered as a JSON error response carrying the exception's own
+     * status. Among them is the resource server's 401 for an access token which is missing, invalid or
+     * revoked; a token sent only in the query string is a missing one, since the resource server reads none
+     * from there. Left to escape the controller, each of them reached the client as SimpleSAMLphp's HTML
+     * error page with status 500.
+     *
+     * Every 401 this endpoint answers carries a Bearer challenge, whichever check made it a 401: HTTP
+     * requires a challenge of any 401 (RFC 9110 section 15.5.2), and RFC 6750 section 3 has a protected
+     * resource send one when the access token is missing or does not authorize the request. The challenge
+     * names the scheme only; the error code is in the JSON body.
+     *
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \ReflectionException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     */
+    public function credential(Request $request): Response
+    {
+        try {
+            $response = $this->issueCredential($request);
+        } catch (OAuthServerException $exception) {
+            $response = $this->errorResponder->forExceptionJson($exception);
+        }
+
+        if ($response->getStatusCode() === 401 && !$response->headers->has('WWW-Authenticate')) {
+            $response->headers->set('WWW-Authenticate', 'Bearer');
+        }
+
+        return $response;
     }
 
 
@@ -100,7 +135,7 @@ class CredentialIssuerCredentialController
      * @throws \ReflectionException
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      */
-    public function credential(Request $request): Response
+    protected function issueCredential(Request $request): Response
     {
         $this->loggerService->info('Verifiable Credential issuance request received.');
         $psrRequest = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
@@ -205,12 +240,16 @@ class CredentialIssuerCredentialController
         // Resolve the requested credential identifier.
         $resolvedCredentialIdentifier = null;
 
+        /** @psalm-suppress MixedAssignment */
+        $credentialIdentifier = $requestData[ClaimsEnum::CredentialIdentifier->value] ?? null;
+
         // If the `authorization_details` parameter was used in the grant flow, the credential request has to use
         // `credential_identifier` to request a specific credential. In this case `credential_configuration_id`
-        // must not be present.
-        if (($authorizationDetails = $accessToken->getAuthorizationDetails()) !== null) {
-            $credentialIdentifier = $requestData[ClaimsEnum::CredentialIdentifier->value] ?? null;
-
+        // must not be present. A credential identifier names one the token response issued (OpenID4VCI 1.0
+        // section 8.2), so one sent for a flow which used no `authorization_details`, and so was issued none,
+        // is unknown rather than ignored.
+        $authorizationDetails = $accessToken->getAuthorizationDetails();
+        if ($authorizationDetails !== null || $credentialIdentifier !== null) {
             if (!is_string($credentialIdentifier)) {
                 $this->loggerService->error(
                     'CredentialIssuerCredentialController::credential: Credential identifier missing in request.',
@@ -223,7 +262,7 @@ class CredentialIssuerCredentialController
             }
 
             $isCredentialIdentifierUsedInFlow = false;
-            foreach ($authorizationDetails as $authorizationDetail) {
+            foreach ($authorizationDetails ?? [] as $authorizationDetail) {
 
                 /** @psalm-suppress MixedAssignment */
                 if (
@@ -259,7 +298,7 @@ class CredentialIssuerCredentialController
                     ['credentialIdentifier' => $credentialIdentifier],
                 );
                 return $this->routes->newJsonErrorResponse(
-                    'invalid_credential_request',
+                    'unknown_credential_identifier',
                     'Credential identifier not used in flow.',
                     400,
                 );
@@ -273,7 +312,8 @@ class CredentialIssuerCredentialController
             );
         } else {
             $this->loggerService->debug(
-                'No authorization details found in access token. Skipping resolution from "credential_identifier".',
+                'No authorization details in the access token and no credential identifier in the request. ' .
+                'Skipping resolution from "credential_identifier".',
             );
         }
 
@@ -395,7 +435,7 @@ class CredentialIssuerCredentialController
         ]);
         if (!is_array($resolvedCredentialConfiguration)) {
             return $this->routes->newJsonErrorResponse(
-                'unsupported_credential_type',
+                'unknown_credential_configuration',
                 sprintf('Credential ID "%s" is not supported.', $resolvedCredentialIdentifier),
                 400,
             );
@@ -487,6 +527,19 @@ class CredentialIssuerCredentialController
         // Entity Configuration is actually published at it: with federation off the well-known
         // endpoint answers 403, and naming it would send a verifier somewhere it can resolve nothing.
         $entityIdentifier = $this->moduleConfig->getFederationEnabled() ? $this->moduleConfig->getIssuer() : null;
+
+        // The times every credential of this request states, read once and rounded (RFC 9901 section 10.1):
+        // the credentials of a batch are issued in the same instant, and stating it to the second would let
+        // verifiers link them. Issuance is rounded down and expiry up, the expiry from the moment itself
+        // rather than from the rounded issuance, so that rounding never cuts a credential's configured
+        // lifetime short and never issues one already expired.
+        $now = new DateTimeImmutable();
+        $timeClaimGranularity = $this->moduleConfig->getVciTimeClaimGranularity();
+        $issuedAt = $this->helpers->dateTime()->floorTo($now, $timeClaimGranularity);
+        $credentialTtl = $this->moduleConfig->getVciCredentialTtlFor($resolvedCredentialIdentifier);
+        $expiresAt = $credentialTtl instanceof DateInterval ?
+        $this->helpers->dateTime()->ceilTo($now->add($credentialTtl), $timeClaimGranularity) :
+        null;
 
         foreach ($validatedProofs as $validatedProof) {
             // A configuration which issues credentials that are not bound to a holder key has no wallet
@@ -660,16 +713,11 @@ class CredentialIssuerCredentialController
                 $vciSignatureKeyPair,
             );
 
-            $issuedAt = new DateTimeImmutable();
-
             // Unguessable rather than sequential or time based, since this is what revocation is keyed
             // on. Still in URI form, because the credential parsers enforce that of a `jti`.
             $vcId = $this->moduleConfig->getIssuer() . '/vc/' .
             $this->helpers->random()->getIdentifier(self::CREDENTIAL_ID_RANDOM_BYTES);
             $signatureAlgorithm = $vciSignatureKeyPair->getSignatureAlgorithm();
-
-            $credentialTtl = $this->moduleConfig->getVciCredentialTtlFor($resolvedCredentialIdentifier);
-            $expiresAt = $credentialTtl instanceof DateInterval ? $issuedAt->add($credentialTtl) : null;
 
             // Inside the loop rather than outside it: a request carrying several proofs is issued
             // several credentials, and each one needs an entry of its own to be revocable separately.
@@ -789,12 +837,20 @@ class CredentialIssuerCredentialController
             }
 
             if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
+                // A credential bound to a key names its holder by `cnf` alone. The subject a key proof
+                // resolves to is the DID of its key: `cnf.kid` already names it, as a DID URL, or, for a key
+                // sent inline, it is a `did:jwk` made from that key, so the credentials of a batch would
+                // each carry their own where OpenID4VCI 1.0 section 3.3.2 has them share one Credential
+                // Dataset. SD-JWT VC (draft 13, section 3.2.2.2) asks for no binding between `sub` and
+                // `cnf`. An unbound credential keeps the subject this issuer derives from the user.
                 $sdJwtPayload = array_merge(
                     [
                     ClaimsEnum::Iss->value => $issuerIdentity->getIssuer(),
                     ClaimsEnum::Iat->value => $issuedAt->getTimestamp(),
                     ClaimsEnum::Nbf->value => $issuedAt->getTimestamp(),
-                    ClaimsEnum::Sub->value => $sub,
+                    ],
+                    $confirmation === null ? [ClaimsEnum::Sub->value => $sub] : [],
+                    [
                     ClaimsEnum::Jti->value => $vcId,
                     ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
                     ],

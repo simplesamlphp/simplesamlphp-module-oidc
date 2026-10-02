@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -33,6 +34,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -69,6 +71,7 @@ use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\VcSdJwt;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 #[AllowMockObjectsWithoutExpectations]
@@ -117,6 +120,11 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected Helpers $helpers;
 
+    protected MockObject $errorResponderMock;
+
+    /** What the error responder last answered with, so that a test can tell its answer reached the client. */
+    protected ?JsonResponse $errorResponderResponse = null;
+
     /** @var array<array<string,mixed>> Payloads handed to whichever credential factory was used. */
     protected array $signedPayloads = [];
 
@@ -128,6 +136,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected MockObject $vciPrivateKeyMock;
 
     protected VciCredentialBindingPolicyEnum $bindingPolicy;
+
+    /** What the configuration rounds time claims to; no time at all, so rounding is off, unless a test sets it. */
+    protected DateInterval $timeClaimGranularity;
 
     protected MockObject $accessTokenMock;
 
@@ -141,6 +152,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
      * spoil. Everything a test varies is therefore a property here, read through `willReturnCallback`.
      */
     protected ?FlowTypeEnum $flowType = null;
+
+    /** The resource server's refusal of the access token, as it refuses one which is missing or invalid. */
+    protected ?OAuthServerException $accessTokenRefusal = null;
 
     protected bool $accessTokenIsFound = true;
 
@@ -184,6 +198,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var array<array{error: string, description: string, httpCode: int}> Refusals the endpoint answered with. */
     protected array $errorResponses = [];
 
+    /** @var \League\OAuth2\Server\Exception\OAuthServerException[] OAuth errors handed to the error responder. */
+    protected array $oauthErrors = [];
+
     /** @var array<array<array-key,mixed>> Successful responses the endpoint answered with. */
     protected array $jsonResponses = [];
 
@@ -216,9 +233,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
         $this->credentialStatusIssuerMock = $this->createMock(CredentialStatusIssuer::class);
         $this->helpers = new Helpers();
+        $this->errorResponderMock = $this->createMock(ErrorResponder::class);
+        $this->errorResponderResponse = null;
         $this->signedPayloads = [];
         $this->signedWith = [];
         $this->errorResponses = [];
+        $this->oauthErrors = [];
         $this->jsonResponses = [];
         $this->disclosureBags = [];
 
@@ -227,6 +247,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         // one of these, so a check which stopped refusing falls through to the success path and fails
         // for the absent refusal rather than passing.
         $this->flowType = FlowTypeEnum::VciPreAuthorizedCode;
+        $this->accessTokenRefusal = null;
         $this->accessTokenIsFound = true;
         $this->accessTokenIsRevoked = false;
         $this->accessTokenUserIdentifier = 'user123';
@@ -259,6 +280,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
             ->willReturnCallback(fn(): VciCredentialBindingPolicyEnum => $this->bindingPolicy);
+        $this->timeClaimGranularity = new DateInterval('PT0S');
+        $this->moduleConfigMock->method('getVciTimeClaimGranularity')
+            ->willReturnCallback(fn(): DateInterval => $this->timeClaimGranularity);
 
         $this->prepareRequestPipeline();
         $this->prepareResponses();
@@ -277,7 +301,15 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $authorizationMock = $this->createMock(ServerRequestInterface::class);
         $authorizationMock->method('getAttribute')->with('oauth_access_token_id')->willReturn('token_id');
-        $this->resourceServerMock->method('validateAuthenticatedRequest')->willReturn($authorizationMock);
+        $this->resourceServerMock->method('validateAuthenticatedRequest')->willReturnCallback(
+            function () use ($authorizationMock): ServerRequestInterface {
+                if ($this->accessTokenRefusal !== null) {
+                    throw $this->accessTokenRefusal;
+                }
+
+                return $authorizationMock;
+            },
+        );
 
         $this->requestParamsResolverMock->method('getAllFromRequestBasedOnAllowedMethods')
             ->willReturnCallback(fn(): array => $this->requestData);
@@ -342,7 +374,18 @@ class CredentialIssuerCredentialControllerTest extends TestCase
                     'httpCode' => $httpCode,
                 ];
 
-                return $this->createMock(JsonResponse::class);
+                return new JsonResponse(['error' => $error, 'error_description' => $description], $httpCode);
+            },
+        );
+
+        $this->errorResponderMock->method('forExceptionJson')->willReturnCallback(
+            function (OAuthServerException $exception): JsonResponse {
+                $this->oauthErrors[] = $exception;
+
+                return $this->errorResponderResponse = new JsonResponse(
+                    ['error' => $exception->getErrorType()],
+                    $exception->getHttpStatusCode(),
+                );
             },
         );
     }
@@ -480,13 +523,16 @@ class CredentialIssuerCredentialControllerTest extends TestCase
      *
      * @param ?array<array-key,mixed> $inlineKey The key a proof carried inline, for a proof which named
      * no verification method.
+     * @param string $holderDid The DID the proof resolved to, a `did:jwk` made from the key for an inline one.
      */
-    protected function validatedProof(?array $inlineKey = null): ValidatedOpenId4VciProof
-    {
+    protected function validatedProof(
+        ?array $inlineKey = null,
+        string $holderDid = self::HOLDER_DID,
+    ): ValidatedOpenId4VciProof {
         return new ValidatedOpenId4VciProof(
             $this->createMock(OpenId4VciProof::class),
-            self::HOLDER_DID,
-            $inlineKey === null ? self::HOLDER_DID . '#0' : null,
+            $holderDid,
+            $inlineKey === null ? $holderDid . '#0' : null,
             $inlineKey,
         );
     }
@@ -495,14 +541,14 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /**
      * @param ?array<string,mixed> $requestData Defaults to the scenario's own request parameters.
      */
-    protected function dispatch(?array $requestData = null): void
+    protected function dispatch(?array $requestData = null): Response
     {
         $requestData ??= $this->requestData;
 
         $request = new Request([], [], [], [], [], [], json_encode($requestData));
         $request->setMethod('POST');
 
-        $this->sut()->credential($request);
+        return $this->sut()->credential($request);
     }
 
 
@@ -528,6 +574,31 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->assertCount(1, $this->errorResponses);
         $this->assertSame($error, $this->errorResponses[0]['error']);
         $this->assertSame($httpCode, $this->errorResponses[0]['httpCode']);
+    }
+
+
+    /**
+     * A 401 carrying the Bearer challenge HTTP requires of every 401 (RFC 9110 section 15.5.2) and RFC 6750
+     * section 3 of a protected resource refusing a request for its access token.
+     */
+    protected function assertChallengesForABearerToken(Response $response): void
+    {
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+    }
+
+
+    /**
+     * The request ended in an OAuth error, which the error responder was handed to answer, and nothing was
+     * issued.
+     */
+    protected function assertAnsweredWithOAuthError(string $errorType, int $httpCode): void
+    {
+        $this->assertCount(1, $this->oauthErrors);
+        $this->assertSame($errorType, $this->oauthErrors[0]->getErrorType());
+        $this->assertSame($httpCode, $this->oauthErrors[0]->getHttpStatusCode());
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame([], $this->signedPayloads);
     }
 
 
@@ -574,6 +645,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->vciContextResolverMock,
             $this->credentialStatusIssuerMock,
             $this->helpers,
+            $this->errorResponderMock,
         );
     }
 
@@ -666,6 +738,220 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->assertSame(
             [ClaimsEnum::Jwk->value => $holderJwk],
             $this->signedPayloads[0][ClaimsEnum::Cnf->value] ?? null,
+        );
+    }
+
+
+    /**
+     * A credential bound to a key names its holder by `cnf` alone, whichever way the proof named the key.
+     * The subject the proof resolved to is that key's DID, one per key, so it would set apart the
+     * credentials of a batch, which OpenID4VCI 1.0 section 3.3.2 has share one Credential Dataset.
+     *
+     * @param ?array<string,string> $inlineKey
+     */
+    #[DataProvider('keyBindingProvider')]
+    public function testAKeyBoundSdJwtVcNamesItsHolderByCnfAlone(?array $inlineKey): void
+    {
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value, inlineKey: $inlineKey);
+
+        $payload = $this->signedPayloads[0];
+
+        $this->assertArrayHasKey(ClaimsEnum::Cnf->value, $payload);
+        $this->assertArrayNotHasKey(ClaimsEnum::Sub->value, $payload);
+    }
+
+
+    /**
+     * @return array<string,array{0: ?array<string,string>}>
+     */
+    public static function keyBindingProvider(): array
+    {
+        return [
+            'a verification method named by kid' => [null],
+            'a key sent inline' => [['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x-value', 'y' => 'y-value']],
+        ];
+    }
+
+
+    /**
+     * The W3C data model names its holder as the credential subject, so the formats built on it keep the
+     * subject the proof resolved to, beside `cnf`.
+     */
+    public function testTheDataModelTwoFormatStillNamesTheHolderAsItsSubject(): void
+    {
+        $this->issue(CredentialFormatIdentifiersEnum::VcSdJwt->value);
+
+        $payload = $this->signedPayloads[0];
+
+        $this->assertSame(self::HOLDER_DID, $payload[ClaimsEnum::Sub->value] ?? null);
+        $this->assertSame(
+            self::HOLDER_DID,
+            $this->credentialSubjectOfFirstCredential()[ClaimsEnum::Id->value] ?? null,
+        );
+    }
+
+
+    /**
+     * The credentials of one batch share their Credential Dataset (OpenID4VCI 1.0 section 3.3.2) and their
+     * rounded times (RFC 9901 section 10.1). What sets them apart is what identifies each of them: the
+     * credential identifier and the key it is bound to.
+     */
+    public function testTheCredentialsOfABatchDifferOnlyInWhatIdentifiesEach(): void
+    {
+        $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval('P30D'));
+        $this->timeClaimGranularity = new DateInterval('P1D');
+        $this->credentialConfiguration = [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+        ];
+        $this->requestData = [
+            ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
+            'proofs' => ['jwt' => ['jwt1', 'jwt2']],
+        ];
+        $this->validatedProofs = [
+            $this->validatedProof(['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x-1', 'y' => 'y-1'], 'did:jwk:first'),
+            $this->validatedProof(['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x-2', 'y' => 'y-2'], 'did:jwk:second'),
+        ];
+
+        $this->dispatch();
+
+        $this->assertCount(2, $this->signedPayloads);
+        [$first, $second] = $this->signedPayloads;
+
+        $this->assertNotSame($first[ClaimsEnum::Jti->value] ?? null, $second[ClaimsEnum::Jti->value] ?? null);
+        $this->assertNotSame($first[ClaimsEnum::Cnf->value] ?? null, $second[ClaimsEnum::Cnf->value] ?? null);
+
+        $identifying = [ClaimsEnum::Jti->value => null, ClaimsEnum::Cnf->value => null];
+        $this->assertSame(array_diff_key($first, $identifying), array_diff_key($second, $identifying));
+        $this->assertArrayHasKey(ClaimsEnum::Iat->value, $first);
+        $this->assertArrayHasKey(ClaimsEnum::Exp->value, $first);
+    }
+
+
+    /**
+     * Issuance is stated rounded down to the granularity on the UTC epoch, as both `iat` and `nbf`, so it
+     * says which period the credential was issued in and not the second.
+     */
+    #[DataProvider('granularityProvider')]
+    public function testStatesTheIssuanceRoundedDownToTheGranularity(string $granularity, int $seconds): void
+    {
+        $this->timeClaimGranularity = new DateInterval($granularity);
+
+        $before = time();
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
+        $after = time();
+
+        $payload = $this->signedPayloads[0];
+        $issuedAt = $payload[ClaimsEnum::Iat->value] ?? null;
+
+        $this->assertIsInt($issuedAt);
+        $this->assertSame($issuedAt, $payload[ClaimsEnum::Nbf->value] ?? null);
+        $this->assertSame(0, $issuedAt % $seconds);
+        $this->assertLessThanOrEqual($after, $issuedAt);
+        $this->assertGreaterThan($before - $seconds, $issuedAt);
+    }
+
+
+    /**
+     * The expiry is rounded up from the moment of issuance plus the lifetime, so the credential is valid
+     * for at least its lifetime from that moment, and is never issued already expired, however short the
+     * lifetime is next to the granularity. Rounding up from the rounded issuance instead would cut the
+     * lifetime short by however far into its period issuance fell, which a lifetime as long as the
+     * granularity shows on all but the one second of each period which is a boundary.
+     */
+    #[DataProvider('granularityAndLifetimeProvider')]
+    public function testStatesTheExpiryRoundedUpFromTheMomentOfIssuance(
+        string $granularity,
+        int $granularitySeconds,
+        string $lifetime,
+        int $lifetimeSeconds,
+    ): void {
+        $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval($lifetime));
+        $this->timeClaimGranularity = new DateInterval($granularity);
+
+        // To the microsecond, since the expiry may not fall short of the lifetime by even a fraction of a
+        // second, and the claim, a whole second, may lie within a second of either bound.
+        $before = microtime(true);
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
+        $after = microtime(true);
+
+        $expiresAt = $this->signedPayloads[0][ClaimsEnum::Exp->value] ?? null;
+
+        $this->assertIsInt($expiresAt);
+        $this->assertSame(0, $expiresAt % $granularitySeconds);
+        $this->assertGreaterThanOrEqual($before + $lifetimeSeconds, $expiresAt);
+        $this->assertLessThan($after + $lifetimeSeconds + $granularitySeconds, $expiresAt);
+    }
+
+
+    /**
+     * Lifetimes in hours rather than days, which are a fixed number of seconds in any timezone.
+     *
+     * @return array<string,array{0: string, 1: int, 2: string, 3: int}>
+     */
+    public static function granularityAndLifetimeProvider(): array
+    {
+        return [
+            'a minute, for a minute' => ['PT1M', 60, 'PT1M', 60],
+            'an hour, for an hour' => ['PT1H', 3600, 'PT1H', 3600],
+            'a day, for a day' => ['P1D', 86400, 'PT24H', 86400],
+            'a week, for a week' => ['P1W', 604800, 'PT168H', 604800],
+            'a day, for thirty seconds' => ['P1D', 86400, 'PT30S', 30],
+        ];
+    }
+
+
+    /**
+     * @return array<string,array{0: string, 1: int}>
+     */
+    public static function granularityProvider(): array
+    {
+        return [
+            'a minute' => ['PT1M', 60],
+            'an hour' => ['PT1H', 3600],
+            'a day, the default' => ['P1D', 86400],
+            'a week' => ['P1W', 604800],
+        ];
+    }
+
+
+    /**
+     * The W3C formats state the two moments a second time, as date strings, and those name the rounded
+     * moments the claims do rather than the ones they were rounded from.
+     */
+    public function testTheW3cDateStringsNameTheRoundedMoments(): void
+    {
+        $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval('P30D'));
+        $this->timeClaimGranularity = new DateInterval('P1D');
+
+        $this->issue(CredentialFormatIdentifiersEnum::JwtVcJson->value);
+        $payload = $this->signedPayloads[0];
+        $body = (array)($payload[ClaimsEnum::Vc->value] ?? []);
+
+        $this->assertSame(0, (int)($payload[ClaimsEnum::Iat->value] ?? 1) % 86400);
+        $this->assertSame(
+            $payload[ClaimsEnum::Iat->value] ?? null,
+            (new DateTimeImmutable((string)($body[ClaimsEnum::Issuance_Date->value] ?? '')))->getTimestamp(),
+        );
+        $this->assertSame(
+            $payload[ClaimsEnum::Exp->value] ?? null,
+            (new DateTimeImmutable((string)($body[ClaimsEnum::Expiration_Date->value] ?? '')))->getTimestamp(),
+        );
+
+        $this->setUp();
+        $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval('P30D'));
+        $this->timeClaimGranularity = new DateInterval('P1D');
+
+        $this->issue(CredentialFormatIdentifiersEnum::VcSdJwt->value);
+        $payload = $this->signedPayloads[0];
+
+        $this->assertSame(0, (int)($payload[ClaimsEnum::Iat->value] ?? 1) % 86400);
+        $this->assertSame(
+            $payload[ClaimsEnum::Iat->value] ?? null,
+            (new DateTimeImmutable((string)($payload[ClaimsEnum::ValidFrom->value] ?? '')))->getTimestamp(),
+        );
+        $this->assertSame(
+            $payload[ClaimsEnum::Exp->value] ?? null,
+            (new DateTimeImmutable((string)($payload[ClaimsEnum::ValidUntil->value] ?? '')))->getTimestamp(),
         );
     }
 
@@ -1062,6 +1348,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     public function testTheStatusListEntryIsAllocatedWithTheCredentialLifetime(): void
     {
         $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval('P30D'));
+        // Rounded, so that the expiry handed over has to be the one the credential states, not the moment
+        // it was rounded from.
+        $this->timeClaimGranularity = new DateInterval('P1D');
 
         $expiresAt = null;
         $this->credentialStatusIssuerMock->method('issueFor')->willReturnCallback(
@@ -1095,10 +1384,31 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->accessTokenIsFound = false;
 
-        $this->dispatch();
+        $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesForABearerToken($response);
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * The resource server refuses an access token which is missing, invalid or revoked with an OAuth error
+     * carrying 401; one sent only in the query string is a missing one. The refusal is answered as the
+     * client's error response, rather than left to escape to SimpleSAMLphp, which answered it with an HTML
+     * page and a 500.
+     */
+    public function testAnswersTheResourceServerRefusingTheAccessToken(): void
+    {
+        $refusal = OidcServerException::accessDenied('Missing Authorization header.');
+        $this->accessTokenRefusal = $refusal;
+
+        $response = $this->dispatch();
+
+        $this->assertSame($this->errorResponderResponse, $response);
+        $this->assertSame([$refusal], $this->oauthErrors);
+        $this->assertAnsweredWithOAuthError('access_denied', 401);
+        $this->assertChallengesForABearerToken($response);
     }
 
 
@@ -1106,9 +1416,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->accessTokenIsRevoked = true;
 
-        $this->dispatch();
+        $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesForABearerToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1123,9 +1434,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->flowType = $flowType;
 
-        $this->dispatch();
+        $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesForABearerToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1155,9 +1467,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->issuerState = null;
         $this->clientIsGeneric = true;
 
-        $this->dispatch();
+        $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_credential_request', 401);
+        $this->assertChallengesForABearerToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1225,9 +1538,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->issuerState = 'issuer-state-1';
         $this->issuerStateIsValid = false;
 
-        $this->dispatch();
+        $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_credential_request', 401);
+        $this->assertChallengesForABearerToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1304,6 +1618,50 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->authorizationDetails = [$this->authorizationDetail('another_configuration')];
         $this->requestData = [ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID];
+
+        $this->dispatch();
+
+        $this->assertRefusedWith('unknown_credential_identifier', 400);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * A credential identifier names one the token response issued with `authorization_details`. A flow
+     * which used none was issued none, so the identifier is unknown, rather than ignored while the
+     * credential is resolved from whatever else the request carries: here a format and a `vct` which on
+     * their own would be issued.
+     */
+    public function testRefusesACredentialIdentifierForAFlowWhichWasIssuedNone(): void
+    {
+        $this->authorizationDetails = null;
+        $this->requestData = [
+            ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID,
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            ClaimsEnum::Vct->value => self::CONFIGURATION_ID,
+        ];
+        $this->validatedProofs = [$this->validatedProof()];
+
+        $this->dispatch();
+
+        $this->assertRefusedWith('unknown_credential_identifier', 400);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * A credential identifier which is not a string names nothing at all, and is a malformed request
+     * rather than an unknown identifier, with or without `authorization_details`.
+     */
+    public function testRefusesACredentialIdentifierWhichIsNotAString(): void
+    {
+        $this->authorizationDetails = null;
+        $this->requestData = [
+            ClaimsEnum::CredentialIdentifier->value => [self::CONFIGURATION_ID],
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            ClaimsEnum::Vct->value => self::CONFIGURATION_ID,
+        ];
+        $this->validatedProofs = [$this->validatedProof()];
 
         $this->dispatch();
 
@@ -1443,9 +1801,11 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->credentialConfiguration = null;
 
-        $this->dispatch();
+        $response = $this->dispatch();
 
-        $this->assertRefusedWith('unsupported_credential_type', 400);
+        $this->assertRefusedWith('unknown_credential_configuration', 400);
+        // A request refused for what it asks, not for its token, carries no challenge.
+        $this->assertFalse($response->headers->has('WWW-Authenticate'));
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1458,9 +1818,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->credentialConfiguration = [];
 
-        $this->expectException(OidcServerException::class);
-
         $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
     }
 
 
@@ -1487,9 +1847,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->accessTokenUserIdentifier = null;
 
-        $this->expectException(OidcServerException::class);
+        $response = $this->dispatch();
 
-        $this->dispatch();
+        $this->assertAnsweredWithOAuthError('invalid_request', 400);
+        $this->assertFalse($response->headers->has('WWW-Authenticate'));
     }
 
 
@@ -1497,9 +1858,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->userEntity = null;
 
-        $this->expectException(OidcServerException::class);
-
         $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('invalid_request', 400);
     }
 
 
