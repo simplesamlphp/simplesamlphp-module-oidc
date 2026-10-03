@@ -20,6 +20,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class AllowedOriginRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     final public const string CLIENT_ID = 'some_client_id';
 
     final public const array ORIGINS = [
@@ -104,5 +107,59 @@ class AllowedOriginRepositoryTest extends TestCase
         ->willReturn(true);
 
         $this->assertTrue($this->repository->has('origin'));
+    }
+
+
+    /**
+     * A browser client may make a CORS request as soon as an administrator allowed its origin, before a database
+     * secondary may have it, and with no answer in a protocol cache (none is configured by default).
+     */
+    public function testAllowsAnOriginJustSetBeforeASecondaryHasIt(): void
+    {
+        $repository = $this->uncachedRepositoryOver($this->databaseWithALaggingSecondary());
+        $repository->set(self::CLIENT_ID, ['https://just-allowed.example.org']);
+
+        $this->assertTrue($repository->has('https://just-allowed.example.org'));
+    }
+
+
+    /**
+     * An origin removed from a client is to be refused from then on, which a database secondary may not know yet. The
+     * origin is looked up on the primary, and not only when a secondary has no row for it.
+     */
+    public function testRefusesAnOriginJustRemovedWhileASecondaryStillHasIt(): void
+    {
+        $this->repository->set(self::CLIENT_ID, ['https://just-removed.example.org']);
+        $this->repository->set(self::CLIENT_ID, ['https://still-allowed.example.org']);
+
+        // Both queries here fetch the origin column, so a stale secondary answers with the origins as they were.
+        $repository = $this->uncachedRepositoryOver(
+            $this->databaseWithAStaleSecondary(['https://just-removed.example.org']),
+        );
+
+        $this->assertFalse($repository->has('https://just-removed.example.org'));
+    }
+
+
+    /**
+     * The administrator's client form is filled in with the origins read here, and saving it writes them back, which
+     * would undo a change of them that a database secondary does not have yet.
+     */
+    public function testListsTheOriginsJustSetWhileASecondaryStillHasTheOldOnes(): void
+    {
+        $this->repository->set(self::CLIENT_ID, ['https://set-before.example.org']);
+        $this->repository->set(self::CLIENT_ID, ['https://set-after.example.org']);
+
+        $repository = $this->uncachedRepositoryOver(
+            $this->databaseWithAStaleSecondary(['https://set-before.example.org']),
+        );
+
+        $this->assertSame(['https://set-after.example.org'], $repository->get(self::CLIENT_ID));
+    }
+
+
+    protected function uncachedRepositoryOver(Database $database): AllowedOriginRepository
+    {
+        return new AllowedOriginRepository($this->moduleConfigMock, $database, null);
     }
 }

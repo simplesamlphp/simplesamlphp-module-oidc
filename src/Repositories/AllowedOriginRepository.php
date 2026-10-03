@@ -6,6 +6,12 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use PDO;
 
+/**
+ * Every query here reads the database primary rather than a secondary, which may not have the origins of a client
+ * changed moments earlier yet: a browser client may make a CORS request as soon as its origin is allowed, an origin
+ * removed from a client is to be refused from then on, and the administrator's client form is filled in with the
+ * origins read here, which saving it writes back.
+ */
 class AllowedOriginRepository extends AbstractDatabaseRepository
 {
     final public const string TABLE_NAME = 'oidc_allowed_origin';
@@ -60,7 +66,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
 
     public function get(string $clientId): array
     {
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             "SELECT origin FROM {$this->getTableName()} WHERE client_id = :client_id",
             ['client_id' => $clientId],
         );
@@ -78,7 +84,7 @@ class AllowedOriginRepository extends AbstractDatabaseRepository
             return (bool) $has;
         }
 
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             "SELECT origin FROM {$this->getTableName()} WHERE origin = :origin LIMIT 1",
             ['origin' => $origin],
         );

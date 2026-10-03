@@ -29,6 +29,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class UserRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     protected static UserRepository $repository;
 
     protected Stub $helpersStub;
@@ -182,6 +185,7 @@ class UserRepositoryTest extends TestCase
             ->method('get')
             ->willReturn($this->userEntityState);
 
+        $this->databaseMock->expects($this->never())->method('readPrimary');
         $this->databaseMock->expects($this->never())->method('read');
 
         $this->userEntityFactoryMock->expects($this->once())
@@ -214,7 +218,7 @@ class UserRepositoryTest extends TestCase
         $this->pdoStatementMock->method('fetchAll')->willReturn([$this->userEntityState]);
 
         $this->databaseMock->expects($this->once())
-            ->method('read')
+            ->method('readPrimary')
             ->willReturn($this->pdoStatementMock);
 
         $this->userEntityMock->expects($this->once())
@@ -234,6 +238,55 @@ class UserRepositoryTest extends TestCase
         $this->assertSame(
             $this->userEntityMock,
             $repository->getUserEntityByIdentifier('uniqueid'),
+        );
+    }
+
+
+    /**
+     * The token endpoint loads the user moments after the login which added them, before a database secondary may
+     * have the row, and with no copy in a protocol cache (none is configured by default).
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testFindsAUserJustAddedBeforeASecondaryHasIt(): void
+    {
+        $userId = 'found_on_the_primary_user_id';
+        $createdUpdatedAt = new DateTimeImmutable();
+        $userEntity = new UserEntity($userId, $createdUpdatedAt, $createdUpdatedAt);
+        $this->userEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(fn(array $state): bool => $state['id'] === $userId))
+            ->willReturn($userEntity);
+
+        $repository = $this->mock(database: $this->databaseWithALaggingSecondary());
+        $repository->add($userEntity);
+
+        $this->assertSame($userEntity, $repository->getUserEntityByIdentifier($userId));
+    }
+
+
+    /**
+     * A login updates the user's claims moments before the token endpoint reads them into the tokens it issues,
+     * which a database secondary may not have yet. The user is read from the primary, and not only when a secondary
+     * has no copy of them.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testReadsTheClaimsALoginJustUpdatedWhileASecondaryStillHasTheOldOnes(): void
+    {
+        $userId = 'updated_on_the_primary_user_id';
+        $createdUpdatedAt = new DateTimeImmutable();
+        $this->mock()->add(new UserEntity($userId, $createdUpdatedAt, $createdUpdatedAt, ['uid' => ['before']]));
+        $rowsBeforeTheUpdate = $this->rowsWithId('phpunit_oidc_user', $userId);
+        $updatedUser = new UserEntity($userId, $createdUpdatedAt, $createdUpdatedAt, ['uid' => ['after']]);
+        $this->mock()->update($updatedUser, $createdUpdatedAt);
+        $this->userEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(fn(array $state): bool => $state['claims'] === '{"uid":["after"]}'))
+            ->willReturn($updatedUser);
+
+        $this->assertSame(
+            $updatedUser,
+            $this->mock(database: $this->databaseWithAStaleSecondary($rowsBeforeTheUpdate))
+                ->getUserEntityByIdentifier($userId),
         );
     }
 

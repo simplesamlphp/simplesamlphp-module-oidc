@@ -40,6 +40,11 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
 
 
     /**
+     * Read from the primary: a user is looked up moments after the login which added them or updated their claims,
+     * by the token endpoint, which issues tokens with the user's claims and subject, and by the next login, which
+     * adds a user it does not find and so would collide with the row already on the primary. A database secondary
+     * which has not caught up yet may have neither the user nor their claims.
+     *
      * @param string $identifier
      *
      * @return \SimpleSAML\Module\oidc\Entities\UserEntity|null
@@ -54,7 +59,7 @@ class UserRepository extends AbstractDatabaseRepository implements UserRepositor
             return $this->userEntityFactory->fromState($cachedState);
         }
 
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             "SELECT * FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $identifier,
