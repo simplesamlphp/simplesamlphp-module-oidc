@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use Exception;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -37,6 +38,9 @@ class AllowedOriginRepositoryTest extends TestCase
 
     private AllowedOriginRepository $repository;
 
+    /** @var string[] */
+    private array $clearedCacheKeys = [];
+
 
     /**
      * @throws \Exception
@@ -61,6 +65,11 @@ class AllowedOriginRepositoryTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $this->clearedCacheKeys = [];
+        $this->protocolCacheMock->method('delete')->willReturnCallback(function (string $keyElement): bool {
+            $this->clearedCacheKeys[] = $keyElement;
+            return true;
+        });
 
         $database = Database::getInstance();
 
@@ -98,6 +107,95 @@ class AllowedOriginRepositoryTest extends TestCase
         $this->repository->delete(self::CLIENT_ID);
         $this->assertFalse($this->repository->has(self::ORIGINS[0]));
         $this->assertFalse($this->repository->has(self::ORIGINS[1]));
+    }
+
+
+    /**
+     * has() caches its answer for each origin, so one removed from a client would stay allowed until the answer
+     * expires, and one added would stay refused.
+     */
+    public function testClearsTheCachedAnswersForTheOriginsAClientHadAndGets(): void
+    {
+        $this->uncachedRepositoryOver(Database::getInstance())->set(
+            self::CLIENT_ID,
+            ['https://removed.example.org', 'https://kept.example.org'],
+        );
+
+        $this->repository->set(self::CLIENT_ID, ['https://kept.example.org', 'https://added.example.org']);
+
+        $this->assertEqualsCanonicalizing(
+            [
+                $this->repository->getCacheKey('https://removed.example.org'),
+                $this->repository->getCacheKey('https://kept.example.org'),
+                $this->repository->getCacheKey('https://added.example.org'),
+            ],
+            $this->clearedCacheKeys,
+        );
+    }
+
+
+    public function testDeleteClearsTheCachedAnswersForTheOriginsTheClientHad(): void
+    {
+        $this->uncachedRepositoryOver(Database::getInstance())->set(self::CLIENT_ID, self::ORIGINS);
+
+        $this->repository->delete(self::CLIENT_ID);
+
+        $this->assertEqualsCanonicalizing(
+            [
+                $this->repository->getCacheKey(self::ORIGINS[0]),
+                $this->repository->getCacheKey(self::ORIGINS[1]),
+            ],
+            $this->clearedCacheKeys,
+        );
+    }
+
+
+    /**
+     * The old origins are deleted before the new ones are added, so a failure in between leaves the client with none
+     * of the origins a cached answer may still allow.
+     */
+    public function testClearsTheCachedAnswersWhenWritingTheOriginsFailsPartWay(): void
+    {
+        $database = Database::getInstance();
+        $this->uncachedRepositoryOver($database)->set(
+            self::CLIENT_ID,
+            ['https://removed-before-a-failure.example.org'],
+        );
+
+        $failure = new Exception('The database refused the origins.');
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('applyPrefix')->willReturnCallback($database->applyPrefix(...));
+        $databaseMock->method('readPrimary')->willReturnCallback($database->readPrimary(...));
+        $databaseMock->method('write')->willReturnCallback(
+            fn(string $stmt, array $params = []): int|bool => str_starts_with($stmt, 'INSERT') ?
+                throw $failure :
+                $database->write($stmt, $params),
+        );
+        $repository = new AllowedOriginRepository($this->moduleConfigMock, $databaseMock, $this->protocolCacheMock);
+
+        $caught = null;
+        try {
+            $repository->set(self::CLIENT_ID, ['https://added-before-a-failure.example.org']);
+        } catch (Exception $exception) {
+            $caught = $exception;
+        }
+
+        $this->assertSame($failure, $caught);
+        $this->assertEqualsCanonicalizing(
+            [
+                $repository->getCacheKey('https://removed-before-a-failure.example.org'),
+                $repository->getCacheKey('https://added-before-a-failure.example.org'),
+            ],
+            $this->clearedCacheKeys,
+        );
+    }
+
+
+    public function testSetsTheOriginsAfterABlankFirstOne(): void
+    {
+        $this->repository->set(self::CLIENT_ID, ['', 'https://after-a-blank.example.org']);
+
+        $this->assertSame(['https://after-a-blank.example.org'], $this->repository->get(self::CLIENT_ID));
     }
 
 

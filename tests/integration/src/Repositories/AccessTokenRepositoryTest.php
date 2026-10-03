@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AbstractDatabaseRepository;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
@@ -172,6 +173,7 @@ class AccessTokenRepositoryTest extends TestCase
             $database,
             null,
             $clientEntityFactoryMock,
+            new AllowedOriginRepository($moduleConfig, $database, null),
         );
 
         $this->accessTokenRepository = new AccessTokenRepository(

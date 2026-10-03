@@ -11,6 +11,8 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
@@ -26,6 +28,8 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 class DatabaseMigrationTest extends TestCase
 {
     protected const string AUTH_CODE_INDEX_VERSION = '20261003000001';
+
+    protected const string ORPHANED_ORIGINS_VERSION = '20261003000003';
 
 
     protected Database $database;
@@ -108,6 +112,41 @@ class DatabaseMigrationTest extends TestCase
                 $this->queryPlanOfALookupByAuthCode($table),
             );
         }
+    }
+
+
+    /**
+     * SQLite enforced no foreign key, so a client deleted before this version left its allowed origins behind, and
+     * a CORS request from one of them was still allowed.
+     *
+     * @throws \Exception
+     */
+    public function testDeletesTheAllowedOriginsOfClientsWhichNoLongerExist(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+        $allowedOriginTableName = $this->database->applyPrefix(AllowedOriginRepository::TABLE_NAME);
+        $this->database->write(
+            "INSERT INTO $clientTableName (id, secret, name, description, redirect_uri, scopes) " .
+            "VALUES ('remaining-client', 'secret', 'Remaining', 'A client still there', '[]', '[]')",
+        );
+        $this->database->write(
+            "INSERT INTO $allowedOriginTableName (client_id, origin) VALUES " .
+            "('remaining-client', 'https://remaining.example.org'), ('deleted-client', 'https://deleted.example.org')",
+        );
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::ORPHANED_ORIGINS_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertSame(
+            [['client_id' => 'remaining-client', 'origin' => 'https://remaining.example.org']],
+            $this->database->read("SELECT client_id, origin FROM $allowedOriginTableName")->fetchAll(PDO::FETCH_ASSOC),
+        );
     }
 
 

@@ -28,6 +28,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
         Database $database,
         ?ProtocolCache $protocolCache,
         protected readonly ClientEntityFactory $clientEntityFactory,
+        protected readonly AllowedOriginRepository $allowedOriginRepository,
     ) {
         parent::__construct($moduleConfig, $database, $protocolCache);
     }
@@ -513,8 +514,21 @@ EOS
     }
 
 
+    /**
+     * The client's allowed origins go with it, and so do the CORS answers cached for them, so that a request from
+     * the origin of a deleted client is refused from then on. On MySQL and PostgreSQL the foreign key takes the
+     * origins with the client, which is why they are read first: nothing is left afterwards to say which answers to
+     * clear. SQLite enforces foreign keys only on a connection which turns them on, which SimpleSAML\Database does
+     * not, so the origins are deleted here as well. Only those of a client this deleted, though: one the owner does
+     * not have keeps its origins.
+     *
+     * The cached answers and the cached client are cleared even when deleting the origins fails, by which time the
+     * client is gone: a cached client would still be authenticated until it expired.
+     */
     public function delete(ClientEntityInterface $client, ?string $owner = null): void
     {
+        $allowedOrigins = $this->allowedOriginRepository->get($client->getIdentifier());
+
         /**
          * @var string $sqlQuery
          * @var array $params
@@ -526,11 +540,17 @@ EOS
             ],
             $owner,
         );
-        $this->database->write($sqlQuery, $params);
 
-        $this->protocolCache?->delete($this->getCacheKey($client->getIdentifier()));
-        if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
-            $this->protocolCache?->delete($this->getCacheKey($entityIdentifier));
+        try {
+            if ((int) $this->database->write($sqlQuery, $params) > 0) {
+                $this->allowedOriginRepository->delete($client->getIdentifier());
+            }
+        } finally {
+            $this->allowedOriginRepository->clearCache($allowedOrigins);
+            $this->protocolCache?->delete($this->getCacheKey($client->getIdentifier()));
+            if (($entityIdentifier = $client->getEntityIdentifier()) !== null) {
+                $this->protocolCache?->delete($this->getCacheKey($entityIdentifier));
+            }
         }
     }
 

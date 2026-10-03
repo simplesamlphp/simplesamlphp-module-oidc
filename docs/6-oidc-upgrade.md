@@ -645,6 +645,16 @@ clocks skip, so issuing a code or token whose expiry fell in it would fail. The
 stored times keep the wall clock the module reads. Changing a column's type
 rebuilds the table, and writes to it wait until that is done, which can take a
 while for a large token table.
+- A change of a client's allowed origins (CORS) now takes effect at once. With a
+protocol cache configured (`ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER`), the
+module caches for each origin whether a client allows it, for
+`ModuleConfig::OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION` (10 minutes by
+default). Saving a client used to clear that only for the origins it was saved
+with, and deleting one cleared nothing, so an origin removed from a client, or
+of a deleted client, stayed allowed until the cached answer expired. On SQLite,
+deleting a client also left its allowed origins in the database, still allowed
+for good: deleting a client now deletes them as well, and a migration deletes
+those left behind by clients deleted earlier.
 - A client is now found only by its client ID exactly as registered, letter
 case included, whatever the database. MySQL and MariaDB compare the client
 table's IDs case-insensitively by default, so a request naming a client in

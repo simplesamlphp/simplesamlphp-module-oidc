@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
@@ -26,7 +27,13 @@ $node = $topology['nodes'][$nodeName] ?? throw new RuntimeException('HARNESS_NOD
 
 $moduleConfig = new ModuleConfig();
 $clientEntityFactory = new ClientEntityFactory(new SspBridge(), new Helpers(), $moduleConfig);
-$clientRepository = new ClientRepository($moduleConfig, Database::getInstance(), null, $clientEntityFactory);
+$clientRepository = new ClientRepository(
+    $moduleConfig,
+    Database::getInstance(),
+    null,
+    $clientEntityFactory,
+    new AllowedOriginRepository($moduleConfig, Database::getInstance(), null),
+);
 
 foreach ($node['clients'] as $clientId => $client) {
     $clientEntity = $clientEntityFactory->fromData(

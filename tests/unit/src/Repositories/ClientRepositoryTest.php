@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use Exception;
 use PDO;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -15,6 +16,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
@@ -33,6 +35,8 @@ class ClientRepositoryTest extends TestCase
     protected MockObject $clientEntityMock;
 
     protected MockObject $clientEntityFactoryMock;
+
+    protected AllowedOriginRepository $allowedOriginRepository;
 
 
     /**
@@ -60,12 +64,14 @@ class ClientRepositoryTest extends TestCase
         $this->clientEntityFactoryMock = $this->createMock(ClientEntityFactory::class);
 
         $database = Database::getInstance();
+        $this->allowedOriginRepository = new AllowedOriginRepository(new ModuleConfig(), $database, null);
 
         $this->repository = new ClientRepository(
             new ModuleConfig(),
             $database,
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
     }
 
@@ -74,6 +80,8 @@ class ClientRepositoryTest extends TestCase
     {
         $database = Database::getInstance();
         $database->write('DELETE FROM ' . $this->repository->getTableName());
+        // SQLite enforces no foreign key here, so the clients' allowed origins stay unless deleted too.
+        $database->write('DELETE FROM ' . $this->allowedOriginRepository->getTableName());
     }
 
 
@@ -373,6 +381,120 @@ class ClientRepositoryTest extends TestCase
     }
 
 
+    /**
+     * SQLite, which this test runs on, enforces no foreign key unless the connection turns them on, so nothing takes
+     * a deleted client's origins with it, and a CORS request from one of them would be allowed for good.
+     */
+    public function testDeletesTheAllowedOriginsOfADeletedClient(): void
+    {
+        $client = self::getClient('client-with-origins');
+        $this->repository->add($client);
+        $this->allowedOriginRepository->set('client-with-origins', ['https://deleted-client.example.org']);
+
+        $this->repository->delete($client);
+
+        $this->assertSame([], $this->allowedOriginRepository->get('client-with-origins'));
+        $this->assertFalse($this->allowedOriginRepository->has('https://deleted-client.example.org'));
+    }
+
+
+    /**
+     * On MySQL and PostgreSQL the foreign key takes a deleted client's origins with it, so nothing is left to say
+     * which cached answers to clear unless the origins were read first. SQLite does the same with foreign keys
+     * turned on; were they not, the origins deleted here would clear their answers a second time.
+     */
+    public function testClearsTheCachedAnswersForTheOriginsTheForeignKeyTakesWithAClient(): void
+    {
+        $database = Database::getInstance();
+        $client = self::getClient('client-with-cascading-origins');
+        $this->repository->add($client);
+        $this->allowedOriginRepository->set('client-with-cascading-origins', ['https://cascaded.example.org']);
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $cachedAllowedOriginRepository = new AllowedOriginRepository(new ModuleConfig(), $database, $protocolCacheMock);
+        $protocolCacheMock->expects($this->once())->method('delete')
+            ->with($cachedAllowedOriginRepository->getCacheKey('https://cascaded.example.org'))
+            ->willReturn(true);
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $database,
+            null,
+            $this->clientEntityFactoryMock,
+            $cachedAllowedOriginRepository,
+        );
+
+        $database->write('PRAGMA foreign_keys = ON');
+        try {
+            $sut->delete($client);
+        } finally {
+            $database->write('PRAGMA foreign_keys = OFF');
+        }
+
+        $this->assertSame([], $this->allowedOriginRepository->get('client-with-cascading-origins'));
+    }
+
+
+    /**
+     * By the time deleting the origins fails, the client is gone, and a cached one would still be authenticated.
+     */
+    public function testClearsTheCachedClientWhenDeletingItsOriginsFails(): void
+    {
+        $database = Database::getInstance();
+        $client = self::getClient('client-whose-origins-fail', entityId: 'entity-whose-origins-fail');
+        $this->repository->add($client);
+        $this->allowedOriginRepository->set('client-whose-origins-fail', ['https://failing.example.org']);
+
+        $failure = new Exception('The database refused to delete the origins.');
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('applyPrefix')->willReturnCallback($database->applyPrefix(...));
+        $databaseMock->method('readPrimary')->willReturnCallback($database->readPrimary(...));
+        $databaseMock->method('write')->willThrowException($failure);
+        $clearedCacheKeys = [];
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('delete')->willReturnCallback(
+            function (string $keyElement) use (&$clearedCacheKeys): bool {
+                $clearedCacheKeys[] = $keyElement;
+                return true;
+            },
+        );
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $database,
+            $protocolCacheMock,
+            $this->clientEntityFactoryMock,
+            new AllowedOriginRepository(new ModuleConfig(), $databaseMock, null),
+        );
+
+        $caught = null;
+        try {
+            $sut->delete($client);
+        } catch (Exception $exception) {
+            $caught = $exception;
+        }
+
+        $this->assertSame($failure, $caught);
+        $this->assertEqualsCanonicalizing(
+            [$sut->getCacheKey('client-whose-origins-fail'), $sut->getCacheKey('entity-whose-origins-fail')],
+            $clearedCacheKeys,
+        );
+    }
+
+
+    public function testKeepsTheAllowedOriginsOfAClientTheOwnerDoesNotHave(): void
+    {
+        $client = self::getClient('client-of-another-owner', owner: 'otherUser');
+        $this->repository->add($client);
+        $this->allowedOriginRepository->set('client-of-another-owner', ['https://other-owner.example.org']);
+
+        $this->repository->delete($client, 'homer@example.com');
+
+        $this->assertSame(
+            ['https://other-owner.example.org'],
+            $this->allowedOriginRepository->get('client-of-another-owner'),
+        );
+    }
+
+
     public function testCanFindByIdFromCache(): void
     {
         $protocolCacheMock = $this->createMock(ProtocolCache::class);
@@ -388,6 +510,7 @@ class ClientRepositoryTest extends TestCase
             Database::getInstance(),
             $protocolCacheMock,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
 
         $this->assertInstanceOf(ClientEntityInterface::class, $sut->findById('clientid'));
@@ -413,7 +536,13 @@ class ClientRepositoryTest extends TestCase
         $statement = $this->createMock(PDOStatement::class);
         $statement->method('fetchAll')->willReturn([[ClientEntity::KEY_ID => 'MozillaThunderbird']]);
         $caseInsensitiveDatabase->method('readPrimary')->willReturn($statement);
-        $sut = new ClientRepository(new ModuleConfig(), $caseInsensitiveDatabase, null, $this->clientEntityFactoryMock);
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $caseInsensitiveDatabase,
+            null,
+            $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
+        );
 
         $this->assertNull($sut->findById('mozillathunderbird'));
         $this->assertSame($client, $sut->findById('MozillaThunderbird'));
@@ -471,6 +600,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithALaggingSecondary(),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
         $sut->add($client);
 
@@ -506,6 +636,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithAStaleSecondary($rowsBeforeTheChange),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
 
         $this->assertSame($clientAsChanged, $sut->findById($clientId));
@@ -530,6 +661,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithALaggingSecondary(),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
         $sut->add($client);
 
@@ -564,6 +696,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithAStaleSecondary($rowsBeforeTheChange),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
 
         $this->assertSame($disabledClient, $sut->findByEntityIdentifier($entityIdentifier));
@@ -599,6 +732,7 @@ class ClientRepositoryTest extends TestCase
             $accentInsensitiveDatabase,
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
 
         $this->assertTrue($sut->isIdentifierTakenIgnoringCase('https://rp.example.org/cafe'));
@@ -628,6 +762,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithALaggingSecondary(),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
         $sut->add(self::getClient('JustRegisteredThunderbird'));
 
@@ -649,6 +784,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithALaggingSecondary(),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
         array_map(function (int $i) use ($sut): void {
             $sut->add(self::getClient('paginated_on_the_primary_client_id' . $i));
@@ -675,6 +811,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithALaggingSecondary(),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
         $sut->add($client);
         $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
@@ -699,6 +836,7 @@ class ClientRepositoryTest extends TestCase
             $this->databaseWithALaggingSecondary(),
             null,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
         $sut->add($client);
         $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
@@ -766,6 +904,7 @@ class ClientRepositoryTest extends TestCase
             Database::getInstance(),
             $protocolCacheMock,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
     }
 
@@ -860,6 +999,7 @@ class ClientRepositoryTest extends TestCase
             Database::getInstance(),
             $protocolCacheMock,
             $this->clientEntityFactoryMock,
+            $this->allowedOriginRepository,
         );
 
         $this->assertInstanceOf(ClientEntityInterface::class, $sut->findByEntityIdentifier('entityId'));

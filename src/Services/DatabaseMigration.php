@@ -287,6 +287,11 @@ class DatabaseMigration
             $this->version20261003000002();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000002')");
         }
+
+        if (!in_array('20261003000003', $versions, true)) {
+            $this->version20261003000003();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000003')");
+        }
     }
 
 
@@ -1270,6 +1275,25 @@ EOT
                 'ALTER TABLE ' . $this->database->applyPrefix($table) . ' ' . implode(', ', $modifications),
             );
         }
+    }
+
+
+    /**
+     * Delete the allowed origins of clients which no longer exist.
+     *
+     * SQLite enforces foreign keys only on a connection which turns them on, which SimpleSAML\Database does not,
+     * so a client deleted there left its origins behind, and a CORS request from one of them was still allowed.
+     * Deleting a client now deletes its origins as well. On MySQL and PostgreSQL the foreign key took them with
+     * the client, and there is nothing to delete.
+     */
+    private function version20261003000003(): void
+    {
+        $allowedOriginTableName = $this->database->applyPrefix(AllowedOriginRepository::TABLE_NAME);
+        $clientTableName = $this->database->applyPrefix(ClientRepository::TABLE_NAME);
+
+        $this->database->write(
+            "DELETE FROM $allowedOriginTableName WHERE client_id NOT IN (SELECT id FROM $clientTableName)",
+        );
     }
 
 
