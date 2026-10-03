@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Stores\Session;
 
+use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
+use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
+use SimpleSAML\Test\Module\oidc\unit\Repositories\LaggingSecondaryTestTrait;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb
@@ -16,6 +19,9 @@ use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 #[AllowMockObjectsWithoutExpectations]
 class LogoutTicketStoreDbTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     public static function setUpBeforeClass(): void
     {
         $config = [
@@ -29,6 +35,15 @@ class LogoutTicketStoreDbTest extends TestCase
 
         Configuration::loadFromArray($config, '', 'simplesaml');
         (new DatabaseMigration())->migrate();
+    }
+
+
+    /**
+     * The tests here count every ticket in the table, so none may be left behind by a test which failed.
+     */
+    protected function tearDown(): void
+    {
+        Database::getInstance()->write('DELETE FROM ' . (new LogoutTicketStoreDb())->getTableName());
     }
 
 
@@ -89,5 +104,41 @@ class LogoutTicketStoreDbTest extends TestCase
         $sid = 'sid123';
         $store->add($sid);
         $this->assertEmpty($store->getAll());
+    }
+
+
+    /**
+     * The logout handler reads back, within the same request, the ticket the end session endpoint has just added.
+     *
+     * @throws \Exception
+     */
+    public function testFindsATicketJustAddedBeforeASecondaryHasIt(): void
+    {
+        $store = new LogoutTicketStoreDb($this->databaseWithALaggingSecondary());
+        $store->add('just_added_sid');
+
+        $this->assertSame(['just_added_sid'], array_column($store->getAll(), 'sid'));
+    }
+
+
+    /**
+     * A secondary which has not caught up may still have a ticket an earlier logout has handled and deleted, while
+     * missing the one just added: finding a ticket there is no sign that it has them all.
+     *
+     * @throws \Exception
+     */
+    public function testReadsTheTicketsAsTheyAreNowWhileASecondaryStillHasTheOldOnes(): void
+    {
+        $store = new LogoutTicketStoreDb();
+        $store->add('already_handled_sid');
+        $staleRows = Database::getInstance()
+            ->readPrimary('SELECT * FROM ' . $store->getTableName())
+            ->fetchAll(PDO::FETCH_ASSOC);
+        $store->delete('already_handled_sid');
+
+        $store = new LogoutTicketStoreDb($this->databaseWithAStaleSecondary($staleRows));
+        $store->add('just_added_sid');
+
+        $this->assertSame(['just_added_sid'], array_column($store->getAll(), 'sid'));
     }
 }

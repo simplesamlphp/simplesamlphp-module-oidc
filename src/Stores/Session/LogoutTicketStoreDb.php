@@ -91,6 +91,11 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
 
 
     /**
+     * Read from the primary: EndSessionController adds a ticket for the session an RP asks to log out and then logs
+     * that session out, whose logout handler reads the tickets back here within the same request. A database
+     * secondary which has not caught up yet may not have that ticket, and the session's relying parties would then
+     * not be sent a back-channel logout.
+     *
      * @inheritDoc
      * @throws \Exception
      */
@@ -98,7 +103,7 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     {
         $this->deleteExpired();
         /** @var list<array{sid: string, created_at: string}> */
-        return $this->database->read("SELECT * FROM {$this->getTableName()}")->fetchAll(PDO::FETCH_ASSOC);
+        return $this->database->readPrimary("SELECT * FROM {$this->getTableName()}")->fetchAll(PDO::FETCH_ASSOC);
     }
 
 
