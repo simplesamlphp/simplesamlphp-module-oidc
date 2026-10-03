@@ -32,6 +32,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class AccessTokenRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     final public const string CLIENT_ID = 'access_token_client_id';
 
     final public const string USER_ID = 'access_token_user_id';
@@ -342,11 +345,84 @@ class AccessTokenRepositoryTest extends TestCase
         $this->accessTokenEntityMock->method('getExpiryDateTime')
             ->willReturn(new DateTimeImmutable());
 
-        $this->accessTokenEntityMock->expects($this->once())->method('revoke');
-
         $sut = $this->sut();
         $sut->persistNewAccessToken($this->accessTokenEntityMock);
 
         $sut->revokeByAuthCodeId(self::AUTH_CODE_ID);
+
+        $this->assertTrue($this->isRevokedOnThePrimary(self::ACCESS_TOKEN_ID));
+    }
+
+
+    /**
+     * The token endpoint revokes what it has just issued for a code when the rest of its response fails, before a
+     * database secondary may have it, and with no copy in a protocol cache (none is configured by default).
+     */
+    public function testRevokesByAuthCodeIdWhatWasJustIssuedBeforeASecondaryHasIt(): void
+    {
+        $state = [
+            'id' => 'just_issued_access_token_id',
+            'auth_code_id' => 'just_issued_auth_code_id',
+        ] + $this->accessTokenState;
+        $this->accessTokenEntityMock->method('getState')->willReturn($state);
+        $this->accessTokenEntityMock->method('getExpiryDateTime')->willReturn(new DateTimeImmutable());
+
+        $sut = new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientRepositoryMock,
+            $this->accessTokenEntityFactoryMock,
+            $this->helpersMock,
+        );
+        $sut->persistNewAccessToken($this->accessTokenEntityMock);
+
+        $sut->revokeByAuthCodeId('just_issued_auth_code_id');
+
+        $this->assertTrue($this->isRevokedOnThePrimary('just_issued_access_token_id'));
+    }
+
+
+    /**
+     * The revoked row is cached even where no copy was (evicted, or held by another node's cache): otherwise the
+     * next lookup could read a secondary which does not have the revocation yet, and cache the token again as
+     * valid. The row is read from the primary, since the token may be too new for a secondary.
+     */
+    public function testRevokingByAuthCodeIdCachesTheRevokedRow(): void
+    {
+        $state = [
+            'id' => 'cached_access_token_id',
+            'auth_code_id' => 'cached_auth_code_id',
+            'expires_at' => gmdate('Y-m-d H:i:s', time() + 3600),
+        ] + $this->accessTokenState;
+        $this->accessTokenEntityMock->method('getState')->willReturn($state);
+        $this->accessTokenEntityMock->method('getExpiryDateTime')->willReturn(new DateTimeImmutable());
+        $this->sut()->persistNewAccessToken($this->accessTokenEntityMock);
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('get')->willReturn(null);
+        $protocolCacheMock->expects($this->never())->method('delete');
+        $protocolCacheMock->expects($this->once())->method('set')->with(
+            $this->callback(
+                fn(array $row): bool => $row['id'] === 'cached_access_token_id' && (bool)$row['is_revoked'],
+            ),
+            $this->callback(fn(mixed $ttl): bool => is_int($ttl) && $ttl > 0),
+            'phpunit_oidc_access_token_cached_access_token_id',
+        );
+
+        $this->sut(
+            database: $this->databaseWithALaggingSecondary(),
+            protocolCache: $protocolCacheMock,
+            helpers: new Helpers(),
+        )->revokeByAuthCodeId('cached_auth_code_id');
+    }
+
+
+    protected function isRevokedOnThePrimary(string $tokenId): bool
+    {
+        return (bool)$this->database->readPrimary(
+            'SELECT is_revoked FROM phpunit_oidc_access_token WHERE id = :id',
+            ['id' => $tokenId],
+        )->fetchColumn();
     }
 }

@@ -35,13 +35,18 @@ class IssuerStateRepository extends AbstractDatabaseRepository
     }
 
 
+    /**
+     * Read from the primary: the PAR and authorization endpoints look an issuer state up moments after the
+     * Credential Offer carrying it was created, and a secondary which has not caught up yet would not know a
+     * fresh offer, nor that one was spent or given back since.
+     */
     public function find(string $value): ?IssuerStateEntity
     {
         /** @var ?array $data */
         $data = $this->protocolCache?->get(null, $this->getCacheKey($value));
 
         if (!is_array($data)) {
-            $stmt = $this->database->read(
+            $stmt = $this->database->readPrimary(
                 "SELECT * FROM {$this->getTableName()} WHERE value = :value",
                 [
                     'value' => $value,

@@ -156,17 +156,41 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
 
     /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * Revoke every refresh token issued for an authorization code. They are found on the primary: the token endpoint
+     * may revoke them moments after issuing them, when a code is replayed right away, and when the rest of its
+     * own response fails (AuthCodeGrant gives a Credential Offer back only once they are revoked), and a
+     * secondary which has not caught up yet would not have them. Each is revoked by its primary key, since
+     * auth_code_id has no index, and an UPDATE by it would scan the table (on InnoDB, locking every row it
+     * scans). No token is loaded, as loading one may read such a secondary. Each revoked row is then cached in
+     * place of any copy, and also where there was none: otherwise the next lookup could read a secondary which
+     * does not have the revocation yet, and cache the token again as valid. A token which has already expired
+     * is dropped from the cache instead (its TTL is not positive), and is refused for its expiry anyway.
+     *
+     * @throws \Exception
      */
     public function revokeByAuthCodeId(string $authCodeId): void
     {
-        $stmt = $this->database->read(
-            "SELECT id FROM {$this->getTableName()} WHERE auth_code_id = :auth_code_id",
+        $rows = $this->database->readPrimary(
+            "SELECT * FROM {$this->getTableName()} WHERE auth_code_id = :auth_code_id",
             ['auth_code_id' => $authCodeId],
-        );
+        )->fetchAll(PDO::FETCH_ASSOC);
 
-        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN, 0) as $id) {
-            $this->revokeRefreshToken((string)$id);
+        /** @var array $row */
+        foreach ($rows as $row) {
+            $this->database->write(
+                "UPDATE {$this->getTableName()} SET is_revoked = :revoked WHERE id = :id",
+                ['revoked' => [true, PDO::PARAM_BOOL], 'id' => (string)$row['id']],
+            );
+
+            $row['is_revoked'] = true;
+
+            $this->protocolCache?->set(
+                $row,
+                $this->helpers->dateTime()->getSecondsToExpirationTime(
+                    $this->helpers->dateTime()->getUtc((string)$row['expires_at'])->getTimestamp(),
+                ),
+                $this->getCacheKey((string)$row['id']),
+            );
         }
     }
 

@@ -26,6 +26,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class PushedAuthorizationRequestRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     protected MockObject $moduleConfigMock;
 
     protected Helpers $helpers;
@@ -107,6 +110,29 @@ class PushedAuthorizationRequestRepositoryTest extends TestCase
     {
         $this->assertNull(
             $this->repository->find(PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'unknown'),
+        );
+    }
+
+
+    /**
+     * The authorization endpoint looks a request up moments after the PAR endpoint wrote it, before a
+     * secondary may have it.
+     */
+    public function testFindsAJustPushedRequestBeforeASecondaryHasIt(): void
+    {
+        $repository = new PushedAuthorizationRequestRepository(
+            $this->moduleConfigMock,
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->entityFactory,
+            $this->helpers,
+        );
+        $entity = $this->entityFactory->fromData('client123', []);
+        $repository->persist($entity);
+
+        $this->assertSame(
+            $entity->getRequestUri(),
+            $repository->findValid($entity->getRequestUri())?->getRequestUri(),
         );
     }
 

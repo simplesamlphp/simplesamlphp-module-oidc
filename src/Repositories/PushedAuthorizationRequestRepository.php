@@ -62,6 +62,9 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
     /**
      * Find Pushed Authorization Request entity by request_uri.
      *
+     * Read from the primary: the authorization endpoint looks a request up moments after the PAR endpoint wrote
+     * it, and a secondary which has not caught up yet would turn a fresh request_uri away as unknown.
+     *
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \JsonException
      * @throws \Exception
@@ -72,7 +75,7 @@ class PushedAuthorizationRequestRepository extends AbstractDatabaseRepository
         $state = $this->protocolCache?->get(null, $this->getCacheKey($requestUri));
 
         if (!is_array($state)) {
-            $stmt = $this->database->read(
+            $stmt = $this->database->readPrimary(
                 "SELECT request_uri, client_id, parameters, expires_at, is_consumed " .
                 "FROM {$this->getTableName()} WHERE request_uri = :request_uri",
                 ['request_uri' => $requestUri],

@@ -26,6 +26,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class IssuerStateRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     protected MockObject $moduleConfigMock;
 
     protected Helpers $helpers;
@@ -110,6 +113,26 @@ class IssuerStateRepositoryTest extends TestCase
     public function testFindReturnsNullForUnknownValue(): void
     {
         $this->assertNull($this->repository->find('unknown-issuer-state-value'));
+    }
+
+
+    /**
+     * The PAR and authorization endpoints look an issuer state up moments after the Credential Offer carrying it
+     * was created, before a secondary may have it.
+     */
+    public function testFindsAJustOfferedIssuerStateBeforeASecondaryHasIt(): void
+    {
+        $repository = new IssuerStateRepository(
+            $this->moduleConfigMock,
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->entityFactory,
+            $this->helpers,
+        );
+        $entity = $this->entityFactory->buildNew();
+        $repository->persist($entity);
+
+        $this->assertSame($entity->getValue(), $repository->findValid($entity->getValue())?->getValue());
     }
 
 

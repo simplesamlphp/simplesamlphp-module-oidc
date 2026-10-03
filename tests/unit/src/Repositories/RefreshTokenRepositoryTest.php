@@ -31,6 +31,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class RefreshTokenRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     final public const string CLIENT_ID = 'refresh_token_client_id';
 
     final public const string USER_ID = 'refresh_token_user_id';
@@ -263,16 +266,80 @@ class RefreshTokenRepositoryTest extends TestCase
 
         $this->repository->persistNewRefreshToken($refreshToken);
 
-        $this->refreshTokenEntityFactoryMock->expects($this->once())
-            ->method('fromState')
-            ->with(
-                $this->callback(fn(array $state): bool => $state['id'] === self::REFRESH_TOKEN_ID),
-            )->willReturn($this->refreshTokenEntityMock);
-
-        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
-
-        $this->refreshTokenEntityMock->expects($this->once())->method('revoke');
-
         $this->repository->revokeByAuthCodeId(self::AUTH_CODE_ID);
+
+        $this->assertTrue($this->isRevokedOnThePrimary(self::REFRESH_TOKEN_ID));
+    }
+
+
+    /**
+     * The token endpoint revokes what it has just issued for a code when the rest of its response fails, before a
+     * database secondary may have it, and with no copy in a protocol cache (none is configured by default).
+     */
+    public function testRevokesByAuthCodeIdWhatWasJustIssuedBeforeASecondaryHasIt(): void
+    {
+        $repository = new RefreshTokenRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->accessTokenRepositoryMock,
+            $this->refreshTokenEntityFactoryMock,
+            new Helpers(),
+        );
+        $repository->persistNewRefreshToken(new RefreshTokenEntity(
+            'just_issued_refresh_token_id',
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            $this->accessTokenMock,
+            'just_issued_auth_code_id',
+        ));
+
+        $repository->revokeByAuthCodeId('just_issued_auth_code_id');
+
+        $this->assertTrue($this->isRevokedOnThePrimary('just_issued_refresh_token_id'));
+    }
+
+
+    /**
+     * The revoked row is cached even where no copy was (evicted, or held by another node's cache): otherwise the
+     * next lookup could read a secondary which does not have the revocation yet, and cache the token again as
+     * valid. The row is read from the primary, since the token may be too new for a secondary.
+     */
+    public function testRevokingByAuthCodeIdCachesTheRevokedRow(): void
+    {
+        $this->repository->persistNewRefreshToken(new RefreshTokenEntity(
+            'cached_refresh_token_id',
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            $this->accessTokenMock,
+            'cached_auth_code_id',
+        ));
+
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->method('get')->willReturn(null);
+        $protocolCacheMock->expects($this->never())->method('delete');
+        $protocolCacheMock->expects($this->once())->method('set')->with(
+            $this->callback(
+                fn(array $row): bool => $row['id'] === 'cached_refresh_token_id' && (bool)$row['is_revoked'],
+            ),
+            $this->callback(fn(mixed $ttl): bool => is_int($ttl) && $ttl > 0),
+            'phpunit_oidc_refresh_token_cached_refresh_token_id',
+        );
+
+        (new RefreshTokenRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            $protocolCacheMock,
+            $this->accessTokenRepositoryMock,
+            $this->refreshTokenEntityFactoryMock,
+            new Helpers(),
+        ))->revokeByAuthCodeId('cached_auth_code_id');
+    }
+
+
+    protected function isRevokedOnThePrimary(string $tokenId): bool
+    {
+        return (bool)Database::getInstance()->readPrimary(
+            'SELECT is_revoked FROM phpunit_oidc_refresh_token WHERE id = :id',
+            ['id' => $tokenId],
+        )->fetchColumn();
     }
 }
