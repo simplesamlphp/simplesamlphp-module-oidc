@@ -214,32 +214,36 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
 
     /**
-     * Revoke every access token issued for an authorization code. They are found on the primary: the token endpoint
-     * may revoke them moments after issuing them, when a code is replayed right away, and when the rest of its
-     * own response fails (AuthCodeGrant gives a Credential Offer back only once they are revoked), and a
-     * secondary which has not caught up yet would not have them. Each is revoked by its primary key, since
-     * auth_code_id has no index, and an UPDATE by it would scan the table (on InnoDB, locking every row it
-     * scans). No token is loaded, as loading one may read such a secondary. Each revoked row is then cached in
-     * place of any copy, and also where there was none: otherwise the next lookup could read a secondary which
-     * does not have the revocation yet, and cache the token again as valid. A token which has already expired
-     * is dropped from the cache instead (its TTL is not positive), and is refused for its expiry anyway.
+     * Revoke every access token issued for an authorization code, with one UPDATE by auth_code_id (indexed by
+     * DatabaseMigration::version20261003000001()). The token endpoint may revoke them moments after issuing them,
+     * when a code is replayed right away, and when the rest of its own response fails (AuthCodeGrant gives a
+     * Credential Offer back only once they are revoked), so nothing here asks a secondary, which may not have them
+     * yet. With a protocol cache, the code's rows are read from the primary first, and each is cached marked
+     * revoked once the UPDATE is done, so that a valid copy cached by an earlier lookup does not outlive the
+     * revocation. A token which has already expired is dropped from the cache instead (its TTL is not positive),
+     * and is refused for its expiry anyway. Without a protocol cache (none is configured by default), nothing is
+     * read.
      *
      * @throws \Exception
      */
     public function revokeByAuthCodeId(string $authCodeId): void
     {
-        $rows = $this->database->readPrimary(
-            "SELECT * FROM {$this->getTableName()} WHERE auth_code_id = :auth_code_id",
-            ['auth_code_id' => $authCodeId],
-        )->fetchAll(PDO::FETCH_ASSOC);
+        $rows = [];
+
+        if ($this->protocolCache !== null) {
+            $rows = $this->database->readPrimary(
+                "SELECT * FROM {$this->getTableName()} WHERE auth_code_id = :auth_code_id",
+                ['auth_code_id' => $authCodeId],
+            )->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        $this->database->write(
+            "UPDATE {$this->getTableName()} SET is_revoked = :revoked WHERE auth_code_id = :auth_code_id",
+            ['revoked' => [true, PDO::PARAM_BOOL], 'auth_code_id' => $authCodeId],
+        );
 
         /** @var array $row */
         foreach ($rows as $row) {
-            $this->database->write(
-                "UPDATE {$this->getTableName()} SET is_revoked = :revoked WHERE id = :id",
-                ['revoked' => [true, PDO::PARAM_BOOL], 'id' => (string)$row['id']],
-            );
-
             $row['is_revoked'] = true;
 
             $this->protocolCache?->set(

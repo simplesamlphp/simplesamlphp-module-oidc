@@ -277,6 +277,11 @@ class DatabaseMigration
             $this->version20260903000001();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20260903000001')");
         }
+
+        if (!in_array('20261003000001', $versions, true)) {
+            $this->version20261003000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000001')");
+        }
     }
 
 
@@ -1189,6 +1194,28 @@ EOT
             ADD issuer_identifier TEXT NULL
 EOT
             ,);
+    }
+
+
+    /**
+     * Index both token tables by the authorization code a token was issued for.
+     *
+     * The token endpoint revokes every token issued for a code when that code is presented again, and
+     * when its own response fails after a Credential Offer was redeemed (revokeByAuthCodeId() of both
+     * token repositories), and finds them by this column. Without an index, each of those lookups reads
+     * the whole table, which keeps every token until it has expired and been removed.
+     */
+    private function version20261003000001(): void
+    {
+        foreach ([AccessTokenRepository::TABLE_NAME, RefreshTokenRepository::TABLE_NAME] as $table) {
+            $tableName = $this->database->applyPrefix($table);
+
+            $this->createIndex(
+                $this->generateIdentifierName([$tableName, 'auth_code_id'], 'idx'),
+                $tableName,
+                'auth_code_id',
+            );
+        }
     }
 
 

@@ -385,9 +385,77 @@ class AccessTokenRepositoryTest extends TestCase
 
 
     /**
-     * The revoked row is cached even where no copy was (evicted, or held by another node's cache): otherwise the
-     * next lookup could read a secondary which does not have the revocation yet, and cache the token again as
-     * valid. The row is read from the primary, since the token may be too new for a secondary.
+     * Every token issued for the code is revoked, and no token issued for another code.
+     */
+    public function testRevokesByAuthCodeIdEveryTokenOfThatCodeAndNoOther(): void
+    {
+        $sut = new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $this->database,
+            null,
+            $this->clientRepositoryMock,
+            $this->accessTokenEntityFactoryMock,
+            $this->helpersMock,
+        );
+
+        $authCodeIdsByTokenId = [
+            'every_token_first_access_token_id' => 'every_token_auth_code_id',
+            'every_token_second_access_token_id' => 'every_token_auth_code_id',
+            'every_token_other_access_token_id' => 'every_token_other_auth_code_id',
+        ];
+
+        foreach ($authCodeIdsByTokenId as $tokenId => $authCodeId) {
+            $accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
+            $accessTokenEntityMock->method('getState')
+                ->willReturn(['id' => $tokenId, 'auth_code_id' => $authCodeId] + $this->accessTokenState);
+            $sut->persistNewAccessToken($accessTokenEntityMock);
+        }
+
+        $sut->revokeByAuthCodeId('every_token_auth_code_id');
+
+        $this->assertTrue($this->isRevokedOnThePrimary('every_token_first_access_token_id'));
+        $this->assertTrue($this->isRevokedOnThePrimary('every_token_second_access_token_id'));
+        $this->assertFalse($this->isRevokedOnThePrimary('every_token_other_access_token_id'));
+    }
+
+
+    /**
+     * Without a protocol cache (none is configured by default) there is nothing to cache the revoked rows in, so
+     * nothing is read: the one UPDATE is all.
+     */
+    public function testRevokingByAuthCodeIdWithoutACacheReadsNothing(): void
+    {
+        $state = [
+            'id' => 'read_nothing_access_token_id',
+            'auth_code_id' => 'read_nothing_auth_code_id',
+        ] + $this->accessTokenState;
+        $this->accessTokenEntityMock->method('getState')->willReturn($state);
+        $this->accessTokenEntityMock->method('getExpiryDateTime')->willReturn(new DateTimeImmutable());
+        $this->sut()->persistNewAccessToken($this->accessTokenEntityMock);
+
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('applyPrefix')->willReturnCallback($this->database->applyPrefix(...));
+        $databaseMock->expects($this->once())->method('write')->willReturnCallback($this->database->write(...));
+        $databaseMock->expects($this->never())->method('readPrimary');
+        $databaseMock->expects($this->never())->method('read');
+
+        (new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $databaseMock,
+            null,
+            $this->clientRepositoryMock,
+            $this->accessTokenEntityFactoryMock,
+            $this->helpersMock,
+        ))->revokeByAuthCodeId('read_nothing_auth_code_id');
+
+        $this->assertTrue($this->isRevokedOnThePrimary('read_nothing_access_token_id'));
+    }
+
+
+    /**
+     * With a protocol cache, the revoked row is cached in place of any copy, so that a valid one cached by an
+     * earlier lookup does not outlive the revocation. The cache is not asked first, so the row is cached where
+     * there was no copy too. It is read from the primary, since the token may be too new for a secondary.
      */
     public function testRevokingByAuthCodeIdCachesTheRevokedRow(): void
     {
