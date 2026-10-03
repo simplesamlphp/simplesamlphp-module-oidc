@@ -116,6 +116,11 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
     /**
      * Find Auth Code by id.
+     *
+     * Read from the primary: the token endpoint looks a code up moments after the authorization endpoint wrote it,
+     * and refuses a replayed code by its revocation, neither of which a database secondary that has not caught up
+     * yet may have.
+     *
      * @throws \Exception
      */
     public function findById(string $codeId): ?AuthCodeEntity
@@ -124,7 +129,7 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
         $data = $this->protocolCache?->get(null, $this->getCacheKey($codeId));
 
         if (!is_array($data)) {
-            $stmt = $this->database->read(
+            $stmt = $this->database->readPrimary(
                 "SELECT * FROM {$this->getTableName()} WHERE id = :id",
                 [
                     'id' => $codeId,

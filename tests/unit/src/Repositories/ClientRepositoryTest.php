@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
+use PDO;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,6 +25,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class ClientRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     protected ClientRepository $repository;
 
     protected MockObject $clientEntityMock;
@@ -408,7 +412,7 @@ class ClientRepositoryTest extends TestCase
         $caseInsensitiveDatabase = $this->createMock(Database::class);
         $statement = $this->createMock(PDOStatement::class);
         $statement->method('fetchAll')->willReturn([[ClientEntity::KEY_ID => 'MozillaThunderbird']]);
-        $caseInsensitiveDatabase->method('read')->willReturn($statement);
+        $caseInsensitiveDatabase->method('readPrimary')->willReturn($statement);
         $sut = new ClientRepository(new ModuleConfig(), $caseInsensitiveDatabase, null, $this->clientEntityFactoryMock);
 
         $this->assertNull($sut->findById('mozillathunderbird'));
@@ -450,6 +454,122 @@ class ClientRepositoryTest extends TestCase
     }
 
 
+    /**
+     * A client may be looked up moments after it was registered, before a database secondary has it, and with no copy
+     * in a protocol cache (none is configured by default).
+     */
+    public function testFindsAJustRegisteredClientBeforeASecondaryHasIt(): void
+    {
+        $client = self::getClient('found_on_the_primary_client_id');
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(
+                fn(array $state): bool => $state[ClientEntity::KEY_ID] === 'found_on_the_primary_client_id',
+            ))
+            ->willReturn($client);
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+        $sut->add($client);
+
+        $this->assertSame($client, $sut->findById('found_on_the_primary_client_id'));
+    }
+
+
+    /**
+     * A dynamically registered client is authenticated at its configuration endpoint by a registration access token
+     * which every read and update there replaces, and which a database secondary may not have yet. The client is read
+     * from the primary, and not only when a secondary has no copy of it.
+     */
+    public function testAClientChangedOnThePrimaryIsFoundChangedWhileASecondaryHasItAsItWas(): void
+    {
+        $clientId = 'changed_on_the_primary_client_id';
+        $this->repository->add(self::getClient($clientId));
+        $rowsBeforeTheChange = $this->rowsWithId('phpunit_oidc_client', $clientId);
+        Database::getInstance()->write(
+            'UPDATE phpunit_oidc_client SET registration_access_token = :token WHERE id = :id',
+            ['token' => 'replacing_registration_access_token_hash', 'id' => $clientId],
+        );
+
+        $clientAsItWas = self::getClient($clientId);
+        $clientAsChanged = self::getClient($clientId);
+        $this->clientEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $state): ClientEntityInterface =>
+                $state[ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN] === 'replacing_registration_access_token_hash' ?
+                    $clientAsChanged :
+                    $clientAsItWas,
+        );
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithAStaleSecondary($rowsBeforeTheChange),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+
+        $this->assertSame($clientAsChanged, $sut->findById($clientId));
+    }
+
+
+    /**
+     * A client may be looked up by its entity identifier moments after it was registered, before a database secondary
+     * has it, and with no copy in a protocol cache (none is configured by default).
+     */
+    public function testFindsAJustRegisteredClientByItsEntityIdentifierBeforeASecondaryHasIt(): void
+    {
+        $entityIdentifier = 'https://found-on-the-primary.example.org';
+        $client = self::getClient('found_by_entity_identifier_client_id', entityId: $entityIdentifier);
+        $this->clientEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(
+                fn(array $state): bool => $state[ClientEntity::KEY_ENTITY_IDENTIFIER] === $entityIdentifier,
+            ))
+            ->willReturn($client);
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+        $sut->add($client);
+
+        $this->assertSame($client, $sut->findByEntityIdentifier($entityIdentifier));
+    }
+
+
+    /**
+     * A client disabled moments ago, which a database secondary may not have yet, is found disabled by its entity
+     * identifier. The client is read from the primary, and not only when a secondary has no copy of it.
+     */
+    public function testAClientChangedOnThePrimaryIsFoundChangedByItsEntityIdentifierWhileASecondaryHasItAsItWas(): void
+    {
+        $clientId = 'changed_by_entity_identifier_client_id';
+        $entityIdentifier = 'https://changed-on-the-primary.example.org';
+        $this->repository->add(self::getClient($clientId, entityId: $entityIdentifier));
+        $rowsBeforeTheChange = $this->rowsWithId('phpunit_oidc_client', $clientId);
+        Database::getInstance()->write(
+            'UPDATE phpunit_oidc_client SET is_enabled = :is_enabled WHERE id = :id',
+            ['is_enabled' => [false, PDO::PARAM_BOOL], 'id' => $clientId],
+        );
+
+        $enabledClient = self::getClient($clientId, entityId: $entityIdentifier);
+        $disabledClient = self::getClient($clientId, false, entityId: $entityIdentifier);
+        $this->clientEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $state): ClientEntityInterface => (bool)$state[ClientEntity::KEY_IS_ENABLED] ?
+                $enabledClient :
+                $disabledClient,
+        );
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithAStaleSecondary($rowsBeforeTheChange),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+
+        $this->assertSame($disabledClient, $sut->findByEntityIdentifier($entityIdentifier));
+    }
+
+
     public function testAnIdIsTakenWhateverItsLetterCase(): void
     {
         $this->repository->add(self::getClient('MozillaThunderbird'));
@@ -471,7 +591,7 @@ class ClientRepositoryTest extends TestCase
         $accentInsensitiveDatabase = $this->createMock(Database::class);
         $statement = $this->createMock(PDOStatement::class);
         $statement->method('fetchAll')->willReturn([[ClientEntity::KEY_ID => 'https://rp.example.org/café']]);
-        $accentInsensitiveDatabase->expects($this->once())->method('read')
+        $accentInsensitiveDatabase->expects($this->once())->method('readPrimary')
             ->with($this->stringEndsWith('WHERE id = :id'), ['id' => 'https://rp.example.org/cafe'])
             ->willReturn($statement);
         $sut = new ClientRepository(
@@ -494,6 +614,96 @@ class ClientRepositoryTest extends TestCase
 
         $this->assertTrue($this->repository->isIdentifierTakenIgnoringCase('https://rp.example.org/klijent-č'));
         $this->assertFalse($this->repository->isIdentifierTakenIgnoringCase('https://rp.example.org/klijent-c'));
+    }
+
+
+    /**
+     * An ID given to a client moments ago is taken, whatever its letter case, before a database secondary has the
+     * client.
+     */
+    public function testAnIdGivenMomentsAgoIsTakenBeforeASecondaryHasIt(): void
+    {
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+        $sut->add(self::getClient('JustRegisteredThunderbird'));
+
+        $this->assertTrue($sut->isIdentifierTakenIgnoringCase('JustRegisteredThunderbird'));
+        $this->assertTrue($sut->isIdentifierTakenIgnoringCase('justregisteredthunderbird'));
+    }
+
+
+    /**
+     * The admin client list, and its page count, include clients registered moments ago, before a database secondary
+     * has them.
+     *
+     * @throws \Exception
+     */
+    public function testPaginatesClientsRegisteredMomentsAgoBeforeASecondaryHasThem(): void
+    {
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+        array_map(function (int $i) use ($sut): void {
+            $sut->add(self::getClient('paginated_on_the_primary_client_id' . $i));
+        }, range(1, 21));
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($this->clientEntityMock);
+
+        $pageTwo = $sut->findPaginated(2);
+
+        $this->assertSame(2, $pageTwo['numPages']);
+        $this->assertSame(2, $pageTwo['currentPage']);
+        $this->assertCount(1, $pageTwo['items']);
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testFindsAllClientsRegisteredMomentsAgoBeforeASecondaryHasThem(): void
+    {
+        $client = self::getClient('listed_on_the_primary_client_id');
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+        $sut->add($client);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
+
+        $this->assertSame([$client], $sut->findAll());
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testFindsAllFederatedClientsRegisteredMomentsAgoBeforeASecondaryHasThem(): void
+    {
+        $client = self::getClient(
+            id: 'listed_federated_on_the_primary_client_id',
+            entityId: 'https://listed-on-the-primary.example.org',
+            federationJwks: [],
+        );
+        $sut = new ClientRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientEntityFactoryMock,
+        );
+        $sut->add($client);
+        $this->clientEntityFactoryMock->method('fromState')->willReturn($client);
+
+        $this->assertSame([$client], $sut->findAllFederated());
     }
 
 

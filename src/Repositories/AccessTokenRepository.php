@@ -141,6 +141,11 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
 
     /**
      * Find Access Token by id.
+     *
+     * Read from the primary: a resource endpoint may look a token up moments after the token endpoint issued it,
+     * and accepts it only if it is not revoked, neither of which a database secondary that has not caught up yet
+     * may have. A copy read here is cached for the token's remaining lifetime, so a stale one would outlast the lag.
+     *
      * @throws \Exception
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -150,7 +155,7 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
         $data = $this->protocolCache?->get(null, $this->getCacheKey($tokenId));
 
         if (!is_array($data)) {
-            $stmt = $this->database->read(
+            $stmt = $this->database->readPrimary(
                 "SELECT * FROM {$this->getTableName()} WHERE id = :id",
                 [
                     'id' => $tokenId,

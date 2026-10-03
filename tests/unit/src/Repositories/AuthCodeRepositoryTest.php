@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
+use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -35,6 +36,9 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 #[AllowMockObjectsWithoutExpectations]
 class AuthCodeRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     final public const string CLIENT_ID = 'auth_code_client_id';
 
     final public const string USER_ID = 'auth_code_user_id';
@@ -225,6 +229,74 @@ class AuthCodeRepositoryTest extends TestCase
 
 
     /**
+     * The token endpoint reads a code moments after the authorization endpoint wrote it, before a database secondary
+     * may have it, and with no copy in a protocol cache (none is configured by default).
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \Exception
+     */
+    public function testFindsAJustIssuedCodeBeforeASecondaryHasIt(): void
+    {
+        $authCode = new AuthCodeEntity(
+            'found_on_the_primary_auth_code_id',
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+        );
+        $this->authCodeEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(fn(array $state): bool => $state['id'] === 'found_on_the_primary_auth_code_id'))
+            ->willReturn($authCode);
+
+        $repository = $this->uncachedRepositoryOver($this->databaseWithALaggingSecondary());
+        $repository->persistNewAuthCode($authCode);
+
+        $this->assertSame($authCode, $repository->findById('found_on_the_primary_auth_code_id'));
+    }
+
+
+    /**
+     * The token endpoint refuses a replayed code by its revocation, which a database secondary may not have yet. The
+     * code is read from the primary, and not only when a secondary has no copy of it.
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \Exception
+     */
+    public function testACodeRevokedOnThePrimaryIsRevokedWhileASecondaryStillHasItValid(): void
+    {
+        $codeId = 'revoked_on_the_primary_auth_code_id';
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+        );
+        $revokedAuthCode = clone $authCode;
+        $revokedAuthCode->revoke();
+        $this->authCodeEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $state): AuthCodeEntity => (bool)$state['is_revoked'] ? $revokedAuthCode : $authCode,
+        );
+
+        $this->repository->persistNewAuthCode($authCode);
+        $rowsBeforeTheRevocation = $this->rowsWithId('phpunit_oidc_auth_code', $codeId);
+        Database::getInstance()->write(
+            'UPDATE phpunit_oidc_auth_code SET is_revoked = :revoked WHERE id = :id',
+            ['revoked' => [true, PDO::PARAM_BOOL], 'id' => $codeId],
+        );
+
+        $this->assertTrue(
+            $this->uncachedRepositoryOver($this->databaseWithAStaleSecondary($rowsBeforeTheRevocation))
+                ->isAuthCodeRevoked($codeId),
+        );
+    }
+
+
+    /**
      * @throws \JsonException
      * @throws \SimpleSAML\Error\Error
      */
@@ -336,6 +408,19 @@ class AuthCodeRepositoryTest extends TestCase
 
         $this->repository->persistNewAuthCode(
             $this->createMock(AuthCodeEntityInterface::class),
+        );
+    }
+
+
+    protected function uncachedRepositoryOver(Database $database): AuthCodeRepository
+    {
+        return new AuthCodeRepository(
+            $this->moduleConfigMock,
+            $database,
+            null,
+            $this->clientRepositoryMock,
+            $this->authCodeEntityFactoryMock,
+            $this->helpersMock,
         );
     }
 }

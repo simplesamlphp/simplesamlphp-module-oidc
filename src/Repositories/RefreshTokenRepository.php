@@ -88,6 +88,11 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
 
     /**
      * Find Refresh Token by id.
+     *
+     * Read from the primary: the refresh token grant refuses a refresh token by its revocation (one already
+     * exchanged, say), which a database secondary that has not caught up yet may not have. A copy read here is
+     * cached for the token's remaining lifetime, so a stale one would outlast the lag.
+     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Exception
      */
@@ -97,7 +102,7 @@ class RefreshTokenRepository extends AbstractDatabaseRepository implements Refre
         $data = $this->protocolCache?->get(null, $this->getCacheKey($tokenId));
 
         if (!is_array($data)) {
-            $stmt = $this->database->read(
+            $stmt = $this->database->readPrimary(
                 "SELECT * FROM {$this->getTableName()} WHERE id = :id",
                 [
                     'id' => $tokenId,

@@ -14,6 +14,10 @@ use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
+/**
+ * Every query here reads the database primary rather than a secondary, which may not have a client registered or
+ * changed moments earlier yet.
+ */
 class ClientRepository extends AbstractDatabaseRepository implements ClientRepositoryInterface
 {
     final public const string TABLE_NAME = 'oidc_client';
@@ -91,6 +95,11 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      * A cached client has to be checked the same way: a client is cached under its ID and under its entity identifier
      * alike (self::getCacheKey()), so the entry found for an ID may be the client whose entity identifier that is.
      *
+     * Read from the primary: a client may be looked up moments after it was registered or changed, and a dynamically
+     * registered one is authenticated at its configuration endpoint by a registration access token which every read
+     * and update there replaces (RegistrationController), neither of which a database secondary that has not caught
+     * up yet may have.
+     *
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -119,7 +128,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $owner,
         );
 
-        $stmt = $this->database->read($query, $params);
+        $stmt = $this->database->readPrimary($query, $params);
 
         if (empty($rows = $stmt->fetchAll())) {
             return null;
@@ -167,7 +176,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
      */
     public function isIdentifierTakenIgnoringCase(string $clientIdentifier): bool
     {
-        $sameToTheDatabase = $this->database->read(
+        $sameToTheDatabase = $this->database->readPrimary(
             "SELECT id FROM {$this->getTableName()} WHERE id = :id",
             [
                 'id' => $clientIdentifier,
@@ -178,7 +187,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             return true;
         }
 
-        $sameLength = $this->database->read(
+        $sameLength = $this->database->readPrimary(
             "SELECT id FROM {$this->getTableName()} WHERE LENGTH(id) = :length",
             [
                 'length' => [strlen($clientIdentifier), PDO::PARAM_INT],
@@ -233,7 +242,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             $owner,
         );
 
-        $stmt = $this->database->read($query, $params);
+        $stmt = $this->database->readPrimary($query, $params);
 
         if (empty($rows = $stmt->fetchAll())) {
             return null;
@@ -325,7 +334,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             [],
             $owner,
         );
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             "$query ORDER BY name ASC",
             $params,
         );
@@ -365,7 +374,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             ],
             $owner,
         );
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             "$query ORDER BY name ASC",
             $params,
         );
@@ -407,7 +416,7 @@ class ClientRepository extends AbstractDatabaseRepository implements ClientRepos
             ['name' => '%' . $query . '%'],
             $owner,
         );
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             $sqlQuery . " ORDER BY name ASC LIMIT $limit OFFSET $offset",
             $params,
         );
@@ -601,7 +610,7 @@ EOF
             ['name' => '%' . $query . '%'],
             $owner,
         );
-        $stmt = $this->database->read(
+        $stmt = $this->database->readPrimary(
             $sqlQuery,
             $params,
         );

@@ -18,17 +18,44 @@ trait LaggingSecondaryTestTrait
      */
     protected function databaseWithALaggingSecondary(): Database
     {
+        return $this->databaseWithAStaleSecondary([]);
+    }
+
+
+    /**
+     * A deployment whose database secondary has not caught up with a write yet: writes and primary reads reach the
+     * test database, while a read from the secondary answers with the rows given, as they were before that write.
+     */
+    protected function databaseWithAStaleSecondary(array $staleRows): Database
+    {
         $database = Database::getInstance();
-        $emptyStatementMock = $this->createMock(PDOStatement::class);
-        $emptyStatementMock->method('fetch')->willReturn(false);
-        $emptyStatementMock->method('fetchAll')->willReturn([]);
 
         $databaseMock = $this->createMock(Database::class);
         $databaseMock->method('applyPrefix')->willReturnCallback($database->applyPrefix(...));
         $databaseMock->method('write')->willReturnCallback($database->write(...));
         $databaseMock->method('readPrimary')->willReturnCallback($database->readPrimary(...));
-        $databaseMock->method('read')->willReturn($emptyStatementMock);
+        $databaseMock->method('read')->willReturnCallback(function () use ($staleRows): PDOStatement {
+            $rows = $staleRows;
+            $statementMock = $this->createMock(PDOStatement::class);
+            $statementMock->method('fetch')->willReturnCallback(function () use (&$rows): mixed {
+                return array_shift($rows) ?? false;
+            });
+            $statementMock->method('fetchAll')->willReturn($staleRows);
+
+            return $statementMock;
+        });
 
         return $databaseMock;
+    }
+
+
+    /**
+     * The rows of a table with this ID as they are now, for a stale secondary to answer with after a later write.
+     */
+    protected function rowsWithId(string $table, string $id): array
+    {
+        return Database::getInstance()
+            ->readPrimary("SELECT * FROM $table WHERE id = :id", ['id' => $id])
+            ->fetchAll();
     }
 }

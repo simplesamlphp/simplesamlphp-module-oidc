@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -332,6 +333,80 @@ class RefreshTokenRepositoryTest extends TestCase
             $this->refreshTokenEntityFactoryMock,
             new Helpers(),
         ))->revokeByAuthCodeId('cached_auth_code_id');
+    }
+
+
+    /**
+     * A refresh token may be looked up before a database secondary has it, with no copy in a protocol cache (none is
+     * configured by default).
+     */
+    public function testFindsAJustIssuedRefreshTokenBeforeASecondaryHasIt(): void
+    {
+        $refreshToken = new RefreshTokenEntity(
+            'found_on_the_primary_refresh_token_id',
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            $this->accessTokenMock,
+        );
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
+        $this->refreshTokenEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(
+                fn(array $state): bool => $state['id'] === 'found_on_the_primary_refresh_token_id',
+            ))
+            ->willReturn($refreshToken);
+
+        $repository = new RefreshTokenRepository(
+            new ModuleConfig(),
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->accessTokenRepositoryMock,
+            $this->refreshTokenEntityFactoryMock,
+            new Helpers(),
+        );
+        $repository->persistNewRefreshToken($refreshToken);
+
+        $this->assertSame($refreshToken, $repository->findById('found_on_the_primary_refresh_token_id'));
+    }
+
+
+    /**
+     * The refresh token grant refuses a refresh token by its revocation, which a database secondary may not have
+     * yet. The token is read from the primary, and not only when a secondary has no copy of it.
+     */
+    public function testARefreshTokenRevokedOnThePrimaryIsRevokedWhileASecondaryStillHasItValid(): void
+    {
+        $tokenId = 'revoked_on_the_primary_refresh_token_id';
+        $this->repository->persistNewRefreshToken(new RefreshTokenEntity(
+            $tokenId,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            $this->accessTokenMock,
+        ));
+        $rowsBeforeTheRevocation = $this->rowsWithId('phpunit_oidc_refresh_token', $tokenId);
+        Database::getInstance()->write(
+            'UPDATE phpunit_oidc_refresh_token SET is_revoked = :revoked WHERE id = :id',
+            ['revoked' => [true, PDO::PARAM_BOOL], 'id' => $tokenId],
+        );
+
+        $validRefreshTokenMock = $this->createMock(RefreshTokenEntity::class);
+        $validRefreshTokenMock->method('isRevoked')->willReturn(false);
+        $revokedRefreshTokenMock = $this->createMock(RefreshTokenEntity::class);
+        $revokedRefreshTokenMock->method('isRevoked')->willReturn(true);
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenMock);
+        $this->refreshTokenEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $state): RefreshTokenEntity => (bool)$state['is_revoked'] ?
+                $revokedRefreshTokenMock :
+                $validRefreshTokenMock,
+        );
+
+        $repository = new RefreshTokenRepository(
+            new ModuleConfig(),
+            $this->databaseWithAStaleSecondary($rowsBeforeTheRevocation),
+            null,
+            $this->accessTokenRepositoryMock,
+            $this->refreshTokenEntityFactoryMock,
+            new Helpers(),
+        );
+
+        $this->assertTrue($repository->isRefreshTokenRevoked($tokenId));
     }
 
 

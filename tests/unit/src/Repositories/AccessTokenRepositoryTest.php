@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use DateTimeImmutable;
+use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -415,6 +416,81 @@ class AccessTokenRepositoryTest extends TestCase
             protocolCache: $protocolCacheMock,
             helpers: new Helpers(),
         )->revokeByAuthCodeId('cached_auth_code_id');
+    }
+
+
+    /**
+     * A resource endpoint reads a token moments after the token endpoint issued it, before a database secondary may
+     * have it, and with no copy in a protocol cache (none is configured by default).
+     */
+    public function testFindsAJustIssuedTokenBeforeASecondaryHasIt(): void
+    {
+        $state = [
+            'id' => 'found_on_the_primary_access_token_id',
+            'auth_code_id' => 'found_on_the_primary_auth_code_id',
+        ] + $this->accessTokenState;
+        $this->accessTokenEntityMock->method('getState')->willReturn($state);
+        $this->accessTokenEntityMock->method('getExpiryDateTime')->willReturn(new DateTimeImmutable());
+        $accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
+        $accessTokenEntityFactoryMock->expects($this->once())->method('fromState')
+            ->with($this->callback(fn(array $row): bool => $row['id'] === 'found_on_the_primary_access_token_id'))
+            ->willReturn($this->accessTokenEntityMock);
+
+        $sut = new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->clientRepositoryMock,
+            $accessTokenEntityFactoryMock,
+            $this->helpersMock,
+        );
+        $sut->persistNewAccessToken($this->accessTokenEntityMock);
+
+        $this->assertSame($this->accessTokenEntityMock, $sut->findById('found_on_the_primary_access_token_id'));
+    }
+
+
+    /**
+     * A resource endpoint accepts a token only if it is not revoked, which a database secondary may not have yet.
+     * The token is read from the primary, and not only when a secondary has no copy of it.
+     */
+    public function testATokenRevokedOnThePrimaryIsRevokedWhileASecondaryStillHasItValid(): void
+    {
+        $tokenId = 'revoked_on_the_primary_access_token_id';
+        $state = [
+            'id' => $tokenId,
+            'auth_code_id' => 'revoked_on_the_primary_auth_code_id',
+        ] + $this->accessTokenState;
+        $this->accessTokenEntityMock->method('getState')->willReturn($state);
+        $this->accessTokenEntityMock->method('getExpiryDateTime')->willReturn(new DateTimeImmutable());
+        $this->sut()->persistNewAccessToken($this->accessTokenEntityMock);
+        $rowsBeforeTheRevocation = $this->rowsWithId('phpunit_oidc_access_token', $tokenId);
+        $this->database->write(
+            'UPDATE phpunit_oidc_access_token SET is_revoked = :revoked WHERE id = :id',
+            ['revoked' => [true, PDO::PARAM_BOOL], 'id' => $tokenId],
+        );
+
+        $validAccessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $validAccessTokenMock->method('isRevoked')->willReturn(false);
+        $revokedAccessTokenMock = $this->createMock(AccessTokenEntity::class);
+        $revokedAccessTokenMock->method('isRevoked')->willReturn(true);
+        $accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
+        $accessTokenEntityFactoryMock->method('fromState')->willReturnCallback(
+            fn(array $row): AccessTokenEntity => (bool)$row['is_revoked'] ?
+                $revokedAccessTokenMock :
+                $validAccessTokenMock,
+        );
+
+        $sut = new AccessTokenRepository(
+            $this->moduleConfigMock,
+            $this->databaseWithAStaleSecondary($rowsBeforeTheRevocation),
+            null,
+            $this->clientRepositoryMock,
+            $accessTokenEntityFactoryMock,
+            $this->helpersMock,
+        );
+
+        $this->assertTrue($sut->isAccessTokenRevoked($tokenId));
     }
 
 
