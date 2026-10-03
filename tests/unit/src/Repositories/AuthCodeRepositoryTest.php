@@ -10,6 +10,7 @@ use Exception;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -373,6 +374,95 @@ class AuthCodeRepositoryTest extends TestCase
         $this->repository->persistNewAuthCode($authCode);
 
         $this->assertFalse($this->repository->consumePreAuthorizedCode($codeId));
+    }
+
+
+    /**
+     * @return array<string,array{?\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum}>
+     */
+    public static function authorizationEndpointFlowTypes(): array
+    {
+        return [
+            'OpenID Connect' => [FlowTypeEnum::OidcAuthorizationCode],
+            'OpenID4VCI' => [FlowTypeEnum::VciAuthorizationCode],
+            'stored before flow types were' => [null],
+        ];
+    }
+
+
+    /**
+     * The token endpoint lets one request through however many present the code at once: whatever they found when
+     * they looked the code up, from the cache or the database, the conditional update changes it once. The cached
+     * copy is dropped each time.
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \Exception
+     */
+    #[DataProvider('authorizationEndpointFlowTypes')]
+    public function testConsumesAnAuthorizationCodeOnlyOnce(?FlowTypeEnum $flowType): void
+    {
+        $codeId = 'consumed_once_' . ($flowType->value ?? 'no_flow_type') . '_auth_code_id';
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('+10 minutes', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            flowTypeEnum: $flowType,
+        );
+
+        $this->protocolCacheMock->expects($this->never())->method('get');
+        $this->protocolCacheMock->expects($this->exactly(2))
+            ->method('delete')
+            ->with('phpunit_oidc_auth_code_' . $codeId);
+
+        $this->repository->persistNewAuthCode($authCode);
+
+        $this->assertTrue($this->repository->consumeAuthCode($codeId));
+        $this->assertFalse($this->repository->consumeAuthCode($codeId));
+        $this->assertTrue((bool)$this->rowsWithId('phpunit_oidc_auth_code', $codeId)[0]['is_revoked']);
+    }
+
+
+    /**
+     * The grant builds a code's expiry in PHP's default time zone, and it is stored as it reads there: on a server
+     * west of UTC, hours behind the time in UTC. A code just issued there is consumed all the same, its expiry being
+     * checked from the code itself.
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     * @throws \Exception
+     */
+    public function testConsumesACodeJustIssuedOnAServerWestOfUtc(): void
+    {
+        $codeId = 'issued_west_of_utc_auth_code_id';
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('+10 minutes', new DateTimeZone('America/New_York')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            flowTypeEnum: FlowTypeEnum::OidcAuthorizationCode,
+        );
+        $this->dateTimeHelperMock->method('getUtc')->willReturnCallback(
+            static fn(string $time = 'now'): DateTimeImmutable => new DateTimeImmutable($time, new DateTimeZone('UTC')),
+        );
+
+        $this->repository->persistNewAuthCode($authCode);
+
+        $this->assertTrue($this->repository->consumeAuthCode($codeId));
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDoesNotConsumeAnAuthorizationCodeWhichIsNotStored(): void
+    {
+        $this->assertFalse($this->repository->consumeAuthCode('never_stored_auth_code_id'));
     }
 
 

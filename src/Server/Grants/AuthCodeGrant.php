@@ -734,9 +734,18 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             if (!$this->issuerStateRepository->consume($issuerState)) {
                 $this->loggerService->warning(
                     'Token request rejected: the issuer state the authorization code carries was already ' .
-                    'redeemed or has expired.',
+                    'redeemed or has expired. Consuming the code and revoking its access and refresh tokens.',
                     ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
                 );
+                // The offer may have been redeemed with this very code, by a request presenting it at the same
+                // time, which stores its tokens and then consumes the code below. Consuming the code here too
+                // settles it: should this request come first, that one is refused when it consumes the code,
+                // revokes what it issued and gives the offer back; should that one have come first, the
+                // revocation here finds its tokens. Only this code's tokens are revoked, never those of another
+                // code which redeemed the offer. This code is spent either way, its offer being redeemed or
+                // expired.
+                $this->authCodeRepository->consumeAuthCode($authCodePayload->auth_code_id);
+                $this->revokeTokensIssuedForAuthCode($authCodePayload->auth_code_id);
                 throw OAuthServerException::invalidGrant(
                     'The Credential Offer this code was issued for was already redeemed or has expired.',
                 );
@@ -815,8 +824,21 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 }
             }
 
-            // Revoke used auth code
-            $this->authCodeRepository->revokeAuthCode($authCodePayload->auth_code_id);
+            // The code is consumed last, once everything issued for it is stored, by a conditional update which
+            // lets only one of several requests presenting it at once through. Any other is refused as a replay
+            // and revokes what was issued for the code: its own tokens, and those of the request which got
+            // through, which stored them before it consumed the code. A failure above leaves the code unconsumed.
+            // A code which followed an offer is consumed at the offer above as well, when the offer can no longer
+            // be redeemed, which is where a request presenting it at the same time as this one usually stops.
+            if (!$this->authCodeRepository->consumeAuthCode($authCodePayload->auth_code_id)) {
+                $this->loggerService->warning(
+                    'Token request rejected: authorization code was redeemed by another request in the meantime ' .
+                    '(likely reused). Revoking all related access and refresh tokens.',
+                    ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+                );
+                $this->revokeTokensIssuedForAuthCode($authCodePayload->auth_code_id);
+                throw OAuthServerException::invalidGrant('Authorization code has been revoked');
+            }
         } catch (Throwable $exception) {
             // validateAuthorizationCode() refused any other repository type already. Checked again for the
             // type checker, and so that the offer is never given back without the revocation.
@@ -887,8 +909,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
             );
             // Code is reused, all related tokens must be revoked, per https://tools.ietf.org/html/rfc6749#section-4.1.2
-            $this->accessTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
-            $this->refreshTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
+            $this->revokeTokensIssuedForAuthCode($authCodePayload->auth_code_id);
             throw OAuthServerException::invalidGrant('Authorization code has been revoked');
         }
 
@@ -929,6 +950,28 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 'Invalid redirect URI or not the same as in authorization request',
             );
         }
+    }
+
+
+    /**
+     * Revoke every access and refresh token issued for an authorization code, when a request presenting it is refused
+     * because the code was already redeemed, or the Credential Offer it followed can no longer be.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \Exception
+     */
+    private function revokeTokensIssuedForAuthCode(string $authCodeId): void
+    {
+        if (! is_a($this->accessTokenRepository, AccessTokenRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected access token repository entity type.');
+        }
+
+        if (! is_a($this->refreshTokenRepository, RefreshTokenRepositoryInterface::class)) {
+            throw OidcServerException::serverError('Unexpected refresh token repository entity type.');
+        }
+
+        $this->accessTokenRepository->revokeByAuthCodeId($authCodeId);
+        $this->refreshTokenRepository->revokeByAuthCodeId($authCodeId);
     }
 
 

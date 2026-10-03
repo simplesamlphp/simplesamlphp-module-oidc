@@ -179,10 +179,15 @@ class AuthCodeGrantTest extends TestCase
     /** @var string[] The rules the grant last asked the rules manager to check, in order. */
     private array $checkedRules = [];
 
+    /** Whether the code is still there to consume, or another request consumed it first. */
+    private bool $authCodeIsConsumable = true;
+
 
     protected function setUp(): void
     {
         $this->authCodeRepositoryMock = $this->createMock(AuthCodeRepository::class);
+        $this->authCodeRepositoryMock->method('consumeAuthCode')
+            ->willReturnCallback(fn(): bool => $this->authCodeIsConsumable);
         $this->accessTokenRepositoryMock = $this->createMock(AccessTokenRepositoryInterface::class);
         $this->refreshTokenRepositoryMock = $this->createMock(RefreshTokenRepositoryInterface::class);
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
@@ -508,19 +513,62 @@ class AuthCodeGrantTest extends TestCase
 
     /**
      * An offer is redeemed once. A second code obtained with it, by the same wallet or another, gets no token,
-     * and neither does a code whose offer expired before it was redeemed. Unlike a replayed code, it revokes
-     * nothing: the tokens of the code which did redeem the offer are not this code's, and a refusal which
-     * revoked them would let whoever holds a copy of an offer cut off the wallet it was meant for.
+     * and neither does a code whose offer expired before it was redeemed. The code is spent, and then only its own
+     * tokens are revoked: those of a code which did redeem the offer are not this code's, and a refusal which
+     * revoked them would let whoever holds a copy of an offer cut off the wallet it was meant for. This code's own
+     * are there when the offer was redeemed with this very code, by a request presenting it at the same time which
+     * consumed it first, having stored its tokens before. Spent before the revocation, so that such a request
+     * which has not consumed the code yet can no longer do so once this one revoked what it found.
      */
     public function testRefusesACodeWhoseCredentialOfferCanNoLongerBeRedeemed(): void
     {
         $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
         $this->issuerStateRepositoryMock->method('consume')->willReturn(false);
         $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
-        $this->accessTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
-        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+        $calls = $this->recordRecoveryCalls();
+        $this->recordConsumedAuthCodes($calls);
 
         $this->assertRejects('invalid_grant', $this->request());
+
+        $this->assertSame(
+            [
+                ['consume', self::AUTH_CODE_ID],
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+            ],
+            $calls->getArrayCopy(),
+        );
+    }
+
+
+    /**
+     * The other side of that race: a request which redeemed the offer with a code, while one presenting the same
+     * code at the same time was refused at the offer and consumed the code first, is refused when it consumes the
+     * code. What it issued is revoked, as for a replay and again by the recovery, and the offer given back, so that
+     * no token from the offer outlives the replay and the wallet can start over from the offer.
+     */
+    public function testGivesTheOfferBackWhenARequestRefusedAtTheOfferConsumedTheCodeFirst(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->authCodeIsConsumable = false;
+        $this->expectAccessTokenToBeIssued();
+        $calls = $this->recordRecoveryCalls();
+        $this->recordConsumedAuthCodes($calls);
+
+        $this->assertRejects('invalid_grant', $this->request());
+
+        $this->assertSame(
+            [
+                ['consume', self::AUTH_CODE_ID],
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+                ['release', self::ISSUER_STATE],
+            ],
+            $calls->getArrayCopy(),
+        );
     }
 
 
@@ -685,7 +733,7 @@ class AuthCodeGrantTest extends TestCase
 
     // Successful redemption.
 
-    public function testIssuesAccessTokenAndRevokesTheAuthorizationCode(): void
+    public function testIssuesAccessTokenAndConsumesTheAuthorizationCode(): void
     {
         $this->storedAuthCode();
         $accessToken = $this->expectAccessTokenToBeIssued();
@@ -695,8 +743,10 @@ class AuthCodeGrantTest extends TestCase
 
         // The code has to be spent, otherwise it stays redeemable and replay detection never triggers.
         $this->authCodeRepositoryMock->expects($this->once())
-            ->method('revokeAuthCode')
+            ->method('consumeAuthCode')
             ->with(self::AUTH_CODE_ID);
+        $this->accessTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
 
         $result = $this->sut()->respondToAccessTokenRequest(
             $this->request(),
@@ -705,6 +755,69 @@ class AuthCodeGrantTest extends TestCase
         );
 
         $this->assertSame($responseType, $result);
+    }
+
+
+    /**
+     * Of several requests presenting the same code at once, each finds it unrevoked when it looks it up, and only
+     * the one which consumes it first is answered with tokens. Any other is refused as a replay, and revokes
+     * everything issued for the code, those tokens included, per RFC 6749 section 4.1.2. The code is consumed only
+     * once the tokens are stored: the request which got through stored its tokens before it consumed the code, so
+     * they are there to revoke.
+     */
+    public function testRefusesACodeAnotherRequestConsumedFirstAndRevokesWhatWasIssuedForIt(): void
+    {
+        $this->storedAuthCode();
+        $this->authCodeIsConsumable = false;
+        $this->expectAccessTokenToBeIssued();
+        $this->offlineAccessGranted = true;
+        $calls = $this->recordRecoveryCalls();
+        $this->accessTokenRepositoryMock->method('persistNewAccessToken')->willReturnCallback(
+            function () use ($calls): void {
+                $calls->append(['persist access token']);
+            },
+        );
+        $this->refreshTokenIssuerMock->method('issue')->willReturnCallback(
+            function () use ($calls): RefreshTokenEntityInterface {
+                $calls->append(['issue refresh token']);
+
+                return $this->createStub(RefreshTokenEntityInterface::class);
+            },
+        );
+        $this->recordConsumedAuthCodes($calls);
+
+        $this->assertRejects('invalid_grant', $this->request());
+
+        $this->assertSame(
+            [
+                ['persist access token'],
+                ['issue refresh token'],
+                ['consume', self::AUTH_CODE_ID],
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+            ],
+            $calls->getArrayCopy(),
+        );
+    }
+
+
+    /**
+     * The code is consumed last. A request whose issuance fails leaves it unconsumed, which is what lets the
+     * wallet retry it once the offer it followed is given back.
+     */
+    public function testLeavesTheCodeUnconsumedWhenTheRefreshTokenCanNotBeIssued(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->expectAccessTokenToBeIssued();
+        $this->offlineAccessGranted = true;
+        $this->refreshTokenIssuerMock->method('issue')
+            ->willThrowException(new RuntimeException('The refresh token could not be persisted.'));
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumeAuthCode');
+
+        $this->expectException(RuntimeException::class);
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
     }
 
 
@@ -1873,6 +1986,22 @@ class AuthCodeGrantTest extends TestCase
         );
 
         return $calls;
+    }
+
+
+    /**
+     * Record, among the calls above, each authorization code the grant consumes. Whether it is still there to
+     * consume is $authCodeIsConsumable's to say: the stub setUp() registered first answers.
+     */
+    private function recordConsumedAuthCodes(ArrayObject $calls): void
+    {
+        $this->authCodeRepositoryMock->method('consumeAuthCode')->willReturnCallback(
+            function (string $authCodeId) use ($calls): bool {
+                $calls->append(['consume', $authCodeId]);
+
+                return $this->authCodeIsConsumable;
+            },
+        );
     }
 
 

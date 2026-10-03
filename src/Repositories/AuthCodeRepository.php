@@ -179,6 +179,36 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
 
 
     /**
+     * Atomically consume an authorization code at the token endpoint.
+     *
+     * The conditional update is the replay guard: of several requests presenting the same code at once, only one
+     * changes it from unrevoked to revoked, whatever each of them found when it looked the code up. The cached copy
+     * is dropped either way, so that the next lookup reads the code from the primary.
+     *
+     * The code's expiry is no condition here. The token endpoint checks it from the code itself, a timestamp,
+     * while the stored expires_at is written in PHP's default time zone: compared with the time in UTC, a code
+     * just issued on a server west of UTC would read as expired hours ago.
+     *
+     * @throws \Exception
+     */
+    public function consumeAuthCode(string $codeId): bool
+    {
+        $affected = $this->database->write(
+            "UPDATE {$this->getTableName()} SET is_revoked = :revoked WHERE id = :id AND is_revoked = :not_revoked",
+            [
+                'id' => $codeId,
+                'revoked' => [true, PDO::PARAM_BOOL],
+                'not_revoked' => [false, PDO::PARAM_BOOL],
+            ],
+        );
+
+        $this->protocolCache?->delete($this->getCacheKey($codeId));
+
+        return $affected === 1;
+    }
+
+
+    /**
      * Atomically consume a VCI pre-authorized code.
      *
      * The database is the source of truth for this replay guard. A conditional
