@@ -142,17 +142,16 @@ class PushedAuthorizationRequestEntityTest extends TestCase
 
 
     /**
-     * The moment is written out in the zone it holds, with no conversion. What keeps the column in UTC is
-     * that the factory hands over UTC moments -- from `Helpers::dateTime()->getUtc()` on both of its paths
-     * -- and this is the entity's half of that arrangement made explicit.
+     * The moment is read back as UTC, so it is written out in UTC whatever zone it is handed over in, rather
+     * than relying on every caller to hand over a UTC moment.
      *
      * @throws \JsonException
      */
-    public function testWritesTheExpiryInTheZoneOfTheMomentItHolds(): void
+    public function testWritesTheExpiryInUtc(): void
     {
         $entity = $this->sut(expiresAt: $this->moment('2026-09-19 16:30:00', 'Europe/Zagreb'));
 
-        $this->assertSame('2026-09-19 16:30:00', $entity->getState()['expires_at']);
+        $this->assertSame('2026-09-19 14:30:00', $entity->getState()['expires_at']);
     }
 
 

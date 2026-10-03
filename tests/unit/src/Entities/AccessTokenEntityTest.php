@@ -240,6 +240,21 @@ class AccessTokenEntityTest extends TestCase
 
 
     /**
+     * The expiry is made in PHP's default time zone and read back as UTC, so it is written out in UTC. As the wall
+     * clock of a server west of UTC, it would read back hours early.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testWritesTheExpiryInUtc(): void
+    {
+        $this->expiryDateTime = new DateTimeImmutable('2026-10-03 12:10:00', new DateTimeZone('America/New_York'));
+
+        $this->assertSame('2026-10-03 16:10:00', $this->mock()->getState()['expires_at']);
+    }
+
+
+    /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \JsonException
      */

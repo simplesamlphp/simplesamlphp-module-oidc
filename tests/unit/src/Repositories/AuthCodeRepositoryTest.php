@@ -378,6 +378,35 @@ class AuthCodeRepositoryTest extends TestCase
 
 
     /**
+     * A pre-authorized code's expiry is made in PHP's default time zone. Stored as the wall clock of a server west
+     * of UTC, it would read as hours earlier than it is, and the code would be refused as expired the moment it
+     * was issued.
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\Error
+     */
+    public function testConsumesAPreAuthorizedCodeJustIssuedOnAServerWestOfUtc(): void
+    {
+        $codeId = 'pre_authorized_code_issued_west_of_utc';
+        $now = new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC'));
+        $authCode = new AuthCodeEntity(
+            $codeId,
+            $this->clientEntityMock,
+            $this->scopes,
+            $now->setTimezone(new DateTimeZone('America/New_York'))->modify('+10 minutes'),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+        );
+
+        $this->dateTimeHelperMock->method('getUtc')->willReturn($now);
+        $this->repository->persistNewAuthCode($authCode);
+
+        $this->assertTrue($this->repository->consumePreAuthorizedCode($codeId));
+    }
+
+
+    /**
      * @return array<string,array{?\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum}>
      */
     public static function authorizationEndpointFlowTypes(): array
@@ -427,9 +456,8 @@ class AuthCodeRepositoryTest extends TestCase
 
 
     /**
-     * The grant builds a code's expiry in PHP's default time zone, and it is stored as it reads there: on a server
-     * west of UTC, hours behind the time in UTC. A code just issued there is consumed all the same, its expiry being
-     * checked from the code itself.
+     * The grant builds a code's expiry in PHP's default time zone. A code just issued on a server west of UTC is
+     * consumed like any other.
      *
      * @throws \JsonException
      * @throws \SimpleSAML\Error\Error

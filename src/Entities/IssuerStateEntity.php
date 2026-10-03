@@ -6,12 +6,16 @@ namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
 class IssuerStateEntity implements MementoInterface
 {
+    use FormatForDatabaseTrait;
+
+
     public function __construct(
         protected readonly string $value,
         protected readonly DateTimeImmutable $createdAt,
@@ -25,8 +29,8 @@ class IssuerStateEntity implements MementoInterface
     {
         return [
             'value' => $this->getValue(),
-            'created_at' => $this->getCreatedAt()->format('Y-m-d H:i:s'),
-            'expires_at' => $this->getExpirestAt()->format('Y-m-d H:i:s'),
+            'created_at' => $this->formatForDatabase($this->getCreatedAt()),
+            'expires_at' => $this->formatForDatabase($this->getExpirestAt()),
             'is_revoked' => $this->isRevoked(),
         ];
     }

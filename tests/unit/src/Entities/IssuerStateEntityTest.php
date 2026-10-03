@@ -101,12 +101,10 @@ class IssuerStateEntityTest extends TestCase
 
 
     /**
-     * The moments are written out in the zone they hold, with no conversion. What keeps the columns in
-     * UTC is that the factory hands over UTC moments -- from `Helpers::dateTime()->getUtc()` when it mints
-     * a new state and when it reads a row back -- and this is the entity's half of that arrangement made
-     * explicit.
+     * The moments are read back as UTC, so they are written out in UTC whatever zone they are handed over
+     * in, rather than relying on every caller to hand over UTC moments.
      */
-    public function testWritesTheMomentsInTheZoneTheyHold(): void
+    public function testWritesTheMomentsInUtc(): void
     {
         $entity = $this->sut(
             createdAt: $this->moment('2026-09-19 16:00:00', 'Europe/Zagreb'),
@@ -115,7 +113,7 @@ class IssuerStateEntityTest extends TestCase
 
         $state = $entity->getState();
 
-        $this->assertSame('2026-09-19 16:00:00', $state['created_at']);
-        $this->assertSame('2026-09-19 16:10:00', $state['expires_at']);
+        $this->assertSame('2026-09-19 14:00:00', $state['created_at']);
+        $this->assertSame('2026-09-19 14:10:00', $state['expires_at']);
     }
 }

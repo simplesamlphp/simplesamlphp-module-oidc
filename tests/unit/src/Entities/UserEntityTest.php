@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use DateTimeImmutable;
+use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -100,5 +101,23 @@ class UserEntityTest extends TestCase
                 'created_at' => '',
             ],
         );
+    }
+
+
+    /**
+     * The moments are read back as UTC, so they are written out in UTC whatever zone they are handed over in.
+     */
+    public function testWritesTheMomentsInUtc(): void
+    {
+        $userEntity = new UserEntity(
+            'id',
+            new DateTimeImmutable('2026-10-03 12:00:00', new DateTimeZone('America/New_York')),
+            new DateTimeImmutable('2026-10-03 18:30:00', new DateTimeZone('Europe/Zagreb')),
+        );
+
+        $state = $userEntity->getState();
+
+        $this->assertSame('2026-10-03 16:00:00', $state['created_at']);
+        $this->assertSame('2026-10-03 16:30:00', $state['updated_at']);
     }
 }

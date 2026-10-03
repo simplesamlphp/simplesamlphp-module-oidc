@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration\Services;
 
+use PDO;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -86,6 +87,55 @@ class DatabaseMigrationTest extends TestCase
 
         $this->assertTrue($migration->isMigrated());
         $this->assertSame([], $migration->getNotImplementedVersions());
+    }
+
+
+    /**
+     * Points in time are stored as their wall clock in UTC, so no column holding one may convert it with the
+     * connection's time zone. MySQL's TIMESTAMP does, and refuses a wall clock which a zone with daylight
+     * saving time skips; version20261003000002 turned the older tables' columns into DATETIME. PostgreSQL's
+     * TIMESTAMP has no time zone. SQLite stores what it is given, whatever a column is declared as.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('serverDatabases')]
+    public function testStoresPointsInTimeInColumnsWhichIgnoreTheConnectionTimeZone(
+        string $database,
+        string $convertingType,
+    ): void {
+        $config = self::$$database;
+        $config['database.prefix'] = 'migration_test_';
+
+        $this->database = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+        (new DatabaseMigration($this->database))->migrate();
+
+        $schema = $database === 'mysqlConfig' ? 'DATABASE()' : 'CURRENT_SCHEMA()';
+        $rows = $this->database->read(
+            'SELECT table_name, column_name, data_type FROM information_schema.columns ' .
+            "WHERE table_schema = $schema AND table_name LIKE 'migration_test_%' AND data_type LIKE '%time%'",
+        )->fetchAll(PDO::FETCH_NUM);
+
+        $types = [];
+        foreach ($rows as [$table, $column, $type]) {
+            $types["$table.$column"] = $type;
+        }
+
+        $this->assertArrayHasKey('migration_test_oidc_access_token.expires_at', $types);
+        $this->assertNotContains($convertingType, $types);
+    }
+
+
+    /**
+     * The servers, each with the column type which converts a point in time with the connection's time zone.
+     *
+     * @return array<string,array{string,string}>
+     */
+    public static function serverDatabases(): array
+    {
+        return [
+            'PostgreSql' => ['pgConfig', 'timestamp with time zone'],
+            'MySql' => ['mysqlConfig', 'timestamp'],
+        ];
     }
 
 

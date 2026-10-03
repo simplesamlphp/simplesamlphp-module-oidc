@@ -282,6 +282,11 @@ class DatabaseMigration
             $this->version20261003000001();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000001')");
         }
+
+        if (!in_array('20261003000002', $versions, true)) {
+            $this->version20261003000002();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000002')");
+        }
     }
 
 
@@ -1214,6 +1219,55 @@ EOT
                 $this->generateIdentifierName([$tableName, 'auth_code_id'], 'idx'),
                 $tableName,
                 'auth_code_id',
+            );
+        }
+    }
+
+
+    /**
+     * Make the older tables' points in time DATETIME on MySQL, as the status list tables already are. MariaDB
+     * runs under the same driver and behaves the same.
+     *
+     * Points in time are written as their wall clock in UTC and read back as UTC. MySQL converts a TIMESTAMP
+     * from the connection's time zone, though, and in its default strict mode refuses a wall clock which that
+     * zone skips when daylight saving time begins: an hour of UTC wall clocks a year could not be written, and
+     * a code or token whose expiry fell in it could not be issued. DATETIME keeps the wall clock as given.
+     * MySQL converts the stored values with the migrating connection's time zone, so each keeps the wall clock
+     * the module has been reading. PostgreSQL's TIMESTAMP has no time zone, and SQLite stores what it is given.
+     *
+     * Each column keeps its nullability and default. Changing a column's type rebuilds the table, so the
+     * columns of a table are changed in one statement.
+     */
+    private function version20261003000002(): void
+    {
+        if ($this->database->getDriver() !== self::DRIVER_MYSQL) {
+            return;
+        }
+
+        $currentTimestamp = 'NOT NULL DEFAULT CURRENT_TIMESTAMP';
+        $columnsByTable = [
+            UserRepository::TABLE_NAME => ['updated_at' => $currentTimestamp, 'created_at' => $currentTimestamp],
+            ClientRepository::TABLE_NAME => [
+                'updated_at' => 'NULL DEFAULT NULL',
+                'created_at' => 'NULL DEFAULT NULL',
+                'expires_at' => 'NULL DEFAULT NULL',
+            ],
+            AccessTokenRepository::TABLE_NAME => ['expires_at' => $currentTimestamp],
+            RefreshTokenRepository::TABLE_NAME => ['expires_at' => $currentTimestamp],
+            AuthCodeRepository::TABLE_NAME => ['expires_at' => $currentTimestamp],
+            LogoutTicketStoreDb::TABLE_NAME => ['created_at' => $currentTimestamp],
+            IssuerStateRepository::TABLE_NAME => ['created_at' => $currentTimestamp, 'expires_at' => $currentTimestamp],
+            PushedAuthorizationRequestRepository::TABLE_NAME => ['expires_at' => 'NOT NULL'],
+        ];
+
+        foreach ($columnsByTable as $table => $columns) {
+            $modifications = [];
+            foreach ($columns as $column => $definition) {
+                $modifications[] = "MODIFY $column DATETIME $definition";
+            }
+
+            $this->database->write(
+                'ALTER TABLE ' . $this->database->applyPrefix($table) . ' ' . implode(', ', $modifications),
             );
         }
     }

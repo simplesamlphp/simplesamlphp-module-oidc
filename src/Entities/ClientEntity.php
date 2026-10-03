@@ -10,6 +10,7 @@ use League\OAuth2\Server\Entities\Traits\ClientTrait;
 use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -19,6 +20,7 @@ class ClientEntity implements ClientEntityInterface
 {
     use EntityTrait;
     use ClientTrait;
+    use FormatForDatabaseTrait;
 
 
     public const string KEY_ID = 'id';
@@ -215,9 +217,15 @@ class ClientEntity implements ClientEntityInterface
             self::KEY_JWKS_URI => $this->getJwksUri(),
             self::KEY_SIGNED_JWKS_URI => $this->getSignedJwksUri(),
             self::KEY_REGISTRATION_TYPE => $this->getRegistrationType()->value,
-            self::KEY_UPDATED_AT => $this->getUpdatedAt()?->format('Y-m-d H:i:s'),
-            self::KEY_CREATED_AT => $this->getCreatedAt()?->format('Y-m-d H:i:s'),
-            self::KEY_EXPIRES_AT => $this->getExpiresAt()?->format('Y-m-d H:i:s'),
+            self::KEY_UPDATED_AT => is_null($this->updatedAt) ?
+                null :
+                $this->formatForDatabase($this->updatedAt),
+            self::KEY_CREATED_AT => is_null($this->createdAt) ?
+                null :
+                $this->formatForDatabase($this->createdAt),
+            self::KEY_EXPIRES_AT => is_null($this->expiresAt) ?
+                null :
+                $this->formatForDatabase($this->expiresAt),
             self::KEY_IS_GENERIC => $this->isGeneric(),
             self::KEY_EXTRA_METADATA => is_null($this->extraMetadata) ?
                 null :

@@ -11,6 +11,7 @@ use League\OAuth2\Server\Entities\Traits\RefreshTokenTrait;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 
 class RefreshTokenEntity implements RefreshTokenEntityInterface
@@ -19,6 +20,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     use EntityTrait;
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
+    use FormatForDatabaseTrait;
 
 
     public function __construct(
@@ -44,7 +46,7 @@ class RefreshTokenEntity implements RefreshTokenEntityInterface
     {
         return [
             'id' => $this->getIdentifier(),
-            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'expires_at' => $this->formatForDatabase($this->getExpiryDateTime()),
             'access_token_id' => $this->getAccessToken()->getIdentifier(),
             'is_revoked' => $this->isRevoked(),
             'auth_code_id' => $this->getAuthCodeId(),

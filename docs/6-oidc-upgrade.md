@@ -622,6 +622,29 @@ for the full behaviour, including address pinning and its configuration.
 
 Low-impact changes:
 
+- The expiry times of authorization codes, access tokens and refresh tokens are
+now stored in UTC, the time zone the module has always read them in. They used
+to be stored in PHP's default time zone, so on a server whose zone is not UTC
+the clean-up of expired codes and tokens worked on times off by the zone's
+offset: west of UTC it could remove a code or token hours before it expired,
+east of UTC it kept them hours after. Codes and tokens issued before the
+upgrade keep the times they were stored with until they are cleaned up, which
+for a refresh token can be as long as the refresh token duration
+(`ModuleConfig::OPTION_TOKEN_REFRESH_TOKEN_TTL`, one month in the configuration
+template). Likewise, the creation time of a back-channel logout ticket is now
+written by the module in UTC, instead of being left to the database, which
+writes it in its connection's time zone: with a database zone west of UTC, a
+ticket could be deleted before it was read back, and the relying parties of the
+session being logged out were not sent a back-channel logout. On MySQL and
+MariaDB, a migration changes the time columns of the user, client, token,
+authorization code, logout ticket, issuer state and pushed authorization request
+tables from `TIMESTAMP` to `DATETIME`, as the status list tables already are:
+both convert a `TIMESTAMP` from the connection's time zone, and with a zone
+which keeps daylight saving time they refuse a UTC time falling in the hour the
+clocks skip, so issuing a code or token whose expiry fell in it would fail. The
+stored times keep the wall clock the module reads. Changing a column's type
+rebuilds the table, and writes to it wait until that is done, which can take a
+while for a large token table.
 - A client is now found only by its client ID exactly as registered, letter
 case included, whatever the database. MySQL and MariaDB compare the client
 table's IDs case-insensitively by default, so a request naming a client in

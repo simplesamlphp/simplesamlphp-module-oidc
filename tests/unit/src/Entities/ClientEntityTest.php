@@ -709,8 +709,8 @@ class ClientEntityTest extends TestCase
 
     /**
      * The state row with the optional fields the fixture leaves unset filled in: the key material, the
-     * lists and the extra metadata as JSON, the moments as 'Y-m-d H:i:s' in the zone they hold, the token
-     * hash as is.
+     * lists and the extra metadata as JSON, the moments as 'Y-m-d H:i:s' in UTC whatever zone they are
+     * handed over in, the token hash as is.
      *
      * @throws \JsonException
      */
@@ -725,8 +725,8 @@ class ClientEntityTest extends TestCase
             jwks: ['keys' => [['kty' => 'EC', 'kid' => 'rp-1']]],
             jwksUri: 'https://rp.example.org/jwks',
             signedJwksUri: 'https://rp.example.org/signed-jwks',
-            updatedAt: new DateTimeImmutable('2026-09-19 10:15:00', new DateTimeZone('UTC')),
-            createdAt: new DateTimeImmutable('2026-09-18 09:00:00', new DateTimeZone('UTC')),
+            updatedAt: new DateTimeImmutable('2026-09-19 06:15:00', new DateTimeZone('America/New_York')),
+            createdAt: new DateTimeImmutable('2026-09-18 11:00:00', new DateTimeZone('Europe/Zagreb')),
             expiresAt: new DateTimeImmutable('2027-09-18 09:00:00', new DateTimeZone('Europe/Zagreb')),
             extraMetadata: ['id_token_signed_response_alg' => 'RS256', 'contacts' => ['admin@rp.example.org']],
             registrationAccessToken: 'hash-of-the-registration-access-token',
@@ -755,7 +755,7 @@ class ClientEntityTest extends TestCase
                 'registration_type' => 'manual',
                 'updated_at' => '2026-09-19 10:15:00',
                 'created_at' => '2026-09-18 09:00:00',
-                'expires_at' => '2027-09-18 09:00:00',
+                'expires_at' => '2027-09-18 07:00:00',
                 'is_generic' => false,
                 'extra_metadata' => '{"id_token_signed_response_alg":"RS256","contacts":["admin@rp.example.org"]}',
                 'registration_access_token' => 'hash-of-the-registration-access-token',

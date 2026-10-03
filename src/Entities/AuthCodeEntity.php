@@ -12,6 +12,7 @@ use League\OAuth2\Server\Entities\Traits\TokenEntityTrait;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\OidcAuthCodeTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 
@@ -21,6 +22,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     use TokenEntityTrait;
     use OidcAuthCodeTrait;
     use RevokeTokenTrait;
+    use FormatForDatabaseTrait;
 
 
     /**
@@ -65,7 +67,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         return [
             'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'expires_at' => $this->formatForDatabase($this->getExpiryDateTime()),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->client->getIdentifier(),
             'is_revoked' => $this->isRevoked(),

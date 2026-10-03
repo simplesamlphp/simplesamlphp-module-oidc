@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Stores\Session;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Test\Module\oidc\unit\Repositories\LaggingSecondaryTestTrait;
@@ -104,6 +108,27 @@ class LogoutTicketStoreDbTest extends TestCase
         $sid = 'sid123';
         $store->add($sid);
         $this->assertEmpty($store->getAll());
+    }
+
+
+    /**
+     * The creation time comes from the module's clock in UTC, the scale the expiry cut-off is on, and not from the
+     * column's default, which the database writes in its connection's time zone.
+     *
+     * @throws \Exception
+     */
+    public function testWritesTheCreationTimeFromTheModuleClockInUtc(): void
+    {
+        $dateTimeHelperStub = $this->createStub(DateTime::class);
+        $dateTimeHelperStub->method('getUtc')
+            ->willReturn(new DateTimeImmutable('2026-01-01 00:00:00', new DateTimeZone('UTC')));
+        $helpersStub = $this->createStub(Helpers::class);
+        $helpersStub->method('dateTime')->willReturn($dateTimeHelperStub);
+        $store = new LogoutTicketStoreDb(helpers: $helpersStub);
+
+        $store->add('stamped_sid');
+
+        $this->assertSame([['sid' => 'stamped_sid', 'created_at' => '2026-01-01 00:00:00']], $store->getAll());
     }
 
 

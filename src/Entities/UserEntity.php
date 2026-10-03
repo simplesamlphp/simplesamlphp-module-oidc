@@ -9,12 +9,16 @@ use InvalidArgumentException;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
  */
 class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInterface
 {
+    use FormatForDatabaseTrait;
+
+
     /** @var non-empty-string */
     private readonly string $identifier;
 
@@ -41,8 +45,8 @@ class UserEntity implements UserEntityInterface, MementoInterface, ClaimSetInter
         return [
             'id' => $this->getIdentifier(),
             'claims' => json_encode($this->getClaims(), JSON_INVALID_UTF8_SUBSTITUTE),
-            'updated_at' => $this->getUpdatedAt()->format('Y-m-d H:i:s'),
-            'created_at' => $this->getCreatedAt()->format('Y-m-d H:i:s'),
+            'updated_at' => $this->formatForDatabase($this->getUpdatedAt()),
+            'created_at' => $this->formatForDatabase($this->getCreatedAt()),
         ];
     }
 

@@ -33,16 +33,24 @@ class LogoutTicketStoreDb implements LogoutTicketStoreInterface
     }
 
 
+    /**
+     * The creation time is written here, in UTC, rather than left to the column's default: MySQL and PostgreSQL
+     * write CURRENT_TIMESTAMP in the connection's time zone, while deleteExpired() compares it with a UTC cut-off.
+     * With a database zone west of UTC a ticket would read as hours old, and be deleted before it is read back.
+     */
     public function add(string $sid): void
     {
         $stmt = sprintf(
-            "INSERT INTO %s (sid) VALUES (:sid)",
+            "INSERT INTO %s (sid, created_at) VALUES (:sid, :created_at)",
             $this->getTableName(),
         );
 
         $this->database->write(
             $stmt,
-            ['sid' => $sid],
+            [
+                'sid' => $sid,
+                'created_at' => $this->helpers->dateTime()->getUtc()->format(DateFormatsEnum::DB_DATETIME->value),
+            ],
         );
     }
 

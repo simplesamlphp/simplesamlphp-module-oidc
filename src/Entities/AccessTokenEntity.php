@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\AssociateWithAuthCodeTrait;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 use SimpleSAML\Module\oidc\Entities\Traits\RevokeTokenTrait;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -32,6 +33,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     use EntityTrait;
     use RevokeTokenTrait;
     use AssociateWithAuthCodeTrait;
+    use FormatForDatabaseTrait;
 
 
     /**
@@ -142,7 +144,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         return [
             'id' => $this->getIdentifier(),
             'scopes' => json_encode($this->scopes, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->getExpiryDateTime()->format('Y-m-d H:i:s'),
+            'expires_at' => $this->formatForDatabase($this->getExpiryDateTime()),
             'user_id' => $this->getUserIdentifier(),
             'client_id' => $this->getClient()->getIdentifier(),
             'is_revoked' => $this->isRevoked(),

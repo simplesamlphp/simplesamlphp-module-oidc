@@ -185,9 +185,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
      * changes it from unrevoked to revoked, whatever each of them found when it looked the code up. The cached copy
      * is dropped either way, so that the next lookup reads the code from the primary.
      *
-     * The code's expiry is no condition here. The token endpoint checks it from the code itself, a timestamp,
-     * while the stored expires_at is written in PHP's default time zone: compared with the time in UTC, a code
-     * just issued on a server west of UTC would read as expired hours ago.
+     * The code's expiry is no condition here: the token endpoint has already checked it, from the timestamp the
+     * code itself carries.
      *
      * @throws \Exception
      */

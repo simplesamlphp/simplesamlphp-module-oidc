@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Entities;
 
 use DateTimeImmutable;
-use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\MementoInterface;
+use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 
 class PushedAuthorizationRequestEntity implements MementoInterface
 {
+    use FormatForDatabaseTrait;
+
+
     public function __construct(
         protected readonly string $requestUri,
         protected readonly string $clientId,
@@ -71,7 +74,7 @@ class PushedAuthorizationRequestEntity implements MementoInterface
             'request_uri' => $this->requestUri,
             'client_id' => $this->clientId,
             'parameters' => json_encode($this->parameters, JSON_THROW_ON_ERROR),
-            'expires_at' => $this->expiresAt->format(DateFormatsEnum::DB_DATETIME->value),
+            'expires_at' => $this->formatForDatabase($this->expiresAt),
             'is_consumed' => $this->isConsumed,
         ];
     }
