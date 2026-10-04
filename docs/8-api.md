@@ -155,7 +155,7 @@ When the wallet redeems a pre-authorized code at the token endpoint, a wrong tra
 it. The wallet gets `vci_tx_code_max_attempts` attempts (5 by default) at the transaction code of one pre-authorized
 code, and every attempt counts, the right code included; once they are used up, any further attempt is refused with
 `invalid_grant` and the user needs a new offer. A code is given its attempts when the offer is made, and they are
-kept in the protocol cache, so **without a protocol cache configured they are not counted** (nor with one which keeps
+kept in the protocol cache, so __without a protocol cache configured they are not counted__ (nor with one which keeps
 nothing from one request to the next), and the four-digit code can be guessed for as long as the pre-authorized code is
 valid. A code whose record the cache loses is refused as a spent
 one is. When the cache can not store the record, the offer is answered with `500` `server_error`, and so is a token
