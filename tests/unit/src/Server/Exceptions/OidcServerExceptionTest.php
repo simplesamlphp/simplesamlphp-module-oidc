@@ -79,6 +79,11 @@ class OidcServerExceptionTest extends TestCase
                 'access_denied',
                 401,
             ],
+            'invalid token' => [
+                static fn(): OidcServerException => OidcServerException::invalidToken(),
+                'invalid_token',
+                401,
+            ],
             'unauthorized client' => [
                 static fn(): OidcServerException => OidcServerException::unauthorizedClient(),
                 'unauthorized_client',
@@ -231,6 +236,82 @@ class OidcServerExceptionTest extends TestCase
 
         $this->assertIsArray($body);
         $this->assertSame('invalid_request', $body['error']);
+    }
+
+
+    /**
+     * A refused access token is named in the challenge as well as in the body (RFC 6750 section 3.1), so that a
+     * client which reads only the header learns it too.
+     */
+    public function testRendersARefusedAccessTokenWithAChallengeNamingTheError(): void
+    {
+        $exception = OidcServerException::invalidToken('Access token has been revoked');
+
+        $this->assertSame('Bearer error="invalid_token"', $exception->getWwwAuthenticate());
+        $this->assertTrue($exception->hasBody());
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Bearer error="invalid_token"', $response->getHeaderLine('WWW-Authenticate'));
+        $this->assertSame('application/json', $response->getHeaderLine('Content-type'));
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertIsArray($body);
+        $this->assertSame('invalid_token', $body['error']);
+        $this->assertStringContainsString('Access token has been revoked', (string)$body['error_description']);
+    }
+
+
+    /**
+     * A request which carried no access token gets the bare challenge and nothing else (RFC 6750 section 3.1): no
+     * error code, so no body and no content type claiming one. The error type names the refusal in the log only.
+     */
+    public function testRendersAMissingAccessTokenAsTheBareChallengeAlone(): void
+    {
+        $exception = OidcServerException::missingToken('No Bearer access token.');
+
+        $this->assertSame(401, $exception->getHttpStatusCode());
+        $this->assertSame('missing_token', $exception->getErrorType());
+        $this->assertSame('Bearer', $exception->getWwwAuthenticate());
+        $this->assertFalse($exception->hasBody());
+        $this->assertSame([], $exception->getPayload());
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame(['WWW-Authenticate' => ['Bearer']], $response->getHeaders());
+        $this->assertSame('', (string)$response->getBody());
+    }
+
+
+    /**
+     * @return array<string,array{0:callable():\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException}>
+     */
+    public static function errorWithoutAChallengeProvider(): array
+    {
+        return [
+            'access denied' => [static fn(): OidcServerException => OidcServerException::accessDenied()],
+            'invalid request' => [
+                static fn(): OidcServerException => OidcServerException::invalidRequest('client_id'),
+            ],
+            'server error' => [static fn(): OidcServerException => OidcServerException::serverError('boom')],
+        ];
+    }
+
+
+    /**
+     * @param callable():\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException $factory
+     */
+    #[DataProvider('errorWithoutAChallengeProvider')]
+    public function testAnyOtherErrorCarriesNoChallengeAndAJsonBody(callable $factory): void
+    {
+        $exception = $factory();
+
+        $this->assertNull($exception->getWwwAuthenticate());
+        $this->assertTrue($exception->hasBody());
+        $this->assertSame(['Content-type' => 'application/json'], $exception->getHttpHeaders());
     }
 
 

@@ -103,8 +103,9 @@ class CredentialIssuerCredentialController
      *
      * Every 401 this endpoint answers carries a Bearer challenge, whichever check made it a 401: HTTP
      * requires a challenge of any 401 (RFC 9110 section 15.5.2), and RFC 6750 section 3 has a protected
-     * resource send one when the access token is missing or does not authorize the request. The challenge
-     * names the scheme only; the error code is in the JSON body.
+     * resource send one when the access token is missing or does not authorize the request. A refused token
+     * is named in it (`error="invalid_token"`), and a request which carried none gets the scheme alone and no
+     * body (RFC 6750 section 3.1); both come with the refusal. A 401 from anywhere else gets the scheme alone.
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \ReflectionException
@@ -119,10 +120,25 @@ class CredentialIssuerCredentialController
         }
 
         if ($response->getStatusCode() === 401 && !$response->headers->has('WWW-Authenticate')) {
-            $response->headers->set('WWW-Authenticate', 'Bearer');
+            $response->headers->set('WWW-Authenticate', OidcServerException::CHALLENGE_BEARER);
         }
 
         return $response;
+    }
+
+
+    /**
+     * Refuses an access token which passed the resource server but can not buy a credential, as the resource
+     * server refuses one (RFC 6750 section 3.1): `invalid_token`, with the error named in the challenge too.
+     */
+    protected function invalidTokenResponse(string $description): Response
+    {
+        return $this->routes->newJsonErrorResponse(
+            'invalid_token',
+            $description,
+            401,
+            ['WWW-Authenticate' => OidcServerException::CHALLENGE_INVALID_TOKEN],
+        );
     }
 
 
@@ -157,20 +173,12 @@ class CredentialIssuerCredentialController
 
         if (! $accessToken instanceof AccessTokenEntity) {
             $this->loggerService->error('Access token not found in repository.');
-            return $this->routes->newJsonErrorResponse(
-                'invalid_token',
-                'Access token not found.',
-                401,
-            );
+            return $this->invalidTokenResponse('Access token not found.');
         }
 
         if ($accessToken->isRevoked()) {
             $this->loggerService->error('Access token is revoked.', ['accessTokenId' => $accessToken->getIdentifier()]);
-            return $this->routes->newJsonErrorResponse(
-                'invalid_token',
-                'Access token is revoked.',
-                401,
-            );
+            return $this->invalidTokenResponse('Access token is revoked.');
         }
 
         if (
@@ -181,11 +189,7 @@ class CredentialIssuerCredentialController
                 'Access token is not intended for Verifiable Credential Issuance.',
                 ['flowType' => $flowType?->value, 'accessTokenId' => $accessToken->getIdentifier()],
             );
-            return $this->routes->newJsonErrorResponse(
-                'invalid_token',
-                'Access token is not intended for verifiable credential issuance.',
-                401,
-            );
+            return $this->invalidTokenResponse('Access token is not intended for verifiable credential issuance.');
         }
 
         // A token which can not buy a credential is refused as RFC 6750 section 3 has it (OpenID4VCI 1.0 section
@@ -201,11 +205,7 @@ class CredentialIssuerCredentialController
                 'to a client which is not registered.',
                 ['accessTokenState' => $accessToken->getState()],
             );
-            return $this->routes->newJsonErrorResponse(
-                'invalid_token',
-                'Issuer state missing in access token.',
-                401,
-            );
+            return $this->invalidTokenResponse('Issuer state missing in access token.');
         }
 
         // An issuer state on the token is not checked again here. The token endpoint spent it when it exchanged

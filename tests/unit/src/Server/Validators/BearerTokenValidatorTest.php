@@ -4,17 +4,22 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Validators;
 
+use Exception;
 use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
+use PDOException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -27,6 +32,7 @@ use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\Factories\ParsedJwsFactory;
 use SimpleSAML\OpenID\Jws\ParsedJws;
+use Throwable;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator
@@ -131,11 +137,136 @@ class BearerTokenValidatorTest extends TestCase
     }
 
 
-    public function testValidatorThrowsForNonExistentAccessToken()
+    /**
+     * A request which carries no access token is refused with the bare challenge and no error code (RFC 6750
+     * section 3.1), and nothing is parsed.
+     */
+    public function testRefusesARequestWithoutAnAccessTokenWithTheBareChallenge(): void
     {
-        $this->expectException(OidcServerException::class);
+        $this->parsedJwsFactoryMock->expects($this->never())->method('fromToken');
 
-        $this->sut()->validateAuthorization($this->serverRequest);
+        $this->assertRefusedForWantOfAToken($this->serverRequest);
+    }
+
+
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function authorizationHeaderWithoutABearerTokenProvider(): array
+    {
+        return [
+            'another scheme' => ['Basic dXNlcjpwYXNz'],
+            'a DPoP token' => ['DPoP token'],
+            'the scheme name run into the token' => ['Bearertoken'],
+            'the scheme name alone' => ['Bearer'],
+            'an empty header' => [''],
+        ];
+    }
+
+
+    /**
+     * An Authorization header which carries no Bearer token is no token at all: RFC 6750 section 3.1 counts a
+     * client which "attempted using an unsupported authentication method" as one which sent no credentials. Such
+     * a header used to be read as a token and refused as an invalid one, telling the client its token was bad.
+     */
+    #[DataProvider('authorizationHeaderWithoutABearerTokenProvider')]
+    public function testRefusesAnAuthorizationHeaderWithoutABearerTokenAsNoToken(string $header): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->never())->method('fromToken');
+
+        $this->assertRefusedForWantOfAToken($this->serverRequest->withAddedHeader('Authorization', $header));
+    }
+
+
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function bearerSchemeSpellingProvider(): array
+    {
+        return [
+            'lower case' => ['bearer token'],
+            'upper case' => ['BEARER token'],
+            'blanks between' => ['Bearer   token'],
+            'a tab between' => ["Bearer\ttoken"],
+        ];
+    }
+
+
+    /**
+     * The scheme name is matched case-insensitively, as HTTP has it (RFC 9110 section 11.1), and the token is
+     * whatever follows the blanks after it.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('bearerSchemeSpellingProvider')]
+    public function testReadsTheTokenWhateverTheCaseOfTheSchemeName(string $header): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+
+        $validatedServerRequest = $this->sut()->validateAuthorization(
+            $this->serverRequest->withAddedHeader('Authorization', $header),
+        );
+
+        $this->assertSame(
+            $this->accessTokenState['id'],
+            $validatedServerRequest->getAttribute('oauth_access_token_id'),
+        );
+    }
+
+
+    /**
+     * A token which PHP counts as false is still a token which arrived: it is checked, and refused as a token
+     * if it fails, never taken for a missing one.
+     */
+    public function testChecksAHeaderTokenWhichPhpCountsAsFalse(): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with('0')
+            ->willThrowException(new JwsException('Unparsable'));
+
+        $this->assertRefusedAsAnInvalidToken(
+            $this->refusalOf($this->serverRequest->withAddedHeader('Authorization', 'Bearer 0')),
+        );
+    }
+
+
+    public function testChecksABodyTokenWhichPhpCountsAsFalse(): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with('0')
+            ->willThrowException(new JwsException('Unparsable'));
+
+        $this->assertRefusedAsAnInvalidToken(
+            $this->refusalOf($this->serverRequest->withMethod('POST')->withParsedBody(['access_token' => '0'])),
+        );
+    }
+
+
+    /**
+     * A header under another scheme carries no Bearer token, so the one in the request body is the token the
+     * request carries.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testReadsTheBodyTokenWhenTheHeaderNamesAnotherScheme(): void
+    {
+        $serverRequest = $this->serverRequest
+            ->withMethod('POST')
+            ->withAddedHeader('Authorization', 'Basic dXNlcjpwYXNz')
+            ->withParsedBody(['access_token' => $this->accessToken]);
+
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+
+        $validatedServerRequest = $this->sut()->validateAuthorization($serverRequest);
+
+        $this->assertSame(
+            $this->accessTokenState['id'],
+            $validatedServerRequest->getAttribute('oauth_access_token_id'),
+        );
     }
 
 
@@ -186,17 +317,19 @@ class BearerTokenValidatorTest extends TestCase
     }
 
 
-    public function testThrowsForUnparsableAccessToken()
+    public function testRefusesAnUnparsableAccessTokenAsAnInvalidToken(): void
     {
         $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . 'invalid');
 
+        $unparsable = new JwsException('Unparsable');
         $this->parsedJwsFactoryMock->method('fromToken')
             ->with('invalid')
-            ->willThrowException(new JwsException('Unparsable'));
+            ->willThrowException($unparsable);
 
-        $this->expectException(OidcServerException::class);
+        $exception = $this->refusalOf($serverRequest);
 
-        $this->sut()->validateAuthorization($serverRequest);
+        $this->assertRefusedAsAnInvalidToken($exception);
+        $this->assertSame($unparsable, $exception->getPrevious());
     }
 
 
@@ -220,22 +353,101 @@ class BearerTokenValidatorTest extends TestCase
 
 
     /**
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \Exception
+     * A token which arrived and fails a check is refused with `invalid_token`, named in the challenge as well
+     * (RFC 6750 section 3.1), and with the check's own reason as the hint.
      */
-    public function testThrowsForRevokedAccessToken()
+    public function testRefusesARevokedAccessTokenAsAnInvalidToken(): void
     {
         $this->accessTokenRepositoryMock->method('isAccessTokenRevoked')->willReturn(true);
-
-        $serverRequest = $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
 
         $this->parsedJwsFactoryMock->method('fromToken')
             ->with($this->accessToken)
             ->willReturn($this->parsedJwsMock);
 
-        $this->expectException(OidcServerException::class);
+        $exception = $this->refusalOf($this->bearerRequest());
 
-        $this->sut()->validateAuthorization($serverRequest);
+        $this->assertRefusedAsAnInvalidToken($exception);
+        $this->assertSame('Access token has been revoked', $exception->getHint());
+        $this->assertInstanceOf(JwsException::class, $exception->getPrevious());
+    }
+
+
+    /**
+     * A token of this OP's signing with no record behind it (its client deleted since, say) is a verdict on the
+     * token, as the library's are.
+     */
+    public function testRefusesATokenWithNoRecordAsAnInvalidToken(): void
+    {
+        $notFound = new TokenNotFoundException('AccessToken not found: accessToken123');
+        $this->accessTokenRepositoryMock->method('isAccessTokenRevoked')->willThrowException($notFound);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $exception = $this->refusalOf($this->bearerRequest());
+
+        $this->assertRefusedAsAnInvalidToken($exception);
+        $this->assertSame($notFound, $exception->getPrevious());
+    }
+
+
+    /**
+     * @return array<string,array{0:\Throwable}>
+     */
+    public static function failureWhileCheckingProvider(): array
+    {
+        return [
+            // SimpleSAMLphp's database layer throws a plain Exception, a fetch a PDOException.
+            'a database which does not answer' => [new Exception('Database error: connection refused')],
+            'a failed fetch' => [new PDOException('SQLSTATE[HY000]: General error')],
+            // The parent of the repository's own verdict, which must not pass for one.
+            'a runtime failure' => [new RuntimeException('Unexpected failure')],
+            // A record which can not be read back into a token, as the entity factory refuses one.
+            'a corrupt record' => [OidcServerException::serverError('Invalid Access Token Entity state')],
+        ];
+    }
+
+
+    /**
+     * A failure of the OP's own while it checks the token is not a verdict on the token: answered as one, it
+     * would tell a client holding a working token to throw it away. It is a `server_error`, with the cause kept
+     * for the log and out of what the client is shown.
+     */
+    #[DataProvider('failureWhileCheckingProvider')]
+    public function testAnswersAFailureWhileCheckingTheTokenAsTheServersOwn(Throwable $failure): void
+    {
+        $this->accessTokenRepositoryMock->method('isAccessTokenRevoked')->willThrowException($failure);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $this->assertAnsweredAsAServerError($this->refusalOf($this->bearerRequest()), $failure);
+    }
+
+
+    public function testAnswersAnUnreadableSigningKeyConfigurationAsTheServersOwn(): void
+    {
+        $failure = new ConfigurationError('No protocol signing key.');
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')->willThrowException($failure);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+
+        $this->assertAnsweredAsAServerError($this->refusalOf($this->bearerRequest()), $failure);
+    }
+
+
+    /**
+     * The claims read after the checks are the token's too: one the library can not read is a verdict on the
+     * token, where it used to escape the resource server as the library's own exception.
+     */
+    public function testRefusesATokenWhoseAudienceCanNotBeReadAsAnInvalidToken(): void
+    {
+        $accessToken = $this->createMock(ParsedJws::class);
+        $accessToken->method('getIssuer')->willReturn('issuer123');
+        $accessToken->method('getJwtId')->willReturn('accessToken123');
+        $unreadable = new InvalidValueException('Unexpected aud');
+        $accessToken->method('getAudience')->willThrowException($unreadable);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($accessToken);
+
+        $exception = $this->refusalOf($this->bearerRequest());
+
+        $this->assertRefusedAsAnInvalidToken($exception);
+        $this->assertSame($unreadable, $exception->getPrevious());
     }
 
 
@@ -320,7 +532,7 @@ class BearerTokenValidatorTest extends TestCase
             $this->sut()->validateAuthorization($serverRequest);
             $this->fail('Expected OidcServerException.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertRefusedAsAnInvalidToken($exception);
             $this->assertStringContainsString('typ is not at+jwt', (string)$exception->getHint());
         }
     }
@@ -340,7 +552,7 @@ class BearerTokenValidatorTest extends TestCase
             $this->sut()->validateAuthorization($serverRequest);
             $this->fail('Expected OidcServerException.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertRefusedAsAnInvalidToken($exception);
             $this->assertStringContainsString('typ missing or unexpected type', (string)$exception->getHint());
         }
     }
@@ -359,7 +571,7 @@ class BearerTokenValidatorTest extends TestCase
             $this->sut()->validateAuthorization($serverRequest);
             $this->fail('Expected OidcServerException.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertRefusedAsAnInvalidToken($exception);
             $this->assertStringContainsString('Unexpected typ', (string)$exception->getHint());
         }
     }
@@ -402,7 +614,7 @@ class BearerTokenValidatorTest extends TestCase
             $this->sut()->validateAuthorization($serverRequest);
             $this->fail('An access token with no jti must be refused.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertRefusedAsAnInvalidToken($exception);
             $this->assertStringContainsString('jti missing or unexpected type', (string)$exception->getHint());
         }
     }
@@ -465,7 +677,7 @@ class BearerTokenValidatorTest extends TestCase
             $this->sut()->validateAuthorization($serverRequest);
             $this->fail('A token whose jti is gone must be refused.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertRefusedAsAnInvalidToken($exception);
             $this->assertStringContainsString(
                 'Access token malformed (jti missing or unexpected type)',
                 (string)$exception->getHint(),
@@ -565,8 +777,59 @@ class BearerTokenValidatorTest extends TestCase
             $this->sut()->convertSingleRecordAudToString($aud);
             $this->fail('An aud of ' . var_export($aud, true) . ' must be refused.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertRefusedAsAnInvalidToken($exception);
             $this->assertSame('Unexpected aud claim value.', $exception->getHint());
         }
+    }
+
+
+    protected function bearerRequest(): ServerRequestInterface
+    {
+        return $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
+    }
+
+
+    protected function refusalOf(ServerRequestInterface $serverRequest): OidcServerException
+    {
+        try {
+            $this->sut()->validateAuthorization($serverRequest);
+        } catch (OidcServerException $exception) {
+            return $exception;
+        }
+
+        $this->fail('The request must be refused.');
+    }
+
+
+    protected function assertRefusedAsAnInvalidToken(OidcServerException $exception): void
+    {
+        $this->assertSame('invalid_token', $exception->getErrorType());
+        $this->assertSame(401, $exception->getHttpStatusCode());
+        $this->assertSame('Bearer error="invalid_token"', $exception->getWwwAuthenticate());
+        $this->assertTrue($exception->hasBody());
+    }
+
+
+    protected function assertRefusedForWantOfAToken(ServerRequestInterface $serverRequest): void
+    {
+        $exception = $this->refusalOf($serverRequest);
+
+        $this->assertSame(401, $exception->getHttpStatusCode());
+        $this->assertSame('Bearer', $exception->getWwwAuthenticate());
+        $this->assertFalse($exception->hasBody());
+        $this->assertSame([], $exception->getPayload());
+    }
+
+
+    protected function assertAnsweredAsAServerError(OidcServerException $exception, Throwable $failure): void
+    {
+        $this->assertSame('server_error', $exception->getErrorType());
+        $this->assertSame(500, $exception->getHttpStatusCode());
+        $this->assertNull($exception->getWwwAuthenticate());
+        $this->assertSame($failure, $exception->getPrevious());
+
+        // What the client is shown: the payload League renders, and the message and hint the JSON responder does.
+        $shown = implode(' ', [...$exception->getPayload(), $exception->getMessage(), (string)$exception->getHint()]);
+        $this->assertStringNotContainsString($failure->getMessage(), $shown);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
+use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -20,8 +21,10 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
+use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
@@ -405,6 +408,89 @@ class UserInfoControllerTest extends TestCase
 
         $response = $userInfoControllerMock->__invoke($this->serverRequestMock);
         $this->assertSame($this->symfonyResponseMock, $response);
+    }
+
+
+    /**
+     * @return array<string,array{0:callable():\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException,1:int,2:?string,3:?string}>
+     */
+    public static function refusalProvider(): array
+    {
+        return [
+            'a refused token' => [
+                static fn(): OidcServerException => OidcServerException::invalidToken('Access token has been revoked'),
+                401,
+                'Bearer error="invalid_token"',
+                'invalid_token',
+            ],
+            'no token' => [
+                static fn(): OidcServerException => OidcServerException::missingToken('No Bearer access token.'),
+                401,
+                'Bearer',
+                null,
+            ],
+            'a failure of the OP while checking the token' => [
+                static fn(): OidcServerException => OidcServerException::serverError(
+                    'The access token could not be checked.',
+                ),
+                500,
+                null,
+                'server_error',
+            ],
+        ];
+    }
+
+
+    /**
+     * The endpoint refuses as RFC 6750 section 3 has it (OpenID Connect Core 1.0 section 5.3.3): the challenge
+     * names the error for a token which was refused, and is the scheme alone, with no body, for a request which
+     * carried none. A failure of the OP's own is a server error, with no challenge. Answered through the real
+     * error responder and bridge, since the response is what is under test.
+     *
+     * @param callable():\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException $refusal
+     */
+    #[DataProvider('refusalProvider')]
+    public function testAnswersARefusalAsRfc6750HasIt(
+        callable $refusal,
+        int $status,
+        ?string $challenge,
+        ?string $error,
+    ): void {
+        $this->resourceServerMock->method('validateAuthenticatedRequest')->willThrowException($refusal());
+        $psr17Factory = new Psr17Factory();
+        $psrHttpBridge = new PsrHttpBridge(
+            new HttpFoundationFactory(),
+            $psr17Factory,
+            $psr17Factory,
+            $psr17Factory,
+            $psr17Factory,
+        );
+        $sut = new UserInfoController(
+            $this->resourceServerMock,
+            $this->accessTokenRepositoryMock,
+            $this->userRepositoryMock,
+            $this->allowedOriginRepositoryMock,
+            $this->claimTranslatorExtractorMock,
+            $psrHttpBridge,
+            new ErrorResponder($psrHttpBridge, $this->createStub(LoggerService::class)),
+            $this->routesMock,
+        );
+
+        $response = $sut->userInfo(Request::create('https://op.example.org/oidc/userinfo'));
+
+        $this->assertSame($status, $response->getStatusCode());
+        $this->assertSame($challenge, $response->headers->get('WWW-Authenticate'));
+
+        if ($error === null) {
+            $this->assertSame('', $response->getContent());
+            $this->assertFalse($response->headers->has('Content-Type'));
+            return;
+        }
+
+        $body = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertIsArray($body);
+        $this->assertSame($error, $body['error']);
     }
 
 

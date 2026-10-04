@@ -119,7 +119,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected MockObject $errorResponderMock;
 
     /** What the error responder last answered with, so that a test can tell its answer reached the client. */
-    protected ?JsonResponse $errorResponderResponse = null;
+    protected ?Response $errorResponderResponse = null;
 
     /** @var array<array<string,mixed>> Payloads handed to whichever credential factory was used. */
     protected array $signedPayloads = [];
@@ -353,25 +353,32 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         );
 
         $this->routesMock->method('newJsonErrorResponse')->willReturnCallback(
-            function (string $error, string $description, int $httpCode = 500): JsonResponse {
+            function (string $error, string $description, int $httpCode = 500, array $headers = []): JsonResponse {
                 $this->errorResponses[] = [
                     'error' => $error,
                     'description' => $description,
                     'httpCode' => $httpCode,
                 ];
 
-                return new JsonResponse(['error' => $error, 'error_description' => $description], $httpCode);
+                return new JsonResponse(
+                    ['error' => $error, 'error_description' => $description],
+                    $httpCode,
+                    $headers,
+                );
             },
         );
 
+        // The real responder answers, so that the response carries what the error says it should (its challenge
+        // above all); the double records what it was handed.
+        $errorResponder = new ErrorResponder(
+            $this->createStub(PsrHttpBridge::class),
+            $this->createStub(LoggerService::class),
+        );
         $this->errorResponderMock->method('forExceptionJson')->willReturnCallback(
-            function (OAuthServerException $exception): JsonResponse {
+            function (OAuthServerException $exception) use ($errorResponder): Response {
                 $this->oauthErrors[] = $exception;
 
-                return $this->errorResponderResponse = new JsonResponse(
-                    ['error' => $exception->getErrorType()],
-                    $exception->getHttpStatusCode(),
-                );
+                return $this->errorResponderResponse = $errorResponder->forExceptionJson($exception);
             },
         );
     }
@@ -565,12 +572,13 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     /**
      * A 401 carrying the Bearer challenge HTTP requires of every 401 (RFC 9110 section 15.5.2) and RFC 6750
-     * section 3 of a protected resource refusing a request for its access token.
+     * section 3 of a protected resource refusing a request for its access token, here naming the error, since a
+     * token arrived and was refused (section 3.1).
      */
-    protected function assertChallengesForABearerToken(Response $response): void
+    protected function assertChallengesTheRefusedToken(Response $response): void
     {
         $this->assertSame(401, $response->getStatusCode());
-        $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+        $this->assertSame('Bearer error="invalid_token"', $response->headers->get('WWW-Authenticate'));
     }
 
 
@@ -1372,28 +1380,78 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
-        $this->assertChallengesForABearerToken($response);
+        $this->assertChallengesTheRefusedToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
 
     /**
-     * The resource server refuses an access token which is missing, invalid or revoked with an OAuth error
-     * carrying 401; one sent only in the query string is a missing one. The refusal is answered as the
-     * client's error response, rather than left to escape to SimpleSAMLphp, which answered it with an HTML
-     * page and a 500.
+     * The resource server refuses an access token which is invalid or revoked with `invalid_token` and 401. The
+     * refusal is answered as the client's error response, with the challenge naming the error, rather than left
+     * to escape to SimpleSAMLphp, which answered it with an HTML page and a 500.
      */
     public function testAnswersTheResourceServerRefusingTheAccessToken(): void
     {
-        $refusal = OidcServerException::accessDenied('Missing Authorization header.');
+        $refusal = OidcServerException::invalidToken('Access token has been revoked');
         $this->accessTokenRefusal = $refusal;
 
         $response = $this->dispatch();
 
         $this->assertSame($this->errorResponderResponse, $response);
         $this->assertSame([$refusal], $this->oauthErrors);
+        $this->assertAnsweredWithOAuthError('invalid_token', 401);
+        $this->assertChallengesTheRefusedToken($response);
+    }
+
+
+    /**
+     * A request which carried no access token, or one only in the query string, where the resource server reads
+     * none, gets the bare challenge and no body (RFC 6750 section 3.1): no error code tells the wallet its token
+     * was refused when it sent none.
+     */
+    public function testAnswersARequestWithoutAnAccessTokenWithTheBareChallengeAlone(): void
+    {
+        $refusal = OidcServerException::missingToken('No Bearer access token.');
+        $this->accessTokenRefusal = $refusal;
+
+        $response = $this->dispatch();
+
+        $this->assertSame($this->errorResponderResponse, $response);
+        $this->assertSame([$refusal], $this->oauthErrors);
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+        $this->assertSame('', $response->getContent());
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * A failure of the OP's own while the token was checked says nothing about the token, so it carries no
+     * challenge.
+     */
+    public function testAnswersAFailureWhileCheckingTheTokenWithoutAChallenge(): void
+    {
+        $this->accessTokenRefusal = OidcServerException::serverError('The access token could not be checked.');
+
+        $response = $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertFalse($response->headers->has('WWW-Authenticate'));
+    }
+
+
+    /**
+     * Any other 401 still carries a challenge, the scheme alone, since HTTP requires one of every 401 (RFC 9110
+     * section 15.5.2).
+     */
+    public function testChallengesAnyOther401WithTheSchemeAlone(): void
+    {
+        $this->accessTokenRefusal = OidcServerException::accessDenied('Denied.');
+
+        $response = $this->dispatch();
+
         $this->assertAnsweredWithOAuthError('access_denied', 401);
-        $this->assertChallengesForABearerToken($response);
+        $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
     }
 
 
@@ -1404,7 +1462,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
-        $this->assertChallengesForABearerToken($response);
+        $this->assertChallengesTheRefusedToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1422,7 +1480,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
-        $this->assertChallengesForABearerToken($response);
+        $this->assertChallengesTheRefusedToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 
@@ -1456,7 +1514,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $response = $this->dispatch();
 
         $this->assertRefusedWith('invalid_token', 401);
-        $this->assertChallengesForABearerToken($response);
+        $this->assertChallengesTheRefusedToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
 

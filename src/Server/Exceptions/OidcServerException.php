@@ -17,6 +17,25 @@ use function json_encode;
 class OidcServerException extends OAuthServerException
 {
     /**
+     * The challenge a protected resource sends with its refusal of the access token a request carried (RFC 6750
+     * section 3).
+     */
+    public const string CHALLENGE_INVALID_TOKEN = 'Bearer error="invalid_token"';
+
+    /**
+     * The challenge a protected resource sends to a request which carried no access token: the scheme alone, with
+     * no error code (RFC 6750 section 3.1).
+     */
+    public const string CHALLENGE_BEARER = 'Bearer';
+
+    /**
+     * The error type of a refusal for want of an access token. RFC 6750 defines no code for it, so it is never
+     * sent; it names the refusal in the log.
+     */
+    public const string ERROR_TYPE_MISSING_TOKEN = 'missing_token';
+
+
+    /**
      * @var null|string
      */
     protected ?string $redirectUri = null;
@@ -25,6 +44,16 @@ class OidcServerException extends OAuthServerException
      * @var null|\SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface
      */
     protected ?ResponseModeInterface $responseMode = null;
+
+    /**
+     * The WWW-Authenticate challenge the error response carries, or null for none.
+     */
+    protected ?string $wwwAuthenticate = null;
+
+    /**
+     * Whether the error response has a body.
+     */
+    protected bool $hasBody = true;
 
 
     private static function create(
@@ -199,6 +228,60 @@ class OidcServerException extends OAuthServerException
             $state,
             $responseMode,
         );
+
+        return $e;
+    }
+
+
+    /**
+     * A protected resource refusing the access token a request carried: one which is expired, revoked, malformed
+     * or invalid for another reason (RFC 6750 section 3.1). The challenge names the error too, so that a client
+     * which reads only the header learns that its token was refused.
+     *
+     * @param string|null $hint
+     * @param \Throwable|null $previous
+     * @return static
+     */
+    public static function invalidToken(?string $hint = null, ?Throwable $previous = null): static
+    {
+        $e = self::create(
+            'The access token is expired, revoked, malformed, or invalid for other reasons.',
+            16,
+            'invalid_token',
+            401,
+            $hint,
+            null,
+            $previous,
+        );
+
+        $e->wwwAuthenticate = self::CHALLENGE_INVALID_TOKEN;
+
+        return $e;
+    }
+
+
+    /**
+     * A protected resource refusing a request which carried no access token. RFC 6750 section 3.1 answers it with
+     * the bare challenge and no error code: nothing the client sent was found wanting, and a client told that its
+     * token was refused, when it sent none, may throw away a working one. So the response has no body, and the
+     * error type and the message are for the log only.
+     *
+     * @param string|null $hint
+     * @return static
+     */
+    public static function missingToken(?string $hint = null): static
+    {
+        $e = self::create(
+            'The request carried no access token.',
+            17,
+            self::ERROR_TYPE_MISSING_TOKEN,
+            401,
+            $hint,
+        );
+
+        $e->wwwAuthenticate = self::CHALLENGE_BEARER;
+        $e->hasBody = false;
+        $e->setPayload([]);
 
         return $e;
     }
@@ -481,6 +564,46 @@ class OidcServerException extends OAuthServerException
 
 
     /**
+     * The WWW-Authenticate challenge the error response carries, or null for none.
+     */
+    public function getWwwAuthenticate(): ?string
+    {
+        return $this->wwwAuthenticate;
+    }
+
+
+    /**
+     * Whether the error response has a body. Only a refusal for want of an access token has none.
+     */
+    public function hasBody(): bool
+    {
+        return $this->hasBody;
+    }
+
+
+    /**
+     * The headers of the error response: League's, the challenge when there is one, and no JSON content type for
+     * a response which has no body.
+     *
+     * @return array<string, string>
+     */
+    public function getHttpHeaders(): array
+    {
+        $headers = parent::getHttpHeaders();
+
+        if ($this->wwwAuthenticate !== null) {
+            $headers['WWW-Authenticate'] = $this->wwwAuthenticate;
+        }
+
+        if (!$this->hasBody) {
+            unset($headers['Content-type']);
+        }
+
+        return $headers;
+    }
+
+
+    /**
      * @param string|null $redirectUri Set to string, or unset it with null
      */
     public function setRedirectUri(?string $redirectUri = null): void
@@ -562,9 +685,11 @@ class OidcServerException extends OAuthServerException
             $response = $response->withHeader($header, $content);
         }
 
-        $responseBody = json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
+        if ($this->hasBody) {
+            $responseBody = json_encode($payload, $jsonOptions) ?: 'JSON encoding of payload failed';
 
-        $response->getBody()->write($responseBody);
+            $response->getBody()->write($responseBody);
+        }
 
         return $response->withStatus($this->getHttpStatusCode());
     }

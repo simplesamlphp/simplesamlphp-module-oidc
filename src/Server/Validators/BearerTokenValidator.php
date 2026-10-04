@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\Validators;
 
 use League\OAuth2\Server\AuthorizationValidators\AuthorizationValidatorInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -13,6 +14,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\ParsedJws;
@@ -22,7 +24,7 @@ use function apache_request_headers;
 use function array_key_exists;
 use function count;
 use function is_array;
-use function preg_replace;
+use function preg_match;
 use function trim;
 
 class BearerTokenValidator implements AuthorizationValidatorInterface
@@ -39,8 +41,12 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
 
     /**
      * {@inheritdoc}
+     *
+     * Refusals are shaped as RFC 6750 section 3.1 has them: a request with no Bearer token gets the bare challenge
+     * and no error code, one whose token fails a check gets `invalid_token`, and a failure of the OP's own while
+     * checking is a `server_error`.
+     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
     public function validateAuthorization(ServerRequestInterface $request): ServerRequestInterface
     {
@@ -49,7 +55,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         if (
             $request->hasHeader('authorization') &&
             ($header = $request->getHeader('authorization')) &&
-            ($accessToken = $this->getTokenFromAuthorizationBearer($header[0]))
+            ($accessToken = $this->getTokenFromAuthorizationBearer($header[0])) !== null
         ) {
             $jwt = $accessToken;
         } elseif (
@@ -67,7 +73,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             ($headers = array_change_key_case(apache_request_headers())) &&
             (array_key_exists('authorization', $headers)) &&
             ($header = (string)$headers['authorization']) &&
-            ($accessToken = $this->getTokenFromAuthorizationBearer($header))
+            ($accessToken = $this->getTokenFromAuthorizationBearer($header)) !== null
         ) {
             $this->loggerService->warning(
                 'Apache stripping of Authorization Bearer request header encountered. You should modify your' .
@@ -77,18 +83,34 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             $jwt = $accessToken;
         }
 
-        if (!is_string($jwt) || empty($jwt)) {
-            throw OidcServerException::accessDenied('Missing Authorization header or access_token request body param.');
+        if (!is_string($jwt) || $jwt === '') {
+            throw OidcServerException::missingToken(
+                'No Bearer access token in the Authorization header or the access_token request body param.',
+            );
         }
 
         try {
             $token = $this->ensureValidAccessToken($jwt);
+            $jti = $token->getJwtId();
+            $audience = $token->getAudience();
+            $subject = $token->getSubject();
+            /** @psalm-suppress MixedAssignment */
+            $scopes = $token->getPayloadClaim('scopes');
+            $type = $token->getType();
+        } catch (OpenIdException | TokenNotFoundException $exception) {
+            // The verdicts on the token: not a JWS of ours, not an access token, expired, revoked or malformed (the
+            // library's exceptions), or no record of it (the repository's). The same split the introspection
+            // endpoint makes.
+            throw OidcServerException::invalidToken($exception->getMessage(), $exception);
         } catch (Throwable $exception) {
-            throw OidcServerException::accessDenied($exception->getMessage(), null, $exception);
+            // A failure of the OP's own while checking the token: a database which did not answer, a corrupt
+            // record, a signing key configuration which can not be read. Answered as a verdict, it would tell a
+            // client holding a working token to throw it away, and hide the outage behind a 401.
+            throw OidcServerException::serverError('The access token could not be checked.', $exception);
         }
 
-        if (is_null($jti = $token->getJwtId()) || empty($jti)) {
-            throw OidcServerException::accessDenied('Access token malformed (jti missing or unexpected type)');
+        if (is_null($jti) || empty($jti)) {
+            throw OidcServerException::invalidToken('Access token malformed (jti missing or unexpected type)');
         }
 
         // Return the request with additional attributes. 'oauth_user_id' is the token's 'sub' (league's name for
@@ -97,15 +119,16 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         // the internal user identifier (see UserInfoController).
         return $request
             ->withAttribute('oauth_access_token_id', $jti)
-            ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($token->getAudience()))
-            ->withAttribute('oauth_user_id', $token->getSubject())
-            ->withAttribute('oauth_scopes', $token->getPayloadClaim('scopes'))
-            ->withAttribute('oauth_access_token_typ', $token->getType());
+            ->withAttribute('oauth_client_id', $this->convertSingleRecordAudToString($audience))
+            ->withAttribute('oauth_user_id', $subject)
+            ->withAttribute('oauth_scopes', $scopes)
+            ->withAttribute('oauth_access_token_typ', $type);
     }
 
 
     /**
      * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      */
@@ -184,9 +207,21 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
     }
 
 
-    protected function getTokenFromAuthorizationBearer(string $authorizationHeader): string
+    /**
+     * The access token an Authorization header carries under the Bearer scheme, or null for a header under another
+     * scheme or with nothing after the scheme name. The scheme name is matched case-insensitively, as HTTP has it
+     * (RFC 9110 section 11.1). A header under another scheme carries no bearer token, so a request which sent only
+     * that is refused as one which sent none (RFC 6750 section 3.1), not as one whose token was found wanting.
+     */
+    protected function getTokenFromAuthorizationBearer(string $authorizationHeader): ?string
     {
-        return trim((string) preg_replace('/^\s*Bearer\s/', '', $authorizationHeader));
+        if (preg_match('/^\s*Bearer(?:\s+(.*))?$/is', $authorizationHeader, $matches) !== 1) {
+            return null;
+        }
+
+        $token = trim($matches[1] ?? '');
+
+        return $token === '' ? null : $token;
     }
 
 
@@ -212,6 +247,6 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             }
         }
 
-        throw OidcServerException::accessDenied('Unexpected aud claim value.');
+        throw OidcServerException::invalidToken('Unexpected aud claim value.');
     }
 }

@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Services;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -58,10 +59,25 @@ class ErrorResponder
      * regardless of any redirect URI contained in the exception. This is
      * appropriate for endpoints which must not redirect on errors, like
      * the Pushed Authorization Request endpoint.
+     *
+     * A protected resource's refusal of an access token carries its challenge (RFC 6750 section 3), and a refusal
+     * for want of one carries nothing else: no body, and so no error code (RFC 6750 section 3.1).
      */
-    public function forExceptionJson(OAuthServerException $exception): JsonResponse
+    public function forExceptionJson(OAuthServerException $exception): Response
     {
         $this->logOAuthServerException($exception);
+
+        $headers = ['Cache-Control' => 'no-cache, no-store'];
+
+        if ($exception instanceof OidcServerException) {
+            if (($challenge = $exception->getWwwAuthenticate()) !== null) {
+                $headers['WWW-Authenticate'] = $challenge;
+            }
+
+            if (!$exception->hasBody()) {
+                return new Response('', $exception->getHttpStatusCode(), $headers);
+            }
+        }
 
         $body = [
             'error' => $exception->getErrorType(),
@@ -75,7 +91,7 @@ class ErrorResponder
         return new JsonResponse(
             $body,
             $exception->getHttpStatusCode(),
-            ['Cache-Control' => 'no-cache, no-store'],
+            $headers,
         );
     }
 

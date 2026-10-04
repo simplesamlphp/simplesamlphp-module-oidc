@@ -702,6 +702,21 @@ answers any unexpected failure while processing a request in the token error
 format (`{"error": "server_error", ...}`, HTTP 500, with the cause in the OP
 log rather than in the response) instead of with SimpleSAMLphp's HTML error
 page.
+- The UserInfo endpoint now refuses an access token as RFC 6750 section 3 has
+it (OpenID Connect Core 1.0 section 5.3.3). A token which is expired, revoked,
+malformed or otherwise not accepted is answered with `invalid_token` instead of
+`access_denied`, still with HTTP 401, and the response now carries the
+`WWW-Authenticate: Bearer error="invalid_token"` challenge it lacked. A request
+which carries no access token is answered with HTTP 401, the bare
+`WWW-Authenticate: Bearer` challenge and no body, instead of an `access_denied`
+JSON error. An `Authorization` header under a scheme other than `Bearer`
+(`Basic`, say) now counts as no token, where it used to be read as one and
+refused as invalid, and the `Bearer` scheme name is now matched
+case-insensitively. A failure of the OP while it checks the token, such as a
+database which does not answer, is answered with `server_error` (HTTP 500)
+instead of a 401. A client which acts on the 401 status is unaffected; one
+which compares the `error` member with `access_denied` finds `invalid_token` for
+a refused token, and no body at all for a request which carried none.
 - The token introspection endpoint now tells an access token from a refresh
 token by the token itself, and no longer by `token_type_hint`. Previously a
 hint naming the other type answered `active: false` for a valid token, and an
