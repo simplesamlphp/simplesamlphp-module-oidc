@@ -46,8 +46,10 @@ class StatusListRateLimiterTest extends TestCase
                 $this->cached[implode('|', $keyElements)] ?? $default,
         );
         $this->protocolCacheMock->method('set')->willReturnCallback(
-            function (mixed $value, mixed $ttl, string ...$keyElements): void {
+            function (mixed $value, mixed $ttl, string ...$keyElements): bool {
                 $this->cached[implode('|', $keyElements)] = (int)$value;
+
+                return true;
             },
         );
     }

@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
@@ -45,6 +46,7 @@ class CredentialOfferUriFactory
         protected readonly IssuerStateEntityFactory $issuerStateEntityFactory,
         protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly UserIdentifierResolver $userIdentifierResolver,
+        protected readonly TxCodeAttemptLimiter $txCodeAttemptLimiter,
     ) {
     }
 
@@ -213,6 +215,11 @@ class CredentialOfferUriFactory
         }
 
         /** @psalm-var \SimpleSAML\Module\oidc\Entities\AuthCodeEntity $authCode */
+
+        // The code's attempts at its Transaction Code, which the token endpoint spends (PreAuthCodeGrant).
+        if ($txCode instanceof TxCode) {
+            $this->txCodeAttemptLimiter->open($authCode->getIdentifier(), $authCode->getExpiryDateTime());
+        }
 
         $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
             parameters: [

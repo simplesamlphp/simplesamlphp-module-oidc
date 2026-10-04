@@ -50,6 +50,10 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
 use SimpleSAML\Utils\Config;
 use SimpleSAML\Utils\HTTP;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\ChainAdapter;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Symfony\Component\Cache\Adapter\MemcachedAdapter;
+use Symfony\Component\Cache\Adapter\NullAdapter;
 use ValueError;
 
 /**
@@ -4375,6 +4379,96 @@ class ModuleConfigTest extends TestCase
 
         $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE, -1))
             ->getVciStatusListRequestsPerMinute();
+    }
+
+
+    /**
+     * A cache keeps entries across requests unless there is none, or its adapter keeps them in the memory of one
+     * request or not at all. An adapter built of others is taken at its word.
+     *
+     * @return array<string,array{?string, bool}>
+     */
+    public static function protocolCacheAdapterProvider(): array
+    {
+        return [
+            'none' => [null, false],
+            'in the memory of one request' => [ArrayAdapter::class, false],
+            'in the memory of one request, by a subclass' => [(new class extends ArrayAdapter {
+            })::class, false],
+            'nowhere' => [NullAdapter::class, false],
+            'nowhere, by a subclass' => [(new class extends NullAdapter {
+            })::class, false],
+            'in files' => [FilesystemAdapter::class, true],
+            'in Memcached' => [MemcachedAdapter::class, true],
+            'in a chain' => [ChainAdapter::class, true],
+        ];
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('protocolCacheAdapterProvider')]
+    public function testTellsWhetherTheProtocolCacheKeepsEntriesAcrossRequests(?string $adapter, bool $kept): void
+    {
+        $this->assertSame(
+            $kept,
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER, $adapter))
+                ->isProtocolCacheKeptAcrossRequests(),
+        );
+    }
+
+
+    /**
+     * Five attempts at a Transaction Code unless the deployment says otherwise, one being the fewest. An option
+     * set to null is one not set (SimpleSAMLphp's hasValue()), so it is five too, not a way past the minimum.
+     *
+     * @throws \Exception
+     */
+    public function testTransactionCodeAttemptsAreFiveUntilConfiguredOtherwise(): void
+    {
+        $this->assertSame(5, $this->sut()->getVciTxCodeMaxAttempts());
+        $this->assertSame(
+            5,
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS, null))
+                ->getVciTxCodeMaxAttempts(),
+        );
+
+        foreach ([1, 3] as $configured) {
+            $this->assertSame(
+                $configured,
+                $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS, $configured))
+                    ->getVciTxCodeMaxAttempts(),
+            );
+        }
+    }
+
+
+    /**
+     * There is no value which turns the limit off: a generated Transaction Code is four digits.
+     *
+     * @return array<string,array{int}>
+     */
+    public static function transactionCodeAttemptsBelowOneProvider(): array
+    {
+        return [
+            'zero' => [0],
+            'negative' => [-1],
+        ];
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('transactionCodeAttemptsBelowOneProvider')]
+    public function testRejectsFewerThanOneTransactionCodeAttempt(int $configured): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS);
+
+        $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS, $configured))
+            ->getVciTxCodeMaxAttempts();
     }
 
 

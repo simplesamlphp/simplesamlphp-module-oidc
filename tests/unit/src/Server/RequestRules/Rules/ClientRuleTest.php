@@ -333,12 +333,14 @@ class ClientRuleTest extends TestCase
         $this->federationCacheMock->method('has')
             ->willReturnCallback(fn(): bool => $this->requestObjectJtiAlreadySeen);
         $this->federationCacheMock->method('set')
-            ->willReturnCallback(function (mixed $value, mixed $ttl, string ...$keyElements): void {
+            ->willReturnCallback(function (mixed $value, mixed $ttl, string ...$keyElements): bool {
                 $this->cacheWrites[] = ['value' => $value, 'ttl' => $ttl, 'key' => $keyElements];
 
                 if ($this->cacheWriteFailure !== null) {
                     throw $this->cacheWriteFailure;
                 }
+
+                return true;
             });
 
         $openIdHelpersMock = $this->createMock(OpenIdHelpers::class);

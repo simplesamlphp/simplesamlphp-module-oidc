@@ -58,6 +58,7 @@ use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient;
+use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Stringable;
@@ -68,8 +69,9 @@ use Stringable;
  * A pre-authorized code is issued out of band, inside a credential offer, and carries the holder, the client
  * and, optionally, a transaction code the wallet has to present with it. This grant redeems it: it finds the
  * stored code, checks that it is a pre-authorized one, unexpired and unrevoked, checks the transaction code
- * when the stored code carries one, runs the client and authorization details rules, consumes the code with
- * the repository's conditional update as the replay guard, and only then issues the access token, bound to
+ * when the stored code carries one (taking an attempt from the TxCodeAttemptLimiter before comparing it) and
+ * refuses one sent for a code which carries none, runs the client and authorization details rules, consumes the
+ * code with the repository's conditional update as the replay guard, and only then issues the access token, bound to
  * whichever client the client rule identified and to the authorization details, and granting the credential
  * configurations the offer offered which that client may have. A pre-authorized code is
  * never requested through the authorization endpoint, so the grant claims no authorization request and the
@@ -146,6 +148,8 @@ class PreAuthCodeGrantTest extends TestCase
 
     private ModuleConfig&MockObject $moduleConfigMock;
 
+    private TxCodeAttemptLimiter&MockObject $txCodeAttemptLimiterMock;
+
     private ServerRequestInterface&MockObject $requestMock;
 
     /** The client the pre-authorized code was issued to. */
@@ -181,6 +185,9 @@ class PreAuthCodeGrantTest extends TestCase
         $this->clientMock = $this->createMock(ClientEntity::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
         $this->clientMock->method('getScopes')->willReturn(['openid', self::OFFERED, self::ALSO_SUPPORTED]);
+        // Attempts left, unless a test says otherwise.
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->method('admitAttempt')->willReturn(true);
 
         $this->captureLogs('debug');
         $this->captureLogs('notice');
@@ -202,6 +209,14 @@ class PreAuthCodeGrantTest extends TestCase
             ->method('findById')
             ->with(self::PRE_AUTHORIZED_CODE)
             ->willReturn($authCode);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->once())
+            ->method('admitAttempt')
+            ->with(self::PRE_AUTHORIZED_CODE, $authCode->getExpiryDateTime())
+            ->willReturnCallback(function () use (&$operationOrder): bool {
+                $operationOrder[] = 'admit';
+                return true;
+            });
         $this->authCodeRepositoryMock->expects($this->once())
             ->method('consumePreAuthorizedCode')
             ->with(self::PRE_AUTHORIZED_CODE)
@@ -228,7 +243,7 @@ class PreAuthCodeGrantTest extends TestCase
         );
 
         $this->assertSame($responseType, $result);
-        $this->assertSame(['consume', 'persist'], $operationOrder);
+        $this->assertSame(['admit', 'consume', 'persist'], $operationOrder);
         $this->assertLogged(
             'notice',
             'Pre-authorized code redeemed; access token issued.',
@@ -261,17 +276,25 @@ class PreAuthCodeGrantTest extends TestCase
     }
 
 
-    public function testRejectsInvalidTransactionCodeWithoutConsumingPreAuthorizedCode(): void
-    {
-        $submittedTransactionCode = '9999';
+    /**
+     * A wrong transaction code is invalid_grant (OpenID4VCI 1.0 section 6.3), and it has spent an attempt. A
+     * submitted "0" is a transaction code like any other, not a missing one.
+     */
+    #[DataProvider('wrongTransactionCodeProvider')]
+    public function testRejectsInvalidTransactionCodeWithoutConsumingPreAuthorizedCode(
+        string $submittedTransactionCode,
+    ): void {
         $this->configureRequestParameters($submittedTransactionCode);
         $authCode = $this->preAuthorizedCode(self::TRANSACTION_CODE);
 
         $this->authCodeRepositoryMock->method('findById')->willReturn($authCode);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->once())->method('admitAttempt')->willReturn(true);
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
         $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
 
-        $this->assertTokenRequestRefused('invalid_request', 'Transaction Code is invalid.');
+        $this->assertTokenRequestRefused('invalid_grant', 'Transaction Code is invalid.');
         $this->assertLogged(
             'warning',
             'Transaction code parameter value does not match pre-authorized code transaction code.',
@@ -281,6 +304,162 @@ class PreAuthCodeGrantTest extends TestCase
             self::TRANSACTION_CODE,
             $submittedTransactionCode,
         );
+    }
+
+
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function wrongTransactionCodeProvider(): array
+    {
+        return [
+            'another code' => ['9999'],
+            'a zero' => ['0'],
+            'spaces' => ['   '],
+        ];
+    }
+
+
+    /**
+     * The attempt is taken before the transaction code is compared: with none left, the right code is refused
+     * exactly as a wrong one is, so the comparison did not rescue it. The refusal carries the hint an unknown
+     * code and a consumed one share, and nothing after it runs.
+     *
+     * @return array<string,array{string}>
+     */
+    public static function submittedTransactionCodeProvider(): array
+    {
+        return [
+            'the right code' => [self::TRANSACTION_CODE],
+            'a wrong code' => ['9999'],
+        ];
+    }
+
+
+    #[DataProvider('submittedTransactionCodeProvider')]
+    public function testRefusesEveryTransactionCodeOnceNoAttemptsAreLeft(string $submittedTransactionCode): void
+    {
+        $this->configureRequestParameters($submittedTransactionCode);
+        $authCode = $this->preAuthorizedCode(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->method('findById')->willReturn($authCode);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->once())
+            ->method('admitAttempt')
+            ->with(self::PRE_AUTHORIZED_CODE, $authCode->getExpiryDateTime())
+            ->willReturn(false);
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->assertTokenRequestRefused('invalid_grant', self::INVALID_CODE_HINT);
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: no attempts are left at the transaction code of the pre-authorized code.',
+        );
+        $this->assertSecretsWereNotLogged(
+            self::PRE_AUTHORIZED_CODE,
+            self::TRANSACTION_CODE,
+            $submittedTransactionCode,
+        );
+    }
+
+
+    /**
+     * A limiter which cannot count -- a configured protocol cache which fails -- is let through to the token
+     * endpoint, which answers it as a server error; nothing after the attempt runs.
+     */
+    public function testLetsAFailureToCountTheAttemptThrough(): void
+    {
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->method('admitAttempt')
+            ->willThrowException(new RuntimeException('Cache is down.'));
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Cache is down.');
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+    }
+
+
+    /**
+     * The right code spends its attempt as a wrong one does, and a rule refusing the request afterwards does
+     * not give it back: a refund would let a guesser fail the rules on purpose and keep guessing.
+     */
+    public function testARightTransactionCodeSpendsItsAttemptEvenWhenARuleThenRefuses(): void
+    {
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->once())->method('admitAttempt')->willReturn(true);
+        $this->requestRulesManagerMock->expects($this->once())
+            ->method('check')
+            ->willThrowException(OidcServerException::invalidClient($this->requestMock));
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+
+        $this->assertTokenRequestRefused('invalid_client', null);
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
+    }
+
+
+    /**
+     * A code sent in another spelling which the database still finds -- MySQL's default collations ignore case,
+     * and the older ones trailing spaces as well -- is counted, consumed and recorded on the token as stored, so
+     * that a spelling gets no attempts of its own.
+     */
+    public function testCountsConsumesAndRecordsTheCodeAsStoredWhateverItsSpelling(): void
+    {
+        $sentAs = strtoupper(self::PRE_AUTHORIZED_CODE) . ' ';
+        $this->configureRequestParameters(self::TRANSACTION_CODE, preAuthorizedCode: $sentAs);
+        $this->withNoAuthorizationDetails();
+        $authCode = $this->preAuthorizedCode(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->expects($this->once())
+            ->method('findById')
+            ->with($sentAs)
+            ->willReturn($authCode);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->once())
+            ->method('admitAttempt')
+            ->with(self::PRE_AUTHORIZED_CODE, $authCode->getExpiryDateTime())
+            ->willReturn(true);
+        $this->authCodeRepositoryMock->expects($this->once())
+            ->method('consumePreAuthorizedCode')
+            ->with(self::PRE_AUTHORIZED_CODE)
+            ->willReturn(true);
+        $recordedAuthCodeId = null;
+        $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
+            function (
+                string $id,
+                OAuth2ClientEntityInterface $clientEntity,
+                array $scopes,
+                DateTimeImmutable $expiryDateTime,
+                int|string|null $userIdentifier,
+                ?string $authCodeId,
+            ) use (&$recordedAuthCodeId): AccessTokenEntity {
+                $recordedAuthCodeId = $authCodeId;
+
+                return $this->createMock(AccessTokenEntity::class);
+            },
+        );
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(self::PRE_AUTHORIZED_CODE, $recordedAuthCodeId);
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, trim($sentAs), self::TRANSACTION_CODE);
     }
 
 
@@ -454,29 +633,34 @@ class PreAuthCodeGrantTest extends TestCase
      */
     public function testRefusesAPreAuthorizedCodeItDoesNotKnow(): void
     {
-        $this->configureRequestParameters(null);
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
         $this->authCodeRepositoryMock->expects($this->once())
             ->method('findById')
             ->with(self::PRE_AUTHORIZED_CODE)
             ->willReturn(null);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
         $this->assertTokenRequestRefused('invalid_grant', self::INVALID_CODE_HINT);
         $this->assertLogged('notice', 'Token request rejected: pre-authorized code was not found.');
-        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE);
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
 
 
     #[DataProvider('notPreAuthorizedProvider')]
     public function testRefusesACodeWhichWasNotPreAuthorized(?FlowTypeEnum $flowType): void
     {
-        $this->configureRequestParameters(null);
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
         $this->authCodeRepositoryMock->method('findById')
-            ->willReturn($this->preAuthorizedCode(flowType: $flowType));
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE, flowType: $flowType));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
         $this->assertTokenRequestRefused('invalid_grant', 'Pre-authorized code is not pre-authorized.');
         $this->assertLogged('error', 'Pre-authorized code is not pre-authorized.');
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
 
 
@@ -495,33 +679,45 @@ class PreAuthCodeGrantTest extends TestCase
 
     public function testRefusesAnExpiredPreAuthorizedCode(): void
     {
-        $this->configureRequestParameters(null);
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
         $this->authCodeRepositoryMock->method('findById')
-            ->willReturn($this->preAuthorizedCode(expiresAt: '-1 hour'));
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE, expiresAt: '-1 hour'));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
         $this->assertTokenRequestRefused('invalid_grant', 'Pre-authorized code is expired.');
         $this->assertLogged('error', 'Pre-authorized code is expired.');
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
 
 
     public function testRefusesARevokedPreAuthorizedCode(): void
     {
-        $this->configureRequestParameters(null);
-        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode(isRevoked: true));
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE, isRevoked: true));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
         $this->assertTokenRequestRefused('invalid_grant', 'Pre-authorized code is revoked.');
         $this->assertLogged('error', 'Pre-authorized code is revoked.');
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
 
 
+    /**
+     * A missing transaction code is not a guess, so it spends no attempt.
+     */
     #[DataProvider('missingParameterProvider')]
     public function testRequiresTheTransactionCodeWhenTheCodeCarriesOne(?string $transactionCode): void
     {
         $this->configureRequestParameters($transactionCode);
         $this->authCodeRepositoryMock->method('findById')
             ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
         $this->assertTokenRequestRefused('invalid_request', 'Transaction Code is missing.');
@@ -530,12 +726,19 @@ class PreAuthCodeGrantTest extends TestCase
     }
 
 
-    public function testDoesNotAskForATransactionCodeWhenTheCodeCarriesNone(): void
+    /**
+     * A code which carries no transaction code is redeemed without one, sent empty or not at all, and spends no
+     * attempt.
+     */
+    #[DataProvider('missingParameterProvider')]
+    public function testRedeemsACodeWhichCarriesNoTransactionCodeWithoutOne(?string $transactionCode): void
     {
-        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->configureRequestParameters($transactionCode);
         $this->withNoAuthorizationDetails();
         $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
-        $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
+        $this->authCodeRepositoryMock->expects($this->once())->method('consumePreAuthorizedCode')->willReturn(true);
         $this->accessTokenEntityFactoryMock->method('fromData')
             ->willReturn($this->createMock(AccessTokenEntity::class));
 
@@ -545,7 +748,42 @@ class PreAuthCodeGrantTest extends TestCase
             new DateInterval('PT5M'),
         );
 
-        $this->assertSame([ParamsEnum::PreAuthorizedCode->value], $this->askedParameters);
+        $this->assertSame([ParamsEnum::PreAuthorizedCode->value, ParamsEnum::TxCode->value], $this->askedParameters);
+    }
+
+
+    /**
+     * A transaction code sent for a code which carries none is invalid_request (OpenID4VCI 1.0 section 6.3),
+     * before any rule runs or the code is consumed; there is nothing to guess, so no attempt is taken.
+     *
+     * @return array<string,array{string}>
+     */
+    public static function unexpectedTransactionCodeProvider(): array
+    {
+        return [
+            'a code' => [self::TRANSACTION_CODE],
+            'a zero' => ['0'],
+            'spaces' => ['   '],
+        ];
+    }
+
+
+    #[DataProvider('unexpectedTransactionCodeProvider')]
+    public function testRefusesATransactionCodeForACodeWhichCarriesNone(string $transactionCode): void
+    {
+        $this->configureRequestParameters($transactionCode);
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+
+        $this->assertTokenRequestRefused('invalid_request', 'Transaction Code is not expected.');
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: a transaction code was sent for a pre-authorized code which has none.',
+        );
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
     }
 
 
@@ -961,6 +1199,7 @@ class PreAuthCodeGrantTest extends TestCase
             $this->accessTokenClaimsResolverMock,
             $this->moduleConfigMock,
             $this->createStub(IssuerStateRepository::class),
+            $this->txCodeAttemptLimiterMock,
         );
         $grant->setScopeRepository(
             new ScopeRepository($this->createStub(ModuleConfig::class), $this->createStub(ScopeEntityFactory::class)),

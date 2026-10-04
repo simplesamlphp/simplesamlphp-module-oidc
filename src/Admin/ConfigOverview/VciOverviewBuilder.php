@@ -1498,6 +1498,56 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 ) : null,
                 $emailMapWarning,
             ),
+            $this->buildTxCodeMaxAttemptsRow(),
+        );
+    }
+
+
+    /**
+     * The attempt limit counts in the protocol cache, so without one which keeps entries from one request to
+     * the next it is not in force, which is worth a warning: a four-digit Transaction Code can then be guessed
+     * for as long as its code lives.
+     */
+    protected function buildTxCodeMaxAttemptsRow(): Row
+    {
+        try {
+            $isProtocolCacheConfigured = !is_null($this->moduleConfig->getProtocolCacheAdapterClass());
+            $isProtocolCacheKept = $this->moduleConfig->isProtocolCacheKeptAcrossRequests();
+        } catch (Throwable) {
+            // Reported on the protocol screen, which owns this option; nothing can be counted in a cache
+            // which cannot be resolved.
+            $isProtocolCacheConfigured = false;
+            $isProtocolCacheKept = false;
+        }
+
+        $warning = null;
+        if (!$isProtocolCacheConfigured) {
+            $warning = Translate::noop(
+                'Not enforced: attempts are counted in the protocol cache, and none is configured, so ' .
+                'a Transaction Code can be guessed for as long as its pre-authorized code is valid.',
+            );
+        } elseif (!$isProtocolCacheKept) {
+            $warning = Translate::noop(
+                'Not enforced: the protocol cache adapter keeps nothing from one request to the next, so ' .
+                'attempts are not counted, and a Transaction Code can be guessed for as long as its ' .
+                'pre-authorized code is valid.',
+            );
+        }
+
+        return $this->guardRow(
+            Translate::noop('Transaction Code Attempts'),
+            ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS,
+            fn(): Row => new Row(
+                Translate::noop('Transaction Code Attempts'),
+                (string)$this->moduleConfig->getVciTxCodeMaxAttempts(),
+                ConfigOverviewValueTypeEnum::RawText,
+                ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS,
+                Translate::noop(
+                    'Attempts a wallet gets at the Transaction Code of one pre-authorized code, the right ' .
+                    'code included. Once they are used up, the code is refused and the user needs a new offer.',
+                ),
+                $warning,
+            ),
         );
     }
 

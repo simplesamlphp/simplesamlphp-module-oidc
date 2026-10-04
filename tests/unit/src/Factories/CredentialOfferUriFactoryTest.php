@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use DateInterval;
 use DateTimeImmutable;
+use DateTimeInterface;
 use Exception;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
@@ -37,6 +38,7 @@ use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\TxCode;
@@ -87,6 +89,8 @@ class CredentialOfferUriFactoryTest extends TestCase
     protected IssuerStateRepository&MockObject $issuerStateRepositoryMock;
 
     protected UserIdentifierResolver&MockObject $userIdentifierResolverMock;
+
+    protected TxCodeAttemptLimiter&MockObject $txCodeAttemptLimiterMock;
 
     /** @var list<array{level: string, message: string, context: array}> */
     protected array $logRecords = [];
@@ -150,6 +154,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->issuerStateEntityFactoryMock = $this->createMock(IssuerStateEntityFactory::class);
         $this->issuerStateEntityFactoryMock->method('buildNew')->willReturn($this->issuerState('issuer-state-value'));
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
 
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         foreach (['error', 'warning', 'info', 'debug'] as $level) {
@@ -604,6 +609,72 @@ class CredentialOfferUriFactoryTest extends TestCase
     }
 
 
+    /**
+     * A code which carries a transaction code gets its attempts at it once it is stored, under the identifier and
+     * until the expiry it was stored with; the token endpoint then spends them.
+     */
+    public function testGivesTheStoredCodeItsTransactionCodeAttempts(): void
+    {
+        $this->emailFactoryMock->method('build')->willReturn($this->emailMock);
+        $order = [];
+        $stored = null;
+        $this->authCodeRepositoryMock->expects($this->once())->method('persistNewAuthCode')
+            ->willReturnCallback(function (AuthCodeEntity $authCode) use (&$order, &$stored): void {
+                $order[] = 'persist';
+                $stored = $authCode;
+            });
+        $this->txCodeAttemptLimiterMock->expects($this->once())->method('open')
+            ->willReturnCallback(
+                function (string $id, DateTimeInterface $expiresAt) use (&$order, &$stored): void {
+                    $order[] = 'open';
+                    $this->assertInstanceOf(AuthCodeEntity::class, $stored);
+                    $this->assertSame($stored->getIdentifier(), $id);
+                    $this->assertEquals($stored->getExpiryDateTime(), $expiresAt);
+                },
+            );
+
+        $this->sut()->buildPreAuthorized(
+            ['credential-configuration'],
+            ['uid' => ['user-1'], 'mail' => ['user@example.org']],
+            useTxCode: true,
+        );
+
+        $this->assertSame(['persist', 'open'], $order);
+    }
+
+
+    /**
+     * Without a transaction code there is nothing to guess, and no attempts to give.
+     */
+    public function testGivesACodeWithoutATransactionCodeNoAttempts(): void
+    {
+        $this->authCodeRepositoryMock->expects($this->once())->method('persistNewAuthCode');
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('open');
+
+        $this->sut()->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1']]);
+    }
+
+
+    /**
+     * A code whose attempts could not be kept could never be redeemed, so no offer is made for it.
+     */
+    public function testOffersNothingWhenTheAttemptsCanNotBeKept(): void
+    {
+        $this->emailFactoryMock->method('build')->willReturn($this->emailMock);
+        $this->txCodeAttemptLimiterMock->method('open')
+            ->willThrowException(new RuntimeException('The protocol cache did not keep them.'));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('The protocol cache did not keep them.');
+
+        $this->sut()->buildPreAuthorized(
+            ['credential-configuration'],
+            ['uid' => ['user-1'], 'mail' => ['user@example.org']],
+            useTxCode: true,
+        );
+    }
+
+
     public function testTakesTheEmailFromTheAttributeItIsToldRatherThanTheDefault(): void
     {
         $userAttributes = [
@@ -805,6 +876,7 @@ class CredentialOfferUriFactoryTest extends TestCase
             $this->issuerStateEntityFactoryMock,
             $this->issuerStateRepositoryMock,
             $this->userIdentifierResolverMock,
+            $this->txCodeAttemptLimiterMock,
         );
     }
 

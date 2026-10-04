@@ -150,6 +150,17 @@ hold no email address to send the transaction code to.
 * `500` `server_error`: the offer could not be built, for example because the transaction code could not be mailed.
 The cause is in the log.
 
+When the wallet redeems a pre-authorized code at the token endpoint, a wrong transaction code is answered with
+`invalid_grant`, and one sent for an offer which has none with `invalid_request`, as OpenID4VCI 1.0 section 6.3 has
+it. The wallet gets `vci_tx_code_max_attempts` attempts (5 by default) at the transaction code of one pre-authorized
+code, and every attempt counts, the right code included; once they are used up, any further attempt is refused with
+`invalid_grant` and the user needs a new offer. A code is given its attempts when the offer is made, and they are
+kept in the protocol cache, so **without a protocol cache configured they are not counted** (nor with one which keeps
+nothing from one request to the next), and the four-digit code can be guessed for as long as the pre-authorized code is
+valid. A code whose record the cache loses is refused as a spent
+one is. When the cache can not store the record, the offer is answered with `500` `server_error`, and so is a token
+request whose attempt it can not record (see "Caching protocol artifacts" in the configuration documentation).
+
 #### Sample 1
 
 Request a credential offer to issue a credential with the ID `ResearchAndScholarshipCredentialDcSdJwt` using the

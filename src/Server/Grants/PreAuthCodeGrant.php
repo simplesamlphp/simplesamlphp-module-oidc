@@ -8,6 +8,7 @@ use DateInterval;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
+use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
@@ -19,13 +20,28 @@ use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
+use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
+use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\Utils\SubjectResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -37,6 +53,51 @@ use function hash_equals;
  */
 class PreAuthCodeGrant extends AuthCodeGrant
 {
+    /**
+     * The parent's collaborators, and the limit on attempts at a code's Transaction Code.
+     *
+     * @throws \Exception
+     */
+    public function __construct(
+        OAuth2AuthCodeRepositoryInterface $authCodeRepository,
+        AccessTokenRepositoryInterface $accessTokenRepository,
+        RefreshTokenRepositoryInterface $refreshTokenRepository,
+        DateInterval $authCodeTTL,
+        RequestRulesManager $requestRulesManager,
+        RequestParamsResolver $requestParamsResolver,
+        AccessTokenEntityFactory $accessTokenEntityFactory,
+        AuthCodeEntityFactory $authCodeEntityFactory,
+        RefreshTokenIssuer $refreshTokenIssuer,
+        Helpers $helpers,
+        LoggerService $loggerService,
+        UserRepository $userRepository,
+        SubjectResolver $subjectResolver,
+        AccessTokenClaimsResolver $accessTokenClaimsResolver,
+        ModuleConfig $moduleConfig,
+        IssuerStateRepository $issuerStateRepository,
+        protected readonly TxCodeAttemptLimiter $txCodeAttemptLimiter,
+    ) {
+        parent::__construct(
+            $authCodeRepository,
+            $accessTokenRepository,
+            $refreshTokenRepository,
+            $authCodeTTL,
+            $requestRulesManager,
+            $requestParamsResolver,
+            $accessTokenEntityFactory,
+            $authCodeEntityFactory,
+            $refreshTokenIssuer,
+            $helpers,
+            $loggerService,
+            $userRepository,
+            $subjectResolver,
+            $accessTokenClaimsResolver,
+            $moduleConfig,
+            $issuerStateRepository,
+        );
+    }
+
+
     public function getIdentifier(): string
     {
         return GrantTypesEnum::PreAuthorizedCode->value;
@@ -161,30 +222,62 @@ class PreAuthCodeGrant extends AuthCodeGrant
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
         }
 
+        // From here on, the code as stored rather than as sent: a database whose collation ignores case (MySQL's
+        // defaults do, and the older ones trailing spaces as well) finds the code under other spellings too, and
+        // each spelling would otherwise get a count of Transaction Code attempts of its own.
+        $preAuthorizedCodeId = $preAuthorizedCode->getIdentifier();
+
         $client = $preAuthorizedCode->getClient();
 
         $this->validateAuthorizationCode($preAuthorizedCode, $client, $request, $preAuthorizedCode);
 
-        // Validate Transaction Code.
+        // Validate Transaction Code. Not sent means null or an empty string; anything else, "0" included, is
+        // a Transaction Code. OpenID4VCI 1.0 section 6.3 has a missing one and an unexpected one answered with
+        // invalid_request, and a wrong one with invalid_grant. A code which carries one carries a non-empty
+        // value other than "0": the generator draws four digits, and AuthCodeEntityFactory::fromState() reads
+        // a stored "" or "0" as none.
+        $txCodeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+            ParamsEnum::TxCode->value,
+            $request,
+            $this->allowedTokenHttpMethods,
+        );
+        $txCodeSent = $txCodeParam !== null && $txCodeParam !== '';
+
         if (($preAuthorizedCodeTxCode = $preAuthorizedCode->getTxCode()) !== null) {
             $this->loggerService->debug('Validating transaction code.');
-            $txCodeParam = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
-                ParamsEnum::TxCode->value,
-                $request,
-                $this->allowedTokenHttpMethods,
-            );
 
-            if (empty($txCodeParam)) {
+            if (!$txCodeSent) {
                 $this->loggerService->warning('Empty transaction code parameter.');
                 throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is missing.');
+            }
+
+            // The attempt is taken before the Transaction Code is looked at, so that a right one spends an
+            // attempt as a wrong one does, and is not given back if a rule refuses the request later. Refused
+            // with the hint an unknown code and a consumed one share.
+            if (
+                !$this->txCodeAttemptLimiter->admitAttempt(
+                    $preAuthorizedCodeId,
+                    $preAuthorizedCode->getExpiryDateTime(),
+                )
+            ) {
+                $this->loggerService->warning(
+                    'Token request rejected: no attempts are left at the transaction code of the pre-authorized ' .
+                    'code.',
+                );
+                throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
             }
 
             if (!hash_equals($preAuthorizedCodeTxCode, $txCodeParam)) {
                 $this->loggerService->warning(
                     'Transaction code parameter value does not match pre-authorized code transaction code.',
                 );
-                throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is invalid.');
+                throw OidcServerException::invalidGrant('Transaction Code is invalid.');
             }
+        } elseif ($txCodeSent) {
+            $this->loggerService->warning(
+                'Token request rejected: a transaction code was sent for a pre-authorized code which has none.',
+            );
+            throw OidcServerException::invalidRequest(ParamsEnum::TxCode->value, 'Transaction Code is not expected.');
         }
 
         $resultBag = $this->requestRulesManager->check(

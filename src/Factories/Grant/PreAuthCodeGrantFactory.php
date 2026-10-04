@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 
 class PreAuthCodeGrantFactory
 {
@@ -39,6 +40,7 @@ class PreAuthCodeGrantFactory
         private readonly SubjectResolver $subjectResolver,
         private readonly AccessTokenClaimsResolver $accessTokenClaimsResolver,
         private readonly IssuerStateRepository $issuerStateRepository,
+        private readonly TxCodeAttemptLimiter $txCodeAttemptLimiter,
     ) {
     }
 
@@ -65,6 +67,7 @@ class PreAuthCodeGrantFactory
             $this->accessTokenClaimsResolver,
             $this->moduleConfig,
             $this->issuerStateRepository,
+            $this->txCodeAttemptLimiter,
         );
         $preAuthCodeGrant->setRefreshTokenTTL($this->moduleConfig->getRefreshTokenDuration());
 

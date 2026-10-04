@@ -50,6 +50,8 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfig;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairConfigBag;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\NullAdapter;
 use Throwable;
 
 class ModuleConfig
@@ -344,6 +346,8 @@ class ModuleConfig
     final public const string OPTION_VCI_ISSUER_STATE_TTL = 'vci_issuer_state_ttl';
 
     final public const string OPTION_VCI_NONCE_TTL = 'vci_nonce_ttl';
+
+    final public const string OPTION_VCI_TX_CODE_MAX_ATTEMPTS = 'vci_tx_code_max_attempts';
 
     final public const string OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
 
@@ -1410,6 +1414,23 @@ class ModuleConfig
     public function getProtocolCacheAdapterArguments(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_PROTOCOL_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+
+    /**
+     * Whether a protocol cache is configured which keeps what it is given from one request to the next: not when
+     * none is, and not when the adapter keeps entries in the memory of one request (Symfony's ArrayAdapter) or
+     * not at all (NullAdapter), subclasses included. A check which counts or remembers across requests -- the
+     * Transaction Code attempt limit -- is not in force without one. An adapter built of others (ChainAdapter)
+     * is taken at its word, since only its arguments say what it is made of.
+     */
+    public function isProtocolCacheKeptAcrossRequests(): bool
+    {
+        $adapterClass = $this->getProtocolCacheAdapterClass();
+
+        return $adapterClass !== null &&
+        !is_a($adapterClass, ArrayAdapter::class, true) &&
+        !is_a($adapterClass, NullAdapter::class, true);
     }
 
 
@@ -3121,6 +3142,30 @@ class ModuleConfig
         }
 
         return new DateInterval($nonceTtl);
+    }
+
+
+    /**
+     * How many attempts a wallet gets at the Transaction Code of one pre-authorized code, 5 by default.
+     *
+     * There is no value which turns the limit off: a generated Transaction Code is four digits, and no
+     * deployment is served by letting it be guessed. Attempts are counted in the protocol cache, so without
+     * one configured this has no effect (TxCodeAttemptLimiter).
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciTxCodeMaxAttempts(): int
+    {
+        $configured = $this->config()->getOptionalInteger(self::OPTION_VCI_TX_CODE_MAX_ATTEMPTS, 5);
+
+        if ($configured < 1) {
+            throw new ConfigurationError(
+                sprintf('Option "%s" must be at least 1.', self::OPTION_VCI_TX_CODE_MAX_ATTEMPTS),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $configured;
     }
 
 

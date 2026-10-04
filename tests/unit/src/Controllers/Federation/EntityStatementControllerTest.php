@@ -321,8 +321,10 @@ class EntityStatementControllerTest extends TestCase
             },
         );
         $this->federationCacheMock->method('set')->willReturnCallback(
-            function (mixed $value, mixed $ttl, string ...$keys): void {
+            function (mixed $value, mixed $ttl, string ...$keys): bool {
                 $this->cacheWrites[] = ['token' => (string)$value, 'ttl' => $ttl, 'keys' => $keys];
+
+                return true;
             },
         );
 

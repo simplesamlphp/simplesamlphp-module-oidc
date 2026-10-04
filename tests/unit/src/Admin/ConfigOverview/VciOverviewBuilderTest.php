@@ -23,6 +23,7 @@ use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use stdClass;
 use Stringable;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
 /**
  * One line is deliberately left uncovered here: the `continue` in `hasMappingFlag()`, which skips
@@ -923,6 +924,65 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertNotNull($row);
         $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The limit is shown as configured, and is only in force with a protocol cache to count in; without one
+     * the row says so, since a four-digit Transaction Code can then be guessed.
+     */
+    public function testShowsTheTransactionCodeAttemptLimitAndWarnsWhenNothingCountsAttempts(): void
+    {
+        $withoutCache = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null])->build(),
+            ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS,
+        );
+
+        $this->assertNotNull($withoutCache);
+        $this->assertSame('5', $withoutCache->getValue());
+        $this->assertStringContainsString('Not enforced', (string)$withoutCache->getWarning());
+
+        $withCache = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => FilesystemAdapter::class,
+                ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS => 3,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS,
+        );
+
+        $this->assertNotNull($withCache);
+        $this->assertSame('3', $withCache->getValue());
+        $this->assertStringContainsString('the code is refused', (string)$withCache->getNote());
+        $this->assertNull($withCache->getWarning());
+
+        // The adapter of the test configuration, which keeps nothing past the request.
+        $withRequestLocalCache = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => ArrayAdapter::class])
+                ->build(),
+            ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS,
+        );
+
+        $this->assertNotNull($withRequestLocalCache);
+        $this->assertStringContainsString(
+            'keeps nothing from one request to the next',
+            (string)$withRequestLocalCache->getWarning(),
+        );
+    }
+
+
+    /**
+     * A limit the module refuses is reported on its own row, not taken for the default.
+     */
+    public function testReportsATransactionCodeAttemptLimitBelowOneInPlace(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS => 0])->build(),
+            ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
     }
 
 

@@ -1472,6 +1472,27 @@ msgid ""
 "not listed use the default above."
 msgstr ""
 
+msgid "Transaction Code Attempts"
+msgstr ""
+
+msgid ""
+"Attempts a wallet gets at the Transaction Code of one pre-authorized code, "
+"the right code included. Once they are used up, the code is refused and "
+"the user needs a new offer."
+msgstr ""
+
+msgid ""
+"Not enforced: attempts are counted in the protocol cache, and none is "
+"configured, so a Transaction Code can be guessed for as long as its "
+"pre-authorized code is valid."
+msgstr ""
+
+msgid ""
+"Not enforced: the protocol cache adapter keeps nothing from one request to "
+"the next, so attempts are not counted, and a Transaction Code can be "
+"guessed for as long as its pre-authorized code is valid."
+msgstr ""
+
 msgid ""
 "Published as 'credential_configurations_supported' in the Credential "
 "Issuer metadata. Each configuration also becomes a requestable scope "

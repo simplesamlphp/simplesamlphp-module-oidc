@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 
 /**
@@ -35,7 +36,7 @@ use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
  *
  * `routing/services/services.yml` names `build` as the factory of the PreAuthCodeGrant service, which the
  * AuthorizationServerFactory takes in its constructor and enables when Verifiable Credential Issuance is;
- * nothing else calls it. The factory's whole job is to hand the grant its thirteen collaborators and the two
+ * nothing else calls it. The factory's whole job is to hand the grant its sixteen collaborators and the two
  * configured lifetimes: the authorization code lifetime through the constructor, the refresh token lifetime
  * through League's setter, over the month League's constructor starts every authorization code grant with.
  *
@@ -79,6 +80,8 @@ class PreAuthCodeGrantFactoryTest extends TestCase
 
     protected MockObject $issuerStateRepositoryMock;
 
+    protected MockObject $txCodeAttemptLimiterMock;
+
     protected DateInterval $authCodeDuration;
 
     protected DateInterval $refreshTokenDuration;
@@ -107,6 +110,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
         $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
         $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
     }
 
 
@@ -128,6 +132,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
             $this->issuerStateRepositoryMock,
+            $this->txCodeAttemptLimiterMock,
         );
     }
 
@@ -169,6 +174,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
         $this->assertSame($this->accessTokenClaimsResolverMock, $this->propertyOf($grant, 'accessTokenClaimsResolver'));
         $this->assertSame($this->moduleConfigMock, $this->propertyOf($grant, 'moduleConfig'));
         $this->assertSame($this->issuerStateRepositoryMock, $this->propertyOf($grant, 'issuerStateRepository'));
+        $this->assertSame($this->txCodeAttemptLimiterMock, $this->propertyOf($grant, 'txCodeAttemptLimiter'));
     }
 
 

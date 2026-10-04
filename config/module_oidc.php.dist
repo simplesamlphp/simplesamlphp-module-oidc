@@ -662,10 +662,15 @@ $config = [
      * like access tokens, authorization codes, refresh tokens, client data,
      * user data, etc. It will also be used for token reuse check in the
      * protocol context. Setting this option is recommended in production
-     * environments. If set to null, no caching will be used. Can be set to
-     * any Symfony Cache Adapter class, like in the examples below. If set,
-     * make sure to also give proper adapter arguments for its instantiation
-     * below.
+     * environments. If set to null, no caching will be used, and the checks
+     * which count or remember in this cache are not in force: the reuse
+     * check of client assertions (private_key_jwt), the limit on attempts
+     * at a Transaction Code (OPTION_VCI_TX_CODE_MAX_ATTEMPTS), and the
+     * Status List rate limit (OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE).
+     * Those need an adapter which keeps entries from one request to the next,
+     * which ArrayAdapter and NullAdapter do not. Can be set to any Symfony
+     * Cache Adapter class, like in the examples below. If set, make sure to
+     * also give proper adapter arguments for its instantiation below.
      * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters
      */
     ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => null,
@@ -1794,6 +1799,29 @@ $config = [
      * https://www.php.net/manual/en/dateinterval.construct.php
      */
     ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT5M', // 5 minutes
+
+    /**
+     * (optional) How many attempts a wallet gets at the Transaction Code of
+     * one pre-authorized code. Defaults to 5; the lowest value is 1, and
+     * there is no value which turns the limit off. Every attempt counts, the
+     * right code included; once they are used up, any further attempt is
+     * refused (invalid_grant) and the user needs a new Credential Offer.
+     *
+     * A code is given its attempts when the Credential Offer is made, and
+     * they are kept in the protocol cache (see OPTION_PROTOCOL_CACHE_ADAPTER).
+     * If none is configured, or one which keeps nothing from one request to
+     * the next (ArrayAdapter, NullAdapter), nothing is counted and this
+     * option has no effect: a generated Transaction Code is four digits, and
+     * it can then be guessed for as long as its pre-authorized code is valid
+     * (the authorization code lifetime). The attempts left are read and then
+     * written, so attempts sent at the same moment can get past the limit
+     * together; it holds for attempts made one after another. A code whose
+     * record the cache loses (evicted, or unreadable) is refused, and the
+     * user needs a new offer; a record the cache does not store makes the
+     * request fail with server_error. The limit applies to offers made after
+     * it is set.
+     */
+//    ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS => 5,
 
     /**
      * (optional) How long an issued credential stays valid, per credential
