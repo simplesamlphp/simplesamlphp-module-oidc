@@ -86,6 +86,7 @@ use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\IdTokenHint;
 use Stringable;
+use Throwable;
 
 /**
  * The authorization code grant, at both of the endpoints it takes part in.
@@ -171,7 +172,7 @@ class AuthCodeGrantTest extends TestCase
     /** @var string[] Scope identifiers the scope repository no longer resolves, as ModuleConfig::getScopes() drops them. */
     private array $unsupportedScopes = [];
 
-    /** @var array<int,array{message:string,context:array}> */
+    /** @var array<int,array{level:string,message:string,context:array}> */
     private array $logRecords = [];
 
     /** What the access token factory was last called with, for assertions on values with no other outlet. */
@@ -649,21 +650,79 @@ class AuthCodeGrantTest extends TestCase
     /**
      * The offer is given back only once what was issued for the code is revoked. Should the revocation fail,
      * the offer stays spent: given back with the tokens still live, a retry of the code would take a second
-     * set of tokens from one offer.
+     * set of tokens from one offer. The failure to revoke is logged rather than thrown, so the caller still gets
+     * the failure recovered from, which is the one the client is answered for.
      */
     public function testKeepsTheOfferSpentWhenWhatWasIssuedCanNotBeRevoked(): void
     {
         $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
         $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
-        $this->accessTokenEntityFactoryMock->method('fromData')
-            ->willThrowException(new RuntimeException('The access token could not be built.'));
+        $failure = new RuntimeException('The access token could not be built.');
+        $this->accessTokenEntityFactoryMock->method('fromData')->willThrowException($failure);
         $this->accessTokenRepositoryMock->method('revokeByAuthCodeId')
-            ->willThrowException(new RuntimeException('The tokens could not be revoked.'));
+            ->willThrowException(new LogicException('The tokens could not be revoked.'));
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
         $this->issuerStateRepositoryMock->expects($this->never())->method('release');
 
-        $this->expectException(RuntimeException::class);
+        $this->assertTheCallerGets($failure);
 
-        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+        $this->assertRecoveryFailureWasLogged(
+            RuntimeException::class . ': The access token could not be built.',
+            LogicException::class . ': The tokens could not be revoked.',
+        );
+    }
+
+
+    /**
+     * The refresh tokens are revoked after the access tokens, and the offer is given back only once both are.
+     * Should only the refresh tokens fail to be revoked, the offer stays spent all the same: a refresh token left
+     * live would let a retry of the code take a second set of tokens from one offer.
+     */
+    public function testKeepsTheOfferSpentWhenTheRefreshTokensCanNotBeRevoked(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $failure = new RuntimeException('The access token could not be built.');
+        $this->accessTokenEntityFactoryMock->method('fromData')->willThrowException($failure);
+        $this->accessTokenRepositoryMock->expects($this->once())->method('revokeByAuthCodeId')
+            ->with(self::AUTH_CODE_ID);
+        $this->refreshTokenRepositoryMock->expects($this->once())->method('revokeByAuthCodeId')
+            ->with(self::AUTH_CODE_ID)
+            ->willThrowException(new LogicException('The refresh tokens could not be revoked.'));
+        $this->issuerStateRepositoryMock->expects($this->never())->method('release');
+
+        $this->assertTheCallerGets($failure);
+
+        $this->assertRecoveryFailureWasLogged(
+            RuntimeException::class . ': The access token could not be built.',
+            LogicException::class . ': The refresh tokens could not be revoked.',
+        );
+    }
+
+
+    /**
+     * Should giving the offer back fail once what was issued for the code is revoked, the offer may stay
+     * spent, and the wallet needs a new one; the caller still gets the failure recovered from.
+     */
+    public function testKeepsTheFailureRecoveredFromWhenTheOfferCanNotBeGivenBack(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $failure = new RuntimeException('The access token could not be built.');
+        $this->accessTokenEntityFactoryMock->method('fromData')->willThrowException($failure);
+        $this->accessTokenRepositoryMock->expects($this->once())->method('revokeByAuthCodeId')
+            ->with(self::AUTH_CODE_ID);
+        $this->refreshTokenRepositoryMock->expects($this->once())->method('revokeByAuthCodeId')
+            ->with(self::AUTH_CODE_ID);
+        $this->issuerStateRepositoryMock->expects($this->once())->method('release')->with(self::ISSUER_STATE)
+            ->willThrowException(new LogicException('The offer could not be given back.'));
+
+        $this->assertTheCallerGets($failure);
+
+        $this->assertRecoveryFailureWasLogged(
+            RuntimeException::class . ': The access token could not be built.',
+            LogicException::class . ': The offer could not be given back.',
+        );
     }
 
 
@@ -2034,10 +2093,57 @@ class AuthCodeGrantTest extends TestCase
     private function captureLogs(string $level): void
     {
         $this->loggerServiceMock->method($level)->willReturnCallback(
-            function (string|Stringable $message, array $context = []): void {
-                $this->logRecords[] = ['message' => (string)$message, 'context' => $context];
+            function (string|Stringable $message, array $context = []) use ($level): void {
+                $this->logRecords[] = ['level' => $level, 'message' => (string)$message, 'context' => $context];
             },
         );
+    }
+
+
+    /**
+     * The token request ends in exactly this throwable, not in one raised while recovering from it.
+     */
+    private function assertTheCallerGets(Throwable $failure): void
+    {
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->request(),
+                $this->responseType(),
+                new DateInterval('PT5M'),
+            );
+        } catch (Throwable $exception) {
+            $this->assertSame($failure, $exception);
+
+            return;
+        }
+
+        $this->fail('The failure to issue the token must reach the caller.');
+    }
+
+
+    /**
+     * One error names both failures, the one recovered from and the recovery's own, against the code; nothing
+     * logged on the way names the offer's issuer state.
+     */
+    private function assertRecoveryFailureWasLogged(string $failure, string $recoveryFailure): void
+    {
+        $records = array_values(array_filter(
+            $this->logRecords,
+            fn(array $record): bool => str_contains((string)$record['message'], 'giving back the Credential Offer'),
+        ));
+
+        $this->assertCount(1, $records);
+        $this->assertSame('error', $records[0]['level']);
+        $this->assertSame(
+            [
+                'client_id' => self::CLIENT_ID,
+                'auth_code_id' => self::AUTH_CODE_ID,
+                'exception' => $failure,
+                'recovery_exception' => $recoveryFailure,
+            ],
+            $records[0]['context'],
+        );
+        $this->assertSecretsWereNotLogged(self::ISSUER_STATE);
     }
 
 

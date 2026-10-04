@@ -877,6 +877,13 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'refused, and with it the whole scope list, so discovery, registration and ' .
                     'authorization fail until it is renamed.',
                 ),
+                $this->hasScopeOtherThanItsId($credentialConfigurations) => Translate::noop(
+                    'At least one credential configuration states a scope other than its own id. The id ' .
+                    'is the scope a credential is granted under, so the stated one would be advertised and ' .
+                    'then refused. Such a configuration is refused, and with it the whole scope list, so ' .
+                    'discovery, registration and authorization fail until the scope is left out or made ' .
+                    'equal to the id.',
+                ),
                 $this->hasUnsupportedFormat($credentialConfigurations) => Translate::noop(
                     'At least one credential configuration has a missing or unsupported format, so ' .
                     'it cannot issue credentials at all. Supported formats are jwt_vc_json, ' .
@@ -1561,6 +1568,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
      *     format: ?string,
      *     isFormatSupported: bool,
      *     scope: ?string,
+     *     isScopeItsId: bool,
      *     displayNames: string[],
      *     claimPaths: string[],
      *     attributeMappings: array<array{
@@ -1596,6 +1604,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 'format' => $format,
                 'isFormatSupported' => in_array($format, self::SUPPORTED_FORMATS, true),
                 'scope' => is_string($scope) ? $scope : null,
+                // Mirrors ModuleConfig::getVciScopes(), which refuses a stated scope other than the id.
+                'isScopeItsId' => !array_key_exists(ClaimsEnum::Scope->value, $configuration) || $scope === $id,
                 'displayNames' => $this->buildDisplayNames($configuration),
                 'claimPaths' => $this->buildClaimPaths($validClaimPaths),
                 'attributeMappings' => $this->buildAttributeMappings(
@@ -1683,9 +1693,6 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
 
     /**
-     * Whether any credential configuration declares a format which cannot be issued.
-     */
-    /**
      * A credential configuration becomes a scope of the same name, so ModuleConfig::getVciScopes() refuses
      * one named after a standard scope; this row is where the administrator sees which option that is.
      */
@@ -1704,6 +1711,26 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
     }
 
 
+    /**
+     * ModuleConfig::getVciScopes() refuses a configuration stating a scope other than its id; this row is where
+     * the administrator sees which option that is.
+     */
+    protected function hasScopeOtherThanItsId(array $credentialConfigurations): bool
+    {
+        /** @var mixed $configuration */
+        foreach ($credentialConfigurations as $configuration) {
+            if (is_array($configuration) && ($configuration['isScopeItsId'] ?? true) === false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
+     * Whether any credential configuration declares a format which cannot be issued.
+     */
     protected function hasUnsupportedFormat(array $credentialConfigurations): bool
     {
         /** @var mixed $configuration */

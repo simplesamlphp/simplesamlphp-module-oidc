@@ -1434,6 +1434,14 @@ msgid ""
 "jwt_vc_json, dc+sd-jwt and vc+sd-jwt."
 msgstr ""
 
+msgid ""
+"At least one credential configuration states a scope other than its own "
+"id. The id is the scope a credential is granted under, so the stated one "
+"would be advertised and then refused. Such a configuration is refused, and "
+"with it the whole scope list, so discovery, registration and authorization "
+"fail until the scope is left out or made equal to the id."
+msgstr ""
+
 msgid "Attribute read to find the address a credential offer is sent to."
 msgstr ""
 

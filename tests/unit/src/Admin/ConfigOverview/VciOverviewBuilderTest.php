@@ -404,6 +404,72 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
+     * ModuleConfig::getVciScopes() refuses a configuration stating a scope other than its id, which takes the
+     * scope list down; this row names the option at fault. A scope which is not a string is shown as none, and
+     * is flagged all the same.
+     */
+    #[DataProvider('scopeOtherThanTheIdProvider')]
+    public function testFlagsACredentialConfigurationStatingAScopeOtherThanItsId(mixed $scope): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'Fine' => ['format' => 'jwt_vc_json', 'scope' => 'Fine'],
+                    'NoScope' => ['format' => 'jwt_vc_json'],
+                    'Stated' => ['format' => 'jwt_vc_json', 'scope' => $scope],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertTrue($configurations[0]['isScopeItsId']);
+        $this->assertTrue($configurations[1]['isScopeItsId']);
+        $this->assertFalse($configurations[2]['isScopeItsId']);
+
+        $this->assertStringContainsString('states a scope other than its own id', (string)$row->getWarning());
+    }
+
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function scopeOtherThanTheIdProvider(): array
+    {
+        return [
+            'another name' => ['Other'],
+            'not a string' => [['Stated']],
+            'null' => [null],
+        ];
+    }
+
+
+    /**
+     * A scope equal to the id, or none, is what the configuration is granted under anyway.
+     */
+    public function testDoesNotFlagAScopeWhichIsTheIdOrLeftOut(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'Fine' => ['format' => 'jwt_vc_json', 'scope' => 'Fine'],
+                    'NoScope' => ['format' => 'jwt_vc_json'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
      * Issuance filters a mapping path down to its string segments and writes at what remains, so the
      * screen must name the path the credential ends up with, not the one that was configured.
      */

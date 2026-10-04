@@ -188,6 +188,8 @@ class CredentialIssuerCredentialController
             );
         }
 
+        // A token which can not buy a credential is refused as RFC 6750 section 3 has it (OpenID4VCI 1.0 section
+        // 8.3.1.1): the fault is the token's, which no change to the Credential Request would mend.
         $issuerState = $accessToken->getIssuerState();
         if (
             !is_string($issuerState) &&
@@ -200,7 +202,7 @@ class CredentialIssuerCredentialController
                 ['accessTokenState' => $accessToken->getState()],
             );
             return $this->routes->newJsonErrorResponse(
-                'invalid_credential_request',
+                'invalid_token',
                 'Issuer state missing in access token.',
                 401,
             );

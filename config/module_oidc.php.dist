@@ -1323,7 +1323,10 @@ $config = [
      * While issuance is enabled, each configuration id also becomes a
      * requestable scope of the same name, so an id can not be one of the
      * standard OpenID Connect scopes ('openid', 'offline_access', 'profile',
-     * 'email', 'address', 'phone') - such a configuration is refused.
+     * 'email', 'address', 'phone') - such a configuration is refused. For the
+     * same reason a configuration's optional `scope`, which the metadata
+     * publishes for wallets to request, is either left out or equal to the
+     * id; any other value is refused.
      */
     ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
         // Sample for 'jwt_vc_json' format with notes about required and

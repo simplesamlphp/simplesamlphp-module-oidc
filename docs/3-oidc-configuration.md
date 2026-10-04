@@ -726,6 +726,14 @@ while issuance is enabled): every granted scope goes into the `scope` claim of
 the JWT access token (RFC 9068 section 2.2.3), which is minted only with that
 grammar, so the fault is reported here rather than at the token endpoint.
 
+Since the id is the scope a credential is granted under, a credential
+configuration's optional `scope`, which the Credential Issuer metadata
+publishes for wallets to request, is either left out or equal to the id. A
+configuration stating another scope (even one OpenID4VCI would allow, such as
+a scope shared by several configurations) is refused when the scopes are read,
+like an id outside that grammar, rather than advertised and then refused at
+authorization.
+
 ## Attribute translation
 
 Default SAML-to-OIDC claim mapping follows the

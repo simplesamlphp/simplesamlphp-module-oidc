@@ -848,9 +848,25 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $this->accessTokenRepository instanceof AccessTokenRepositoryInterface &&
                 $this->refreshTokenRepository instanceof RefreshTokenRepositoryInterface
             ) {
-                $this->accessTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
-                $this->refreshTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
-                $this->issuerStateRepository->release($spentIssuerState);
+                // A failure of the recovery is logged and does not take the place of the failure recovered from,
+                // which is the one the client is answered for and the log has to show.
+                try {
+                    $this->accessTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
+                    $this->refreshTokenRepository->revokeByAuthCodeId($authCodePayload->auth_code_id);
+                    $this->issuerStateRepository->release($spentIssuerState);
+                } catch (Throwable $recoveryException) {
+                    $this->loggerService->error(
+                        'Token request failed, and giving back the Credential Offer it spent failed too, so the ' .
+                        'offer may stay spent.',
+                        [
+                            'client_id' => $client->getIdentifier(),
+                            'auth_code_id' => $authCodePayload->auth_code_id,
+                            'exception' => $exception::class . ': ' . $exception->getMessage(),
+                            'recovery_exception' => $recoveryException::class . ': ' .
+                                $recoveryException->getMessage(),
+                        ],
+                    );
+                }
             }
 
             throw $exception;

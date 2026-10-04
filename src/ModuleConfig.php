@@ -2998,7 +2998,9 @@ class ModuleConfig
         }
 
         $vciScopes = [];
-        foreach ($this->getVciCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
+        /** @psalm-suppress MixedAssignment */
+        foreach ($this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $configuration) {
+            $credentialConfigurationId = (string)$credentialConfigurationId;
             // These are merged after the standard scopes (getScopes()), so a name taken from OpenID Connect Core
             // would silently replace the standard scope -- and 'offline_access' would come back after the refresh
             // token grant took it out. Refused here rather than in validate(), like a malformed value of any
@@ -3018,6 +3020,21 @@ class ModuleConfig
                     'scope-token (RFC 6749 section 3.3): printable ASCII without space, double quote or backslash.',
                     self::DEFAULT_FILE_NAME,
                 );
+            }
+            // The metadata publishes the configuration's `scope` as written, and a wallet asks for that one, but
+            // the scope this configuration is granted under is its id. One which differs would be advertised
+            // and then refused at authorization. Left out, the configuration is simply not advertised by scope.
+            if (is_array($configuration) && array_key_exists(ClaimsEnum::Scope->value, $configuration)) {
+                /** @psalm-suppress MixedAssignment */
+                $scope = $configuration[ClaimsEnum::Scope->value];
+                if ($scope !== $credentialConfigurationId) {
+                    throw new ConfigurationError(
+                        'Verifiable Credential configuration [' . $credentialConfigurationId . '] states the ' .
+                        'scope [' . (is_string($scope) ? $scope : get_debug_type($scope)) . '], but its scope ' .
+                        'is its id: leave the scope out or make it equal to the id.',
+                        self::DEFAULT_FILE_NAME,
+                    );
+                }
             }
             $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
         }

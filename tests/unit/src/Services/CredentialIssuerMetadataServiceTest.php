@@ -161,7 +161,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         return [
             self::CONFIGURATION_ID => [
                 ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
-                ClaimsEnum::Scope->value => 'UniversityDegree',
+                ClaimsEnum::Scope->value => self::CONFIGURATION_ID,
             ],
         ];
     }
@@ -413,7 +413,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
             $configuration[ClaimsEnum::ProofTypesSupported->value],
         );
         // What the operator configured is still there, with the above added rather than substituted.
-        $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
+        $this->assertSame(self::CONFIGURATION_ID, $configuration[ClaimsEnum::Scope->value]);
     }
 
 
@@ -599,7 +599,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->assertArrayNotHasKey(ClaimsEnum::BatchCredentialIssuance->value, $metadata);
 
         // The rest of the configuration is published exactly as before.
-        $this->assertSame('UniversityDegree', $configuration[ClaimsEnum::Scope->value]);
+        $this->assertSame(self::CONFIGURATION_ID, $configuration[ClaimsEnum::Scope->value]);
     }
 
 

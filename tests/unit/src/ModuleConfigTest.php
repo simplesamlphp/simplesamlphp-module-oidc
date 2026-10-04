@@ -3524,6 +3524,97 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * The metadata publishes a configuration's `scope` as written, while the scope it is granted under is its
+     * id, so a stated scope which differs would be advertised to wallets and then refused at authorization.
+     * Refused where the ids become scopes, like a protected name.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('scopeOtherThanTheIdProvider')]
+    public function testRefusesACredentialConfigurationStatingAScopeOtherThanItsId(
+        mixed $scope,
+        string $shownAs,
+    ): void {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([
+                'FineCredential' => [ClaimsEnum::Scope->value => 'FineCredential'],
+                'TestCredential' => [ClaimsEnum::Scope->value => $scope],
+            ]),
+            [ModuleConfig::OPTION_VCI_ENABLED => true],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Verifiable Credential configuration [TestCredential] states the scope [' . $shownAs . '], but its ' .
+            'scope is its id',
+        );
+
+        $sut->getScopes();
+    }
+
+
+    /**
+     * @return array<string, array{0: mixed, 1: string}>
+     */
+    public static function scopeOtherThanTheIdProvider(): array
+    {
+        return [
+            'another name' => ['OtherScope', 'OtherScope'],
+            'another spelling' => ['testcredential', 'testcredential'],
+            'the id with a trailing space' => ['TestCredential ', 'TestCredential '],
+            'the id among others' => ['TestCredential OtherScope', 'TestCredential OtherScope'],
+            'the id in a list' => [['TestCredential'], 'array'],
+            'a number' => [123, 'int'],
+            'an empty string' => ['', ''],
+            'null' => [null, 'null'],
+        ];
+    }
+
+
+    /**
+     * A configuration which states its id as its scope, or no scope at all, is a scope like any other; one
+     * which is not an array has no scope to compare, and is refused where its content is read. An id PHP keeps
+     * as an integer key is compared as the string it was written as.
+     *
+     * @throws \Exception
+     */
+    public function testAcceptsACredentialConfigurationWhoseScopeIsItsIdOrLeftOut(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([
+                'TestCredential' => [ClaimsEnum::Scope->value => 'TestCredential'],
+                'OtherCredential' => [ClaimsEnum::Format->value => 'jwt_vc_json'],
+                'BrokenCredential' => 'not an array',
+                '123' => [ClaimsEnum::Scope->value => '123'],
+            ]),
+            [ModuleConfig::OPTION_VCI_ENABLED => true],
+        ));
+
+        $this->assertSame(
+            ['TestCredential', 'OtherCredential', 'BrokenCredential', '123'],
+            array_map('strval', array_keys($sut->getVciScopes())),
+        );
+    }
+
+
+    /**
+     * Like a protected name, a stated scope matters only while the configurations become scopes.
+     *
+     * @throws \Exception
+     */
+    public function testToleratesAScopeOtherThanTheIdWhileIssuanceIsDisabled(): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations(['TestCredential' => [ClaimsEnum::Scope->value => 'OtherScope']]),
+            [ModuleConfig::OPTION_VCI_ENABLED => false],
+        ));
+
+        $this->assertSame([], $sut->getVciScopes());
+        $this->assertArrayNotHasKey('TestCredential', $sut->getScopes());
+    }
+
+
+    /**
      * The upgrade path: a deployment which leaves the option alone keeps `offline_access`, so nothing in
      * the discovery document or the registrable scopes moves on upgrade.
      *

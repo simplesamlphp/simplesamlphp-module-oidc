@@ -1444,7 +1444,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /**
      * The generic client stands in for wallets which are not registered, and gets a token only for a request
      * following an offer, so the issuer state is what its credential request is redeemable against. A token
-     * of it carrying none is one this endpoint can not tie back to anything.
+     * of it carrying none is one this endpoint can not tie back to anything. The token is at fault, not the
+     * request, so the refusal is RFC 6750's (OpenID4VCI 1.0 section 8.3.1.1).
      */
     public function testRefusesAnAuthorizationCodeFlowOfTheGenericClientCarryingNoIssuerState(): void
     {
@@ -1454,7 +1455,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $response = $this->dispatch();
 
-        $this->assertRefusedWith('invalid_credential_request', 401);
+        $this->assertRefusedWith('invalid_token', 401);
         $this->assertChallengesForABearerToken($response);
         $this->assertSame([], $this->signedPayloads);
     }
