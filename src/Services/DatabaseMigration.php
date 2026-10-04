@@ -292,6 +292,11 @@ class DatabaseMigration
             $this->version20261003000003();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000003')");
         }
+
+        if (!in_array('20261003000004', $versions, true)) {
+            $this->version20261003000004();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000004')");
+        }
     }
 
 
@@ -1294,6 +1299,28 @@ EOT
         $this->database->write(
             "DELETE FROM $allowedOriginTableName WHERE client_id NOT IN (SELECT id FROM $clientTableName)",
         );
+    }
+
+
+    /**
+     * An issuer state records the credential configurations its Credential Offer offered, as a JSON list, so
+     * that a request following the offer can ask for those only. A state stored before has none (NULL), and
+     * offers nothing. Guarded by hasColumn() so that a run interrupted before its version was recorded can be
+     * repeated (see version20260801000004()).
+     */
+    private function version20261003000004(): void
+    {
+        $issuerStateTableName = $this->database->applyPrefix(IssuerStateRepository::TABLE_NAME);
+
+        if ($this->hasColumn($issuerStateTableName, 'credential_configuration_ids')) {
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$issuerStateTableName}
+            ADD credential_configuration_ids TEXT NULL
+EOT
+            ,);
     }
 
 

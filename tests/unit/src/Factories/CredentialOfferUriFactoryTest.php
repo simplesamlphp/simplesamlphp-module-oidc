@@ -261,6 +261,28 @@ class CredentialOfferUriFactoryTest extends TestCase
     }
 
 
+    /**
+     * The issuer state records the configurations the offer offers, which are then all a request following
+     * the offer may ask for (OfferedCredentialsRule).
+     */
+    public function testTheIssuerStateRecordsWhatTheOfferOffers(): void
+    {
+        $arguments = null;
+        $this->issuerStateEntityFactoryMock = $this->createMock(IssuerStateEntityFactory::class);
+        $this->issuerStateEntityFactoryMock->expects($this->once())->method('buildNew')
+            ->willReturnCallback(function (mixed ...$given) use (&$arguments): IssuerStateEntity {
+                $arguments = $given;
+
+                return $this->issuerState('issuer-state-value');
+            });
+
+        $this->sut()->buildForAuthorization(['credential-configuration', 'other-configuration']);
+
+        $this->assertIsArray($arguments);
+        $this->assertSame(['credential-configuration', 'other-configuration'], $arguments[4] ?? null);
+    }
+
+
     public function testRetriesWithAFreshIssuerStateWhenPersistingOneFails(): void
     {
         $this->issuerStateEntityFactoryMock = $this->createMock(IssuerStateEntityFactory::class);

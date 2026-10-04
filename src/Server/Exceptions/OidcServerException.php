@@ -431,6 +431,34 @@ class OidcServerException extends OAuthServerException
 
 
     /**
+     * Authorization details which the request may not carry, as defined by OAuth 2.0 Rich Authorization
+     * Requests (RFC 9396): at the authorization endpoint, ones with invalid values for their type (section 5),
+     * and at the token endpoint, ones which the underlying grant does not allow (section 6).
+     *
+     * @return static
+     * @psalm-suppress LessSpecificImplementedReturnType
+     */
+    public static function invalidAuthorizationDetails(
+        string $hint,
+        ?string $redirectUri = null,
+        ?string $state = null,
+        ?ResponseModeInterface $responseMode = null,
+    ): static {
+        return self::create(
+            'The authorization details are invalid or not allowed.',
+            15,
+            'invalid_authorization_details',
+            400,
+            $hint,
+            $redirectUri,
+            null,
+            $state,
+            $responseMode,
+        );
+    }
+
+
+    /**
      * Returns the current payload.
      *
      * @return array<string, string>

@@ -431,15 +431,12 @@ class CredentialIssuerCredentialController
             );
         }
 
-        // Without an issuer state the token follows no offer, so what its scopes grant is all the registered
-        // client was authorized for, and the credential has to be among them. A configuration requested
-        // through authorization_details is among them too when it was granted: AuthCodeGrant adds those ids to
-        // the scopes, and the token endpoint keeps only the scopes the client is registered for.
-        if (
-            !is_string($issuerState) &&
-            ($accessToken->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode) &&
-            !$this->isCredentialConfigurationGranted($accessToken, $resolvedCredentialIdentifier)
-        ) {
+        // The credential has to be among what the token's scopes grant, whichever flow issued it. A configuration
+        // requested through authorization_details is among them when it was granted: AuthCodeGrant adds those
+        // ids to the scopes, and the token endpoint keeps only the scopes the client is registered for. A token
+        // which followed a Credential Offer was granted no more than the offer offered: OfferedCredentialsRule
+        // refuses a request for anything else, and PreAuthCodeGrant gives a pre-authorized token the offer's.
+        if (!$this->isCredentialConfigurationGranted($accessToken, $resolvedCredentialIdentifier)) {
             $this->loggerService->error(
                 'CredentialIssuerCredentialController::credential: Credential configuration not granted by the ' .
                 'access token.',

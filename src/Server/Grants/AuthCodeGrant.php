@@ -61,6 +61,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
@@ -991,8 +992,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequestObjectRule::class,
             // IssuerStateRule must run before PromptRule and MaxAgeRule, which may send the End-User to log in
             // (prompt=login, an expired max_age): a request naming an offer which can not be redeemed is refused
-            // before that.
+            // before that. And before ScopeRule, whose refusal goes to the redirect URI: a non-registered wallet's
+            // redirect URI was accepted only for the issuer_state, so one refuted is not redirected to.
             IssuerStateRule::class,
+            // OfferedCredentialsRule refuses a credential configuration the offer did not offer, from the scopes
+            // and authorization_details, also before the End-User is sent to log in.
+            ScopeRule::class,
+            AuthorizationDetailsRule::class,
+            OfferedCredentialsRule::class,
             // LoginHintRule must run before PromptRule and MaxAgeRule, which consume its result when they
             // trigger re-authentication (prompt=login / expired max_age) to pre-fill the username.
             LoginHintRule::class,
@@ -1001,14 +1008,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             IdTokenHintRule::class,
             PromptRule::class,
             MaxAgeRule::class,
-            ScopeRule::class,
             RequestedClaimsRule::class,
             AcrValuesRule::class,
             ScopeOfflineAccessRule::class,
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
-            AuthorizationDetailsRule::class,
             UiLocalesRule::class,
         ];
 

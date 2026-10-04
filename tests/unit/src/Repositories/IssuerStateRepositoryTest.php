@@ -110,6 +110,36 @@ class IssuerStateRepositoryTest extends TestCase
     }
 
 
+    /**
+     * What the offer offered is what a request following it may ask for, so it is stored with the state, and
+     * an update keeps it as the entity holds it.
+     */
+    public function testStoresAndUpdatesTheOfferedConfigurations(): void
+    {
+        $entity = $this->entityFactory->buildNew(credentialConfigurationIds: ['UniversityDegreeCredential']);
+
+        $this->repository->persist($entity);
+
+        $this->assertSame(
+            ['UniversityDegreeCredential'],
+            $this->repository->find($entity->getValue())?->getCredentialConfigurationIds(),
+        );
+
+        $this->repository->update($this->entityFactory->fromData(
+            $entity->getValue(),
+            $entity->getCreatedAt(),
+            $entity->getExpirestAt(),
+            false,
+            ['UniversityDegreeCredential', 'ResearchAndScholarshipCredentialDcSdJwt'],
+        ));
+
+        $this->assertSame(
+            ['UniversityDegreeCredential', 'ResearchAndScholarshipCredentialDcSdJwt'],
+            $this->repository->find($entity->getValue())?->getCredentialConfigurationIds(),
+        );
+    }
+
+
     public function testFindReturnsNullForUnknownValue(): void
     {
         $this->assertNull($this->repository->find('unknown-issuer-state-value'));

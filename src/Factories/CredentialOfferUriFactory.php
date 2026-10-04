@@ -50,6 +50,9 @@ class CredentialOfferUriFactory
 
 
     /**
+     * The issuer state records the offered configurations, which are then the only ones a request following
+     * the offer may ask for (OfferedCredentialsRule).
+     *
      * @param string[] $credentialConfigurationIds
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \JsonException
@@ -61,7 +64,9 @@ class CredentialOfferUriFactory
         $issuerStateGenerationAttempts = 3;
         while ($issuerStateGenerationAttempts-- > 0) {
             try {
-                $issuerState = $this->issuerStateEntityFactory->buildNew();
+                $issuerState = $this->issuerStateEntityFactory->buildNew(
+                    credentialConfigurationIds: array_values($credentialConfigurationIds),
+                );
                 $this->issuerStateRepository->persist($issuerState);
                 break;
             } catch (Throwable $e) {

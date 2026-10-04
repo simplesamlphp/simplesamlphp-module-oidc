@@ -9,6 +9,7 @@ use DateInterval;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\EventEmitting\EventEmitter;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
@@ -29,15 +30,18 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
+use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
+use SimpleSAML\Module\oidc\Repositories\ScopeRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
@@ -66,7 +70,8 @@ use Stringable;
  * stored code, checks that it is a pre-authorized one, unexpired and unrevoked, checks the transaction code
  * when the stored code carries one, runs the client and authorization details rules, consumes the code with
  * the repository's conditional update as the replay guard, and only then issues the access token, bound to
- * whichever client the client rule identified and to the authorization details. A pre-authorized code is
+ * whichever client the client rule identified and to the authorization details, and granting the credential
+ * configurations the offer offered which that client may have. A pre-authorized code is
  * never requested through the authorization endpoint, so the grant claims no authorization request and the
  * module's four hooks which would carry one towards a code all throw; League's own
  * validateAuthorizationRequest() is inherited untouched, but the module's server never reaches it for a
@@ -101,8 +106,12 @@ class PreAuthCodeGrantTest extends TestCase
 
     private const string USER_ID = 'user-id';
 
+    private const string OFFERED = 'UniversityDegreeCredential';
+
+    private const string ALSO_SUPPORTED = 'ResearchAndScholarshipCredentialDcSdJwt';
+
     private const array AUTHORIZATION_DETAILS = [
-        ['type' => 'openid_credential', 'credential_configuration_id' => 'UniversityDegreeCredential'],
+        ['type' => 'openid_credential', 'credential_configuration_id' => self::OFFERED],
     ];
 
     /** The one hint an unknown code and a consumed one share, so that the answer does not tell them apart. */
@@ -135,6 +144,8 @@ class PreAuthCodeGrantTest extends TestCase
 
     private AccessTokenClaimsResolver&MockObject $accessTokenClaimsResolverMock;
 
+    private ModuleConfig&MockObject $moduleConfigMock;
+
     private ServerRequestInterface&MockObject $requestMock;
 
     /** The client the pre-authorized code was issued to. */
@@ -163,8 +174,13 @@ class PreAuthCodeGrantTest extends TestCase
         $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
         $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
         $this->requestMock = $this->createMock(ServerRequestInterface::class);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
+            ->willReturn([self::OFFERED, self::ALSO_SUPPORTED]);
+        // The generic VCI client, which a code is created for: it may have every supported configuration.
         $this->clientMock = $this->createMock(ClientEntity::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $this->clientMock->method('getScopes')->willReturn(['openid', self::OFFERED, self::ALSO_SUPPORTED]);
 
         $this->captureLogs('debug');
         $this->captureLogs('notice');
@@ -534,7 +550,8 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
-     * The token is made for the code's holder, with no scopes yet, expiring after the lifetime given, marked
+     * The token is made for the code's holder, granting the configuration the offer offered, expiring after
+     * the lifetime given, marked
      * as issued through the pre-authorized code flow, tied to the code, and carrying whatever the
      * authorization details rule read from the request. Which client it is issued to, and which identifier
      * is bound to it, follow the client rule's answer: a registered wallet gets the token issued to itself,
@@ -553,6 +570,7 @@ class PreAuthCodeGrantTest extends TestCase
     ): void {
         $walletClientMock = $this->createMock(ClientEntity::class);
         $walletClientMock->method('getIdentifier')->willReturn(self::WALLET_CLIENT_ID);
+        $walletClientMock->method('getScopes')->willReturn([self::OFFERED]);
         [$walletClient, $expectedClient] = match ($wallet) {
             'registered' => [PreAuthorizedCodeClient::registered($walletClientMock), $walletClientMock],
             'non-registered' => [PreAuthorizedCodeClient::selfDeclared(self::WALLET_CLIENT_ID), $this->clientMock],
@@ -578,9 +596,13 @@ class PreAuthCodeGrantTest extends TestCase
             ->method('resolve')
             ->with($holderEntity)
             ->willReturn('holder-subject');
+        // The claims released next to the subject are those the granted scopes carry.
         $this->accessTokenClaimsResolverMock->expects($holder === null ? $this->never() : $this->once())
             ->method('resolve')
-            ->with($holderEntity, [])
+            ->with(
+                $holderEntity,
+                $this->callback(fn(array $scopes): bool => $this->scopeIdentifiers($scopes) === [self::OFFERED]),
+            )
             ->willReturn([]);
         $accessToken = $this->createMock(AccessTokenEntity::class);
         $tokenData = [];
@@ -645,7 +667,7 @@ class PreAuthCodeGrantTest extends TestCase
 
         $this->assertNotSame('', $tokenData['id']);
         $this->assertSame($expectedClient, $tokenData['clientEntity']);
-        $this->assertSame([], $tokenData['scopes']);
+        $this->assertSame([self::OFFERED], $this->scopeIdentifiers($tokenData['scopes']));
         $this->assertEqualsWithDelta(time() + 300, $tokenData['expiryDateTime']->getTimestamp(), 2);
         $this->assertSame($holder, $tokenData['userIdentifier']);
         $this->assertSame(self::PRE_AUTHORIZED_CODE, $tokenData['authCodeId']);
@@ -705,6 +727,180 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
+     * The token grants the configurations the offer offered, which the code holds as its scopes (OpenID4VCI
+     * 1.0 section 6.1 recommends a token valid for those only), and of them only the ones the client it is
+     * issued to may have: all of them for the generic client, the registered ones for a registered wallet. A
+     * configuration no longer supported is left out, and so is `openid`: the token is for the credential
+     * endpoint, and a pre-authorized one never carried it.
+     *
+     * @param string[] $offered
+     * @param string[]|null $registeredFor Null for a request redeemed with the code's own, generic, client.
+     * @param string[] $expected
+     */
+    #[DataProvider('grantedScopesProvider')]
+    public function testGrantsTheOfferedConfigurationsTheClientMayHave(
+        array $offered,
+        ?array $registeredFor,
+        array $expected,
+    ): void {
+        $walletClient = null;
+        if ($registeredFor !== null) {
+            $walletClientMock = $this->createMock(ClientEntity::class);
+            $walletClientMock->method('getIdentifier')->willReturn(self::WALLET_CLIENT_ID);
+            $walletClientMock->method('getScopes')->willReturn($registeredFor);
+            $walletClient = PreAuthorizedCodeClient::registered($walletClientMock);
+        }
+        $this->configureRequestParameters(null);
+        $this->requestRulesManagerMock->method('check')->willReturn($this->resultBagWith(null, $walletClient));
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(holder: null, offered: $offered));
+        $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
+        $grantedScopes = null;
+        $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
+            function (string $id, OAuth2ClientEntityInterface $client, array $scopes) use (&$grantedScopes) {
+                $grantedScopes = $scopes;
+
+                return $this->createMock(AccessTokenEntity::class);
+            },
+        );
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertIsArray($grantedScopes);
+        $this->assertSame($expected, $this->scopeIdentifiers($grantedScopes));
+    }
+
+
+    /**
+     * @return array<string,array{string[], ?string[], string[]}>
+     */
+    public static function grantedScopesProvider(): array
+    {
+        return [
+            'two configurations offered, the generic client' => [
+                [self::OFFERED, self::ALSO_SUPPORTED],
+                null,
+                [self::OFFERED, self::ALSO_SUPPORTED],
+            ],
+            'two configurations offered, a wallet registered for one' => [
+                [self::OFFERED, self::ALSO_SUPPORTED],
+                ['openid', self::OFFERED],
+                [self::OFFERED],
+            ],
+            'a configuration offered, a wallet registered for another' => [
+                [self::OFFERED],
+                [self::ALSO_SUPPORTED],
+                [],
+            ],
+            'a configuration offered which is no longer supported' => [
+                [self::OFFERED, 'RetiredCredential'],
+                null,
+                [self::OFFERED],
+            ],
+        ];
+    }
+
+
+    /**
+     * A wallet which names, with authorization_details, one of the configurations the offer offered gets a
+     * token for that one only, its scopes included, as it asked (OpenID4VCI 1.0 section 6.1.1).
+     */
+    public function testNarrowsTheTokenToTheConfigurationsTheAuthorizationDetailsName(): void
+    {
+        $this->configureRequestParameters(null);
+        $this->requestRulesManagerMock->method('check')->willReturn($this->resultBagWith(
+            [['type' => 'openid_credential', 'credential_configuration_id' => self::ALSO_SUPPORTED]],
+        ));
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(holder: null, offered: [self::OFFERED, self::ALSO_SUPPORTED]));
+        $this->authCodeRepositoryMock->expects($this->once())->method('consumePreAuthorizedCode')->willReturn(true);
+        $grantedScopes = null;
+        $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
+            function (string $id, OAuth2ClientEntityInterface $client, array $scopes) use (&$grantedScopes) {
+                $grantedScopes = $scopes;
+
+                return $this->createMock(AccessTokenEntity::class);
+            },
+        );
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertIsArray($grantedScopes);
+        $this->assertSame([self::ALSO_SUPPORTED], $this->scopeIdentifiers($grantedScopes));
+    }
+
+
+    /**
+     * authorization_details in the token request name the configurations the wallet wants the token for, and
+     * one the token is not granted -- not offered, or offered but not one the registered wallet may have -- is
+     * refused (RFC 9396 section 6), before the code is consumed, so a wallet which asked for too much can ask
+     * again.
+     *
+     * @param string[]|null $registeredFor
+     */
+    #[DataProvider('authorizationDetailsNotGrantedProvider')]
+    public function testRefusesAuthorizationDetailsTheCodeDoesNotGrantBeforeConsumingIt(
+        mixed $credentialConfigurationId,
+        ?array $registeredFor,
+    ): void {
+        $walletClient = null;
+        if ($registeredFor !== null) {
+            $walletClientMock = $this->createMock(ClientEntity::class);
+            $walletClientMock->method('getIdentifier')->willReturn(self::WALLET_CLIENT_ID);
+            $walletClientMock->method('getScopes')->willReturn($registeredFor);
+            $walletClient = PreAuthorizedCodeClient::registered($walletClientMock);
+        }
+        $this->configureRequestParameters(null);
+        $this->requestRulesManagerMock->method('check')->willReturn($this->resultBagWith(
+            [
+                ['type' => 'openid_credential', 'credential_configuration_id' => self::OFFERED],
+                ['type' => 'openid_credential', 'credential_configuration_id' => $credentialConfigurationId],
+            ],
+            $walletClient,
+        ));
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(holder: null, offered: [self::OFFERED]));
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        $this->assertTokenRequestRefused(
+            'invalid_authorization_details',
+            'The pre-authorized code does not grant the credential configuration requested.',
+        );
+        $this->assertLogged(
+            'notice',
+            'Token request rejected: `authorization_details` name a credential configuration the ' .
+            'pre-authorized code does not grant.',
+        );
+    }
+
+
+    /**
+     * @return array<string,array{mixed, ?string[]}>
+     */
+    public static function authorizationDetailsNotGrantedProvider(): array
+    {
+        return [
+            'a supported configuration the offer did not offer' => [self::ALSO_SUPPORTED, null],
+            'a configuration no issuer has' => ['unknown-configuration', null],
+            'a configuration ID which is not a string' => [[self::OFFERED], null],
+            'the offered configuration, which the registered wallet may not have' => [
+                self::OFFERED,
+                [self::ALSO_SUPPORTED],
+            ],
+        ];
+    }
+
+
+    /**
      * Nothing in this class calls issueRefreshToken(): respondToAccessTokenRequest() issues no refresh token,
      * and the parent's path which would is overridden above. The override repeats the parent's, so the
      * contract is put on record by reflection: the issuer is asked with the grant's own refresh token
@@ -748,7 +944,7 @@ class PreAuthCodeGrantTest extends TestCase
 
     private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): PreAuthCodeGrant
     {
-        return new PreAuthCodeGrant(
+        $grant = new PreAuthCodeGrant(
             $authCodeRepository ?? $this->authCodeRepositoryMock,
             $this->accessTokenRepositoryMock,
             $this->refreshTokenRepositoryMock,
@@ -763,9 +959,14 @@ class PreAuthCodeGrantTest extends TestCase
             $this->userRepositoryMock,
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
-            $this->createStub(ModuleConfig::class),
+            $this->moduleConfigMock,
             $this->createStub(IssuerStateRepository::class),
         );
+        $grant->setScopeRepository(
+            new ScopeRepository($this->createStub(ModuleConfig::class), $this->createStub(ScopeEntityFactory::class)),
+        );
+
+        return $grant;
     }
 
 
@@ -788,11 +989,15 @@ class PreAuthCodeGrantTest extends TestCase
         string $expiresAt = '+1 hour',
         bool $isRevoked = false,
         ?string $holder = self::USER_ID,
+        array $offered = [self::OFFERED],
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             self::PRE_AUTHORIZED_CODE,
             $this->clientMock,
-            [],
+            array_map(
+                fn(string $scope): ScopeEntity => new ScopeEntity($scope),
+                ['openid', ...$offered],
+            ),
             new DateTimeImmutable($expiresAt),
             $holder,
             'openid-credential-offer://',
@@ -833,6 +1038,16 @@ class PreAuthCodeGrantTest extends TestCase
                     };
                 },
             );
+    }
+
+
+    /**
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @return string[]
+     */
+    private function scopeIdentifiers(array $scopes): array
+    {
+        return array_map(fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), $scopes);
     }
 
 

@@ -28,9 +28,12 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -254,9 +257,10 @@ class PushedAuthorizationControllerTest extends TestCase
 
 
     /**
-     * A pushed request which follows a Credential Offer is checked for an offer which can still be redeemed, as
-     * the authorization endpoint checks one. The rule reads the state and the redirect URI from the result
-     * bag, so it has to run after the rules which put them there.
+     * A pushed request which follows a Credential Offer is checked for an offer which can still be redeemed, and
+     * for asking only for what the offer offered, as the authorization endpoint checks them. The rules read the
+     * state, the redirect URI, the issuer state, the scopes and the authorization details from the result bag,
+     * so each has to run after the rules which put them there.
      */
     public function testChecksTheIssuerStateAfterTheRulesItReadsFrom(): void
     {
@@ -282,6 +286,16 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->assertIsInt($position, 'The issuer state of a pushed request is not checked.');
         $this->assertGreaterThan(array_search(StateRule::class, $checkedRules, true), $position);
         $this->assertGreaterThan(array_search(ClientRedirectUriRule::class, $checkedRules, true), $position);
+
+        $offered = array_search(OfferedCredentialsRule::class, $checkedRules, true);
+        $scope = array_search(ScopeRule::class, $checkedRules, true);
+        $authorizationDetails = array_search(AuthorizationDetailsRule::class, $checkedRules, true);
+        $this->assertIsInt($offered, 'What the offer of a pushed request offered is not checked.');
+        $this->assertIsInt($scope, 'The scopes of a pushed request are not checked.');
+        $this->assertIsInt($authorizationDetails, 'The authorization details of a pushed request are not checked.');
+        $this->assertGreaterThan($position, $offered);
+        $this->assertGreaterThan($scope, $offered);
+        $this->assertGreaterThan($authorizationDetails, $offered);
     }
 
 

@@ -134,6 +134,12 @@ An offer for the authorization code grant is redeemed once: when the wallet exch
 offer for an access token. That has to happen within the issuer state lifetime (`vci_issuer_state_ttl`); the access
 token then serves credential requests for its own lifetime.
 
+An offer, for either grant, admits the wallet to the offered credential configuration only. An authorization request
+following an offer for the authorization code grant is refused if its `scope` or `authorization_details` name another
+configuration (`invalid_scope` or `invalid_authorization_details`), and the access token obtained with a pre-authorized
+code serves requests for the offered configuration only. A registered wallet is further limited to the configurations
+it is registered for, as in any other flow.
+
 The transaction code is mailed with SimpleSAMLphp's mail settings (`mail.transport.method` and
 `mail.transport.options` in `config/config.php`), and SimpleSAMLphp sends no mail while `technicalcontact_email` has
 its default value. Errors are answered as JSON objects with `error` and `error_description`:

@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
@@ -187,6 +188,12 @@ class RequestRulesManagerFactory
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
             new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
+            new OfferedCredentialsRule(
+                $this->requestParamsResolver,
+                $this->helpers,
+                $this->issuerStateRepository,
+                $this->moduleConfig,
+            ),
             new PreAuthorizedCodeClientRule(
                 $this->requestParamsResolver,
                 $this->helpers,

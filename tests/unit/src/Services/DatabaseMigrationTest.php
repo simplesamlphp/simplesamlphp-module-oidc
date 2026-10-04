@@ -13,6 +13,7 @@ use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
@@ -30,6 +31,8 @@ class DatabaseMigrationTest extends TestCase
     protected const string AUTH_CODE_INDEX_VERSION = '20261003000001';
 
     protected const string ORPHANED_ORIGINS_VERSION = '20261003000003';
+
+    protected const string OFFERED_CONFIGURATIONS_VERSION = '20261003000004';
 
 
     protected Database $database;
@@ -146,6 +149,44 @@ class DatabaseMigrationTest extends TestCase
         $this->assertSame(
             [['client_id' => 'remaining-client', 'origin' => 'https://remaining.example.org']],
             $this->database->read("SELECT client_id, origin FROM $allowedOriginTableName")->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
+
+    /**
+     * An issuer state records what its Credential Offer offered. A state stored before has NULL there, which
+     * the repository reads as an offer of nothing. The version adds the column only when it is missing, so a
+     * run interrupted before its version was recorded can be repeated, and the column keeps what it holds.
+     *
+     * @throws \Exception
+     */
+    public function testAddsTheOfferedConfigurationsToIssuerStatesOnceAndKeepsThem(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $issuerStateTableName = $this->database->applyPrefix(IssuerStateRepository::TABLE_NAME);
+        $this->database->write(
+            "INSERT INTO $issuerStateTableName (value, credential_configuration_ids) VALUES " .
+            "('offered', '[\"UniversityDegreeCredential\"]')",
+        );
+        $this->database->write("INSERT INTO $issuerStateTableName (value) VALUES ('stored-before')");
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::OFFERED_CONFIGURATIONS_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame(
+            [
+                ['value' => 'offered', 'credential_configuration_ids' => '["UniversityDegreeCredential"]'],
+                ['value' => 'stored-before', 'credential_configuration_ids' => null],
+            ],
+            $this->database->read(
+                "SELECT value, credential_configuration_ids FROM $issuerStateTableName ORDER BY value",
+            )->fetchAll(PDO::FETCH_ASSOC),
         );
     }
 

@@ -69,6 +69,11 @@ class OidcServerExceptionTest extends TestCase
                 'invalid_request',
                 400,
             ],
+            'invalid authorization details' => [
+                static fn(): OidcServerException => OidcServerException::invalidAuthorizationDetails('Not offered.'),
+                'invalid_authorization_details',
+                400,
+            ],
             'access denied' => [
                 static fn(): OidcServerException => OidcServerException::accessDenied(),
                 'access_denied',
@@ -137,6 +142,25 @@ class OidcServerExceptionTest extends TestCase
 
         $missing = OidcServerException::invalidScope('')->getPayload()['error_description'];
         $this->assertStringContainsString('default scope', $missing);
+    }
+
+
+    /**
+     * Refused authorization details go back to the redirect URI with the state, as any other refusal of an
+     * authorization request does, and with the hint saying what was wrong with them.
+     */
+    public function testRefusesAuthorizationDetailsBackToTheClientWithTheStateAndTheHint(): void
+    {
+        $exception = OidcServerException::invalidAuthorizationDetails(
+            'The Credential Offer did not offer the credential configuration requested.',
+            'https://wallet.example.org/callback',
+            'opaque-state',
+        );
+
+        $this->assertSame('https://wallet.example.org/callback', $exception->getRedirectUri());
+        $this->assertSame('opaque-state', $exception->getPayload()['state'] ?? null);
+        $this->assertStringContainsString('did not offer', $exception->getPayload()['error_description']);
+        $this->assertFalse(OidcServerException::invalidAuthorizationDetails('Not granted.')->hasRedirect());
     }
 
 

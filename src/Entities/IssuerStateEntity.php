@@ -16,15 +16,23 @@ class IssuerStateEntity implements MementoInterface
     use FormatForDatabaseTrait;
 
 
+    /**
+     * @param string[] $credentialConfigurationIds The configurations the Credential Offer carrying this state
+     * offered, and so the only ones a request following it may ask for.
+     */
     public function __construct(
         protected readonly string $value,
         protected readonly DateTimeImmutable $createdAt,
         protected readonly DateTimeImmutable $expirestAt,
         protected bool $isRevoked = false,
+        protected readonly array $credentialConfigurationIds = [],
     ) {
     }
 
 
+    /**
+     * @throws \JsonException
+     */
     public function getState(): array
     {
         return [
@@ -32,6 +40,10 @@ class IssuerStateEntity implements MementoInterface
             'created_at' => $this->formatForDatabase($this->getCreatedAt()),
             'expires_at' => $this->formatForDatabase($this->getExpirestAt()),
             'is_revoked' => $this->isRevoked(),
+            'credential_configuration_ids' => json_encode(
+                array_values($this->getCredentialConfigurationIds()),
+                JSON_THROW_ON_ERROR,
+            ),
         ];
     }
 
@@ -57,6 +69,15 @@ class IssuerStateEntity implements MementoInterface
     public function isRevoked(): bool
     {
         return $this->isRevoked;
+    }
+
+
+    /**
+     * @return string[]
+     */
+    public function getCredentialConfigurationIds(): array
+    {
+        return $this->credentialConfigurationIds;
     }
 
 

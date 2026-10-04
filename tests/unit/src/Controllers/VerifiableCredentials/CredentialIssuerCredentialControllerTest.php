@@ -236,9 +236,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->disclosureBags = [];
 
         // A request which should be issued: a pre-authorized-code access token, found and unrevoked,
-        // naming a user and a credential configuration this issuer supports. Each test spoils exactly
-        // one of these, so a check which stopped refusing falls through to the success path and fails
-        // for the absent refusal rather than passing.
+        // naming a user and a credential configuration this issuer supports, which the token grants. Each
+        // test spoils exactly one of these, so a check which stopped refusing falls through to the success
+        // path and fails for the absent refusal rather than passing.
         $this->flowType = FlowTypeEnum::VciPreAuthorizedCode;
         $this->accessTokenRefusal = null;
         $this->accessTokenIsFound = true;
@@ -247,7 +247,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->authorizationDetails = null;
         $this->issuerState = null;
         $this->clientIsGeneric = false;
-        $this->tokenScopes = [];
+        $this->tokenScopes = [new ScopeEntity(self::CONFIGURATION_ID)];
         $this->credentialConfiguration = [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
         ];
@@ -1477,19 +1477,47 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * Without an offer, the token's scopes are all the client was authorized for, so a credential they do not
-     * name is refused, however much the client is registered.
+     * A token's scopes are all it grants, whichever flow issued it: without an offer, what the client was
+     * authorized for; after an offer or with a pre-authorized code, no more than the offer offered. A credential
+     * they do not name is refused, however much the client is registered and whatever the offer's issuer state.
      */
-    public function testRefusesACredentialTheTokenOfARegisteredClientDoesNotGrant(): void
-    {
-        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
-        $this->issuerState = null;
+    #[DataProvider('tokensOfEveryCredentialFlowProvider')]
+    public function testRefusesACredentialTheTokenDoesNotGrant(
+        FlowTypeEnum $flowType,
+        ?string $issuerState,
+        bool $clientIsGeneric,
+    ): void {
+        $this->flowType = $flowType;
+        $this->issuerState = $issuerState;
+        $this->clientIsGeneric = $clientIsGeneric;
         $this->tokenScopes = [new ScopeEntity('another_configuration')];
 
         $this->issue();
 
         $this->assertRefusedWith('insufficient_scope', 403);
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * @return array<string,array{0: \SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum, 1: ?string, 2: bool}>
+     */
+    public static function tokensOfEveryCredentialFlowProvider(): array
+    {
+        return [
+            'authorization code, a registered client, no offer' => [FlowTypeEnum::VciAuthorizationCode, null, false],
+            'authorization code after an offer, a non-registered wallet' => [
+                FlowTypeEnum::VciAuthorizationCode,
+                'issuer-state-1',
+                true,
+            ],
+            'authorization code after an offer, a registered client' => [
+                FlowTypeEnum::VciAuthorizationCode,
+                'issuer-state-1',
+                false,
+            ],
+            'pre-authorized code' => [FlowTypeEnum::VciPreAuthorizedCode, null, false],
+        ];
     }
 
 

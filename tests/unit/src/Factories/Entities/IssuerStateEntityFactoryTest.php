@@ -51,6 +51,10 @@ class IssuerStateEntityFactoryTest extends TestCase
 
     protected const string LIFETIME = 'PT5M';
 
+    protected const array OFFERED = ['UniversityDegreeCredential', 'ResearchAndScholarshipCredentialDcSdJwt'];
+
+    protected const string OFFERED_JSON = '["UniversityDegreeCredential","ResearchAndScholarshipCredentialDcSdJwt"]';
+
 
     protected MockObject $moduleConfigMock;
 
@@ -89,6 +93,7 @@ class IssuerStateEntityFactoryTest extends TestCase
                 'created_at' => self::CREATED_AT,
                 'expires_at' => self::EXPIRES_AT,
                 'is_revoked' => '0',
+                'credential_configuration_ids' => self::OFFERED_JSON,
             ],
             $overrides,
         );
@@ -159,12 +164,14 @@ class IssuerStateEntityFactoryTest extends TestCase
             $this->utc(self::CREATED_AT),
             $this->utc(self::EXPIRES_AT),
             true,
+            self::OFFERED,
         );
 
         $this->assertSame(self::VALUE, $entity->getValue());
         $this->assertSame(self::CREATED_AT_TIMESTAMP, $entity->getCreatedAt()->getTimestamp());
         $this->assertSame(self::EXPIRES_AT_TIMESTAMP, $entity->getExpirestAt()->getTimestamp());
         $this->assertTrue($entity->isRevoked());
+        $this->assertSame(self::OFFERED, $entity->getCredentialConfigurationIds());
     }
 
 
@@ -175,12 +182,14 @@ class IssuerStateEntityFactoryTest extends TestCase
             $this->utc(self::CREATED_AT),
             $this->utc(self::EXPIRES_AT),
             true,
+            self::OFFERED,
         );
 
         $this->assertSame(self::VALUE, $entity->getValue());
         $this->assertSame(self::CREATED_AT_TIMESTAMP, $entity->getCreatedAt()->getTimestamp());
         $this->assertSame(self::EXPIRES_AT_TIMESTAMP, $entity->getExpirestAt()->getTimestamp());
         $this->assertTrue($entity->isRevoked());
+        $this->assertSame(self::OFFERED, $entity->getCredentialConfigurationIds());
     }
 
 
@@ -189,6 +198,20 @@ class IssuerStateEntityFactoryTest extends TestCase
         $entity = $this->sut()->fromData(self::VALUE, $this->utc(self::CREATED_AT), $this->utc(self::EXPIRES_AT));
 
         $this->assertFalse($entity->isRevoked());
+    }
+
+
+    /**
+     * A state built without the offered configurations offers none, so nothing can be requested after it.
+     */
+    public function testOffersNothingUnlessGivenWhatWasOffered(): void
+    {
+        $this->assertSame([], $this->sut()->buildNew()->getCredentialConfigurationIds());
+        $this->assertSame(
+            [],
+            $this->sut()->fromData(self::VALUE, $this->utc(self::CREATED_AT), $this->utc(self::EXPIRES_AT))
+                ->getCredentialConfigurationIds(),
+        );
     }
 
 
@@ -219,6 +242,7 @@ class IssuerStateEntityFactoryTest extends TestCase
         $this->assertSame(self::CREATED_AT_TIMESTAMP, $entity->getCreatedAt()->getTimestamp());
         $this->assertSame(self::EXPIRES_AT_TIMESTAMP, $entity->getExpirestAt()->getTimestamp());
         $this->assertFalse($entity->isRevoked());
+        $this->assertSame(self::OFFERED, $entity->getCredentialConfigurationIds());
     }
 
 
@@ -233,12 +257,14 @@ class IssuerStateEntityFactoryTest extends TestCase
             $this->utc(self::CREATED_AT),
             $this->utc(self::EXPIRES_AT),
             true,
+            self::OFFERED,
         );
 
         $rebuilt = $this->sut()->fromState($original->getState());
 
         $this->assertSame($original->getState(), $rebuilt->getState());
         $this->assertTrue($rebuilt->isRevoked());
+        $this->assertSame(self::OFFERED, $rebuilt->getCredentialConfigurationIds());
     }
 
 
@@ -350,5 +376,60 @@ class IssuerStateEntityFactoryTest extends TestCase
     public function testFromStateTreatsANullIsRevokedAsRevoked(): void
     {
         $this->assertTrue($this->sut()->fromState($this->row(['is_revoked' => null]))->isRevoked());
+    }
+
+
+    /**
+     * A row stored before the column was added, or one written with NULL in it, records no offered
+     * configurations, and so offers none: nothing can be requested after it, rather than everything.
+     */
+    public function testFromStateReadsAMissingOrNullListAsOfferingNothing(): void
+    {
+        $row = $this->row();
+        unset($row['credential_configuration_ids']);
+
+        $this->assertSame([], $this->sut()->fromState($row)->getCredentialConfigurationIds());
+        $this->assertSame(
+            [],
+            $this->sut()->fromState($this->row(['credential_configuration_ids' => null]))
+                ->getCredentialConfigurationIds(),
+        );
+        // And what getState() writes for an offer of nothing reads back as one.
+        $this->assertSame(
+            [],
+            $this->sut()->fromState($this->row(['credential_configuration_ids' => '[]']))
+                ->getCredentialConfigurationIds(),
+        );
+    }
+
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function invalidCredentialConfigurationIdsProvider(): array
+    {
+        return [
+            'not JSON' => ['UniversityDegreeCredential'],
+            'a JSON object' => ['{"degree":"UniversityDegreeCredential"}'],
+            'a JSON string' => ['"UniversityDegreeCredential"'],
+            'a JSON null' => ['null'],
+            'a list holding a number' => ['["UniversityDegreeCredential",3]'],
+            'a decoded array' => [self::OFFERED],
+            'a number' => [3],
+        ];
+    }
+
+
+    /**
+     * The list decides what a request following the offer may ask for, so one which can not be read as a
+     * list of configuration IDs is refused rather than read as some list.
+     */
+    #[DataProvider('invalidCredentialConfigurationIdsProvider')]
+    public function testFromStateRejectsAnUnreadableList(mixed $credentialConfigurationIds): void
+    {
+        $this->expectException(OpenIdException::class);
+        $this->expectExceptionMessage('Invalid Issuer State Entity credential configuration IDs.');
+
+        $this->sut()->fromState($this->row(['credential_configuration_ids' => $credentialConfigurationIds]));
     }
 }

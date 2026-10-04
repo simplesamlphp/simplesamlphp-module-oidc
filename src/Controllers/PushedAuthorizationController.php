@@ -16,11 +16,13 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
@@ -108,8 +110,11 @@ class PushedAuthorizationController
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
             // A pushed request following a Credential Offer is refused here when its offer can no longer be
-            // redeemed, rather than only once the End-User has logged in.
+            // redeemed, or when it asks for a credential configuration the offer did not offer, rather than only
+            // once the End-User has logged in.
             IssuerStateRule::class,
+            AuthorizationDetailsRule::class,
+            OfferedCredentialsRule::class,
         ];
 
         $resultBag = $this->requestRulesManager->check(

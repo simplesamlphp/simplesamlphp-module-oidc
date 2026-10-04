@@ -62,6 +62,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PromptRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
@@ -1150,6 +1151,31 @@ class AuthCodeGrantTest extends TestCase
         $this->assertIsInt($issuerState, 'The issuer state of an authorization request is not checked.');
         $this->assertLessThan(array_search(PromptRule::class, $this->checkedRules, true), $issuerState);
         $this->assertLessThan(array_search(MaxAgeRule::class, $this->checkedRules, true), $issuerState);
+    }
+
+
+    /**
+     * A request following an offer which asks for a credential configuration the offer did not offer is refused
+     * before the End-User is sent to log in, too. The rule judging that reads the scopes and the authorization
+     * details, so it runs after the rules resolving them -- and those after IssuerStateRule, since a refused
+     * scope goes to a redirect URI a non-registered wallet got accepted only with an issuer_state.
+     */
+    public function testChecksWhatAnOfferOfferedBeforeAnyRuleWhichMaySendTheUserToLogIn(): void
+    {
+        $this->validatedAuthorizationRequest();
+
+        $position = function (string $rule): int {
+            $position = array_search($rule, $this->checkedRules, true);
+            $this->assertIsInt($position, sprintf('%s is not among the rules checked.', $rule));
+
+            return $position;
+        };
+        $offered = $position(OfferedCredentialsRule::class);
+        $this->assertLessThan($offered, $position(ScopeRule::class));
+        $this->assertLessThan($offered, $position(AuthorizationDetailsRule::class));
+        $this->assertLessThan($position(ScopeRule::class), $position(IssuerStateRule::class));
+        $this->assertLessThan($position(PromptRule::class), $offered);
+        $this->assertLessThan($position(MaxAgeRule::class), $offered);
     }
 
 

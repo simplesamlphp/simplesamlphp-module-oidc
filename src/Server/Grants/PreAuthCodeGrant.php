@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\Grants;
 use DateInterval;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
@@ -25,6 +26,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
@@ -204,7 +206,14 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $tokenClient = $registeredClient ?? $client;
         $boundClientId = $registeredClient === null ? $walletClient?->getIdentifier() : null;
 
+        $userIdentifier = $preAuthorizedCode->getUserIdentifier() ?
+        (string) $preAuthorizedCode->getUserIdentifier() :
+        null;
+
+        $scopes = $this->offeredScopes($preAuthorizedCode, $tokenClient, $userIdentifier);
+
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
+        $scopes = $this->scopesRequestedByAuthorizationDetails($authorizationDetails, $scopes);
 
         // Consume immediately before token issuance. The conditional database update is the
         // authoritative replay guard, so only one concurrent request can proceed. If token
@@ -220,8 +229,8 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
             $tokenClient,
-            $preAuthorizedCode->getUserIdentifier() ? (string) $preAuthorizedCode->getUserIdentifier() : null,
-            [], // TODO mivanci handle scopes
+            $userIdentifier,
+            $scopes,
             $preAuthorizedCodeId,
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
             authorizationDetails: $authorizationDetails,
@@ -237,6 +246,87 @@ class PreAuthCodeGrant extends AuthCodeGrant
         );
 
         return $responseType;
+    }
+
+
+    /**
+     * The scopes of the access token: the credential configurations the Credential Offer offered, which the code
+     * holds as its scopes (CredentialOfferUriFactory), so that the token is valid only for those (OpenID4VCI 1.0
+     * section 6.1 recommends it), and of those only the ones the client the token is issued to may have, as in
+     * the authorization code grant -- all of them for the generic VCI client, the registered ones for a
+     * registered wallet. A configuration no longer supported is left out, and so is `openid`, which the code
+     * also holds: the token is for the credential endpoint, and a pre-authorized one never carried it.
+     *
+     * @return \League\OAuth2\Server\Entities\ScopeEntityInterface[]
+     */
+    protected function offeredScopes(
+        AuthCodeEntity $preAuthorizedCode,
+        OAuth2ClientEntityInterface $tokenClient,
+        ?string $userIdentifier,
+    ): array {
+        $configurationIds = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
+
+        $offeredScopes = array_values(array_filter(
+            $preAuthorizedCode->getScopes(),
+            fn(ScopeEntityInterface $scope): bool => in_array($scope->getIdentifier(), $configurationIds, true),
+        ));
+
+        return array_values($this->scopeRepository->finalizeScopes(
+            $offeredScopes,
+            $this->getIdentifier(),
+            $tokenClient,
+            $userIdentifier,
+        ));
+    }
+
+
+    /**
+     * authorization_details in the token request name the configurations the wallet wants the token for
+     * (OpenID4VCI 1.0 section 6.1.1), and each has to be one the token is granted, or the request is refused
+     * (RFC 9396 section 6). Checked before the code is consumed, so a wallet which asked for too much can ask
+     * again. The token is then for those only: the credential endpoint lets a token which carries
+     * authorization_details name nothing else (by credential_identifier), and its scopes, and the claims they
+     * release, say no more than that. Without authorization_details the scopes stay as granted.
+     *
+     * @param mixed[]|null $authorizationDetails As AuthorizationDetailsRule validated them.
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @return \League\OAuth2\Server\Entities\ScopeEntityInterface[]
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function scopesRequestedByAuthorizationDetails(?array $authorizationDetails, array $scopes): array
+    {
+        if ($authorizationDetails === null) {
+            return $scopes;
+        }
+
+        $granted = array_map(fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), $scopes);
+        $requested = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($authorizationDetails as $authorizationDetail) {
+            /** @psalm-suppress MixedAssignment */
+            $credentialConfigurationId = is_array($authorizationDetail) ?
+            ($authorizationDetail[ClaimsEnum::CredentialConfigurationId->value] ?? null) :
+            null;
+
+            if (is_string($credentialConfigurationId) && in_array($credentialConfigurationId, $granted, true)) {
+                $requested[] = $credentialConfigurationId;
+                continue;
+            }
+
+            $this->loggerService->notice(
+                'Token request rejected: `authorization_details` name a credential configuration the ' .
+                'pre-authorized code does not grant.',
+            );
+            throw OidcServerException::invalidAuthorizationDetails(
+                'The pre-authorized code does not grant the credential configuration requested.',
+            );
+        }
+
+        return array_values(array_filter(
+            $scopes,
+            fn(ScopeEntityInterface $scope): bool => in_array($scope->getIdentifier(), $requested, true),
+        ));
     }
 
 

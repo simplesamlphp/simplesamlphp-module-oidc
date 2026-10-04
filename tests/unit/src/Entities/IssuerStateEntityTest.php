@@ -12,7 +12,8 @@ use SimpleSAML\Module\oidc\Entities\IssuerStateEntity;
 
 /**
  * An `issuer_state` the Credential Issuer minted for a Credential Offer: the value, the moment it was
- * created and the moment it stops being usable, and whether it has been revoked.
+ * created and the moment it stops being usable, whether it has been revoked, and the credential
+ * configurations the offer offered.
  *
  * Its factory is the only thing in `src/` which constructs one, and the repository stores `getState()` as
  * the row on INSERT and UPDATE alike. Unlike the Pushed Authorization Request entity it has no expiry
@@ -32,6 +33,8 @@ class IssuerStateEntityTest extends TestCase
 
     protected const string EXPIRES_AT = '2026-09-19 14:10:00';
 
+    protected const array OFFERED = ['UniversityDegreeCredential', 'ResearchAndScholarshipCredentialDcSdJwt'];
+
 
     protected function moment(string $moment, string $timezone = 'UTC'): DateTimeImmutable
     {
@@ -43,12 +46,14 @@ class IssuerStateEntityTest extends TestCase
         bool $isRevoked = false,
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
+        array $credentialConfigurationIds = self::OFFERED,
     ): IssuerStateEntity {
         return new IssuerStateEntity(
             self::VALUE,
             $createdAt ?? $this->moment(self::CREATED_AT),
             $expiresAt ?? $this->moment(self::EXPIRES_AT),
             $isRevoked,
+            $credentialConfigurationIds,
         );
     }
 
@@ -64,6 +69,7 @@ class IssuerStateEntityTest extends TestCase
         $this->assertSame($createdAt, $entity->getCreatedAt());
         $this->assertSame($expiresAt, $entity->getExpirestAt());
         $this->assertFalse($entity->isRevoked());
+        $this->assertSame(self::OFFERED, $entity->getCredentialConfigurationIds());
     }
 
 
@@ -79,8 +85,9 @@ class IssuerStateEntityTest extends TestCase
 
 
     /**
-     * The row as the repository stores it: the two moments in the database's datetime format, and the
-     * revocation flag as the boolean it is, which the repository binds as a PDO boolean.
+     * The row as the repository stores it: the two moments in the database's datetime format, the
+     * revocation flag as the boolean it is, which the repository binds as a PDO boolean, and the offered
+     * configurations as a JSON list.
      */
     public function testTheStateIsTheRowTheRepositoryStores(): void
     {
@@ -90,6 +97,8 @@ class IssuerStateEntityTest extends TestCase
             'created_at' => self::CREATED_AT,
             'expires_at' => self::EXPIRES_AT,
             'is_revoked' => false,
+            'credential_configuration_ids' =>
+                '["UniversityDegreeCredential","ResearchAndScholarshipCredentialDcSdJwt"]',
         ];
 
         $this->assertSame($row, $entity->getState());
@@ -115,5 +124,20 @@ class IssuerStateEntityTest extends TestCase
 
         $this->assertSame('2026-09-19 14:00:00', $state['created_at']);
         $this->assertSame('2026-09-19 14:10:00', $state['expires_at']);
+    }
+
+
+    /**
+     * The configurations are stored as a JSON list, so one handed over with keys of its own is still
+     * stored as a list, which is what the factory reads back.
+     */
+    public function testStatesTheOfferedConfigurationsAsAList(): void
+    {
+        $this->assertSame('[]', $this->sut(credentialConfigurationIds: [])->getState()['credential_configuration_ids']);
+        $this->assertSame(
+            '["UniversityDegreeCredential"]',
+            $this->sut(credentialConfigurationIds: [3 => 'UniversityDegreeCredential'])
+                ->getState()['credential_configuration_ids'],
+        );
     }
 }
