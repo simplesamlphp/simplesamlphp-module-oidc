@@ -793,6 +793,70 @@ class TokenResponseTest extends TestCase
 
 
     /**
+     * @return array<string, array{bool, ?string}>
+     */
+    public static function dpopBoundAccessTokenProvider(): array
+    {
+        return [
+            'a public client: the refresh token is bound to the same key' => [false, 'thumbprint-of-the-dpop-key'],
+            'a confidential client: the refresh token is bound to nothing more' => [true, null],
+        ];
+    }
+
+
+    /**
+     * An access token bound to a DPoP key is answered with `token_type` DPoP (RFC 9449 section 5). The refresh token
+     * issued with it is bound to the same key -- the key of the request's proof -- when the client is public, and
+     * RefreshTokenGrant then takes it only with a proof by that key; a confidential client authenticates when it
+     * refreshes, and its refresh token carries no key (section 5).
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('dpopBoundAccessTokenProvider')]
+    public function testAnswersABoundAccessTokenAsADpopTokenAndBindsAPublicClientsRefreshToken(
+        bool $isConfidential,
+        ?string $expectedRefreshTokenJkt,
+    ): void {
+        $this->clientEntityMock->method('isConfidential')->willReturn($isConfidential);
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+        $this->accessTokenEntityMock->method('getDpopJkt')->willReturn('thumbprint-of-the-dpop-key');
+        $this->idTokenFactoryMock->method('fromData')->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $result = $this->generateResponseWithRefreshToken();
+
+        $this->assertSame('DPoP', $result['token_type']);
+        $this->assertSame(
+            $expectedRefreshTokenJkt,
+            $this->refreshTokenPayloadOf($result)[TokenResponse::REFRESH_TOKEN_DPOP_JKT] ?? null,
+        );
+    }
+
+
+    /**
+     * A token bound to no key stays a Bearer token, and a public client's refresh token issued with it is bound to
+     * nothing either.
+     *
+     * @throws \Exception
+     */
+    public function testAnswersAnUnboundAccessTokenAsABearerTokenWithAnUnboundRefreshToken(): void
+    {
+        $this->clientEntityMock->method('isConfidential')->willReturn(false);
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenEntityMock->method('getScopes')->willReturn($this->scopes);
+        $this->accessTokenEntityMock->method('getDpopJkt')->willReturn(null);
+        $this->idTokenFactoryMock->method('fromData')->willReturn($this->idTokenMock);
+        $this->idTokenMock->method('getToken')->willReturn('token');
+
+        $result = $this->generateResponseWithRefreshToken();
+
+        $this->assertSame('Bearer', $result['token_type']);
+        $this->assertArrayNotHasKey(TokenResponse::REFRESH_TOKEN_DPOP_JKT, $this->refreshTokenPayloadOf($result));
+    }
+
+
+    /**
      * The decoded body of a response for the shared access token, without a refresh token.
      *
      * @throws \JsonException

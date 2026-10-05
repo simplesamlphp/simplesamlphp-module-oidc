@@ -31,6 +31,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectedTokenOrigin;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionAuthorization;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -279,11 +280,21 @@ class TokenIntrospectionController
             return null;
         }
 
+        $dpopJkt = $this->resolveDpopJkt($accessToken);
+
+        if ($dpopJkt === false) {
+            return null;
+        }
+
+        // A token bound to a DPoP key is reported as one, with its binding (RFC 9449 section 6.2), which no release
+        // decision can withhold (IntrospectionReleaseDecision::PROTECTED_MEMBERS).
+        $tokenType = $dpopJkt === null ? AccessTokenTypesEnum::Bearer : AccessTokenTypesEnum::DPoP;
+
         $tokenMembers = $this->withoutAbsentMembers([
             'active' => true,
             'scope' => $scopes === [] ? null : implode(' ', $scopes),
             'client_id' => $clientId,
-            'token_type' => 'Bearer',
+            'token_type' => $tokenType->value,
             ClaimsEnum::Exp->value => $accessToken->getExpirationTime(),
             ClaimsEnum::Iat->value => $accessToken->getIssuedAt(),
             ClaimsEnum::Nbf->value => $accessToken->getNotBefore(),
@@ -292,6 +303,10 @@ class TokenIntrospectionController
             ClaimsEnum::Iss->value => $accessToken->getIssuer(),
             ClaimsEnum::Jti->value => $accessToken->getJwtId(),
         ]);
+
+        if ($dpopJkt !== null) {
+            $tokenMembers[ClaimsEnum::Cnf->value] = [ClaimsEnum::Jkt->value => $dpopJkt];
+        }
 
         // A token minted before the module wrote a 'typ' header carries the internal user identifier as its 'sub',
         // not the resolved subject; for such a token the 'sub' the granted scopes release stands in its place, as it
@@ -332,6 +347,11 @@ class TokenIntrospectionController
         $this->claimTranslatorExtractor->extract($releasedScopes, $resourceOwner->getClaims()) :
         [];
 
+        // The binding is the token's own. A custom scope can release a user claim named 'cnf' (ModuleConfig reserves
+        // the name for the access token's claims only), which must neither stand in for the binding nor make an
+        // unbound token look bound, so it is left out whether or not the token is bound.
+        unset($userClaims[ClaimsEnum::Cnf->value]);
+
         $tokenMembers = $this->withReleasedScope($tokenMembers, $scopes, $releasedScopes);
 
         // The user claims are further top-level members, as RFC 7662 section 2.2 allows ("Specific implementations
@@ -342,6 +362,36 @@ class TokenIntrospectionController
         // members go last, so that nothing assembled here can put one back: 'sub' is a token member as well as a
         // user claim.
         return $decision->withholdFrom($tokenMembers + $userClaims);
+    }
+
+
+    /**
+     * The thumbprint of the DPoP key an access token is bound to (`cnf` {"jkt": ...}, RFC 9449 section 6.1), or null
+     * for a token bound to none. False for a token whose `cnf` names no such key: this OP writes `cnf` that way or
+     * not at all, and its own protected resources refuse such a token under either scheme, so it is answered as
+     * inactive rather than as a bearer token.
+     */
+    protected function resolveDpopJkt(ParsedJws $accessToken): string|false|null
+    {
+        if (!$accessToken->hasPayloadClaim(ClaimsEnum::Cnf->value)) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $confirmation = $accessToken->getPayloadClaim(ClaimsEnum::Cnf->value);
+        /** @psalm-suppress MixedAssignment */
+        $dpopJkt = is_array($confirmation) ? ($confirmation[ClaimsEnum::Jkt->value] ?? null) : null;
+
+        if (is_string($dpopJkt) && $dpopJkt !== '') {
+            return $dpopJkt;
+        }
+
+        $this->loggerService->error(
+            'Access token answered as inactive: its `cnf` claim names no DPoP key.',
+            ['access_token_id' => $accessToken->getJwtId()],
+        );
+
+        return false;
     }
 
 

@@ -659,6 +659,59 @@ Pushed authorization requests are stored in the `oidc_par` database table
 [cron](https://simplesamlphp.org/docs/stable/cron/cron.html) integration, the
 same way expired tokens are purged.
 
+## DPoP (sender-constrained tokens)
+
+The module supports DPoP (RFC 9449), which binds an access token to a key the
+client holds, so that a token taken from the client is of no use without the
+key. A client which sends a DPoP proof (the `DPoP` header) to the token
+endpoint gets an access token bound to the proof's key (its `cnf` claim names
+the key), answered with `token_type` `DPoP`; a client which sends none gets a
+Bearer token, as before. The discovery documents advertise the algorithms a
+proof may be signed with (`dpop_signing_alg_values_supported`): RS256, RS384,
+RS512, PS256, PS384, PS512, ES256, ES384, ES512 and EdDSA, the asymmetric
+algorithms the module supports. The list is not configurable.
+
+- **Protected resources.** The UserInfo and credential endpoints take a bound
+  token only under the `DPoP` authorization scheme, with a proof by its key
+  which carries the token's hash (`ath`), and refuse it as a Bearer token. A
+  token bound to no key is taken only as a Bearer token. Their refusals
+  challenge both schemes (RFC 9449 section 7.2): `Bearer, DPoP algs="..."` for a
+  request without a token, the error in the challenge of the scheme a refused
+  token came under.
+- **Refresh tokens.** A refresh token issued to a public client which sent a
+  proof is bound to the same key, and using it takes a proof by that key. A
+  confidential client's refresh token is not bound: the client authenticates
+  when it uses it (RFC 9449 section 5). Whichever the client, a refresh with a
+  proof binds the new access token to the proof's key.
+- **Authorization codes.** A client may bind its authorization code to its key
+  (RFC 9449 section 10): with the `dpop_jkt` authorization request parameter,
+  or, with a pushed authorization request, with a DPoP proof on the request to
+  the PAR endpoint (section 10.1). The token request then needs a proof by that
+  key. A pushed request which does both, naming two keys, is refused.
+- **The checks.** A proof has to be signed by its own key with one of the
+  advertised algorithms, name the request's method and the URL this OP
+  publishes for the endpoint (`htu`), and have been created no more than 60
+  seconds before or after the present. A client which calls the OP under
+  another host name or path than the published ones is therefore refused.
+  Proofs are checked for replay in the protocol cache, and without one they
+  are not (see [Caching protocol artifacts](#caching-protocol-artifacts)). The
+  module issues no DPoP nonces.
+- **Lifetimes.** Without DPoP nonces, RFC 9449 section 11.2 advises against
+  long-lived DPoP-bound access tokens: keep the access token lifetime
+  (`accessTokenDuration`) short where clients use DPoP. Access tokens issued
+  for credential issuance (OpenID4VCI) have their own lifetime,
+  `vci_access_token_ttl`, 5 minutes by default, and one which is not bound to a
+  key never gets more than 5 minutes, whatever the option says (OpenID4VCI 1.0
+  section 13.10).
+- **Other resource servers.** A binding protects a token only where it is
+  checked. A resource server which reads this OP's JWT access tokens itself, or
+  asks the token introspection endpoint about them (which reports a bound
+  token with `token_type` `DPoP` and its `cnf`), has to check the proof itself;
+  one which ignores the binding takes a bound token as a Bearer token, without
+  the key.
+- **Browser clients.** The token and UserInfo endpoints allow the `DPoP`
+  request header in CORS preflights, and expose `WWW-Authenticate` to scripts.
+
 ## Key rollover
 
 `OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS`, `OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`

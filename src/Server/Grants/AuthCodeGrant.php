@@ -57,6 +57,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\DpopJktRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
@@ -84,12 +85,14 @@ use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Throwable;
 
 use function array_key_exists;
+use function hash_equals;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -103,6 +106,13 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
     AuthorizationValidatableWithRequestRules
 {
     use IssueAccessTokenTrait;
+
+
+    /**
+     * The longest an access token for Verifiable Credential Issuance which is not bound to a DPoP key lives,
+     * whatever the configuration says (accessTokenTtlFor()).
+     */
+    public const string VCI_UNBOUND_ACCESS_TOKEN_MAX_TTL = 'PT5M';
 
 
     protected DateInterval $authCodeTTL;
@@ -344,6 +354,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     authorizationDetails: $authorizationRequest->getAuthorizationDetails(),
                     boundClientId: $authorizationRequest->getBoundClientId(),
                     boundRedirectUri: $authorizationRequest->getBoundRedirectUri(),
+                    dpopJkt: $authorizationRequest->getDpopJkt(),
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
 
@@ -615,6 +626,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::accessDenied('Client authentication not performed.');
         }
 
+        $verifiedDpopProof = $this->getVerifiedDpopProof($request);
+        $this->ensureDpopConditions($storedAuthCodeEntity, $verifiedDpopProof, $client->getIdentifier());
+        $dpopJkt = $verifiedDpopProof?->getJwkThumbprint();
+
         // OAuth2 implementation
         //$client = $this->getClientEntityOrFail((string)$clientId, $request);
 
@@ -762,9 +777,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // returns, while the authorization server renders the token response: the offer then stays spent, and
         // the wallet needs a new one.
         try {
-            // Issue and persist new access token
+            // Issue and persist new access token, bound to the key of the request's DPoP proof, if any.
             $accessToken = $this->issueAccessToken(
-                $accessTokenTTL,
+                $this->accessTokenTtlFor($accessTokenTTL, $storedAuthCodeEntity->getFlowTypeEnum(), $dpopJkt),
                 $client,
                 $authCodePayload->user_id,
                 $scopes,
@@ -775,6 +790,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $storedAuthCodeEntity->getBoundClientId(),
                 $storedAuthCodeEntity->getBoundRedirectUri(),
                 $issuerState,
+                dpopJkt: $dpopJkt,
             );
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
             $responseType->setAccessToken($accessToken);
@@ -878,6 +894,83 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
 
         return $responseType;
+    }
+
+
+    /**
+     * The DPoP conditions a token request has to meet, checked in this one place, after the client is
+     * authenticated and before the code is looked at any further: a request which fails one spends nothing, not
+     * the code, not the Credential Offer it followed, and a code already used revokes no token on its account.
+     *
+     * A code the authorization request bound to a key (RFC 9449 section 10: `dpop_jkt`, or the proof a pushed
+     * authorization request carried, section 10.1) is redeemed only with a proof by that key. Without a proof the
+     * request is refused as `invalid_dpop_proof`; with a proof by another key, which passed every check of its
+     * own, the code is what does not fit, and the request is refused as `invalid_grant`.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function ensureDpopConditions(
+        AuthCodeEntity $storedAuthCodeEntity,
+        ?VerifiedDpopProof $verifiedDpopProof,
+        string $clientId,
+    ): void {
+        $boundJkt = $storedAuthCodeEntity->getDpopJkt();
+
+        if ($boundJkt === null) {
+            return;
+        }
+
+        if ($verifiedDpopProof === null) {
+            $this->loggerService->notice(
+                'Token request rejected: the authorization code is bound to a DPoP key, and the request carries no ' .
+                'DPoP proof.',
+                ['client_id' => $clientId, 'auth_code_id' => $storedAuthCodeEntity->getIdentifier()],
+            );
+            throw OidcServerException::invalidDpopProof(
+                'A DPoP proof is required: the authorization code is bound to a DPoP key.',
+            );
+        }
+
+        if (!hash_equals($boundJkt, $verifiedDpopProof->getJwkThumbprint())) {
+            $this->loggerService->warning(
+                'Token request rejected: the DPoP proof is made with another key than the one the authorization ' .
+                'code is bound to.',
+                ['client_id' => $clientId, 'auth_code_id' => $storedAuthCodeEntity->getIdentifier()],
+            );
+            throw OidcServerException::invalidGrant('The authorization code is bound to another DPoP key.');
+        }
+    }
+
+
+    /**
+     * The lifetime of an access token issued now. One for Verifiable Credential Issuance -- by the flow type of
+     * the code as stored, or the pre-authorized code grant's own, never by anything the request says -- lives
+     * ModuleConfig::getVciAccessTokenDuration(), but not longer than VCI_UNBOUND_ACCESS_TOKEN_MAX_TTL when it is
+     * not bound to a DPoP key (OpenID4VCI 1.0 section 13.10). The two are compared as the moments they end at
+     * from now, since an interval of days or months is no fixed number of seconds. Any other token lives the TTL
+     * the grant was enabled with.
+     *
+     * @throws \Exception
+     */
+    protected function accessTokenTtlFor(
+        DateInterval $accessTokenTTL,
+        ?FlowTypeEnum $flowTypeEnum,
+        ?string $dpopJkt,
+    ): DateInterval {
+        if ($flowTypeEnum?->isVciFlow() !== true) {
+            return $accessTokenTTL;
+        }
+
+        $vciAccessTokenTtl = $this->moduleConfig->getVciAccessTokenDuration();
+
+        if ($dpopJkt !== null) {
+            return $vciAccessTokenTtl;
+        }
+
+        $unboundMaxTtl = new DateInterval(self::VCI_UNBOUND_ACCESS_TOKEN_MAX_TTL);
+        $now = new DateTimeImmutable();
+
+        return $now->add($vciAccessTokenTtl) > $now->add($unboundMaxTtl) ? $unboundMaxTtl : $vciAccessTokenTtl;
     }
 
 
@@ -1030,6 +1123,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
+            DpopJktRule::class,
             UiLocalesRule::class,
         ];
 
@@ -1187,6 +1281,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             ['authorizationDetails' => $authorizationDetails],
         );
         $authorizationRequest->setAuthorizationDetails($authorizationDetails);
+
+        // The key the code is to be bound to (RFC 9449 section 10), which the token request has to bring a proof by.
+        $authorizationRequest->setDpopJkt($resultBag->get(DpopJktRule::class)?->getValue());
 
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
         $this->loggerService->debug(

@@ -878,6 +878,30 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
+     * The lifetime of an access token for credential issuance, configured or not, with the ceiling a token bound
+     * to no DPoP key gets either way.
+     */
+    public function testShowsTheCredentialIssuanceAccessTokenTtlAndItsCeiling(): void
+    {
+        $fallbackRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL,
+        );
+        $this->assertNotNull($fallbackRow);
+        $this->assertSame('5 minutes (PT5M)', $fallbackRow->getValue());
+        $this->assertStringContainsString('falls back to 5 minutes', (string)$fallbackRow->getNote());
+
+        $configuredRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL => 'PT30M'])->build(),
+            ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL,
+        );
+        $this->assertNotNull($configuredRow);
+        $this->assertSame('30 minutes (PT30M)', $configuredRow->getValue());
+        $this->assertStringContainsString('5 minutes at most', (string)$configuredRow->getNote());
+    }
+
+
+    /**
      * The credential offer endpoint is gated by the module API master switch, which lives on the
      * protocol screen, so an inconsistent pair must be called out here.
      */

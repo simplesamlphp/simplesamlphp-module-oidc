@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\DpopJktRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
@@ -165,6 +166,7 @@ class RequestRulesManagerFactory
                 $this->helpers,
                 $this->codeChallengeVerifiersRepository,
             ),
+            new DpopJktRule($this->requestParamsResolver, $this->helpers),
             new RequestedClaimsRule($this->requestParamsResolver, $this->helpers, $this->claimTranslatorExtractor),
             new AddClaimsToIdTokenRule($this->requestParamsResolver, $this->helpers),
             new RequiredNonceRule($this->requestParamsResolver, $this->helpers),

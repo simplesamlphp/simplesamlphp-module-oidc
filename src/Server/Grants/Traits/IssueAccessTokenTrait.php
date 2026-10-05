@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
+use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -15,8 +16,10 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 
 /**
  * Trait IssueAccessTokenTrait
@@ -52,6 +55,8 @@ trait IssueAccessTokenTrait
      * @param array|null $requestedClaims Any requested claims
      * @param \SimpleSAML\Module\oidc\Entities\UserEntity|null $user The user record, when the caller holds it.
      * @param string|null $subject The subject to carry instead of resolving one (refresh token grant).
+     * @param string|null $dpopJkt The thumbprint of the key of the DPoP proof the token request came with, which
+     * the token is bound to (RFC 9449 section 5); null for a request without one.
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -69,6 +74,7 @@ trait IssueAccessTokenTrait
         ?string $issuerState = null,
         ?UserEntity $user = null,
         ?string $subject = null,
+        ?string $dpopJkt = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -122,6 +128,7 @@ trait IssueAccessTokenTrait
                     issuerState: $issuerState,
                     subject: $subject,
                     userClaims: $userClaims,
+                    dpopJkt: $dpopJkt,
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;
@@ -133,6 +140,26 @@ trait IssueAccessTokenTrait
         }
 
         throw OidcServerException::serverError('Unable to issue Access Token.');
+    }
+
+
+    /**
+     * The DPoP proof the token endpoint checked for this request (AccessTokenController), or null for a request
+     * which carried none. A proof which failed a check never gets here: the request was refused before any grant
+     * ran.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function getVerifiedDpopProof(ServerRequestInterface $request): ?VerifiedDpopProof
+    {
+        /** @var mixed $verifiedDpopProof */
+        $verifiedDpopProof = $request->getAttribute(DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF);
+
+        if ($verifiedDpopProof === null || $verifiedDpopProof instanceof VerifiedDpopProof) {
+            return $verifiedDpopProof;
+        }
+
+        throw OidcServerException::serverError('Unexpected DPoP proof on the token request.');
     }
 
 

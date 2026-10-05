@@ -322,6 +322,56 @@ class OidcServerExceptionTest extends TestCase
 
 
     /**
+     * @return array<string, array{?\SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum, ?string, string}>
+     */
+    public static function resourceChallengesProvider(): array
+    {
+        return [
+            'no credentials (Figure 17)' => [null, null, 'Bearer, DPoP algs="ES256 PS256"'],
+            'more than one method (Figure 19)' => [
+                null,
+                'invalid_request',
+                'Bearer error="invalid_request", DPoP error="invalid_request", algs="ES256 PS256"',
+            ],
+            'a token refused under Bearer (Figure 18)' => [
+                AccessTokenTypesEnum::Bearer,
+                'invalid_token',
+                'Bearer error="invalid_token", DPoP algs="ES256 PS256"',
+            ],
+            'a token refused under DPoP (Figure 16)' => [
+                AccessTokenTypesEnum::DPoP,
+                'invalid_token',
+                'DPoP error="invalid_token", algs="ES256 PS256"',
+            ],
+            'a proof refused under DPoP' => [
+                AccessTokenTypesEnum::DPoP,
+                'invalid_dpop_proof',
+                'DPoP error="invalid_dpop_proof", algs="ES256 PS256"',
+            ],
+        ];
+    }
+
+
+    /**
+     * A protected resource which takes both schemes challenges both, as RFC 9449 section 7.2 recommends: the error
+     * in both when the scheme which failed can not be told, in the Bearer challenge with the DPoP one beside it for
+     * a Bearer failure, and in the DPoP challenge alone for a DPoP failure. Every DPoP challenge names the
+     * algorithms.
+     */
+    #[DataProvider('resourceChallengesProvider')]
+    public function testBuildsTheChallengesOfAResourceWhichTakesBothSchemes(
+        ?AccessTokenTypesEnum $scheme,
+        ?string $error,
+        string $expected,
+    ): void {
+        $this->assertSame(
+            $expected,
+            OidcServerException::buildResourceChallenges($scheme, $error, ['ES256', 'PS256']),
+        );
+    }
+
+
+    /**
      * At the token endpoint an invalid DPoP proof is the 400 token error response of RFC 9449 section 5, with no
      * challenge.
      */

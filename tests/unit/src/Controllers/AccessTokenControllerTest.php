@@ -20,7 +20,11 @@ use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
+use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
+use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\Request;
@@ -56,6 +60,10 @@ class AccessTokenControllerTest extends TestCase
 
     protected MockObject $responseHeaderBagMock;
 
+    protected MockObject $dpopProofVerifierMock;
+
+    protected MockObject $routesMock;
+
 
     /**
      * @throws \Exception
@@ -81,6 +89,10 @@ class AccessTokenControllerTest extends TestCase
         $this->httpFoundationFactoryMock = $this->createMock(HttpFoundationFactory::class);
         $this->httpFoundationFactoryMock->method('createResponse')->willReturn($this->symfonyResponseMock);
         $this->psrHttpBridgeMock->method('getHttpFoundationFactory')->willReturn($this->httpFoundationFactoryMock);
+
+        $this->dpopProofVerifierMock = $this->createMock(DpopProofVerifier::class);
+        $this->routesMock = $this->createMock(Routes::class);
+        $this->routesMock->method('urlToken')->willReturn('https://op.example.org/oidc/token');
     }
 
 
@@ -91,6 +103,8 @@ class AccessTokenControllerTest extends TestCase
             $this->allowedOriginRepository,
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
+            $this->dpopProofVerifierMock,
+            $this->routesMock,
         );
     }
 
@@ -260,6 +274,85 @@ class AccessTokenControllerTest extends TestCase
             ->willReturn($this->symfonyResponseMock);
 
         $this->assertSame($this->symfonyResponseMock, $this->mock()->token($this->symfonyRequestMock));
+    }
+
+
+    /**
+     * Every DPoP proof the token endpoint receives is checked (RFC 9449 section 5), against the token endpoint URL
+     * this OP publishes and with no access token, before any grant runs. The proof which passed travels to the
+     * grants on the request, which bind what they issue to its key.
+     */
+    public function testChecksTheDpopProofAndHandsItToTheGrantsOnTheRequest(): void
+    {
+        $request = new ServerRequest('POST', 'https://op.example.org/oidc/token');
+        $verifiedDpopProof = new VerifiedDpopProof($this->createStub(DpopProof::class), 'thumbprint-of-the-key');
+        $this->dpopProofVerifierMock->expects($this->once())->method('verify')
+            ->with($request, 'https://op.example.org/oidc/token', null)
+            ->willReturn($verifiedDpopProof);
+        $this->authorizationServerMock->expects($this->once())->method('respondToAccessTokenRequest')
+            ->with(
+                $this->callback(
+                    fn(ServerRequest $handed): bool => $handed->getAttribute(
+                        DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF,
+                    ) === $verifiedDpopProof && $handed->getMethod() === 'POST',
+                ),
+                $this->isInstanceOf(ResponseInterface::class),
+            )
+            ->willReturn($this->responseMock);
+
+        $this->assertSame($this->responseMock, $this->mock()->__invoke($request));
+    }
+
+
+    /**
+     * A request without a DPoP header reaches the grants as it came, with no proof on it.
+     */
+    public function testHandsARequestWithoutAProofToTheGrantsAsItIs(): void
+    {
+        $request = new ServerRequest('POST', 'https://op.example.org/oidc/token');
+        $this->dpopProofVerifierMock->expects($this->once())->method('verify')->willReturn(null);
+        $this->authorizationServerMock->expects($this->once())->method('respondToAccessTokenRequest')
+            ->with($this->identicalTo($request), $this->isInstanceOf(ResponseInterface::class))
+            ->willReturn($this->responseMock);
+
+        $this->assertSame($this->responseMock, $this->mock()->__invoke($request));
+    }
+
+
+    /**
+     * A proof which fails a check refuses the request as `invalid_dpop_proof` before any grant runs: no code, no
+     * refresh token and no Credential Offer is looked at for it.
+     */
+    public function testRefusesAnInvalidProofBeforeAnyGrantRuns(): void
+    {
+        $refusal = OidcServerException::invalidDpopProof('The DPoP proof signature does not verify with its key.');
+        $this->dpopProofVerifierMock->method('verify')->willThrowException($refusal);
+        $this->authorizationServerMock->expects($this->never())->method('respondToAccessTokenRequest');
+
+        try {
+            $this->mock()->__invoke(new ServerRequest('POST', 'https://op.example.org/oidc/token'));
+            $this->fail('The request must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame($refusal, $exception);
+            $this->assertSame(400, $exception->getHttpStatusCode());
+        }
+    }
+
+
+    /**
+     * A preflight carries no proof to check: it is answered by the CORS handling alone.
+     */
+    public function testChecksNoProofOnAPreflight(): void
+    {
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+        $this->allowedOriginRepository->method('has')->willReturn(true);
+        $this->responseMock->method('withHeader')->willReturnSelf();
+        $this->responseMock->method('withBody')->willReturnSelf();
+
+        $request = (new ServerRequest('OPTIONS', 'https://op.example.org/oidc/token'))
+            ->withHeader('Origin', 'http://localhost');
+
+        $this->mock()->__invoke($request);
     }
 
 

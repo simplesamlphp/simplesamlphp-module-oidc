@@ -116,6 +116,7 @@ class OpMetadataServiceTest extends TestCase
             ->willReturn($this->signatureKeyPairBagMock);
 
         $this->moduleConfigMock->method('getRequestUriParameterSupported')->willReturn(true);
+        $this->moduleConfigMock->method('getDpopSigningAlgorithms')->willReturn(['ES256', 'RS256']);
 
         $this->uiLocalesResolverMock = $this->createMock(UiLocalesResolver::class);
         $this->uiLocalesResolverMock->method('getSupportedUiLocales')->willReturn(['en', 'pt-BR']);
@@ -184,6 +185,7 @@ class OpMetadataServiceTest extends TestCase
                 'token_endpoint_auth_signing_alg_values_supported' => [
                     'RS256',
                 ],
+                'dpop_signing_alg_values_supported' => ['ES256', 'RS256'],
                 'request_parameter_supported' => true,
                 'request_object_signing_alg_values_supported' => ['none', 'RS256'],
                 'request_uri_parameter_supported' => true,

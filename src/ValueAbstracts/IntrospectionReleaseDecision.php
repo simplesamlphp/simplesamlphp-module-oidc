@@ -30,7 +30,8 @@ class IntrospectionReleaseDecision
      * itself (i.e. the iss, exp, iat, nbf, token_type, client_id, and jti claims value of the response)"; the
      * same set holds on the local path. 'aud' is added although G052 lets a proxy change it: the audience is
      * what a resource server judges the token's use by, and a policy which could remove it would remove the
-     * evidence that judgement rests on.
+     * evidence that judgement rests on. 'cnf' too: it binds the token to a key (RFC 9449 section 6.2), and a
+     * resource server which is not told takes the token without a proof of the key.
      */
     public const array PROTECTED_MEMBERS = [
         'active',
@@ -42,6 +43,7 @@ class IntrospectionReleaseDecision
         ClaimsEnum::ClientId->value,
         ClaimsEnum::Jti->value,
         ClaimsEnum::Aud->value,
+        ClaimsEnum::Cnf->value,
     ];
 
 

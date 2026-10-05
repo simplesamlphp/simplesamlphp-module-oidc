@@ -308,6 +308,11 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $authorizationDetails = $resultBag->get(AuthorizationDetailsRule::class)?->getValue();
         $scopes = $this->scopesRequestedByAuthorizationDetails($authorizationDetails, $scopes);
 
+        // The token is bound to the key of the request's DPoP proof, if any, and lives as long as a token for
+        // credential issuance does; settled before the code is consumed, so that a failure here spends nothing.
+        $dpopJkt = $this->getVerifiedDpopProof($request)?->getJwkThumbprint();
+        $accessTokenTTL = $this->accessTokenTtlFor($accessTokenTTL, FlowTypeEnum::VciPreAuthorizedCode, $dpopJkt);
+
         // Consume immediately before token issuance. The conditional database update is the
         // authoritative replay guard, so only one concurrent request can proceed. If token
         // persistence subsequently fails, the code remains consumed (fail closed).
@@ -328,6 +333,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
             authorizationDetails: $authorizationDetails,
             boundClientId: $boundClientId,
+            dpopJkt: $dpopJkt,
         );
 
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));

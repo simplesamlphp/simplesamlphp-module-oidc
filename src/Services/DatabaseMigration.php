@@ -297,6 +297,11 @@ class DatabaseMigration
             $this->version20261003000004();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261003000004')");
         }
+
+        if (!in_array('20261005000001', $versions, true)) {
+            $this->version20261005000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261005000001')");
+        }
     }
 
 
@@ -1319,6 +1324,28 @@ EOT
         $this->database->write(<<< EOT
         ALTER TABLE {$issuerStateTableName}
             ADD credential_configuration_ids TEXT NULL
+EOT
+            ,);
+    }
+
+
+    /**
+     * An authorization code records the JWK SHA-256 thumbprint of the key the authorization request bound it to
+     * (RFC 9449 section 10), which the token request has to bring a DPoP proof by. A code stored before is bound
+     * to none (NULL). A thumbprint is 43 characters. Guarded by hasColumn() so that a run interrupted before its
+     * version was recorded can be repeated (see version20260801000004()).
+     */
+    private function version20261005000001(): void
+    {
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+
+        if ($this->hasColumn($authCodeTableName, 'dpop_jkt')) {
+            return;
+        }
+
+        $this->database->write(<<< EOT
+        ALTER TABLE {$authCodeTableName}
+            ADD dpop_jkt VARCHAR(64) NULL
 EOT
             ,);
     }

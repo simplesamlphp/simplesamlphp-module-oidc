@@ -475,7 +475,13 @@ token is currently active.
 list of scopes associated with this token.
 * __client_id__ (string, optional): Client identifier for the OAuth 2.0 client
 that requested this token.
-* __token_type__ (string, optional): Type of the token as defined in OAuth 2.0.
+* __token_type__ (string, optional): Type of the token as defined in OAuth 2.0:
+`Bearer`, or `DPoP` for an access token bound to a DPoP key (RFC 9449 section
+6.2).
+* __cnf__ (object, optional): For an access token bound to a DPoP key, the
+binding, `{"jkt": "<JWK SHA-256 thumbprint of the key>"}` (RFC 9449 section
+6.2). A resource server which takes the token has to check a DPoP proof by that
+key. A user claim of that name is never reported.
 * __exp__ (integer, optional): Expiration time.
 * __iat__ (integer, optional): Issued at time.
 * __nbf__ (integer, optional): Not before time.
@@ -579,8 +585,9 @@ answer), and returns a decision
 A decision can only take away: naming a scope the token was not granted does
 not release it. The members describing the token itself -- `active`, `iss`,
 `exp`, `iat`, `nbf`, `token_type`, `client_id`, `jti` (those AARC-G052 section
-3 forbids a proxy to change) and `aud` -- can not be withheld; a decision naming
-one is a configuration error. A policy which throws, which returns such a
+3 forbids a proxy to change), `aud` and `cnf` (a token's binding to a key) --
+can not be withheld; a decision naming one is a configuration error. A policy
+which throws, which returns such a
 decision, or which can not be built is answered with a `server_error`, never
 with an inactive token.
 

@@ -53,14 +53,17 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\PreAuthorizedCodeClient;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Stringable;
 
 /**
@@ -161,6 +164,9 @@ class PreAuthCodeGrantTest extends TestCase
     /** @var string[] The request parameters the grant asked the resolver for, in order. */
     private array $askedParameters = [];
 
+    /** What ModuleConfig answers for the lifetime of an access token for credential issuance. */
+    private string $vciAccessTokenTtl = 'PT5M';
+
 
     protected function setUp(): void
     {
@@ -181,6 +187,8 @@ class PreAuthCodeGrantTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
             ->willReturn([self::OFFERED, self::ALSO_SUPPORTED]);
+        $this->moduleConfigMock->method('getVciAccessTokenDuration')
+            ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
         // The generic VCI client, which a code is created for: it may have every supported configuration.
         $this->clientMock = $this->createMock(ClientEntity::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -1177,6 +1185,102 @@ class PreAuthCodeGrantTest extends TestCase
         } catch (OidcServerException $exception) {
             $this->assertServerError($exception, 'Unexpected access token entity type.');
         }
+    }
+
+
+    /**
+     * @return array<string, array{?string, string, int}>
+     */
+    public static function bindingAndLifetimeProvider(): array
+    {
+        return [
+            'no proof, configured longer than five minutes' => [null, 'PT1H', 300],
+            'no proof, configured shorter' => [null, 'PT2M', 120],
+            'a proof' => ['thumbprint-of-the-proof-key', 'PT1H', 3600],
+        ];
+    }
+
+
+    /**
+     * The token is bound to the key of the request's DPoP proof, if any (RFC 9449 section 5), and, being for
+     * credential issuance, lives what vci_access_token_ttl says, but no longer than five minutes when it is bound
+     * to no key (OpenID4VCI 1.0 section 13.10) -- never the TTL the grant was enabled with.
+     */
+    #[DataProvider('bindingAndLifetimeProvider')]
+    public function testBindsTheTokenToTheProofsKeyAndGivesItTheLifetimeOfACredentialIssuanceToken(
+        ?string $proofJkt,
+        string $configuredVciTtl,
+        int $expectedSeconds,
+    ): void {
+        $this->vciAccessTokenTtl = $configuredVciTtl;
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->withProofBy($proofJkt);
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
+        $arguments = [];
+        $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
+            function (...$given) use (&$arguments): AccessTokenEntity {
+                $arguments = $given;
+
+                return $this->createMock(AccessTokenEntity::class);
+            },
+        );
+
+        $before = time();
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT10M'),
+        );
+        $after = time();
+
+        // By position: the expiry is the fourth argument, the DPoP key the sixteenth.
+        $this->assertSame($proofJkt, $arguments[15]);
+        $this->assertInstanceOf(DateTimeImmutable::class, $arguments[3]);
+        $this->assertGreaterThanOrEqual($before + $expectedSeconds, $arguments[3]->getTimestamp());
+        $this->assertLessThanOrEqual($after + $expectedSeconds, $arguments[3]->getTimestamp());
+    }
+
+
+    /**
+     * The binding and the lifetime are settled before the code is consumed: a failure there -- here something
+     * other than a verified proof where the token endpoint puts one -- spends no code.
+     */
+    public function testSettlesTheBindingBeforeTheCodeIsConsumed(): void
+    {
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->requestMock->method('getAttribute')->willReturn('not a verified proof');
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestMock,
+                $this->createMock(ResponseTypeInterface::class),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The token request was answered.');
+        } catch (OidcServerException $exception) {
+            $this->assertServerError($exception, 'Unexpected DPoP proof on the token request.');
+        }
+    }
+
+
+    /**
+     * The token endpoint verified a DPoP proof by the key given, or found none.
+     */
+    private function withProofBy(?string $proofJkt): void
+    {
+        $verifiedDpopProof = $proofJkt === null ?
+        null :
+        new VerifiedDpopProof($this->createStub(DpopProof::class), $proofJkt);
+        $this->requestMock->method('getAttribute')->willReturnCallback(
+            fn(string $name): ?VerifiedDpopProof =>
+                $name === DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF ? $verifiedDpopProof : null,
+        );
     }
 
 

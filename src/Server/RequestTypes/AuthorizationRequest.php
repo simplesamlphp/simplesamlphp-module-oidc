@@ -100,6 +100,12 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected ?string $pushedAuthorizationRequestUri = null;
 
+    /**
+     * The JWK SHA-256 thumbprint of the key the authorization code is to be bound to (RFC 9449 section 10), from the
+     * `dpop_jkt` parameter or the DPoP proof of a pushed authorization request (section 10.1).
+     */
+    protected ?string $dpopJkt = null;
+
     private ?ResponseModeInterface $responseMode = null;
 
 
@@ -421,5 +427,17 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     public function setBoundRedirectUri(?string $boundRedirectUri): void
     {
         $this->boundRedirectUri = $boundRedirectUri;
+    }
+
+
+    public function getDpopJkt(): ?string
+    {
+        return $this->dpopJkt;
+    }
+
+
+    public function setDpopJkt(?string $dpopJkt): void
+    {
+        $this->dpopJkt = $dpopJkt;
     }
 }

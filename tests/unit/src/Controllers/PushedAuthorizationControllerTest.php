@@ -30,16 +30,21 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\DpopJktRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -81,6 +86,10 @@ class PushedAuthorizationControllerTest extends TestCase
 
     protected MockObject $resultBagMock;
 
+    protected MockObject $dpopProofVerifierMock;
+
+    protected MockObject $routesMock;
+
 
     protected function setUp(): void
     {
@@ -119,6 +128,10 @@ class PushedAuthorizationControllerTest extends TestCase
 
         $this->resultBagMock = $this->createMock(ResultBag::class);
         $this->requestRulesManagerMock->method('check')->willReturn($this->resultBagMock);
+
+        $this->dpopProofVerifierMock = $this->createMock(DpopProofVerifier::class);
+        $this->routesMock = $this->createMock(Routes::class);
+        $this->routesMock->method('urlPushedAuthorizationRequest')->willReturn('https://op.example.org/oidc/par');
     }
 
 
@@ -133,6 +146,8 @@ class PushedAuthorizationControllerTest extends TestCase
             $this->errorResponderMock,
             $this->helpers,
             $this->loggerMock,
+            $this->dpopProofVerifierMock,
+            $this->routesMock,
         );
     }
 
@@ -392,5 +407,164 @@ class PushedAuthorizationControllerTest extends TestCase
             ->willReturn($jsonResponse);
 
         $this->assertSame($jsonResponse, $this->sut()->par($requestMock));
+    }
+
+
+    /**
+     * A plain pushed request, authenticated, whose rules let the `dpop_jkt` given here through.
+     *
+     * @param array<string, string> $params
+     */
+    protected function preparePushedRequest(array $params, ?string $dpopJkt): void
+    {
+        $this->serverRequestMock->method('getMethod')->willReturn('POST');
+        $this->serverRequestMock->method('getParsedBody')->willReturn($params);
+        $this->prepareAuthenticatedClient();
+        $this->resultBagMock->method('getOrFail')->willReturnCallback(
+            fn(string $key): Result => match ($key) {
+                DpopJktRule::class => new Result(DpopJktRule::class, $dpopJkt),
+            },
+        );
+    }
+
+
+    protected function verifiedProofBy(string $jwkThumbprint): VerifiedDpopProof
+    {
+        return new VerifiedDpopProof($this->createStub(DpopProof::class), $jwkThumbprint);
+    }
+
+
+    /**
+     * A DPoP proof on a pushed request is checked as at the token endpoint (RFC 9449 section 10.1), against the PAR
+     * endpoint URL this OP publishes, with no access token. Its key binds the code: the request is persisted with
+     * the key's thumbprint as `dpop_jkt`, and the authorization endpoint takes it as if the client had sent it.
+     */
+    public function testBindsTheCodeToTheKeyOfTheProofThePushedRequestCarries(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'scope' => 'openid'], null);
+        $this->dpopProofVerifierMock->expects($this->once())->method('verify')
+            ->with($this->serverRequestMock, 'https://op.example.org/oidc/par', null)
+            ->willReturn($this->verifiedProofBy('proof-key-jkt'));
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                'client123',
+                [
+                    'response_type' => 'code',
+                    'scope' => 'openid',
+                    'client_id' => 'client123',
+                    'dpop_jkt' => 'proof-key-jkt',
+                ],
+            )
+            ->willReturn($this->parEntityMock);
+
+        $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * A request may send both: `dpop_jkt` and a proof by the key it names.
+     */
+    public function testAcceptsADpopJktWhichNamesTheKeyOfTheProof(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'dpop_jkt' => 'proof-key-jkt'], 'proof-key-jkt');
+        $this->dpopProofVerifierMock->method('verify')->willReturn($this->verifiedProofBy('proof-key-jkt'));
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                'client123',
+                ['response_type' => 'code', 'dpop_jkt' => 'proof-key-jkt', 'client_id' => 'client123'],
+            )
+            ->willReturn($this->parEntityMock);
+
+        $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * A request whose `dpop_jkt` names another key than its proof contradicts itself, and is refused as
+     * `invalid_request` (RFC 9449 section 10.1: "MUST reject"); nothing is persisted.
+     */
+    public function testRefusesADpopJktWhichNamesAnotherKeyThanTheProof(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'dpop_jkt' => 'other-key-jkt'], 'other-key-jkt');
+        $this->dpopProofVerifierMock->method('verify')->willReturn($this->verifiedProofBy('proof-key-jkt'));
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->never())->method('fromData');
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+
+        try {
+            $this->sut()->__invoke($this->serverRequestMock);
+            $this->fail('The request must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame(400, $exception->getHttpStatusCode());
+        }
+    }
+
+
+    /**
+     * Without a proof, a `dpop_jkt` the request sends is persisted as sent, and binds the code as at the
+     * authorization endpoint; nothing is added to a request which sends neither.
+     */
+    public function testPersistsADpopJktSentWithoutAProofAsItIs(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'dpop_jkt' => 'a-key-jkt'], 'a-key-jkt');
+        $this->dpopProofVerifierMock->method('verify')->willReturn(null);
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with('client123', ['response_type' => 'code', 'dpop_jkt' => 'a-key-jkt', 'client_id' => 'client123'])
+            ->willReturn($this->parEntityMock);
+
+        $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * A proof which fails a check refuses the pushed request as `invalid_dpop_proof`, before any rule runs and
+     * with nothing persisted.
+     */
+    public function testRefusesAPushedRequestWhoseProofFailsACheck(): void
+    {
+        $refusal = OidcServerException::invalidDpopProof('The DPoP proof has been used before.');
+        $this->preparePushedRequest(['response_type' => 'code'], null);
+        $this->dpopProofVerifierMock->method('verify')->willThrowException($refusal);
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+
+        try {
+            $this->sut()->__invoke($this->serverRequestMock);
+            $this->fail('The request must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame($refusal, $exception);
+        }
+    }
+
+
+    /**
+     * `dpop_jkt` is checked among the pushed request's rules, after the ones whose results its refusal reads (the
+     * client, the redirect URI, the state).
+     */
+    public function testChecksTheDpopJktAfterTheRulesItReadsFrom(): void
+    {
+        $this->serverRequestMock->method('getMethod')->willReturn('POST');
+        $this->serverRequestMock->method('getParsedBody')->willReturn(['response_type' => 'code']);
+        $this->prepareAuthenticatedClient();
+        $this->pushedAuthorizationRequestEntityFactoryMock->method('fromData')->willReturn($this->parEntityMock);
+
+        $checkedRules = null;
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->once())->method('check')->willReturnCallback(
+            function (ServerRequestInterface $request, array $rules) use (&$checkedRules): ResultBag {
+                $checkedRules = $rules;
+
+                return $this->resultBagMock;
+            },
+        );
+
+        $this->sut()->__invoke($this->serverRequestMock);
+
+        $this->assertIsArray($checkedRules);
+        $position = array_search(DpopJktRule::class, $checkedRules, true);
+        $this->assertIsInt($position, 'The dpop_jkt of a pushed request is not checked.');
+        $this->assertGreaterThan(array_search(StateRule::class, $checkedRules, true), $position);
+        $this->assertGreaterThan(array_search(ClientRedirectUriRule::class, $checkedRules, true), $position);
     }
 }

@@ -1805,6 +1805,25 @@ $config = [
     ModuleConfig::OPTION_VCI_NONCE_TTL => 'PT5M', // 5 minutes
 
     /**
+     * (optional) Access token TTL (validity duration) for credential
+     * issuance, with the given example. If not set, defaults to 5 minutes.
+     * For duration format info, check
+     * https://www.php.net/manual/en/dateinterval.construct.php
+     *
+     * It applies, in place of OPTION_TOKEN_ACCESS_TOKEN_TTL, to the access
+     * tokens the token endpoint issues for credential issuance: for an
+     * authorization code obtained with an OpenID4VCI authorization request,
+     * and for a pre-authorized code. OpenID4VCI 1.0 section 13.10 has an
+     * access token which gives access to credentials live no longer than 5
+     * minutes unless it is sender-constrained, so one which is not bound to a
+     * DPoP key never gets more than 5 minutes, whatever this says. A longer
+     * value lengthens DPoP-bound tokens only, which, since the module issues
+     * no DPoP nonces, RFC 9449 section 11.2 advises against; the default
+     * meets both.
+     */
+//    ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL => 'PT5M', // 5 minutes
+
+    /**
      * (optional) How many attempts a wallet gets at the Transaction Code of
      * one pre-authorized code. Defaults to 5; the lowest value is 1, and
      * there is no value which turns the limit off. Every attempt counts, the

@@ -75,10 +75,11 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
      * uses more than one of these, or carries more than one Authorization header value, is refused as
      * `invalid_request` and no token is checked (RFC 6750 sections 2 and 3.1, RFC 9449 section 7.2).
      *
-     * Refusals are shaped as RFC 6750 section 3.1 has them: a request with no access token gets the bare challenge
-     * and no error code, one whose token fails a check gets `invalid_token`, and a failure of the OP's own while
-     * checking is a `server_error`. A token presented under the DPoP scheme is refused with a DPoP challenge, which
-     * names the algorithms a proof may be signed with (RFC 9449 section 7.1).
+     * Refusals are shaped as RFC 6750 section 3.1 has them: a request with no access token gets challenges with no
+     * error code, one whose token fails a check gets `invalid_token`, and a failure of the OP's own while checking
+     * is a `server_error`. Both schemes are challenged, as RFC 9449 section 7.2 recommends for a resource which
+     * takes both (challenge()): a token refused under the DPoP scheme gets the DPoP challenge alone, and every
+     * DPoP challenge names the algorithms a proof may be signed with (section 7.1).
      *
      * A token bound to a key is accepted only under the DPoP scheme, with a proof by that key, and only a token
      * bound to a key is accepted under it (ensureSenderConstraint()).
@@ -305,7 +306,7 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
         $bodyToken = $this->getTokenFromRequestBody($request);
 
         if (count($credentials) > 1 || ($headerToken !== null && $bodyToken !== null)) {
-            throw OidcServerException::multipleAccessTokenMethods($this->multipleMethodsChallenge($credentials));
+            throw OidcServerException::multipleAccessTokenMethods($this->challenge(null, 'invalid_request'));
         }
 
         if ($headerToken !== null) {
@@ -316,14 +317,10 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
             return [AccessTokenTypesEnum::Bearer, $bodyToken];
         }
 
-        // A request which names the DPoP scheme with nothing after it carried no credentials either, and gets the
-        // DPoP challenge with no error information (RFC 9449 section 7.2, Figure 17), since that is the scheme it
-        // tried.
+        // A request which names a scheme with nothing after it carried no credentials either.
         throw OidcServerException::missingToken(
             'No access token in the Authorization header or the access_token request body param.',
-            count($credentials) === 1 && $this->presentsDpopScheme($credentials[0]) ?
-                $this->challenge(AccessTokenTypesEnum::DPoP) :
-                null,
+            $this->challenge(null),
         );
     }
 
@@ -479,35 +476,6 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
 
 
     /**
-     * The challenge of a refusal for more than one method: the Bearer one, and the DPoP one too when one of the
-     * Authorization header values is under that scheme, each naming the error (RFC 9449 section 7.2, Figure 19).
-     *
-     * @param string[] $credentials
-     */
-    protected function multipleMethodsChallenge(array $credentials): string
-    {
-        $challenge = $this->challenge(AccessTokenTypesEnum::Bearer, 'invalid_request');
-
-        foreach ($credentials as $credential) {
-            if ($this->presentsDpopScheme($credential)) {
-                return $challenge . ', ' . $this->challenge(AccessTokenTypesEnum::DPoP, 'invalid_request');
-            }
-        }
-
-        return $challenge;
-    }
-
-
-    /**
-     * Whether one Authorization header value is under the DPoP scheme, whatever follows the scheme name.
-     */
-    protected function presentsDpopScheme(string $credentials): bool
-    {
-        return preg_match('/^\s*DPoP(?:\s|$)/i', $credentials) === 1;
-    }
-
-
-    /**
      * The request headers as Apache has them, or none where PHP does not run under Apache.
      *
      * @return array<array-key,mixed>
@@ -526,15 +494,16 @@ class BearerTokenValidator implements AuthorizationValidatorInterface
 
 
     /**
-     * The challenge of a refusal under the scheme given, naming the error if there is one; a DPoP one names the
-     * algorithms a proof may be signed with too (RFC 9449 section 7.1).
+     * The challenges of a refusal (OidcServerException::buildResourceChallenges()): under the scheme the token was
+     * presented under, or under both with none -- no credentials, or more than one method -- naming the error if
+     * there is one.
      */
-    protected function challenge(AccessTokenTypesEnum $scheme, ?string $error = null): string
+    protected function challenge(?AccessTokenTypesEnum $scheme, ?string $error = null): string
     {
-        return OidcServerException::buildChallenge(
+        return OidcServerException::buildResourceChallenges(
             $scheme,
             $error,
-            $scheme === AccessTokenTypesEnum::DPoP ? $this->moduleConfig->getDpopSigningAlgorithms() : [],
+            $this->moduleConfig->getDpopSigningAlgorithms(),
         );
     }
 

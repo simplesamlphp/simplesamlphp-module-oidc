@@ -45,6 +45,7 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\TermsOfUseTypesEnum;
@@ -594,14 +595,18 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * A 401 carrying the Bearer challenge HTTP requires of every 401 (RFC 9110 section 15.5.2) and RFC 6750
-     * section 3 of a protected resource refusing a request for its access token, here naming the error, since a
-     * token arrived and was refused (section 3.1).
+     * A 401 carrying the challenges HTTP requires of every 401 (RFC 9110 section 15.5.2) and RFC 6750 section 3 of
+     * a protected resource refusing a request for its access token, here naming the error, since a token arrived
+     * and was refused (section 3.1): in the Bearer challenge, the scheme it came under, with the DPoP one beside it
+     * (RFC 9449 section 7.2, Figure 18).
      */
     protected function assertChallengesTheRefusedToken(Response $response): void
     {
         $this->assertSame(401, $response->getStatusCode());
-        $this->assertSame('Bearer error="invalid_token"', $response->headers->get('WWW-Authenticate'));
+        $this->assertSame(
+            'Bearer error="invalid_token", DPoP algs="ES256 PS256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
     }
 
 
@@ -1410,12 +1415,20 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     /**
      * The resource server refuses an access token which is invalid or revoked with `invalid_token` and 401. The
-     * refusal is answered as the client's error response, with the challenge naming the error, rather than left
-     * to escape to SimpleSAMLphp, which answered it with an HTML page and a 500.
+     * refusal is answered as the client's error response, with the challenges it carries, rather than left to
+     * escape to SimpleSAMLphp, which answered it with an HTML page and a 500.
      */
     public function testAnswersTheResourceServerRefusingTheAccessToken(): void
     {
-        $refusal = OidcServerException::invalidToken('Access token has been revoked');
+        $refusal = OidcServerException::invalidToken(
+            'Access token has been revoked',
+            null,
+            OidcServerException::buildResourceChallenges(
+                AccessTokenTypesEnum::Bearer,
+                'invalid_token',
+                ['ES256', 'PS256'],
+            ),
+        );
         $this->accessTokenRefusal = $refusal;
 
         $response = $this->dispatch();
@@ -1464,17 +1477,17 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * Any other 401 still carries a challenge, the scheme alone, since HTTP requires one of every 401 (RFC 9110
-     * section 15.5.2).
+     * Any other 401 still carries challenges, both schemes with no error, since HTTP requires one of every 401
+     * (RFC 9110 section 15.5.2) and the endpoint takes tokens under both (RFC 9449 section 7.2).
      */
-    public function testChallengesAnyOther401WithTheSchemeAlone(): void
+    public function testChallengesAnyOther401WithBothSchemesAndNoError(): void
     {
         $this->accessTokenRefusal = OidcServerException::accessDenied('Denied.');
 
         $response = $this->dispatch();
 
         $this->assertAnsweredWithOAuthError('access_denied', 401);
-        $this->assertSame('Bearer', $response->headers->get('WWW-Authenticate'));
+        $this->assertSame('Bearer, DPoP algs="ES256 PS256"', $response->headers->get('WWW-Authenticate'));
     }
 
 

@@ -78,7 +78,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 authorization_details,
                 bound_client_id,
                 bound_redirect_uri,
-                issuer_state
+                issuer_state,
+                dpop_jkt
             ) VALUES (
                 :id,
                 :scopes,
@@ -93,7 +94,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 :authorization_details,
                 :bound_client_id,
                 :bound_redirect_uri,
-                :issuer_state
+                :issuer_state,
+                :dpop_jkt
             )
             EOS,
             $this->getTableName(),
@@ -289,7 +291,8 @@ class AuthCodeRepository extends AbstractDatabaseRepository implements AuthCodeR
                 authorization_details = :authorization_details,
                 bound_client_id = :bound_client_id,
                 bound_redirect_uri = :bound_redirect_uri,
-                issuer_state = :issuer_state
+                issuer_state = :issuer_state,
+                dpop_jkt = :dpop_jkt
             WHERE id = :id
 EOS
             ,

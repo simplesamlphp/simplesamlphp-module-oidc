@@ -1297,8 +1297,10 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         $isIssuerStateTtlConfigured = $this->moduleConfig->config()
             ->hasValue(ModuleConfig::OPTION_VCI_ISSUER_STATE_TTL);
         $isNonceTtlConfigured = $this->moduleConfig->config()->hasValue(ModuleConfig::OPTION_VCI_NONCE_TTL);
+        $isAccessTokenTtlConfigured = $this->moduleConfig->config()
+            ->hasValue(ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL);
 
-        // Both getters hand the configured value to DateInterval, which throws on a bad spec.
+        // The getters hand the configured value to DateInterval, which throws on a bad spec.
         return new Section(
             Translate::noop('Durations'),
             'durations',
@@ -1326,6 +1328,24 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     Translate::noop(
                         'Not configured, so this falls back to 5 minutes. Used for ' .
                         'proof-of-possession nonces.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
+                Translate::noop('Access Token TTL'),
+                ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL,
+                fn(): Row => $this->buildDurationRow(
+                    Translate::noop('Access Token TTL'),
+                    $this->moduleConfig->getVciAccessTokenDuration(),
+                    ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL,
+                    $isAccessTokenTtlConfigured ?
+                    Translate::noop(
+                        'How long an access token for credential issuance lives. One which is not bound to ' .
+                        'a DPoP key gets 5 minutes at most, whatever this says.',
+                    ) :
+                    Translate::noop(
+                        'Not configured, so this falls back to 5 minutes, the most an access token for ' .
+                        'credential issuance which is not bound to a DPoP key ever gets.',
                     ),
                 ),
             ),

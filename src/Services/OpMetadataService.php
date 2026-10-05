@@ -78,6 +78,10 @@ class OpMetadataService
         $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
         $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
         $supportedSignatureAlgorithmNames;
+        // RFC 9449 section 5.1: the algorithms a DPoP proof may be signed with, the ones the proofs are checked
+        // against (DpopProofVerifier).
+        $this->metadata[ClaimsEnum::DpopSigningAlgValuesSupported->value] =
+        $this->moduleConfig->getDpopSigningAlgorithms();
         // RFC 8414 section 2. Advertised in the OpenID Connect discovery document too, not only in the OAuth 2.0
         // Authorization Server Metadata one: RFC 8414 section 5 has its parameters usable there, and a resource
         // server which validates this OP's tokens is as likely to read that document. Only while the endpoint

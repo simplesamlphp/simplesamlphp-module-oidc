@@ -105,10 +105,11 @@ class CredentialIssuerCredentialController
      *
      * Every 401 this endpoint answers carries a challenge, whichever check made it a 401: HTTP requires one
      * of any 401 (RFC 9110 section 15.5.2), and RFC 6750 section 3 has a protected resource send one when the
-     * access token is missing or does not authorize the request. A refused token is named in it
-     * (`error="invalid_token"`), under the scheme the token was presented under (Bearer, or DPoP for RFC 9449),
-     * and a request which carried none gets the Bearer scheme alone and no body (RFC 6750 section 3.1); these come
-     * with the refusal. A 401 from anywhere else gets the Bearer scheme alone.
+     * access token is missing or does not authorize the request. Both schemes are challenged, as RFC 9449
+     * section 7.2 recommends (OidcServerException::buildResourceChallenges()). A refused token is named in the
+     * challenge of the scheme it was presented under (`error="invalid_token"`), and a request which carried none
+     * gets both challenges with no error and no body (RFC 6750 section 3.1); these come with the refusal. A 401
+     * from anywhere else gets both challenges with no error.
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \ReflectionException
@@ -125,7 +126,11 @@ class CredentialIssuerCredentialController
         if ($response->getStatusCode() === 401 && !$response->headers->has('WWW-Authenticate')) {
             $response->headers->set(
                 'WWW-Authenticate',
-                OidcServerException::buildChallenge(AccessTokenTypesEnum::Bearer),
+                OidcServerException::buildResourceChallenges(
+                    null,
+                    null,
+                    $this->moduleConfig->getDpopSigningAlgorithms(),
+                ),
             );
         }
 
@@ -135,8 +140,8 @@ class CredentialIssuerCredentialController
 
     /**
      * Refuses an access token which passed the resource server but can not buy a credential, as the resource
-     * server refuses one (RFC 6750 section 3.1): `invalid_token`, with the error named in the challenge too, under
-     * the scheme the token was presented under (RFC 9449 section 7.1 for DPoP).
+     * server refuses one (RFC 6750 section 3.1): `invalid_token`, with the error named in the challenge too, that
+     * of the scheme the token was presented under (OidcServerException::buildResourceChallenges()).
      */
     protected function invalidTokenResponse(string $description, AccessTokenTypesEnum $scheme): Response
     {
@@ -145,10 +150,10 @@ class CredentialIssuerCredentialController
             $description,
             401,
             [
-                'WWW-Authenticate' => OidcServerException::buildChallenge(
+                'WWW-Authenticate' => OidcServerException::buildResourceChallenges(
                     $scheme,
                     'invalid_token',
-                    $scheme === AccessTokenTypesEnum::DPoP ? $this->moduleConfig->getDpopSigningAlgorithms() : [],
+                    $this->moduleConfig->getDpopSigningAlgorithms(),
                 ),
             ],
         );

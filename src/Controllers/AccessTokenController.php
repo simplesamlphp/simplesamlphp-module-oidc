@@ -12,7 +12,9 @@ use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
+use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -27,11 +29,18 @@ class AccessTokenController
         private readonly AllowedOriginRepository $allowedOriginRepository,
         private readonly PsrHttpBridge $psrHttpBridge,
         private readonly ErrorResponder $errorResponder,
+        private readonly DpopProofVerifier $dpopProofVerifier,
+        private readonly Routes $routes,
     ) {
     }
 
 
     /**
+     * A DPoP proof the request carries is checked first, whatever the grant (RFC 9449 section 5), against the token
+     * endpoint URL this OP publishes, and one which fails a check is refused as `invalid_dpop_proof` before any
+     * grant runs. The grants read the proof which passed from a request attribute: they bind the tokens they issue
+     * to its key, and refuse a code or a refresh token bound to another.
+     *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      */
     public function __invoke(ServerRequestInterface $request): ResponseInterface
@@ -39,6 +48,11 @@ class AccessTokenController
         // Check if this is actually a CORS preflight request...
         if (strtoupper($request->getMethod()) === 'OPTIONS') {
             return $this->handleCors($request);
+        }
+
+        $verifiedDpopProof = $this->dpopProofVerifier->verify($request, $this->routes->urlToken(), null);
+        if ($verifiedDpopProof !== null) {
+            $request = $request->withAttribute(DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF, $verifiedDpopProof);
         }
 
         return $this->authorizationServer->respondToAccessTokenRequest(

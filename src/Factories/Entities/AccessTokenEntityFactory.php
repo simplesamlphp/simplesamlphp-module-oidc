@@ -29,6 +29,8 @@ class AccessTokenEntityFactory
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @param string|null $subject The subject resolved at minting; null for an entity rehydrated from storage.
      * @param array<non-empty-string, mixed> $userClaims The user claims placed in the JWT next to 'sub'.
+     * @param string|null $dpopJkt The thumbprint of the DPoP key the token is bound to; null for none, and for an
+     * entity rehydrated from storage.
      */
     public function fromData(
         string $id,
@@ -46,6 +48,7 @@ class AccessTokenEntityFactory
         ?string $issuerState = null,
         ?string $subject = null,
         array $userClaims = [],
+        ?string $dpopJkt = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,
@@ -65,6 +68,7 @@ class AccessTokenEntityFactory
             issuerState: $issuerState,
             subject: $subject,
             userClaims: $userClaims,
+            dpopJkt: $dpopJkt,
         );
     }
 

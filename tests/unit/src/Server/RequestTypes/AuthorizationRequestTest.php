@@ -164,6 +164,7 @@ class AuthorizationRequestTest extends TestCase
         $this->assertNull($authorizationRequest->getBoundClientId());
         $this->assertNull($authorizationRequest->getBoundRedirectUri());
         $this->assertNull($authorizationRequest->getPushedAuthorizationRequestUri());
+        $this->assertNull($authorizationRequest->getDpopJkt());
 
         // Both of these decide what is issued, so neither may default to yes.
         $this->assertFalse($authorizationRequest->getAddClaimsToIdToken());
@@ -270,6 +271,11 @@ class AuthorizationRequestTest extends TestCase
                 static fn(AuthorizationRequest $r, mixed $v): mixed => $r->setIssuerState((string)$v),
                 static fn(AuthorizationRequest $r): mixed => $r->getIssuerState(),
                 'issuer-state-1',
+            ],
+            'DPoP key thumbprint' => [
+                static fn(AuthorizationRequest $r, mixed $v): mixed => $r->setDpopJkt((string)$v),
+                static fn(AuthorizationRequest $r): mixed => $r->getDpopJkt(),
+                'thumbprint-of-the-key',
             ],
             'flow type' => [
                 static fn(AuthorizationRequest $r, mixed $v): mixed => $r->setFlowType(

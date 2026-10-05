@@ -816,19 +816,16 @@ class BearerTokenValidatorTest extends TestCase
 
 
     /**
-     * A request which names the DPoP scheme with nothing after it carried no credentials either: the challenge is
-     * the DPoP one, the scheme it tried, with no error information (RFC 9449 section 7.2, Figure 17), and no body.
+     * A request which names the DPoP scheme with nothing after it carried no credentials either, and is answered as
+     * one which carried none: both challenges, with no error information (RFC 9449 section 7.2, Figure 17), and no
+     * body.
      */
     #[DataProvider('dpopSchemeWithoutATokenProvider')]
-    public function testRefusesTheDpopSchemeWithoutATokenWithTheBareDpopChallenge(string $header): void
+    public function testRefusesTheDpopSchemeWithoutATokenAsARequestWithoutOne(string $header): void
     {
         $this->parsedJwsFactoryMock->expects($this->never())->method('fromToken');
 
-        $exception = $this->refusalOf($this->resourceRequest()->withAddedHeader('Authorization', $header));
-
-        $this->assertSame(401, $exception->getHttpStatusCode());
-        $this->assertSame('DPoP algs="ES256 RS256"', $exception->getWwwAuthenticate());
-        $this->assertFalse($exception->hasBody());
+        $this->assertRefusedForWantOfAToken($this->resourceRequest()->withAddedHeader('Authorization', $header));
     }
 
 
@@ -965,22 +962,21 @@ class BearerTokenValidatorTest extends TestCase
 
 
     /**
-     * @return array<string,array{0:string[],1:?string,2:bool}>
+     * @return array<string,array{0:string[],1:?string}>
      */
     public static function moreThanOneMethodProvider(): array
     {
         return [
-            'the header and the body' => [['Bearer token'], 'token', false],
-            'two Authorization fields' => [['Bearer token', 'Bearer other'], null, false],
-            'two values joined into one field' => [['Bearer token, Bearer other'], null, false],
-            'a Basic and a Bearer value' => [['Basic dXNlcjpwYXNz, Bearer token'], null, false],
-            'a Bearer and a DPoP value' => [['Bearer token, DPoP token'], null, true],
-            'two Authorization fields, one of them DPoP' => [['Bearer token', 'DPoP token'], null, true],
-            'the DPoP scheme and the body' => [['DPoP token'], 'token', true],
+            'the header and the body' => [['Bearer token'], 'token'],
+            'two Authorization fields' => [['Bearer token', 'Bearer other'], null],
+            'two values joined into one field' => [['Bearer token, Bearer other'], null],
+            'a Basic and a Bearer value' => [['Basic dXNlcjpwYXNz, Bearer token'], null],
+            'a Bearer and a DPoP value' => [['Bearer token, DPoP token'], null],
+            'two Authorization fields, one of them DPoP' => [['Bearer token', 'DPoP token'], null],
+            'the DPoP scheme and the body' => [['DPoP token'], 'token'],
             'auth-params of another scheme, then a Bearer value' => [
                 ['Digest username="alice", realm="op, too", Bearer token'],
                 null,
-                false,
             ],
         ];
     }
@@ -989,17 +985,15 @@ class BearerTokenValidatorTest extends TestCase
     /**
      * RFC 6750 section 2: "Clients MUST NOT use more than one method to transmit the token in each request". Such
      * a request is refused as `invalid_request` with a 400 (section 3.1), and no token is checked, since which one
-     * the client meant can not be known. Where one of the methods is the DPoP scheme, a DPoP challenge names the
-     * error too (RFC 9449 section 7.2, Figure 19). The header used to win silently.
+     * the client meant can not be known. Both challenges name the error, whichever schemes the methods used, since
+     * no one of them can be told to be the one which failed (RFC 9449 section 7.2, Figure 19). The header used to
+     * win silently.
      *
      * @param string[] $authorization
      */
     #[DataProvider('moreThanOneMethodProvider')]
-    public function testRefusesARequestWhichPresentsATokenMoreThanOneWay(
-        array $authorization,
-        ?string $bodyToken,
-        bool $isDpopAmongThem,
-    ): void {
+    public function testRefusesARequestWhichPresentsATokenMoreThanOneWay(array $authorization, ?string $bodyToken): void
+    {
         $this->parsedJwsFactoryMock->expects($this->never())->method('fromToken');
         $this->dpopProofVerifierMock->expects($this->never())->method('verify');
         $request = $this->resourceRequest()->withMethod('POST');
@@ -1015,8 +1009,7 @@ class BearerTokenValidatorTest extends TestCase
         $this->assertSame('invalid_request', $exception->getErrorType());
         $this->assertSame(400, $exception->getHttpStatusCode());
         $this->assertSame(
-            'Bearer error="invalid_request"' .
-            ($isDpopAmongThem ? ', DPoP error="invalid_request", algs="ES256 RS256"' : ''),
+            'Bearer error="invalid_request", DPoP error="invalid_request", algs="ES256 RS256"',
             $exception->getWwwAuthenticate(),
         );
     }
@@ -1369,21 +1362,32 @@ class BearerTokenValidatorTest extends TestCase
     }
 
 
+    /**
+     * A token refused under the Bearer scheme: the error in the Bearer challenge, and the DPoP challenge beside it
+     * (RFC 9449 section 7.2, Figure 18).
+     */
     protected function assertRefusedAsAnInvalidToken(OidcServerException $exception): void
     {
         $this->assertSame('invalid_token', $exception->getErrorType());
         $this->assertSame(401, $exception->getHttpStatusCode());
-        $this->assertSame('Bearer error="invalid_token"', $exception->getWwwAuthenticate());
+        $this->assertSame(
+            'Bearer error="invalid_token", DPoP algs="ES256 RS256"',
+            $exception->getWwwAuthenticate(),
+        );
         $this->assertTrue($exception->hasBody());
     }
 
 
+    /**
+     * A request which carried no credentials: both challenges, with no error information (RFC 9449 section 7.2,
+     * Figure 17).
+     */
     protected function assertRefusedForWantOfAToken(ServerRequestInterface $serverRequest): void
     {
         $exception = $this->refusalOf($serverRequest);
 
         $this->assertSame(401, $exception->getHttpStatusCode());
-        $this->assertSame('Bearer', $exception->getWwwAuthenticate());
+        $this->assertSame('Bearer, DPoP algs="ES256 RS256"', $exception->getWwwAuthenticate());
         $this->assertFalse($exception->hasBody());
         $this->assertSame([], $exception->getPayload());
     }

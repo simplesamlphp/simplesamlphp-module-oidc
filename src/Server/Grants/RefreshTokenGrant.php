@@ -23,12 +23,16 @@ use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 
+use function array_key_exists;
+use function hash_equals;
 use function implode;
 use function in_array;
 use function is_array;
@@ -105,6 +109,9 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
      * subject is resolved afresh for the remainder of that token's life. The user claims of the new access
      * token are read from the user record as it is now, as for any other grant.
      *
+     * A refresh token bound to a DPoP key is taken only with a proof by that key (ensureDpopBinding()), and the new
+     * access token is bound to the key of the request's proof, if any (RFC 9449 section 5).
+     *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
      * @throws \Throwable
@@ -116,6 +123,8 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
     ): ResponseTypeInterface {
         $client = $this->validateClient($request);
         $oldRefreshToken = $this->validateOldRefreshToken($request, $client->getIdentifier());
+        $verifiedDpopProof = $this->getVerifiedDpopProof($request);
+        $this->ensureDpopBinding($oldRefreshToken, $verifiedDpopProof, $client->getIdentifier());
 
         // The payload is the module's own (TokenResponse writes it, encrypted), so these are its fields.
         $oldScopeIdentifiers = [];
@@ -158,7 +167,14 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         }
 
         // Issue and persist new access token
-        $accessToken = $this->issueAccessToken($accessTokenTTL, $client, $userId, $scopes, subject: $subject);
+        $accessToken = $this->issueAccessToken(
+            $accessTokenTTL,
+            $client,
+            $userId,
+            $scopes,
+            subject: $subject,
+            dpopJkt: $verifiedDpopProof?->getJwkThumbprint(),
+        );
         $this->getEmitter()->emit(
             new RequestAccessTokenEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request, $accessToken),
         );
@@ -274,6 +290,60 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         }
 
         return $refreshTokenData;
+    }
+
+
+    /**
+     * A refresh token bound to a DPoP key (a public client's, see TokenResponse) is taken only with a proof by that
+     * key (RFC 9449 section 5). Without a proof the request is refused as `invalid_dpop_proof`; with a proof by
+     * another key, which passed every check of its own, the refresh token is what does not fit, and the request is
+     * refused as `invalid_grant`. Checked before the old tokens are revoked, so that a refused request revokes
+     * nothing.
+     *
+     * @param array<string, mixed> $refreshTokenData
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function ensureDpopBinding(
+        array $refreshTokenData,
+        ?VerifiedDpopProof $verifiedDpopProof,
+        string $clientId,
+    ): void {
+        if (!array_key_exists(TokenResponse::REFRESH_TOKEN_DPOP_JKT, $refreshTokenData)) {
+            return;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $boundJkt = $refreshTokenData[TokenResponse::REFRESH_TOKEN_DPOP_JKT];
+        $context = ['client_id' => $clientId, 'refresh_token_id' => $refreshTokenData['refresh_token_id'] ?? null];
+
+        // The payload is the module's own and encrypted, and TokenResponse writes the field as a thumbprint only.
+        if (!is_string($boundJkt) || $boundJkt === '') {
+            $this->loggerService->warning(
+                'Refresh token request rejected: the refresh token names its DPoP key in an unexpected form.',
+                $context,
+            );
+            throw OidcServerException::invalidRefreshToken('Refresh token is malformed.');
+        }
+
+        if ($verifiedDpopProof === null) {
+            $this->loggerService->notice(
+                'Refresh token request rejected: the refresh token is bound to a DPoP key, and the request carries ' .
+                'no DPoP proof.',
+                $context,
+            );
+            throw OidcServerException::invalidDpopProof(
+                'A DPoP proof is required: the refresh token is bound to a DPoP key.',
+            );
+        }
+
+        if (!hash_equals($boundJkt, $verifiedDpopProof->getJwkThumbprint())) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: the DPoP proof is made with another key than the one the refresh ' .
+                'token is bound to.',
+                $context,
+            );
+            throw OidcServerException::invalidGrant('The refresh token is bound to another DPoP key.');
+        }
     }
 
 

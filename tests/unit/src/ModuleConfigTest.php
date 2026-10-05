@@ -4356,6 +4356,24 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * An access token for credential issuance lives five minutes unless configured otherwise; the ceiling for one
+     * bound to no key is the token endpoint's to apply (AuthCodeGrant::accessTokenTtlFor()), not this option's.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialIssuanceAccessTokensLastFiveMinutesUnlessConfiguredOtherwise(): void
+    {
+        $this->assertSame('PT5M', $this->sut()->getVciAccessTokenDuration()->format('PT%iM'));
+
+        $this->assertSame(
+            'P1DT2H',
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL, 'P1DT2H'))
+                ->getVciAccessTokenDuration()->format('P%dDT%hH'),
+        );
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testProofOfPossessionNoncesLastFiveMinutesUnlessConfiguredOtherwise(): void

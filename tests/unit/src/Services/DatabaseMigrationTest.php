@@ -12,6 +12,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
+use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -33,6 +34,8 @@ class DatabaseMigrationTest extends TestCase
     protected const string ORPHANED_ORIGINS_VERSION = '20261003000003';
 
     protected const string OFFERED_CONFIGURATIONS_VERSION = '20261003000004';
+
+    protected const string AUTH_CODE_DPOP_JKT_VERSION = '20261005000001';
 
 
     protected Database $database;
@@ -187,6 +190,48 @@ class DatabaseMigrationTest extends TestCase
             $this->database->read(
                 "SELECT value, credential_configuration_ids FROM $issuerStateTableName ORDER BY value",
             )->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
+
+    /**
+     * An authorization code records the DPoP key it is bound to (RFC 9449 section 10). A code stored before has
+     * NULL there, which the factory reads as bound to none. The version adds the column only when it is missing,
+     * so a run interrupted before its version was recorded can be repeated, and the column keeps what it holds.
+     *
+     * @throws \Exception
+     */
+    public function testAddsTheDpopKeyToAuthorizationCodesOnceAndKeepsIt(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        // SQLite enforces no foreign key unless a connection turns them on, which this one does not, so the codes
+        // need no user or client rows.
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+        $this->database->write(
+            "INSERT INTO $authCodeTableName (id, user_id, client_id, redirect_uri, dpop_jkt) " .
+            "VALUES ('bound', 'user', 'client', 'https://rp.example.org/cb', 'thumbprint-of-the-key')",
+        );
+        $this->database->write(
+            "INSERT INTO $authCodeTableName (id, user_id, client_id, redirect_uri) " .
+            "VALUES ('stored-before', 'user', 'client', 'https://rp.example.org/cb')",
+        );
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::AUTH_CODE_DPOP_JKT_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame(
+            [
+                ['id' => 'bound', 'dpop_jkt' => 'thumbprint-of-the-key'],
+                ['id' => 'stored-before', 'dpop_jkt' => null],
+            ],
+            $this->database->read("SELECT id, dpop_jkt FROM $authCodeTableName ORDER BY id")
+                ->fetchAll(PDO::FETCH_ASSOC),
         );
     }
 

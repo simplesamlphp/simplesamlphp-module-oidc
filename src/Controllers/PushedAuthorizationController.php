@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\DpopJktRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
@@ -29,14 +30,20 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
+
+use function hash_equals;
 
 class PushedAuthorizationController
 {
@@ -49,6 +56,8 @@ class PushedAuthorizationController
         private readonly ErrorResponder $errorResponder,
         private readonly Helpers $helpers,
         private readonly LoggerService $logger,
+        private readonly DpopProofVerifier $dpopProofVerifier,
+        private readonly Routes $routes,
     ) {
     }
 
@@ -90,6 +99,14 @@ class PushedAuthorizationController
             );
         }
 
+        // A DPoP proof the pushed request carries is checked as at the token endpoint, against this endpoint's
+        // published URL; its key binds the authorization code (RFC 9449 section 10.1, withProvenDpopKey()).
+        $verifiedDpopProof = $this->dpopProofVerifier->verify(
+            $request,
+            $this->routes->urlPushedAuthorizationRequest(),
+            null,
+        );
+
         // Validate the pushed params as we would an authorization request sent to the authorization endpoint.
         // Note that the rules transparently take the Request Object (request param) into account, with
         // RequestObjectRule doing its validation (signature, signed-required policy...).
@@ -109,6 +126,7 @@ class PushedAuthorizationController
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,
             CodeChallengeMethodRule::class,
+            DpopJktRule::class,
             // A pushed request following a Credential Offer is refused here when its offer can no longer be
             // redeemed, or when it asks for a credential configuration the offer did not offer, rather than only
             // once the End-User has logged in.
@@ -125,6 +143,7 @@ class PushedAuthorizationController
         );
 
         $parameters = $this->resolveParametersToPersist($resultBag, $bodyParams, $client->getIdentifier());
+        $parameters = $this->withProvenDpopKey($parameters, $resultBag, $verifiedDpopProof);
 
         $parEntity = $this->pushedAuthorizationRequestEntityFactory->fromData(
             $client->getIdentifier(),
@@ -211,6 +230,44 @@ class PushedAuthorizationController
 
         // Bind the parameters to the authenticated client.
         $parameters[ParamsEnum::ClientId->value] = $clientId;
+
+        return $parameters;
+    }
+
+
+    /**
+     * The parameters to persist, with the key of the pushed request's DPoP proof, if it carried one, as `dpop_jkt`:
+     * the authorization endpoint then binds the code to that key as if the client had sent the parameter (RFC 9449
+     * section 10.1). A request which also sends `dpop_jkt`, naming another key, contradicts itself and is refused
+     * as `invalid_request`.
+     *
+     * @param mixed[] $parameters
+     * @return mixed[]
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function withProvenDpopKey(
+        array $parameters,
+        ResultBagInterface $resultBag,
+        ?VerifiedDpopProof $verifiedDpopProof,
+    ): array {
+        if ($verifiedDpopProof === null) {
+            return $parameters;
+        }
+
+        $proofJkt = $verifiedDpopProof->getJwkThumbprint();
+        $dpopJkt = $resultBag->getOrFail(DpopJktRule::class)->getValue();
+
+        if ($dpopJkt !== null && !hash_equals($dpopJkt, $proofJkt)) {
+            $this->logger->notice(
+                'Pushed authorization request rejected: `dpop_jkt` names another key than the DPoP proof.',
+            );
+            throw OidcServerException::invalidRequest(
+                ClaimsEnum::DpopJkt->value,
+                'The dpop_jkt parameter names another key than the DPoP proof of the request.',
+            );
+        }
+
+        $parameters[ClaimsEnum::DpopJkt->value] = $proofJkt;
 
         return $parameters;
     }

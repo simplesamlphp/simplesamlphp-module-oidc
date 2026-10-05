@@ -349,6 +349,8 @@ class ModuleConfig
 
     final public const string OPTION_VCI_NONCE_TTL = 'vci_nonce_ttl';
 
+    final public const string OPTION_VCI_ACCESS_TOKEN_TTL = 'vci_access_token_ttl';
+
     final public const string OPTION_VCI_TX_CODE_MAX_ATTEMPTS = 'vci_tx_code_max_attempts';
 
     final public const string OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
@@ -3173,6 +3175,27 @@ class ModuleConfig
         }
 
         return new DateInterval($nonceTtl);
+    }
+
+
+    /**
+     * How long an access token the token endpoint issues for Verifiable Credential Issuance lives, in place of
+     * the access token TTL: 5 minutes unless set. A token which is not bound to a DPoP key gets no more than
+     * 5 minutes whatever this says (AuthCodeGrant::accessTokenTtlFor()), since OpenID4VCI 1.0 section 13.10 has
+     * "Long-lived Access Tokens giving access to Credentials" issued only when sender-constrained, and counts
+     * one of more than 5 minutes as long-lived.
+     *
+     * @throws \Exception
+     */
+    public function getVciAccessTokenDuration(): DateInterval
+    {
+        $accessTokenTtl = $this->config()->getOptionalString(self::OPTION_VCI_ACCESS_TOKEN_TTL, null);
+
+        if (is_null($accessTokenTtl)) {
+            return new DateInterval('PT5M');
+        }
+
+        return new DateInterval($accessTokenTtl);
     }
 
 

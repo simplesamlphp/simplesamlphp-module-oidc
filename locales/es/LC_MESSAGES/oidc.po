@@ -2758,3 +2758,13 @@ msgid ""
 "was issued elsewhere, for example by another authorization server: "
 "printable ASCII characters without spaces, from 32 to 255."
 msgstr ""
+
+msgid ""
+"How long an access token for credential issuance lives. One which is not "
+"bound to a DPoP key gets 5 minutes at most, whatever this says."
+msgstr ""
+
+msgid ""
+"Not configured, so this falls back to 5 minutes, the most an access token "
+"for credential issuance which is not bound to a DPoP key ever gets."
+msgstr ""

@@ -123,8 +123,28 @@ class AuthCodeEntityTest extends TestCase
                 'bound_client_id' => null,
                 'bound_redirect_uri' => null,
                 'issuer_state' => null,
+                'dpop_jkt' => null,
             ],
         );
+    }
+
+
+    /**
+     * A code bound to a DPoP key (RFC 9449 section 10) stores the key's thumbprint, which the token endpoint reads
+     * back to require a proof by it.
+     */
+    public function testStoresTheDpopKeyTheCodeIsBoundTo(): void
+    {
+        $authCodeEntity = new AuthCodeEntity(
+            $this->id,
+            $this->clientEntityMock,
+            $this->scopes,
+            $this->expiryDateTime,
+            dpopJkt: 'thumbprint-of-the-dpop-key',
+        );
+
+        $this->assertSame('thumbprint-of-the-dpop-key', $authCodeEntity->getDpopJkt());
+        $this->assertSame('thumbprint-of-the-dpop-key', $authCodeEntity->getState()['dpop_jkt']);
     }
 
 

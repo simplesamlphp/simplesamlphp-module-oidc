@@ -364,6 +364,35 @@ class OidcServerException extends OAuthServerException
 
 
     /**
+     * The WWW-Authenticate value of a protected resource which takes access tokens under the Bearer scheme and the
+     * DPoP scheme, laid out as RFC 9449 section 7.2 recommends. With no scheme -- a request which carried no
+     * credentials, or which used more than one method -- both challenges, each naming the error if there is one
+     * (Figures 17 and 19). For a token refused under the Bearer scheme, the Bearer challenge names the error and
+     * the DPoP one stands beside it (Figure 18); for one refused under the DPoP scheme, the DPoP challenge alone
+     * (Figure 16). The DPoP challenge names the algorithms a proof may be signed with.
+     *
+     * @param string[] $dpopAlgs
+     */
+    public static function buildResourceChallenges(
+        ?AccessTokenTypesEnum $scheme,
+        ?string $error,
+        array $dpopAlgs,
+    ): string {
+        $dpopChallenge = self::buildChallenge(
+            AccessTokenTypesEnum::DPoP,
+            $scheme === AccessTokenTypesEnum::Bearer ? null : $error,
+            $dpopAlgs,
+        );
+
+        if ($scheme === AccessTokenTypesEnum::DPoP) {
+            return $dpopChallenge;
+        }
+
+        return self::buildChallenge(AccessTokenTypesEnum::Bearer, $error) . ', ' . $dpopChallenge;
+    }
+
+
+    /**
      * The authenticated client is not authorized to use this authorization grant type or response type
      * (RFC 6749 sections 4.1.2.1 / 5.2).
      *

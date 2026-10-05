@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -137,6 +138,7 @@ class AccessTokenEntityTest extends TestCase
         ?ClientEntity $clientEntity = null,
         ?string $subject = null,
         array $userClaims = [],
+        ?string $dpopJkt = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $this->id,
@@ -151,6 +153,7 @@ class AccessTokenEntityTest extends TestCase
             $this->isRevoked,
             subject: $subject,
             userClaims: $userClaims,
+            dpopJkt: $dpopJkt,
         );
     }
 
@@ -290,6 +293,62 @@ class AccessTokenEntityTest extends TestCase
         // The pre-RFC 9068 array stays for consumers written against it.
         $this->assertSame(array_values($this->scopes), $payload['scopes']);
         $this->assertArrayNotHasKey(ClaimsEnum::IssuerState->value, $payload);
+        $this->assertArrayNotHasKey(ClaimsEnum::Cnf->value, $payload);
+    }
+
+
+    /**
+     * A token bound to a DPoP key carries the key's JWK SHA-256 thumbprint as its confirmation claim, "cnf"
+     * {"jkt": ...} (RFC 9449 section 6.1), which is how a resource server tells that it is bound. The binding is
+     * not stored: the JWT carries it, and a stored token's JWT is never rebuilt.
+     */
+    public function testJwtCarriesTheDpopKeyTheTokenIsBoundTo(): void
+    {
+        $accessTokenEntity = $this->mock(dpopJkt: 'thumbprint-of-the-dpop-key');
+
+        [$payload] = $this->serialise($accessTokenEntity);
+
+        $this->assertSame(
+            [ClaimsEnum::Jkt->value => 'thumbprint-of-the-dpop-key'],
+            $payload[ClaimsEnum::Cnf->value],
+        );
+        $this->assertSame('thumbprint-of-the-dpop-key', $accessTokenEntity->getDpopJkt());
+        $this->assertSame(
+            ['id', 'scopes', 'expires_at', 'user_id', 'client_id', 'is_revoked', 'auth_code_id', 'requested_claims',
+                'flow_type', 'authorization_details', 'bound_client_id', 'bound_redirect_uri', 'issuer_state'],
+            array_keys($accessTokenEntity->getState()),
+        );
+    }
+
+
+    /**
+     * @return array<string, array{?string, ?array<string, string>}>
+     */
+    public static function userClaimNamedCnfProvider(): array
+    {
+        return [
+            'a token bound to a key' => ['thumbprint-of-the-dpop-key', ['jkt' => 'thumbprint-of-the-dpop-key']],
+            'a token bound to none' => [null, null],
+        ];
+    }
+
+
+    /**
+     * A user claim named "cnf" never reaches the JWT: the binding is written over it in a bound token, and it is
+     * left out of one bound to nothing, where it would pass for a binding. ModuleConfig refuses the name too.
+     *
+     * @param ?array<string, string> $expectedConfirmation
+     */
+    #[DataProvider('userClaimNamedCnfProvider')]
+    public function testJwtCarriesNoUserClaimNamedCnf(?string $dpopJkt, ?array $expectedConfirmation): void
+    {
+        [$payload] = $this->serialise($this->mock(
+            userClaims: [ClaimsEnum::Cnf->value => ['jkt' => 'a-key-the-user-claim-names'], 'name' => 'Ada'],
+            dpopJkt: $dpopJkt,
+        ));
+
+        $this->assertSame($expectedConfirmation, $payload[ClaimsEnum::Cnf->value] ?? null);
+        $this->assertSame('Ada', $payload['name']);
     }
 
 

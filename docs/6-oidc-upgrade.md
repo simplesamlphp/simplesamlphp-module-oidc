@@ -79,6 +79,20 @@ Federation) and applies the matching signing rules; when present, the `aud` and
   - Registered Request URIs (`request_uris`)
 See the [configuration guide](3-oidc-configuration.md#pushed-authorization-requests-par-and-request-objects)
 for details.
+- Support for DPoP (RFC 9449), sender-constrained access tokens. A client which
+sends a DPoP proof to the token endpoint gets an access token bound to the
+proof's key, with `token_type` `DPoP`, and a public client's refresh token is
+bound to the same key. The UserInfo endpoint takes a bound token under the
+`DPoP` authorization scheme with a proof by its key. An authorization code can
+be bound to a key too, with the `dpop_jkt` authorization request parameter or
+a DPoP proof on a pushed authorization request; the authorization code table
+gains a `dpop_jkt` column for it (run the DB migrations). The discovery
+documents advertise `dpop_signing_alg_values_supported`. The token
+introspection endpoint reports a bound token with `token_type` `DPoP` and its
+`cnf` claim, which a release policy can not withhold. A resource server which
+reads this OP's access tokens itself, or asks the introspection endpoint, has
+to check the binding itself: one which ignores it takes a bound token as a
+Bearer token. See the [configuration guide](3-oidc-configuration.md#dpop-sender-constrained-tokens).
 - Support for the OAuth 2.0 Form Post Response Mode (`response_mode=form_post`).
 The OP now supports three response modes - `query`, `fragment`, and
 `form_post`. With `form_post`, the authorization response parameters are
@@ -707,16 +721,19 @@ page.
 it (OpenID Connect Core 1.0 section 5.3.3). A token which is expired, revoked,
 malformed or otherwise not accepted is answered with `invalid_token` instead of
 `access_denied`, still with HTTP 401, and the response now carries the
-`WWW-Authenticate: Bearer error="invalid_token"` challenge it lacked. A request
-which carries no access token is answered with HTTP 401, the bare
-`WWW-Authenticate: Bearer` challenge and no body, instead of an `access_denied`
-JSON error. An `Authorization` header under a scheme other than `Bearer`
+`WWW-Authenticate: Bearer error="invalid_token", DPoP algs="..."` challenges it
+lacked (the DPoP one since the endpoint takes DPoP-bound tokens, RFC 9449
+section 7.2). A request which carries no access token is answered with HTTP
+401, the `WWW-Authenticate: Bearer, DPoP algs="..."` challenges with no error,
+and no body, instead of an `access_denied` JSON error. An `Authorization`
+header under a scheme other than `Bearer`
 (`Basic`, say) now counts as no token, where it used to be read as one and
 refused as invalid, and the `Bearer` scheme name is now matched
 case-insensitively. A token under the `DPoP` scheme (RFC 9449) is checked as
-one, and refused with `invalid_token` in a `WWW-Authenticate: DPoP` challenge
-unless it is bound to a key, while a token bound to a key is refused under
-`Bearer`. A request which carries its access token more than one way -- in the
+one: it has to be bound to a key and come with a proof by that key, and a
+refusal names the error in a `WWW-Authenticate: DPoP` challenge alone, while a
+token bound to a key is refused under `Bearer`. A request which carries its
+access token more than one way -- in the
 `Authorization` header and in the request body, or in more than one
 `Authorization` value -- is now refused with `invalid_request` (HTTP 400) and
 none of its tokens is checked (RFC 6750 section 2); previously the header's
@@ -730,6 +747,16 @@ responses too, not only on success, and expose the `WWW-Authenticate` header
 to scripts (`Access-Control-Expose-Headers`), so that a JavaScript client can
 read why it was refused. A CORS preflight to them now allows a `DPoP` request
 header besides `Authorization` and `X-Requested-With`.
+- A client which sends a `DPoP` header to the token endpoint now gets a
+DPoP-bound access token (`token_type` `DPoP`), which the UserInfo endpoint
+takes only under the `DPoP` scheme with a proof, where it used to get a Bearer
+token; a client which sends no such header is unaffected. A proof which fails
+a check (RFC 9449 section 4.3) is now refused with `invalid_dpop_proof` (HTTP
+400), and so is a `dpop_jkt` authorization request parameter which is not a
+JWK SHA-256 thumbprint (`invalid_request`); both used to be ignored.
+- The token introspection endpoint no longer reports a user claim named `cnf`,
+which a custom scope could release, so that it can not pass for the binding of
+a token to a key.
 - The token introspection endpoint now tells an access token from a refresh
 token by the token itself, and no longer by `token_type_hint`. Previously a
 hint naming the other type answered `active: false` for a valid token, and an

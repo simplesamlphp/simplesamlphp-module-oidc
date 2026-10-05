@@ -57,6 +57,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * @param array<non-empty-string, mixed> $userClaims The user claims placed in the JWT next to 'sub'
      * (AccessTokenClaimsResolver): the identity claims and the configured access token claims a granted scope
      * carries, as they were when the token was minted. Not persisted, for the same reason as the subject.
+     * @param string|null $dpopJkt The JWK SHA-256 thumbprint of the DPoP key the token is bound to, written in the
+     * JWT as its `cnf` claim (RFC 9449 section 6.1); null for a token bound to no key. Not persisted, for the same
+     * reason as the subject: whatever reads the binding reads the JWT.
      */
     public function __construct(
         string $id,
@@ -76,6 +79,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?string $issuerState = null,
         protected readonly ?string $subject = null,
         protected readonly array $userClaims = [],
+        protected readonly ?string $dpopJkt = null,
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Access token identifier cannot be empty.');
@@ -117,6 +121,16 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     public function getUserClaims(): array
     {
         return $this->userClaims;
+    }
+
+
+    /**
+     * The JWK SHA-256 thumbprint of the DPoP key the token was minted bound to, or null for a token bound to no key,
+     * and for an entity rehydrated from storage.
+     */
+    public function getDpopJkt(): ?string
+    {
+        return $this->dpopJkt;
     }
 
 
@@ -196,9 +210,12 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * (resource indicators are not implemented), and the "scopes" array is kept for consumers written
      * against earlier versions.
      *
+     * A token bound to a DPoP key carries the key's thumbprint as "cnf" {"jkt": ...} (RFC 9449 section 6.1).
+     *
      * The user claims come first and the envelope is written over them: a user claim can never overwrite
-     * "iss", "sub", "aud", "client_id", "scope" ... whatever the configuration says (ModuleConfig refuses
-     * those names as well; this is the second line).
+     * "iss", "sub", "aud", "client_id", "scope" ... whatever the configuration says, and one named "cnf" is left
+     * out, so that it can not pass for a binding in a token bound to nothing (ModuleConfig refuses those names as
+     * well; this is the second line).
      *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException On a payload the profile does not allow.
@@ -214,7 +231,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             $this->getScopes(),
         );
 
-        // Omit only what is absent (no scope, no issuer state); a valid value of "0" must survive.
+        // Omit only what is absent (no scope, no issuer state, no DPoP key); a valid value of "0" must survive.
         $envelope = array_filter(
             [
                 ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
@@ -227,6 +244,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
                 ClaimsEnum::Scope->value => implode(' ', $scopeIdentifiers),
                 'scopes' => $this->getScopes(),
                 ClaimsEnum::IssuerState->value => $this->issuerState,
+                ClaimsEnum::Cnf->value => $this->dpopJkt === null ? null : [ClaimsEnum::Jkt->value => $this->dpopJkt],
             ],
             fn(mixed $value): bool => $value !== null && $value !== '' && $value !== [],
         );
@@ -238,7 +256,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         $envelope[ClaimsEnum::Sub->value] = $this->subject ?? $this->getUserIdentifier() ?? $clientId;
 
         // User claims keep a valid falsy value too (no filter), which is why they are not part of the list above.
-        $payload = array_merge($this->userClaims, $envelope);
+        $userClaims = $this->userClaims;
+        unset($userClaims[ClaimsEnum::Cnf->value]);
+        $payload = array_merge($userClaims, $envelope);
 
         // The factory writes the "typ" header itself (at+jwt), whatever is given here.
         $header = [

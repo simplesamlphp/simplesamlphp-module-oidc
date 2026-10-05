@@ -89,12 +89,13 @@ class IntrospectionReleaseDecisionTest extends TestCase
 
 
     /**
-     * The protected set is AARC-G052 section 3's, plus 'active' and 'aud'.
+     * The protected set is AARC-G052 section 3's, plus 'active', 'aud' and 'cnf', the token's binding to a key
+     * (RFC 9449 section 6.2).
      */
     public function testProtectsTheMembersDescribingTheToken(): void
     {
         $this->assertEqualsCanonicalizing(
-            ['active', 'iss', 'exp', 'iat', 'nbf', 'token_type', 'client_id', 'jti', 'aud'],
+            ['active', 'iss', 'exp', 'iat', 'nbf', 'token_type', 'client_id', 'jti', 'aud', 'cnf'],
             IntrospectionReleaseDecision::PROTECTED_MEMBERS,
         );
     }

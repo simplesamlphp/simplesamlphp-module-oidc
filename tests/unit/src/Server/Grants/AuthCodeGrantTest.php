@@ -22,6 +22,7 @@ use LogicException;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -58,6 +59,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeVerifierRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\DpopJktRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
@@ -77,14 +79,17 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeI
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\IdTokenHint;
+use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Stringable;
 use Throwable;
 
@@ -169,6 +174,9 @@ class AuthCodeGrantTest extends TestCase
     /** Whether the granted scopes are treated as containing offline_access. */
     private bool $offlineAccessGranted = false;
 
+    /** What ModuleConfig answers for the lifetime of an access token for credential issuance. */
+    private string $vciAccessTokenTtl = 'PT5M';
+
     /** @var string[] Scope identifiers the scope repository no longer resolves, as ModuleConfig::getScopes() drops them. */
     private array $unsupportedScopes = [];
 
@@ -206,6 +214,8 @@ class AuthCodeGrantTest extends TestCase
         $this->scopeRepositoryMock = $this->createMock(ScopeRepositoryInterface::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('getVciAccessTokenDuration')
+            ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
@@ -1551,6 +1561,238 @@ class AuthCodeGrantTest extends TestCase
         $this->assertContains($claims, $this->accessTokenFactoryArguments);
     }
 
+    // DPoP (RFC 9449): the token bound to the key of the request's proof; a code bound to a key.
+
+    /**
+     * @return array<string, array{?string}>
+     */
+    public static function proofProvider(): array
+    {
+        return [
+            'with a proof' => ['thumbprint-of-the-proof-key'],
+            'without one' => [null],
+        ];
+    }
+
+
+    /**
+     * The access token is bound to the key of the DPoP proof the token request came with (RFC 9449 section 5), which
+     * the token endpoint checked before the grant ran; without a proof it is bound to nothing.
+     */
+    #[DataProvider('proofProvider')]
+    public function testBindsTheAccessTokenToTheKeyOfTheRequestsProof(?string $proofJkt): void
+    {
+        $this->storedAuthCode();
+        $this->expectAccessTokenToBeIssued();
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->request(proofJkt: $proofJkt),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        // The double receives the factory's arguments by position, and the DPoP key is the sixteenth.
+        $this->assertSame($proofJkt, $this->accessTokenFactoryArguments[15]);
+    }
+
+
+    /**
+     * A code the authorization request bound to a key (RFC 9449 section 10) is redeemed with a proof by that key,
+     * and the token is bound to it.
+     */
+    public function testRedeemsACodeBoundToAKeyWithAProofByThatKey(): void
+    {
+        $this->storedAuthCode(dpopJkt: 'thumbprint-of-the-proof-key');
+        $this->expectAccessTokenToBeIssued();
+        $this->authCodeRepositoryMock->expects($this->once())->method('consumeAuthCode')->with(self::AUTH_CODE_ID);
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->request(proofJkt: 'thumbprint-of-the-proof-key'),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame('thumbprint-of-the-proof-key', $this->accessTokenFactoryArguments[15]);
+    }
+
+
+    /**
+     * @return array<string, array{?string, string}>
+     */
+    public static function unprovenKeyProvider(): array
+    {
+        return [
+            'no proof' => [null, 'invalid_dpop_proof'],
+            'a proof by another key' => ['thumbprint-of-another-key', 'invalid_grant'],
+        ];
+    }
+
+
+    /**
+     * A code bound to a key is refused without a proof (`invalid_dpop_proof`), and with a proof by another key,
+     * which passed every check of its own (`invalid_grant`). The refusal comes before the code is looked at any
+     * further: it spends neither the code nor the Credential Offer the code followed, and issues nothing.
+     */
+    #[DataProvider('unprovenKeyProvider')]
+    public function testRefusesACodeBoundToAKeyWithoutAProofByThatKey(?string $proofJkt, string $expectedError): void
+    {
+        $this->storedAuthCode(
+            issuerState: self::ISSUER_STATE,
+            flowType: FlowTypeEnum::VciAuthorizationCode,
+            dpopJkt: 'thumbprint-of-the-proof-key',
+        );
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumeAuthCode');
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->assertRejects($expectedError, $this->request(proofJkt: $proofJkt));
+    }
+
+
+    /**
+     * A used code bound to a key, presented without a proof by that key, revokes nothing: whoever lacks the key
+     * must not be able to cut off the client which holds it by replaying its spent code (RFC 6749 section 4.1.2's
+     * revocation is for a replay by the code's holder).
+     */
+    #[DataProvider('unprovenKeyProvider')]
+    public function testRevokesNothingForAUsedCodeBoundToAKeyWithoutAProofByThatKey(
+        ?string $proofJkt,
+        string $expectedError,
+    ): void {
+        $this->storedAuthCode(isRevoked: true, dpopJkt: 'thumbprint-of-the-proof-key');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+
+        $this->assertRejects($expectedError, $this->request(proofJkt: $proofJkt));
+    }
+
+
+    /**
+     * Client authentication comes first: a client which fails it is answered `invalid_client` whether or not its
+     * code is bound to a key.
+     */
+    public function testAuthenticatesTheClientBeforeLookingAtTheCodesKey(): void
+    {
+        $this->storedAuthCode(dpopJkt: 'thumbprint-of-the-proof-key');
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->method('check')
+            ->willThrowException(OAuthServerException::invalidClient($this->request()));
+
+        $this->assertRejects('invalid_client', $this->request());
+    }
+
+
+    /**
+     * A request which authenticates the client in no way at all is refused for that, before its code's key is
+     * looked at.
+     */
+    public function testRefusesARequestWithoutClientAuthenticationBeforeLookingAtTheCodesKey(): void
+    {
+        $this->storedAuthCode(dpopJkt: 'thumbprint-of-the-proof-key');
+        $this->rulesReturn(authenticationMethod: ClientAuthenticationMethodsEnum::None);
+
+        $this->assertRejects('access_denied', $this->request());
+    }
+
+
+    /**
+     * The proof reaches the grant only as the token endpoint put it on the request; anything else there is the
+     * OP's own fault.
+     */
+    public function testAnswersSomethingElseInThePlaceOfTheProofAsAServerError(): void
+    {
+        $this->storedAuthCode();
+        $request = $this->createStub(ServerRequestInterface::class);
+        $request->method('getParsedBody')->willReturn([
+            'code' => $this->encryptPayload($this->payload()),
+            'redirect_uri' => self::REDIRECT_URI,
+        ]);
+        $request->method('getAttribute')->willReturn('not a verified proof');
+
+        $this->assertRejects('server_error', $request);
+    }
+
+
+    /**
+     * @return array<string, array{?\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum, ?string, string, int}>
+     */
+    public static function accessTokenLifetimeProvider(): array
+    {
+        return [
+            'a VCI token bound to no key, configured longer than five minutes' =>
+                [FlowTypeEnum::VciAuthorizationCode, null, 'PT1H', 300],
+            'a VCI token bound to no key, configured shorter' =>
+                [FlowTypeEnum::VciAuthorizationCode, null, 'PT2M', 120],
+            'a VCI token bound to a key' =>
+                [FlowTypeEnum::VciAuthorizationCode, 'thumbprint-of-the-proof-key', 'PT1H', 3600],
+            'an OIDC token' => [FlowTypeEnum::OidcAuthorizationCode, null, 'PT1H', 600],
+            'a code with no flow type recorded' => [null, 'thumbprint-of-the-proof-key', 'PT1H', 600],
+        ];
+    }
+
+
+    /**
+     * An access token for Verifiable Credential Issuance, by the code's stored flow type, lives what
+     * vci_access_token_ttl says, and no longer than five minutes when it is bound to no key, whatever the
+     * configuration says (OpenID4VCI 1.0 section 13.10). Any other lives the TTL the grant was enabled with.
+     */
+    #[DataProvider('accessTokenLifetimeProvider')]
+    public function testChoosesTheAccessTokenLifetimeByTheCodesFlowAndBinding(
+        ?FlowTypeEnum $flowType,
+        ?string $proofJkt,
+        string $configuredVciTtl,
+        int $expectedSeconds,
+    ): void {
+        $this->vciAccessTokenTtl = $configuredVciTtl;
+        $this->storedAuthCode(flowType: $flowType);
+        $this->expectAccessTokenToBeIssued();
+
+        $before = time();
+        $this->sut()->respondToAccessTokenRequest(
+            $this->request(proofJkt: $proofJkt),
+            $this->responseType(),
+            new DateInterval('PT10M'),
+        );
+        $after = time();
+
+        $expiry = $this->accessTokenFactoryArguments[3];
+        $this->assertInstanceOf(DateTimeImmutable::class, $expiry);
+        $this->assertGreaterThanOrEqual($before + $expectedSeconds, $expiry->getTimestamp());
+        $this->assertLessThanOrEqual($after + $expectedSeconds, $expiry->getTimestamp());
+    }
+
+
+    /**
+     * The `dpop_jkt` of an authorization request (RFC 9449 section 10), which DpopJktRule checked, rides on the
+     * request through the login.
+     */
+    public function testCarriesTheDpopJktOntoTheAuthorizationRequest(): void
+    {
+        $authorizationRequest = $this->validatedAuthorizationRequest(
+            ruleResults: [DpopJktRule::class => 'thumbprint-of-the-key'],
+        );
+
+        $this->assertContains(DpopJktRule::class, $this->checkedRules);
+        $this->assertInstanceOf(AuthorizationRequest::class, $authorizationRequest);
+        $this->assertSame('thumbprint-of-the-key', $authorizationRequest->getDpopJkt());
+    }
+
+
+    /**
+     * The code issued for an authorization request which named a key is bound to it.
+     */
+    public function testBindsTheIssuedCodeToTheKeyTheAuthorizationRequestNamed(): void
+    {
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setDpopJkt('thumbprint-of-the-key');
+
+        // The factory's arguments by position: the DPoP key is the fifteenth.
+        $this->assertSame(
+            'thumbprint-of-the-key',
+            $this->argumentsTheAuthCodeWasBuiltFrom($authorizationRequest)[14],
+        );
+    }
+
     // Helpers.
 
     private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): AuthCodeGrant
@@ -1616,9 +1858,13 @@ class AuthCodeGrantTest extends TestCase
 
     /**
      * @param array<string,mixed> $parsedBody
+     * @param string|null $proofJkt The key of a DPoP proof the token endpoint verified for the request, if any.
      */
-    private function request(?array $parsedBody = null, bool $withRedirectUri = true): ServerRequestInterface
-    {
+    private function request(
+        ?array $parsedBody = null,
+        bool $withRedirectUri = true,
+        ?string $proofJkt = null,
+    ): ServerRequestInterface {
         if ($parsedBody === null) {
             $parsedBody = ['code' => $this->encryptPayload($this->payload())];
 
@@ -1629,6 +1875,14 @@ class AuthCodeGrantTest extends TestCase
 
         $request = $this->createStub(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($parsedBody);
+
+        $verifiedDpopProof = $proofJkt === null ?
+        null :
+        new VerifiedDpopProof($this->createStub(DpopProof::class), $proofJkt);
+        $request->method('getAttribute')->willReturnCallback(
+            fn(string $name): ?VerifiedDpopProof =>
+                $name === DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF ? $verifiedDpopProof : null,
+        );
 
         return $request;
     }
@@ -1726,6 +1980,7 @@ class AuthCodeGrantTest extends TestCase
         ?array $grantTypes = null,
         ?string $issuerState = null,
         ?FlowTypeEnum $flowType = null,
+        ?string $dpopJkt = null,
     ): AuthCodeEntity {
         $client = $this->createMock(ClientEntity::class);
         $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -1744,6 +1999,7 @@ class AuthCodeGrantTest extends TestCase
             boundClientId: self::CLIENT_ID,
             boundRedirectUri: self::REDIRECT_URI,
             issuerState: $issuerState,
+            dpopJkt: $dpopJkt,
         );
 
         $this->authCodeRepositoryMock->method('findById')->willReturn($authCode);
@@ -1848,6 +2104,7 @@ class AuthCodeGrantTest extends TestCase
             IssuerStateRule::class => null,
             AuthorizationDetailsRule::class => null,
             ClientIdRule::class => null,
+            DpopJktRule::class => null,
             ResponseModeRule::class => new QueryResponseMode(),
         ];
 

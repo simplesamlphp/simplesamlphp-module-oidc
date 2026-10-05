@@ -68,6 +68,8 @@ class AccessTokenEntityFactoryTest extends TestCase
 
     protected const string SUBJECT = 'resolved-subject';
 
+    protected const string DPOP_JKT = 'thumbprint-of-the-dpop-key';
+
     protected const array USER_CLAIMS = ['voperson_id' => 'v1@example.org'];
 
     protected const string EXPIRES_AT = '2026-01-01 12:00:00';
@@ -149,6 +151,7 @@ class AccessTokenEntityFactoryTest extends TestCase
             'issuerState' => self::ISSUER_STATE,
             'subject' => self::SUBJECT,
             'userClaims' => self::USER_CLAIMS,
+            'dpopJkt' => self::DPOP_JKT,
         ];
     }
 
@@ -251,6 +254,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         // Resolved at minting and not persisted, so only a fromData() entity carries them.
         $this->assertSame(self::SUBJECT, $entity->getSubject());
         $this->assertSame(self::USER_CLAIMS, $entity->getUserClaims());
+        $this->assertSame(self::DPOP_JKT, $entity->getDpopJkt());
     }
 
 
@@ -306,6 +310,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->assertNull($entity->getIssuerState());
         $this->assertNull($entity->getSubject());
         $this->assertSame([], $entity->getUserClaims());
+        $this->assertNull($entity->getDpopJkt());
     }
 
 
@@ -351,16 +356,17 @@ class AccessTokenEntityFactoryTest extends TestCase
 
 
     /**
-     * The subject and the user claims are resolved when the token is minted and travel with that entity only:
-     * no column stores them, and the JWT of a stored token is never rebuilt. The endpoints which need the
-     * subject later read it from the presented JWT.
+     * The subject, the user claims and the DPoP key the token is bound to are settled when the token is minted
+     * and travel with that entity only: no column stores them, and the JWT of a stored token is never rebuilt.
+     * The endpoints which need them later read them from the presented JWT.
      */
-    public function testFromStateBuildsAnEntityWithoutASubjectOrUserClaims(): void
+    public function testFromStateBuildsAnEntityWithoutASubjectUserClaimsOrDpopKey(): void
     {
         $entity = $this->sut()->fromState($this->row());
 
         $this->assertNull($entity->getSubject());
         $this->assertSame([], $entity->getUserClaims());
+        $this->assertNull($entity->getDpopJkt());
     }
 
 

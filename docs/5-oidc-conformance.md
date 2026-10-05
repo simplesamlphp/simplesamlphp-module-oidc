@@ -260,9 +260,11 @@ All three runs share these variants:
 - `client_auth_type=private_key_jwt`: the only one of the plan's client
   authentication methods this module supports.
 - `sender_constrain=dpop`: the plan offers only DPoP and mTLS, and the module
-  supports neither. The suite sends DPoP proofs, and when the token endpoint
-  answers with a Bearer token it carries on with that and records no failure, so
-  sender-constrained tokens are not tested.
+  supports DPoP (RFC 9449). The suite sends a DPoP proof to the token endpoint,
+  gets a DPoP-bound access token (`token_type` `DPoP`), and calls the credential
+  endpoint under the `DPoP` scheme with a proof carrying the token's hash. The
+  plan sends no `dpop_jkt` and has no DPoP negative test, so code binding and
+  the module's DPoP refusals rest on its own unit tests.
 - `fapi_profile=vci` (not `vci_haip`) and `vci_credential_encryption=plain`.
   The `openid` and `fapi_response_mode` variants do not apply to this profile.
 

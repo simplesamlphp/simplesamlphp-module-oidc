@@ -27,6 +27,8 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
 
     /**
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
+     * @param string|null $dpopJkt The JWK SHA-256 thumbprint of the key the code is bound to (RFC 9449 section 10),
+     * which the token request has to bring a DPoP proof by; null for a code bound to none.
      */
     public function __construct(
         string $id,
@@ -43,6 +45,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?string $boundClientId = null,
         protected readonly ?string $boundRedirectUri = null,
         protected readonly ?string $issuerState = null,
+        protected readonly ?string $dpopJkt = null,
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Authorization code identifier cannot be empty.');
@@ -81,6 +84,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'bound_client_id' => $this->boundClientId,
             'bound_redirect_uri' => $this->boundRedirectUri,
             'issuer_state' => $this->issuerState,
+            'dpop_jkt' => $this->dpopJkt,
         ];
     }
 
@@ -124,5 +128,11 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getIssuerState(): ?string
     {
         return $this->issuerState;
+    }
+
+
+    public function getDpopJkt(): ?string
+    {
+        return $this->dpopJkt;
     }
 }

@@ -159,6 +159,47 @@ class AuthCodeRepositoryTest extends TestCase
 
 
     /**
+     * A code bound to a DPoP key (RFC 9449 section 10) is stored with the key's thumbprint, which reading it back
+     * returns, and which an update -- the revocation -- writes again.
+     *
+     * @throws \Exception
+     */
+    public function testStoresTheDpopKeyACodeIsBoundToAndKeepsItOnUpdate(): void
+    {
+        $authCode = new AuthCodeEntity(
+            'dpop-bound-auth-code-id',
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            dpopJkt: 'thumbprint-of-the-key',
+        );
+        $this->repository->persistNewAuthCode($authCode);
+
+        $states = [];
+        $this->authCodeEntityFactoryMock->method('fromState')->willReturnCallback(
+            function (array $state) use (&$states, $authCode): AuthCodeEntity {
+                $states[] = $state;
+
+                return $authCode;
+            },
+        );
+
+        $this->repository->findById('dpop-bound-auth-code-id');
+        $this->repository->revokeAuthCode('dpop-bound-auth-code-id');
+        $this->repository->findById('dpop-bound-auth-code-id');
+
+        $this->assertNotEmpty($states);
+        $this->assertSame(
+            array_fill(0, count($states), 'thumbprint-of-the-key'),
+            array_column($states, 'dpop_jkt'),
+        );
+        $this->assertSame(1, (int)$states[array_key_last($states)]['is_revoked']);
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testAddAndNotFound(): void

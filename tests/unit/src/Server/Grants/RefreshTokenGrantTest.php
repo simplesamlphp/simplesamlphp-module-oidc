@@ -39,13 +39,17 @@ use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterfac
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Grants\RefreshTokenGrant;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Stringable;
 
 /**
@@ -115,6 +119,9 @@ class RefreshTokenGrantTest extends TestCase
     protected const int SUBJECT_ARGUMENT = 13;
 
     protected const int USER_CLAIMS_ARGUMENT = 14;
+
+    /** Position of the `dpopJkt` parameter, likewise. */
+    protected const int DPOP_JKT_ARGUMENT = 15;
 
 
     protected static ?Key $encryptionKey = null;
@@ -270,11 +277,20 @@ class RefreshTokenGrantTest extends TestCase
 
     /**
      * @param array<string, mixed> $parsedBody
+     * @param string|null $proofJkt The key of a DPoP proof the token endpoint verified for the request, if any.
      */
-    protected function requestWith(array $parsedBody): ServerRequestInterface
+    protected function requestWith(array $parsedBody, ?string $proofJkt = null): ServerRequestInterface
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $request->method('getParsedBody')->willReturn($parsedBody);
+
+        $verifiedDpopProof = $proofJkt === null ?
+        null :
+        new VerifiedDpopProof($this->createStub(DpopProof::class), $proofJkt);
+        $request->method('getAttribute')->willReturnCallback(
+            fn(string $name): ?VerifiedDpopProof =>
+                $name === DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF ? $verifiedDpopProof : null,
+        );
 
         return $request;
     }
@@ -1352,11 +1368,12 @@ class RefreshTokenGrantTest extends TestCase
         RefreshTokenGrant $grant,
         array $payload,
         array $parsedBody = [],
+        ?string $proofJkt = null,
     ): ResponseTypeInterface {
         $responseType = $this->createMock(ResponseTypeInterface::class);
 
         return $grant->respondToAccessTokenRequest(
-            $this->requestWith(['refresh_token' => self::encryptedPayload($payload)] + $parsedBody),
+            $this->requestWith(['refresh_token' => self::encryptedPayload($payload)] + $parsedBody, $proofJkt),
             $responseType,
             new DateInterval('PT15M'),
         );
@@ -1775,6 +1792,120 @@ class RefreshTokenGrantTest extends TestCase
         } catch (OidcServerException $exception) {
             $this->assertSame('server_error', $exception->getErrorType());
             $this->assertStringContainsString(UserRepository::class, $exception->getMessage());
+        }
+    }
+
+
+    /**
+     * @return array<string, array{?string}>
+     */
+    public static function proofProvider(): array
+    {
+        return [
+            'with a proof' => ['thumbprint-of-the-proof-key'],
+            'without one' => [null],
+        ];
+    }
+
+
+    /**
+     * A refresh binds the new access token to the key of the request's DPoP proof, if any (RFC 9449 section 5),
+     * whatever the old token was: an unbound refresh token is no reason to leave the new access token unbound.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    #[DataProvider('proofProvider')]
+    public function testARefreshBindsTheNewAccessTokenToTheKeyOfTheRequestsProof(?string $proofJkt): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+
+        $this->refreshWith($grant, self::refreshTokenPayload(), proofJkt: $proofJkt);
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame($proofJkt, $arguments[self::DPOP_JKT_ARGUMENT]);
+    }
+
+
+    /**
+     * A refresh token bound to a key (a public client's, TokenResponse) is taken with a proof by that key, and the
+     * new access token is bound to it again.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshTokenBoundToAKeyIsTakenWithAProofByThatKey(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+
+        $this->refreshWith(
+            $grant,
+            self::refreshTokenPayload([TokenResponse::REFRESH_TOKEN_DPOP_JKT => 'thumbprint-of-the-proof-key']),
+            proofJkt: 'thumbprint-of-the-proof-key',
+        );
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame('thumbprint-of-the-proof-key', $arguments[self::DPOP_JKT_ARGUMENT]);
+    }
+
+
+    /**
+     * @return array<string, array{mixed, ?string, string, ?string}>
+     */
+    public static function unprovenRefreshTokenProvider(): array
+    {
+        return [
+            'bound, no proof' => ['thumbprint-of-the-key', null, 'invalid_dpop_proof', null],
+            'bound, a proof by another key' => [
+                'thumbprint-of-the-key',
+                'thumbprint-of-another-key',
+                'invalid_grant',
+                'The refresh token is bound to another DPoP key.',
+            ],
+            'the key named as an empty string' => ['', 'any-key', 'invalid_grant', 'Refresh token is malformed.'],
+            'the key named as null' => [null, 'any-key', 'invalid_grant', 'Refresh token is malformed.'],
+            'the key named as a number' => [42, 'any-key', 'invalid_grant', 'Refresh token is malformed.'],
+        ];
+    }
+
+
+    /**
+     * A refresh token bound to a key is refused without a proof (`invalid_dpop_proof`), and with a proof by another
+     * key, which passed every check of its own (`invalid_grant`); one which names its key in a form TokenResponse
+     * never writes is refused too, whatever proof comes. The refusal comes before the old tokens are revoked:
+     * whoever lacks the key must not be able to cut off the client which holds it.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    #[DataProvider('unprovenRefreshTokenProvider')]
+    public function testRefusesARefreshTokenBoundToAKeyWithoutAProofByThatKey(
+        mixed $boundJkt,
+        ?string $proofJkt,
+        string $expectedError,
+        ?string $expectedHint,
+    ): void {
+        $grant = $this->sutForARefresh($this->userEntity());
+        $accessTokenRepository = $this->createMock(AccessTokenRepositoryInterface::class);
+        $accessTokenRepository->expects($this->never())->method('revokeAccessToken');
+        $accessTokenRepository->expects($this->never())->method('persistNewAccessToken');
+        $grant->setAccessTokenRepository($accessTokenRepository);
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeRefreshToken');
+
+        try {
+            $this->refreshWith(
+                $grant,
+                self::refreshTokenPayload([TokenResponse::REFRESH_TOKEN_DPOP_JKT => $boundJkt]),
+                proofJkt: $proofJkt,
+            );
+            $this->fail('The refresh token was accepted where it should have been refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame($expectedError, $exception->getErrorType());
+            if ($expectedHint !== null) {
+                $this->assertSame($expectedHint, $exception->getHint());
+            }
         }
     }
 }

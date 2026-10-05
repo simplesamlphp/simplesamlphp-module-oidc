@@ -20,6 +20,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInte
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseTypeInterface;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 
 use function array_merge;
 use function json_encode;
@@ -45,6 +46,12 @@ class TokenResponse extends BearerTokenResponse implements
     // phpcs:ignore
     SessionIdResponseTypeInterface
 {
+    /**
+     * The refresh token payload field which holds the thumbprint of the DPoP key the refresh token is bound to.
+     */
+    public const string REFRESH_TOKEN_DPOP_JKT = 'dpop_jkt';
+
+
     protected ?string $nonce = null;
 
     protected ?int $authTime = null;
@@ -66,10 +73,16 @@ class TokenResponse extends BearerTokenResponse implements
 
     /**
      * League's own body (BearerTokenResponse, which builds the refresh token payload inline and offers no hook
-     * for it) with one addition: the payload also carries the access token's subject as 'sub', next to the
+     * for it) with three additions. The payload also carries the access token's subject as 'sub', next to the
      * internal 'user_id'. RefreshTokenGrant reads it back so the refreshed tokens name the End-User as the
      * original ID token did (OpenID Connect Core 1.0 section 12.2), whatever the user's attributes say by
      * then, and the introspection endpoint reports it for the refresh token.
+     *
+     * An access token bound to a DPoP key is answered with `token_type` DPoP (RFC 9449 section 5). It was bound to
+     * the key of the proof the token request came with, and so is the refresh token issued with it to a client
+     * which is not confidential: the payload carries the key's thumbprint (REFRESH_TOKEN_DPOP_JKT), and
+     * RefreshTokenGrant takes the refresh token only with a proof by that key. A confidential client's refresh
+     * token is bound to nothing more: it authenticates when it uses it (section 5).
      *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Exception
@@ -83,8 +96,12 @@ class TokenResponse extends BearerTokenResponse implements
 
         $expireDateTime = $accessToken->getExpiryDateTime()->getTimestamp();
 
+        $dpopJkt = $accessToken->getDpopJkt();
+
+        $tokenType = $dpopJkt === null ? AccessTokenTypesEnum::Bearer : AccessTokenTypesEnum::DPoP;
+
         $responseParams = [
-            'token_type'   => 'Bearer',
+            'token_type'   => $tokenType->value,
             'expires_in'   => $expireDateTime - time(),
             'access_token' => $accessToken->toString(),
         ];
@@ -105,6 +122,10 @@ class TokenResponse extends BearerTokenResponse implements
             // path) simply leaves the field out, which the grant reads as "resolve afresh".
             if (($subject = $accessToken->getSubject()) !== null) {
                 $refreshTokenPayload['sub'] = $subject;
+            }
+
+            if ($dpopJkt !== null && !$accessToken->getClient()->isConfidential()) {
+                $refreshTokenPayload[self::REFRESH_TOKEN_DPOP_JKT] = $dpopJkt;
             }
 
             $refreshTokenPayload = json_encode($refreshTokenPayload);

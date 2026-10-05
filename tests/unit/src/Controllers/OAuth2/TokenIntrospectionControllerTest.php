@@ -1454,6 +1454,8 @@ class TokenIntrospectionControllerTest extends TestCase
 
     /**
      * @param ?string $type The token's 'typ' header; null for a token minted before the module wrote one.
+     * @param array{0: mixed}|null $confirmation The token's 'cnf' claim, wrapped so that a claim whose value is
+     * null can be told from no claim at all (null).
      */
     private function givenIntrospectableAccessToken(
         MockObject $requestMock,
@@ -1462,6 +1464,7 @@ class TokenIntrospectionControllerTest extends TestCase
         string $subject = 'token-subject',
         ?string $type = 'at+jwt',
         ?string $tokenTypeHint = 'access_token',
+        ?array $confirmation = null,
     ): void {
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willReturn($this->createValidResolvedClientAuthenticationMethodMock('client1'));
@@ -1475,7 +1478,14 @@ class TokenIntrospectionControllerTest extends TestCase
 
         $jwsMock = $this->createMock(ParsedJws::class);
         $jwsMock->method('getType')->willReturn($type);
-        $jwsMock->method('getPayloadClaim')->with('scopes')->willReturn($scopes);
+        $jwsMock->method('hasPayloadClaim')
+            ->willReturnCallback(fn(string $name): bool => $name === 'cnf' && $confirmation !== null);
+        $jwsMock->method('getPayloadClaim')->willReturnCallback(
+            fn(string $name): mixed => match ($name) {
+                'scopes' => $scopes,
+                'cnf' => $confirmation[0] ?? null,
+            },
+        );
         $jwsMock->method('getExpirationTime')->willReturn(1000);
         $jwsMock->method('getIssuedAt')->willReturn(500);
         $jwsMock->method('getSubject')->willReturn($subject);
@@ -1487,6 +1497,138 @@ class TokenIntrospectionControllerTest extends TestCase
             ->method('ensureValidAccessToken')
             ->with(self::ACCESS_TOKEN)
             ->willReturn($jwsMock);
+    }
+
+
+    /**
+     * A token bound to a DPoP key is reported as one (RFC 9449 section 6.2): `token_type` DPoP, and the binding as
+     * the token carries it, `cnf` {"jkt": ...}, among the token's own members.
+     */
+    public function testReportsATokenBoundToADpopKeyAsADpopTokenWithItsBinding(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken(
+            $requestMock,
+            'jti1',
+            ['vci-credential'],
+            'client1',
+            confirmation: [['jkt' => 'thumbprint-of-the-key']],
+        );
+        $this->givenAccessTokenRecord('jti1', null);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with([
+                'active' => true,
+                'scope' => 'vci-credential',
+                'client_id' => 'client1',
+                'token_type' => 'DPoP',
+                'exp' => 1000,
+                'iat' => 500,
+                'sub' => 'client1',
+                'aud' => ['client1'],
+                'iss' => 'iss1',
+                'jti' => 'jti1',
+                'cnf' => ['jkt' => 'thumbprint-of-the-key'],
+            ])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * @return array<string, array{array{0: mixed}}>
+     */
+    public static function confirmationNamingNoKeyProvider(): array
+    {
+        return [
+            'null' => [[null]],
+            'an empty object' => [[[]]],
+            'another confirmation method' => [[['x5t#S256' => 'certificate-thumbprint']]],
+            'an empty thumbprint' => [[['jkt' => '']]],
+            'a thumbprint which is not a string' => [[['jkt' => 42]]],
+            'a string' => [['thumbprint-of-the-key']],
+        ];
+    }
+
+
+    /**
+     * A token whose `cnf` names no DPoP key is one this OP does not mint, and which its own protected resources
+     * refuse under either scheme: it is answered as inactive, never as a bearer token a resource server would take
+     * without a proof.
+     *
+     * @param array{0: mixed} $confirmation
+     */
+    #[DataProvider('confirmationNamingNoKeyProvider')]
+    public function testAnswersATokenWhoseConfirmationNamesNoDpopKeyAsInactive(array $confirmation): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken(
+            $requestMock,
+            'jti1',
+            ['openid'],
+            confirmation: $confirmation,
+        );
+        $this->givenAccessTokenRecord('jti1', null);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * @return array<string, array{?array{0: mixed}, ?array<string, string>}>
+     */
+    public static function userClaimNamedCnfProvider(): array
+    {
+        return [
+            'a token bound to a key' => [[['jkt' => 'thumbprint-of-the-key']], ['jkt' => 'thumbprint-of-the-key']],
+            'a token bound to none' => [null, null],
+        ];
+    }
+
+
+    /**
+     * A custom scope can release a user claim named `cnf` (the name is reserved for the access token's claims
+     * only). It never reaches the answer: it must neither stand in for the token's binding nor make an unbound
+     * token look bound.
+     *
+     * @param ?array{0: mixed} $confirmation
+     * @param ?array<string, string> $expectedConfirmation
+     */
+    #[DataProvider('userClaimNamedCnfProvider')]
+    public function testLeavesAUserClaimNamedCnfOutOfTheAnswer(
+        ?array $confirmation,
+        ?array $expectedConfirmation,
+    ): void {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['custom'], confirmation: $confirmation);
+        $this->givenAccessTokenRecord('jti1', 'user1');
+        $this->givenUserRecord('user1', ['uid' => ['user1']]);
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturn(['cnf' => ['jkt' => 'a-key-the-user-claim-names'], 'name' => 'Ada']);
+
+        $answer = null;
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->willReturnCallback(function (array $data) use (&$answer): JsonResponse {
+                $answer = $data;
+
+                return $this->createMock(JsonResponse::class);
+            });
+
+        $this->sut()->__invoke($requestMock);
+
+        $this->assertIsArray($answer);
+        $this->assertSame($expectedConfirmation, $answer['cnf'] ?? null);
+        $this->assertSame('Ada', $answer['name']);
     }
 
 

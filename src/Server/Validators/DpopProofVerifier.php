@@ -27,8 +27,9 @@ use function trim;
 
 /**
  * Checks the DPoP proof a request carries (RFC 9449). The protected resources use it through BearerTokenValidator,
- * for an access token presented under the DPoP scheme; the token and pushed authorization request endpoints are to
- * use it once they bind tokens and codes to a key.
+ * for an access token presented under the DPoP scheme; the token endpoint (AccessTokenController) for every request
+ * which carries a proof, whose key the grants then bind what they issue to; and the pushed authorization request
+ * endpoint (PushedAuthorizationController), whose proof binds the authorization code (section 10.1).
  *
  * The library's DpopProof makes, when it is built, the checks of section 4.3 which need nothing but the proof. This
  * class makes the rest: one DPoP header field holding one JWT (checks 1 and 2), an algorithm the module accepts
@@ -63,6 +64,12 @@ use function trim;
  */
 class DpopProofVerifier
 {
+    /**
+     * The request attribute the token endpoint puts the verified proof of a token request in, for the grants to
+     * read (IssueAccessTokenTrait::getVerifiedDpopProof()).
+     */
+    public const string ATTRIBUTE_VERIFIED_PROOF = 'oidc_verified_dpop_proof';
+
     /**
      * How far a proof's `iat` may lie from the present, in seconds, either way. Section 11.1 has a server accept a
      * proof only for a limited time after its creation, and the FAPI 2.0 Security Profile (section 5.3.2.1) has it
