@@ -112,7 +112,7 @@ class RequestTraitTest extends TestCase
         $headers = [
             'Access-Control-Allow-Origin' => [$origin],
             'Access-Control-Allow-Methods' => ['GET, POST, OPTIONS'],
-            'Access-Control-Allow-Headers' => ['Authorization, X-Requested-With'],
+            'Access-Control-Allow-Headers' => ['Authorization, X-Requested-With, DPoP'],
             'Access-Control-Allow-Credentials' => ['true'],
         ];
 

@@ -32,6 +32,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
+use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
@@ -84,6 +85,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected const string STATUS_LIST_URI = 'https://issuer.com/module.php/oidc/statuslist/list-1';
 
     protected const string HOLDER_DID = 'did:jwk:holder';
+
+    protected const string CREDENTIAL_ENDPOINT = 'https://issuer.com/module.php/oidc/credential';
 
 
     protected MockObject $resourceServerMock;
@@ -201,6 +204,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var \SimpleSAML\OpenID\SdJwt\DisclosureBag[] One per credential built in an SD-JWT format. */
     protected array $disclosureBags = [];
 
+    /** The scheme the resource server says the access token was presented under. */
+    protected string $presentedScheme = 'Bearer';
+
+    /** @var string[] The resource URLs the resource server was asked to check the token for. */
+    protected array $resourceUrls = [];
+
 
     public function setUp(): void
     {
@@ -234,6 +243,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->oauthErrors = [];
         $this->jsonResponses = [];
         $this->disclosureBags = [];
+        $this->presentedScheme = 'Bearer';
+        $this->resourceUrls = [];
+        $this->routesMock->method('urlCredentialIssuerCredential')->willReturn(self::CREDENTIAL_ENDPOINT);
 
         // A request which should be issued: a pre-authorized-code access token, found and unrevoked,
         // naming a user and a credential configuration this issuer supports, which the token grants. Each
@@ -261,6 +273,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         // VCI must be enabled in constructor
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('getDpopSigningAlgorithms')->willReturn(['ES256', 'PS256']);
         $this->moduleConfigMock->method('getVciIssuerIdentifier')
             ->willReturn(new VciIssuerIdentifier(VciIssuerIdentifierModeEnum::DidJwk));
         $this->moduleConfigMock->method('getVciCredentialConfiguration')
@@ -292,9 +305,19 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($psrFactoryMock);
 
         $authorizationMock = $this->createMock(ServerRequestInterface::class);
-        $authorizationMock->method('getAttribute')->with('oauth_access_token_id')->willReturn('token_id');
+        $authorizationMock->method('getAttribute')->willReturnCallback(
+            fn(string $name): string => match ($name) {
+                'oauth_access_token_id' => 'token_id',
+                BearerTokenValidator::ATTRIBUTE_ACCESS_TOKEN_SCHEME => $this->presentedScheme,
+            },
+        );
         $this->resourceServerMock->method('validateAuthenticatedRequest')->willReturnCallback(
-            function () use ($authorizationMock): ServerRequestInterface {
+            function (
+                ServerRequestInterface $request,
+                string $resourceUrl,
+            ) use ($authorizationMock): ServerRequestInterface {
+                $this->resourceUrls[] = $resourceUrl;
+
                 if ($this->accessTokenRefusal !== null) {
                     throw $this->accessTokenRefusal;
                 }
@@ -1496,6 +1519,67 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             'refresh token' => [FlowTypeEnum::OidcRefreshToken],
             'no flow type recorded' => [null],
         ];
+    }
+
+
+    /**
+     * The token is checked against the URL this issuer publishes for the endpoint, which the `htu` of a DPoP proof
+     * has to name.
+     */
+    public function testChecksTheTokenForThePublishedCredentialEndpoint(): void
+    {
+        $this->dispatch();
+
+        $this->assertSame([self::CREDENTIAL_ENDPOINT], $this->resourceUrls);
+    }
+
+
+    /**
+     * @return array<string,array{0: string}>
+     */
+    public static function tokenWhichCanNotBuyACredentialProvider(): array
+    {
+        return [
+            'not found' => ['not found'],
+            'revoked' => ['revoked'],
+            'not issued for credential issuance' => ['not vci'],
+            'no issuer state of the generic client' => ['no issuer state'],
+        ];
+    }
+
+
+    /**
+     * A token presented under the DPoP scheme which passed the resource server but can not buy a credential is
+     * refused under that scheme, the challenge naming the algorithms a proof may be signed with (RFC 9449
+     * section 7.1).
+     */
+    #[DataProvider('tokenWhichCanNotBuyACredentialProvider')]
+    public function testRefusesATokenPresentedUnderTheDpopSchemeUnderThatScheme(string $fault): void
+    {
+        $this->presentedScheme = 'DPoP';
+        switch ($fault) {
+            case 'not found':
+                $this->accessTokenIsFound = false;
+                break;
+            case 'revoked':
+                $this->accessTokenIsRevoked = true;
+                break;
+            case 'not vci':
+                $this->flowType = FlowTypeEnum::OidcAuthorizationCode;
+                break;
+            default:
+                $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+                $this->clientIsGeneric = true;
+        }
+
+        $response = $this->dispatch();
+
+        $this->assertRefusedWith('invalid_token', 401);
+        $this->assertSame(
+            'DPoP error="invalid_token", algs="ES256 PS256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
+        $this->assertSame([], $this->signedPayloads);
     }
 
 

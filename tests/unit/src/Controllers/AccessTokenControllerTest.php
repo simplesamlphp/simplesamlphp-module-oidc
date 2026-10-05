@@ -8,6 +8,7 @@ use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -21,7 +22,9 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Throwable;
 
@@ -119,6 +122,10 @@ class AccessTokenControllerTest extends TestCase
     }
 
 
+    /**
+     * A preflight from an allowed origin is answered with the CORS headers, the `DPoP` request header allowed for
+     * a client which sends a proof (RFC 9449).
+     */
     public function testItHandlesCorsRequest(): void
     {
         $this->serverRequestMock->expects($this->once())->method('getMethod')->willReturn('OPTIONS');
@@ -128,11 +135,19 @@ class AccessTokenControllerTest extends TestCase
             ->with('http://localhost')
             ->willReturn(true);
 
+        $headers = [];
         $this->responseMock->expects($this->atLeast(4))->method('withHeader')
-            ->willReturnSelf();
+            ->willReturnCallback(function (string $name, string $value) use (&$headers): Response {
+                $headers[$name] = $value;
+
+                return $this->responseMock;
+            });
         $this->responseMock->method('withBody')->willReturnSelf();
 
         $this->mock()->__invoke($this->serverRequestMock);
+
+        $this->assertSame('http://localhost', $headers['Access-Control-Allow-Origin'] ?? null);
+        $this->assertSame('Authorization, X-Requested-With, DPoP', $headers['Access-Control-Allow-Headers'] ?? null);
     }
 
 
@@ -143,11 +158,71 @@ class AccessTokenControllerTest extends TestCase
             ->method('respondToAccessTokenRequest')
             ->willReturn($this->responseMock);
 
-        $this->responseHeaderBagMock->expects($this->once())
-            ->method('set')
-            ->with('Access-Control-Allow-Origin', '*');
+        $set = [];
+        $this->responseHeaderBagMock->method('set')->willReturnCallback(
+            function (string $key, mixed $values) use (&$set): void {
+                $set[$key] = $values;
+            },
+        );
 
         $this->mock()->token($this->symfonyRequestMock);
+
+        $this->assertSame(
+            ['Access-Control-Allow-Origin' => '*', 'Access-Control-Expose-Headers' => 'WWW-Authenticate'],
+            $set,
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0:\Throwable}>
+     */
+    public static function failureProvider(): array
+    {
+        return [
+            'an OAuth error' => [OidcServerException::invalidRequest('code')],
+            'a failure of the OP\'s own' => [new RuntimeException('Database error')],
+        ];
+    }
+
+
+    /**
+     * A refusal carries the CORS headers too, so that a JavaScript client can read why it was refused, the
+     * challenge included (RFC 9449 section 7.1).
+     */
+    #[DataProvider('failureProvider')]
+    public function testAnswersARefusalWithTheCorsHeaders(Throwable $failure): void
+    {
+        $this->authorizationServerMock->method('respondToAccessTokenRequest')->willThrowException($failure);
+        $this->errorResponderMock->method('forException')
+            ->willReturn(new SymfonyResponse('{"error":"invalid_request"}', 400));
+
+        $response = $this->mock()->token(Request::create('https://op.example.org/oidc/token', 'POST'));
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('*', $response->headers->get('Access-Control-Allow-Origin'));
+        $this->assertSame('WWW-Authenticate', $response->headers->get('Access-Control-Expose-Headers'));
+    }
+
+
+    /**
+     * A refused preflight gets no CORS headers: a preflight passes only with a success status, so they would
+     * grant nothing, and an origin which is not allowed is not told otherwise.
+     */
+    public function testAnswersARefusedPreflightWithoutTheCorsHeaders(): void
+    {
+        $psrRequest = new ServerRequest('OPTIONS', 'https://op.example.org/oidc/token');
+        $psrHttpFactoryMock = $this->createMock(PsrHttpFactory::class);
+        $psrHttpFactoryMock->method('createRequest')->willReturn($psrRequest);
+        $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($psrHttpFactoryMock);
+        $this->errorResponderMock->expects($this->once())->method('forException')
+            ->willReturn(new SymfonyResponse('{"error":"request_not_supported"}', 400));
+
+        $response = $this->mock()->token(Request::create('https://op.example.org/oidc/token', 'OPTIONS'));
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertFalse($response->headers->has('Access-Control-Allow-Origin'));
+        $this->assertFalse($response->headers->has('Access-Control-Expose-Headers'));
     }
 
 

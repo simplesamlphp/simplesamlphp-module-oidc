@@ -129,8 +129,9 @@ class ModuleConfig
      * Claim names the module writes itself, so neither OPTION_AUTH_IDENTITY_CLAIMS nor
      * OPTION_TOKEN_ACCESS_TOKEN_CLAIMS may list them: the registered JWT claims the tokens carry, the session id
      * of the ID token, the access token envelope (RFC 9068 section 2.2, plus this module's legacy `scopes` array
-     * and the `issuer_state` of a Verifiable Credential flow), and the introspection response members
-     * (RFC 7662 section 2.2) which are not claims of the token at all.
+     * and the `issuer_state` of a Verifiable Credential flow), the confirmation claim `cnf`, which binds an access
+     * token to a key (RFC 9449 section 6.1) and so must come from the binding alone, and the introspection
+     * response members (RFC 7662 section 2.2) which are not claims of the token at all.
      */
     final public const array RESERVED_CLAIM_NAMES = [
         ...ClaimTranslatorExtractor::REGISTERED_CLAIMS,
@@ -140,6 +141,7 @@ class ModuleConfig
         'scopes',
         ClaimsEnum::Typ->value,
         ClaimsEnum::IssuerState->value,
+        ClaimsEnum::Cnf->value,
         'active',
         'token_type',
     ];
@@ -895,6 +897,18 @@ class ModuleConfig
                 SignatureAlgorithmEnum::EdDSA,
             ),
         );
+    }
+
+
+    /**
+     * The names of the signature algorithms a DPoP proof may be signed with (RFC 9449 section 4.3, check 5): those
+     * of getSupportedAlgorithms(), every one of them asymmetric. A DPoP challenge names them (`algs`, section 7.1).
+     *
+     * @return string[]
+     */
+    public function getDpopSigningAlgorithms(): array
+    {
+        return array_values($this->getSupportedAlgorithms()->getSignatureAlgorithmBag()->getAllNamesUnique());
     }
 
 

@@ -52,7 +52,7 @@ class UserInfoController
             return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse($this->handleCors($request));
         }
 
-        $authorization = $this->resourceServer->validateAuthenticatedRequest($request);
+        $authorization = $this->resourceServer->validateAuthenticatedRequest($request, $this->routes->urlUserInfo());
 
         /** @var string $tokenId */
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
@@ -95,20 +95,24 @@ class UserInfoController
     }
 
 
+    /**
+     * The CORS headers go on a refusal too, so that a JavaScript client can read why it was refused; not on the
+     * refusal of a preflight, which no header can make pass.
+     */
     public function userInfo(Request $request): Response
     {
         try {
             $response = $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request));
-
-            // If not already handled, allow CORS (for JS clients).
-            if (!$response->headers->has('Access-Control-Allow-Origin')) {
-                $response->headers->set('Access-Control-Allow-Origin', '*');
-            }
-
-            return $response;
         } catch (OAuthServerException $exception) {
-            return $this->errorResponder->forException($exception);
+            $response = $this->errorResponder->forException($exception);
+
+            if (strtoupper($request->getMethod()) === 'OPTIONS') {
+                return $response;
+            }
         }
+
+        // If not already handled, allow CORS (for JS clients).
+        return $this->addCorsHeaders($response);
     }
 
 

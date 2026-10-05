@@ -14,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 
 /**
@@ -265,6 +266,119 @@ class OidcServerExceptionTest extends TestCase
 
 
     /**
+     * The challenge of another scheme, given by the caller, is the one sent: a token presented under the DPoP
+     * scheme is refused under it (RFC 9449 section 7.1).
+     */
+    public function testRendersARefusedAccessTokenWithTheChallengeGiven(): void
+    {
+        $exception = OidcServerException::invalidToken('Not bound.', null, 'DPoP error="invalid_token", algs="ES256"');
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('DPoP error="invalid_token", algs="ES256"', $response->getHeaderLine('WWW-Authenticate'));
+    }
+
+
+    /**
+     * @return array<string,array{0:\SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum,1:?string,2:string[],3:string}>
+     */
+    public static function challengeProvider(): array
+    {
+        return [
+            'the Bearer scheme alone' => [AccessTokenTypesEnum::Bearer, null, [], 'Bearer'],
+            'a Bearer error' => [AccessTokenTypesEnum::Bearer, 'invalid_token', [], 'Bearer error="invalid_token"'],
+            'the DPoP algorithms alone' => [
+                AccessTokenTypesEnum::DPoP,
+                null,
+                ['ES256', 'PS256'],
+                'DPoP algs="ES256 PS256"',
+            ],
+            'a DPoP error' => [
+                AccessTokenTypesEnum::DPoP,
+                'invalid_dpop_proof',
+                ['ES256'],
+                'DPoP error="invalid_dpop_proof", algs="ES256"',
+            ],
+        ];
+    }
+
+
+    /**
+     * A challenge is the scheme, then its parameters separated by commas (RFC 9110 section 11.6.1): the error, and
+     * for DPoP the algorithms, separated by spaces (RFC 9449 section 7.1).
+     *
+     * @param string[] $algs
+     */
+    #[DataProvider('challengeProvider')]
+    public function testBuildsAChallenge(
+        AccessTokenTypesEnum $scheme,
+        ?string $error,
+        array $algs,
+        string $expected,
+    ): void {
+        $this->assertSame($expected, OidcServerException::buildChallenge($scheme, $error, $algs));
+    }
+
+
+    /**
+     * At the token endpoint an invalid DPoP proof is the 400 token error response of RFC 9449 section 5, with no
+     * challenge.
+     */
+    public function testRendersAnInvalidDpopProofWithoutAChallengeAsTheTokenEndpointsRefusal(): void
+    {
+        $exception = OidcServerException::invalidDpopProof('The DPoP proof has been used before.');
+
+        $this->assertNull($exception->getWwwAuthenticate());
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('', $response->getHeaderLine('WWW-Authenticate'));
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        $this->assertSame('invalid_dpop_proof', $body['error']);
+    }
+
+
+    /**
+     * At a protected resource it is section 7.1's 401, with the DPoP challenge the caller gives.
+     */
+    public function testRendersAnInvalidDpopProofWithAChallengeAsAProtectedResourcesRefusal(): void
+    {
+        $challenge = 'DPoP error="invalid_dpop_proof", algs="ES256"';
+        $exception = OidcServerException::invalidDpopProof('No proof.', $challenge);
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame($challenge, $response->getHeaderLine('WWW-Authenticate'));
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        $this->assertSame('invalid_dpop_proof', $body['error']);
+    }
+
+
+    /**
+     * A token presented more than one way is `invalid_request` with a 400 (RFC 6750 section 3.1), with the
+     * challenge the caller gives and Figure 19's description.
+     */
+    public function testRendersMoreThanOneTokenMethodAsAnInvalidRequest(): void
+    {
+        $exception = OidcServerException::multipleAccessTokenMethods('Bearer error="invalid_request"');
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('Bearer error="invalid_request"', $response->getHeaderLine('WWW-Authenticate'));
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        $this->assertSame('invalid_request', $body['error']);
+        $this->assertStringContainsString('Multiple methods used to include access token', $body['error_description']);
+    }
+
+
+    /**
      * A request which carried no access token gets the bare challenge and nothing else (RFC 6750 section 3.1): no
      * error code, so no body and no content type claiming one. The error type names the refusal in the log only.
      */
@@ -282,6 +396,21 @@ class OidcServerExceptionTest extends TestCase
 
         $this->assertSame(401, $response->getStatusCode());
         $this->assertSame(['WWW-Authenticate' => ['Bearer']], $response->getHeaders());
+        $this->assertSame('', (string)$response->getBody());
+    }
+
+
+    /**
+     * A request which tried another scheme gets that scheme's challenge, still without error information and body.
+     */
+    public function testRendersAMissingAccessTokenWithTheChallengeGiven(): void
+    {
+        $exception = OidcServerException::missingToken('No token.', 'DPoP algs="ES256"');
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame(['WWW-Authenticate' => ['DPoP algs="ES256"']], $response->getHeaders());
         $this->assertSame('', (string)$response->getBody());
     }
 

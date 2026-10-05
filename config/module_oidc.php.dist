@@ -664,9 +664,10 @@ $config = [
      * protocol context. Setting this option is recommended in production
      * environments. If set to null, no caching will be used, and the checks
      * which count or remember in this cache are not in force: the reuse
-     * check of client assertions (private_key_jwt), the limit on attempts
-     * at a Transaction Code (OPTION_VCI_TX_CODE_MAX_ATTEMPTS), and the
-     * Status List rate limit (OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE).
+     * check of client assertions (private_key_jwt), the replay check of
+     * DPoP proofs (RFC 9449), the limit on attempts at a Transaction Code
+     * (OPTION_VCI_TX_CODE_MAX_ATTEMPTS), and the Status List rate limit
+     * (OPTION_VCI_STATUS_LIST_REQUESTS_PER_MINUTE).
      * Those need an adapter which keeps entries from one request to the next,
      * which ArrayAdapter and NullAdapter do not. Can be set to any Symfony
      * Cache Adapter class, like in the examples below. If set, make sure to

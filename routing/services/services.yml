@@ -124,6 +124,7 @@ services:
   SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory: ~
 
   SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator: ~
+  SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier: ~
   SimpleSAML\Module\oidc\Server\ResourceServer: ~
   SimpleSAML\Module\oidc\Server\AuthorizationServer:
     factory: ['@SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory', 'build']

@@ -48,6 +48,10 @@ class AccessTokenController
     }
 
 
+    /**
+     * The CORS headers go on a refusal too, so that a JavaScript client can read why it was refused; not on the
+     * refusal of a preflight, which no header can make pass.
+     */
     public function token(Request $request): Response
     {
         try {
@@ -58,23 +62,23 @@ class AccessTokenController
             $response = $this->psrHttpBridge->getHttpFoundationFactory()->createResponse(
                 $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request)),
             );
-
-            // If not already handled, allow CORS (for JS clients).
-            if (!$response->headers->has('Access-Control-Allow-Origin')) {
-                $response->headers->set('Access-Control-Allow-Origin', '*');
-            }
-
-            return $response;
         } catch (OAuthServerException $exception) {
-            return $this->errorResponder->forException($exception);
+            $response = $this->errorResponder->forException($exception);
         } catch (Throwable $exception) {
             // A failure of the OP's own - a database or cache which did not answer while the client was being
             // authenticated or the grant redeemed - is answered as `server_error` in the token error format,
             // rather than left to SimpleSAMLphp's HTML error page. The client is told nothing of the cause; the
             // ErrorResponder logs it.
-            return $this->errorResponder->forException(
+            $response = $this->errorResponder->forException(
                 OidcServerException::serverError('Unable to process the token request.', $exception),
             );
         }
+
+        if ($response->getStatusCode() >= 400 && strtoupper($request->getMethod()) === 'OPTIONS') {
+            return $response;
+        }
+
+        // If not already handled, allow CORS (for JS clients).
+        return $this->addCorsHeaders($response);
     }
 }

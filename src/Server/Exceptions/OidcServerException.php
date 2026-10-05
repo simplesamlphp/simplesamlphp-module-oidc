@@ -9,25 +9,16 @@ use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use Throwable;
 
+use function implode;
 use function json_encode;
+use function sprintf;
 
 class OidcServerException extends OAuthServerException
 {
-    /**
-     * The challenge a protected resource sends with its refusal of the access token a request carried (RFC 6750
-     * section 3).
-     */
-    public const string CHALLENGE_INVALID_TOKEN = 'Bearer error="invalid_token"';
-
-    /**
-     * The challenge a protected resource sends to a request which carried no access token: the scheme alone, with
-     * no error code (RFC 6750 section 3.1).
-     */
-    public const string CHALLENGE_BEARER = 'Bearer';
-
     /**
      * The error type of a refusal for want of an access token. RFC 6750 defines no code for it, so it is never
      * sent; it names the refusal in the log.
@@ -236,14 +227,19 @@ class OidcServerException extends OAuthServerException
     /**
      * A protected resource refusing the access token a request carried: one which is expired, revoked, malformed
      * or invalid for another reason (RFC 6750 section 3.1). The challenge names the error too, so that a client
-     * which reads only the header learns that its token was refused.
+     * which reads only the header learns that its token was refused. It is a Bearer one unless the caller gives
+     * the one of the scheme the token was presented under (buildChallenge()).
      *
      * @param string|null $hint
      * @param \Throwable|null $previous
+     * @param string|null $challenge
      * @return static
      */
-    public static function invalidToken(?string $hint = null, ?Throwable $previous = null): static
-    {
+    public static function invalidToken(
+        ?string $hint = null,
+        ?Throwable $previous = null,
+        ?string $challenge = null,
+    ): static {
         $e = self::create(
             'The access token is expired, revoked, malformed, or invalid for other reasons.',
             16,
@@ -254,7 +250,7 @@ class OidcServerException extends OAuthServerException
             $previous,
         );
 
-        $e->wwwAuthenticate = self::CHALLENGE_INVALID_TOKEN;
+        $e->wwwAuthenticate = $challenge ?? self::buildChallenge(AccessTokenTypesEnum::Bearer, 'invalid_token');
 
         return $e;
     }
@@ -264,12 +260,14 @@ class OidcServerException extends OAuthServerException
      * A protected resource refusing a request which carried no access token. RFC 6750 section 3.1 answers it with
      * the bare challenge and no error code: nothing the client sent was found wanting, and a client told that its
      * token was refused, when it sent none, may throw away a working one. So the response has no body, and the
-     * error type and the message are for the log only.
+     * error type and the message are for the log only. The challenge is the bare Bearer one unless the caller
+     * gives another, without error information as well (RFC 9449 section 7.2).
      *
      * @param string|null $hint
+     * @param string|null $challenge
      * @return static
      */
-    public static function missingToken(?string $hint = null): static
+    public static function missingToken(?string $hint = null, ?string $challenge = null): static
     {
         $e = self::create(
             'The request carried no access token.',
@@ -279,11 +277,89 @@ class OidcServerException extends OAuthServerException
             $hint,
         );
 
-        $e->wwwAuthenticate = self::CHALLENGE_BEARER;
+        $e->wwwAuthenticate = $challenge ?? self::buildChallenge(AccessTokenTypesEnum::Bearer);
         $e->hasBody = false;
         $e->setPayload([]);
 
         return $e;
+    }
+
+
+    /**
+     * A DPoP proof which fails a check of RFC 9449 section 4.3 or the replay check of section 11.1, and a request
+     * without the proof it needs. At the token endpoint it is section 5's 400 token error response; at a protected
+     * resource, where the caller gives the DPoP challenge naming the error, section 7.1's 401. A proof by another
+     * key than the one an access token is bound to is not refused with it: section 7.1 has that as
+     * `invalid_token` (Figure 16).
+     *
+     * @param string|null $hint
+     * @param string|null $challenge
+     * @return static
+     */
+    public static function invalidDpopProof(?string $hint = null, ?string $challenge = null): static
+    {
+        $e = self::create(
+            'The DPoP proof is invalid.',
+            18,
+            ErrorsEnum::InvalidDpopProof->value,
+            $challenge === null ? 400 : 401,
+            $hint,
+        );
+
+        $e->wwwAuthenticate = $challenge;
+
+        return $e;
+    }
+
+
+    /**
+     * A protected resource refusing a request which carried its access token in more than one way: in the
+     * Authorization header and in the request body, or in more than one Authorization header value. RFC 6750
+     * section 2 has "Clients MUST NOT use more than one method to transmit the token in each request", section 3.1
+     * answers a request which does as `invalid_request` with a 400, and RFC 9449 section 7.2 (Figure 19) does the
+     * same. Which token the client meant can not be known, so none is checked.
+     *
+     * @return static
+     */
+    public static function multipleAccessTokenMethods(string $challenge): static
+    {
+        $e = self::create(
+            'Multiple methods used to include access token.',
+            19,
+            'invalid_request',
+            400,
+        );
+
+        $e->wwwAuthenticate = $challenge;
+
+        return $e;
+    }
+
+
+    /**
+     * A WWW-Authenticate challenge (RFC 9110 section 11.6.1) under the scheme given: the scheme name alone, or with
+     * the error code a protected resource names in it (RFC 6750 section 3, RFC 9449 section 7.1) and, for DPoP,
+     * the signature algorithms it accepts proofs signed with (`algs`, RFC 9449 section 7.1). Two challenges go into
+     * one header value joined by a comma.
+     *
+     * @param string[] $algs
+     */
+    public static function buildChallenge(
+        AccessTokenTypesEnum $scheme,
+        ?string $error = null,
+        array $algs = [],
+    ): string {
+        $parameters = [];
+
+        if ($error !== null) {
+            $parameters[] = sprintf('error="%s"', $error);
+        }
+
+        if ($algs !== []) {
+            $parameters[] = sprintf('algs="%s"', implode(' ', $algs));
+        }
+
+        return $parameters === [] ? $scheme->value : $scheme->value . ' ' . implode(', ', $parameters);
     }
 
 

@@ -163,7 +163,8 @@ private scope which also carries them.
 addition to `sub` and the identity claims, each only when a granted scope
 carries it. Both lists are validated against the effective attribute
 translation table, and a claim the module writes itself (a registered JWT
-claim, `sid`, the access token envelope, the introspection members) is refused.
+claim, `sid`, the access token envelope, the `cnf` claim which binds a token to
+a key, the introspection members) is refused.
 See the [configuration guide](3-oidc-configuration.md#identity-claims-and-access-token-claims).
 - The `sub` of the JWT access token is now the same subject the ID token
 carries — the value the `sub` attribute translation yields, else the internal
@@ -712,11 +713,23 @@ which carries no access token is answered with HTTP 401, the bare
 JSON error. An `Authorization` header under a scheme other than `Bearer`
 (`Basic`, say) now counts as no token, where it used to be read as one and
 refused as invalid, and the `Bearer` scheme name is now matched
-case-insensitively. A failure of the OP while it checks the token, such as a
+case-insensitively. A token under the `DPoP` scheme (RFC 9449) is checked as
+one, and refused with `invalid_token` in a `WWW-Authenticate: DPoP` challenge
+unless it is bound to a key, while a token bound to a key is refused under
+`Bearer`. A request which carries its access token more than one way -- in the
+`Authorization` header and in the request body, or in more than one
+`Authorization` value -- is now refused with `invalid_request` (HTTP 400) and
+none of its tokens is checked (RFC 6750 section 2); previously the header's
+token was used. A failure of the OP while it checks the token, such as a
 database which does not answer, is answered with `server_error` (HTTP 500)
 instead of a 401. A client which acts on the 401 status is unaffected; one
 which compares the `error` member with `access_denied` finds `invalid_token` for
 a refused token, and no body at all for a request which carried none.
+- The token and UserInfo endpoints now send their CORS headers on error
+responses too, not only on success, and expose the `WWW-Authenticate` header
+to scripts (`Access-Control-Expose-Headers`), so that a JavaScript client can
+read why it was refused. A CORS preflight to them now allows a `DPoP` request
+header besides `Authorization` and `X-Requested-With`.
 - The token introspection endpoint now tells an access token from a refresh
 token by the token itself, and no longer by `token_type_hint`. Previously a
 hint naming the other type answered `active: false` for a valid token, and an

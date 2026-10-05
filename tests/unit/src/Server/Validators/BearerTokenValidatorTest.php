@@ -24,7 +24,10 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
+use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Exceptions\InvalidValueException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Helpers;
@@ -32,6 +35,7 @@ use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jws;
 use SimpleSAML\OpenID\Jws\Factories\ParsedJwsFactory;
 use SimpleSAML\OpenID\Jws\ParsedJws;
+use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Throwable;
 
 /**
@@ -40,6 +44,11 @@ use Throwable;
 #[AllowMockObjectsWithoutExpectations]
 class BearerTokenValidatorTest extends TestCase
 {
+    protected const string RESOURCE_URL = 'https://op.example.org/module.php/oidc/userinfo';
+
+    protected const string JKT = 'thumbprint-of-the-key-the-token-is-bound-to0';
+
+
     protected MockObject $accessTokenRepositoryMock;
 
     protected array $accessTokenState;
@@ -66,6 +75,8 @@ class BearerTokenValidatorTest extends TestCase
 
     protected MockObject $parsedJwsMock;
 
+    protected MockObject $dpopProofVerifierMock;
+
     protected string $clientId;
 
 
@@ -78,6 +89,8 @@ class BearerTokenValidatorTest extends TestCase
         $this->serverRequest = new ServerRequest('GET', '/');
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn('issuer123');
+        $this->moduleConfigMock->method('getDpopSigningAlgorithms')->willReturn(['ES256', 'RS256']);
+        $this->dpopProofVerifierMock = $this->createMock(DpopProofVerifier::class);
 
         $this->jwsMock = $this->createMock(Jws::class);
         // The real helpers: the "typ" header is compared as a media type through the library's MediaType helper.
@@ -120,12 +133,14 @@ class BearerTokenValidatorTest extends TestCase
         ?Jws $jws = null,
         ?Jwks $jwks = null,
         ?LoggerService $loggerService = null,
+        ?DpopProofVerifier $dpopProofVerifier = null,
     ): BearerTokenValidator {
         $accessTokenRepository ??= $this->accessTokenRepositoryMock;
         $moduleConfig ??= $this->moduleConfigMock;
         $jws ??= $this->jwsMock;
         $jwks ??= $this->jwksMock;
         $loggerService ??= $this->loggerServiceMock;
+        $dpopProofVerifier ??= $this->dpopProofVerifierMock;
 
         return new BearerTokenValidator(
             $accessTokenRepository,
@@ -133,6 +148,7 @@ class BearerTokenValidatorTest extends TestCase
             $jws,
             $jwks,
             $loggerService,
+            $dpopProofVerifier,
         );
     }
 
@@ -156,18 +172,22 @@ class BearerTokenValidatorTest extends TestCase
     {
         return [
             'another scheme' => ['Basic dXNlcjpwYXNz'],
-            'a DPoP token' => ['DPoP token'],
             'the scheme name run into the token' => ['Bearertoken'],
             'the scheme name alone' => ['Bearer'],
+            'the DPoP scheme name run into the token' => ['DPoPtoken'],
             'an empty header' => [''],
+            'commas only' => [', ,'],
+            'another scheme with auth-params' => ['Digest username="alice", realm="op", nonce="n", response="r"'],
+            'a comma in a quoted auth-param' => ['Digest realm="op, too", nonce="n"'],
         ];
     }
 
 
     /**
-     * An Authorization header which carries no Bearer token is no token at all: RFC 6750 section 3.1 counts a
-     * client which "attempted using an unsupported authentication method" as one which sent no credentials. Such
-     * a header used to be read as a token and refused as an invalid one, telling the client its token was bad.
+     * An Authorization header which carries no Bearer or DPoP token is no token at all: RFC 6750 section 3.1
+     * counts a client which "attempted using an unsupported authentication method" as one which sent no
+     * credentials. Such a header used to be read as a token and refused as an invalid one, telling the client its
+     * token was bad.
      */
     #[DataProvider('authorizationHeaderWithoutABearerTokenProvider')]
     public function testRefusesAnAuthorizationHeaderWithoutABearerTokenAsNoToken(string $header): void
@@ -783,16 +803,564 @@ class BearerTokenValidatorTest extends TestCase
     }
 
 
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function dpopSchemeWithoutATokenProvider(): array
+    {
+        return [
+            'the scheme name alone' => ['DPoP'],
+            'blanks after it' => ['dpop  '],
+        ];
+    }
+
+
+    /**
+     * A request which names the DPoP scheme with nothing after it carried no credentials either: the challenge is
+     * the DPoP one, the scheme it tried, with no error information (RFC 9449 section 7.2, Figure 17), and no body.
+     */
+    #[DataProvider('dpopSchemeWithoutATokenProvider')]
+    public function testRefusesTheDpopSchemeWithoutATokenWithTheBareDpopChallenge(string $header): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->never())->method('fromToken');
+
+        $exception = $this->refusalOf($this->resourceRequest()->withAddedHeader('Authorization', $header));
+
+        $this->assertSame(401, $exception->getHttpStatusCode());
+        $this->assertSame('DPoP algs="ES256 RS256"', $exception->getWwwAuthenticate());
+        $this->assertFalse($exception->hasBody());
+    }
+
+
+    /**
+     * Without the header in what PHP is given, the one Apache kept is read: every entry named Authorization in any
+     * case, so that two of them are two values. A warning says the configuration is to be fixed.
+     */
+    public function testReadsTheAuthorizationHeaderApacheKept(): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+        // Once for each of the two requests below.
+        $this->loggerServiceMock->expects($this->exactly(2))->method('warning')
+            ->with($this->stringContains('Apache stripping of Authorization'));
+
+        $validated = $this->sutWithApacheHeaders(['AUTHORIZATION' => 'Bearer ' . $this->accessToken])
+            ->validateAuthorization($this->serverRequest);
+
+        $this->assertSame($this->accessTokenState['id'], $validated->getAttribute('oauth_access_token_id'));
+
+        $exception = $this->refusalOf(
+            $this->serverRequest,
+            $this->sutWithApacheHeaders(['Authorization' => 'DPoP token', 'authorization' => 'Bearer token']),
+        );
+
+        $this->assertSame('invalid_request', $exception->getErrorType());
+        $this->assertSame(
+            'Bearer error="invalid_request", DPoP error="invalid_request", algs="ES256 RS256"',
+            $exception->getWwwAuthenticate(),
+        );
+    }
+
+
+    /**
+     * Apache's view is read only for a request PHP was given no Authorization header with.
+     */
+    public function testReadsApachesHeaderOnlyWhenPhpHasNone(): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+
+        $this->sutWithApacheHeaders(['Authorization' => 'Bearer another-token'])
+            ->validateAuthorization($this->bearerRequest());
+    }
+
+
+    /**
+     * RFC 9449 section 7.2: a `cnf` claim carried with a null value is still one, and the token is refused under
+     * the Bearer scheme and in the body; under the DPoP scheme it is no binding to a key.
+     */
+    public function testRefusesATokenWithAnExplicitlyNullConfirmation(): void
+    {
+        $this->bindParsedTokenTo(null, true);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+
+        foreach (
+            [
+                $this->bearerRequest(),
+                $this->serverRequest->withMethod('POST')->withParsedBody(['access_token' => $this->accessToken]),
+            ] as $request
+        ) {
+            $exception = $this->refusalOf($request);
+            $this->assertRefusedAsAnInvalidToken($exception);
+            $this->assertStringContainsString('only under the DPoP scheme', (string)$exception->getHint());
+        }
+
+        $this->assertRefusedUnderTheDpopScheme($this->refusalOf($this->dpopRequest()), 'invalid_token', 401);
+    }
+
+
+    /**
+     * The scheme the token was presented under is passed on: Bearer for the header under that scheme and for the
+     * body, and no DPoP proof is looked for.
+     */
+    public function testPassesTheBearerSchemeOnForATokenInTheHeaderOrTheBody(): void
+    {
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+
+        foreach (
+            [
+                $this->bearerRequest(),
+                $this->serverRequest->withMethod('POST')->withParsedBody(['access_token' => $this->accessToken]),
+            ] as $request
+        ) {
+            $this->assertSame(
+                'Bearer',
+                $this->sut()->validateAuthorization($request->withHeader('DPoP', 'a-proof'))
+                    ->getAttribute(BearerTokenValidator::ATTRIBUTE_ACCESS_TOKEN_SCHEME),
+            );
+        }
+    }
+
+
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function dpopSchemeSpellingProvider(): array
+    {
+        return [
+            'as RFC 9449 writes it' => ['DPoP token'],
+            'lower case' => ['dpop token'],
+            'upper case' => ['DPOP token'],
+            'a tab between' => ["DPoP\ttoken"],
+        ];
+    }
+
+
+    /**
+     * A token under the DPoP scheme (RFC 9449 section 7.1) is read too, the scheme name matched case-insensitively,
+     * and accepted when it is bound to the key of the proof which came with it: the proof is checked against the
+     * URL the resource named and the token exactly as it came. The scheme is passed on.
+     */
+    #[DataProvider('dpopSchemeSpellingProvider')]
+    public function testAcceptsATokenUnderTheDpopSchemeWithAProofByTheKeyItIsBoundTo(string $header): void
+    {
+        $this->bindParsedTokenTo([ClaimsEnum::Jkt->value => self::JKT]);
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+        $request = $this->resourceRequest()->withAddedHeader('Authorization', $header);
+        $this->dpopProofVerifierMock->expects($this->once())->method('verify')
+            ->with($request, self::RESOURCE_URL, $this->accessToken)
+            ->willReturn($this->verifiedProofBy(self::JKT));
+
+        $validated = $this->sut()->validateAuthorization($request);
+
+        $this->assertSame('accessToken123', $validated->getAttribute('oauth_access_token_id'));
+        $this->assertSame('DPoP', $validated->getAttribute(BearerTokenValidator::ATTRIBUTE_ACCESS_TOKEN_SCHEME));
+    }
+
+
+    /**
+     * @return array<string,array{0:string[],1:?string,2:bool}>
+     */
+    public static function moreThanOneMethodProvider(): array
+    {
+        return [
+            'the header and the body' => [['Bearer token'], 'token', false],
+            'two Authorization fields' => [['Bearer token', 'Bearer other'], null, false],
+            'two values joined into one field' => [['Bearer token, Bearer other'], null, false],
+            'a Basic and a Bearer value' => [['Basic dXNlcjpwYXNz, Bearer token'], null, false],
+            'a Bearer and a DPoP value' => [['Bearer token, DPoP token'], null, true],
+            'two Authorization fields, one of them DPoP' => [['Bearer token', 'DPoP token'], null, true],
+            'the DPoP scheme and the body' => [['DPoP token'], 'token', true],
+            'auth-params of another scheme, then a Bearer value' => [
+                ['Digest username="alice", realm="op, too", Bearer token'],
+                null,
+                false,
+            ],
+        ];
+    }
+
+
+    /**
+     * RFC 6750 section 2: "Clients MUST NOT use more than one method to transmit the token in each request". Such
+     * a request is refused as `invalid_request` with a 400 (section 3.1), and no token is checked, since which one
+     * the client meant can not be known. Where one of the methods is the DPoP scheme, a DPoP challenge names the
+     * error too (RFC 9449 section 7.2, Figure 19). The header used to win silently.
+     *
+     * @param string[] $authorization
+     */
+    #[DataProvider('moreThanOneMethodProvider')]
+    public function testRefusesARequestWhichPresentsATokenMoreThanOneWay(
+        array $authorization,
+        ?string $bodyToken,
+        bool $isDpopAmongThem,
+    ): void {
+        $this->parsedJwsFactoryMock->expects($this->never())->method('fromToken');
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+        $request = $this->resourceRequest()->withMethod('POST');
+        foreach ($authorization as $value) {
+            $request = $request->withAddedHeader('Authorization', $value);
+        }
+        if ($bodyToken !== null) {
+            $request = $request->withParsedBody(['access_token' => $bodyToken]);
+        }
+
+        $exception = $this->refusalOf($request);
+
+        $this->assertSame('invalid_request', $exception->getErrorType());
+        $this->assertSame(400, $exception->getHttpStatusCode());
+        $this->assertSame(
+            'Bearer error="invalid_request"' .
+            ($isDpopAmongThem ? ', DPoP error="invalid_request", algs="ES256 RS256"' : ''),
+            $exception->getWwwAuthenticate(),
+        );
+    }
+
+
+    /**
+     * A header under another scheme whose auth-params are separated by commas (RFC 9110 section 11.4) is one
+     * value, not several, so the token in the body is the one the request carries.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testReadsTheBodyTokenNextToAnotherSchemesAuthParams(): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+        $request = $this->serverRequest
+            ->withMethod('POST')
+            // A comma inside a quoted-string, after an escaped quote which does not end it.
+            ->withAddedHeader('Authorization', 'Digest username="alice", realm="a \\", b", nonce="n"')
+            ->withParsedBody(['access_token' => $this->accessToken]);
+
+        $this->assertSame(
+            $this->accessTokenState['id'],
+            $this->sut()->validateAuthorization($request)->getAttribute('oauth_access_token_id'),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0:string[]}>
+     */
+    public static function authorizationWithAnEmptyListElementProvider(): array
+    {
+        return [
+            'a trailing comma' => [['Bearer token,']],
+            'a leading comma' => [[', Bearer token']],
+            'an empty field beside it' => [['', 'Bearer token']],
+        ];
+    }
+
+
+    /**
+     * An empty element of the Authorization list is no value (RFC 9110 section 5.6.1), so the one beside it is
+     * the only one.
+     *
+     * @param string[] $authorization
+     */
+    #[DataProvider('authorizationWithAnEmptyListElementProvider')]
+    public function testSkipsAnEmptyElementOfTheAuthorizationList(array $authorization): void
+    {
+        $this->parsedJwsFactoryMock->expects($this->once())->method('fromToken')
+            ->with($this->accessToken)
+            ->willReturn($this->parsedJwsMock);
+        $request = $this->serverRequest;
+        foreach ($authorization as $value) {
+            $request = $request->withAddedHeader('Authorization', $value);
+        }
+
+        $this->assertSame(
+            $this->accessTokenState['id'],
+            $this->sut()->validateAuthorization($request)->getAttribute('oauth_access_token_id'),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0:string,1:mixed}>
+     */
+    public static function boundTokenOutsideTheDpopSchemeProvider(): array
+    {
+        return [
+            'under the Bearer scheme' => ['header', [ClaimsEnum::Jkt->value => self::JKT]],
+            'in the body' => ['body', [ClaimsEnum::Jkt->value => self::JKT]],
+            'confirmed by another method' => ['header', ['x5t#S256' => 'thumbprint-of-a-certificate']],
+            'a confirmation which is no object' => ['header', 'bound'],
+        ];
+    }
+
+
+    /**
+     * RFC 9449 section 7.2: a resource which accepts both schemes "MUST reject a DPoP-bound access token received
+     * as a bearer token", whether in the header or in the body, and a proof sent along does not make up for the
+     * scheme. Any `cnf` claim counts, since the module writes none but the binding.
+     */
+    #[DataProvider('boundTokenOutsideTheDpopSchemeProvider')]
+    public function testRefusesABoundTokenPresentedAsABearerToken(string $where, mixed $confirmation): void
+    {
+        $this->bindParsedTokenTo($confirmation);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+        $request = $where === 'header' ?
+        $this->bearerRequest() :
+        $this->serverRequest->withMethod('POST')->withParsedBody(['access_token' => $this->accessToken]);
+
+        $exception = $this->refusalOf($request->withHeader('DPoP', 'a-proof'));
+
+        $this->assertRefusedAsAnInvalidToken($exception);
+        $this->assertStringContainsString('only under the DPoP scheme', (string)$exception->getHint());
+    }
+
+
+    /**
+     * @return array<string,array{0:mixed}>
+     */
+    public static function tokenNotBoundByThumbprintProvider(): array
+    {
+        return [
+            'no cnf' => [null],
+            'an empty cnf' => [[]],
+            'confirmed by another method' => [['x5t#S256' => 'thumbprint-of-a-certificate']],
+            'a jkt which is no string' => [[ClaimsEnum::Jkt->value => 42]],
+            'an empty jkt' => [[ClaimsEnum::Jkt->value => '']],
+            'a confirmation which is no object' => [self::JKT],
+        ];
+    }
+
+
+    /**
+     * Under the DPoP scheme only a token bound to a key by `cnf.jkt` is accepted (RFC 9449 section 6.1); any other
+     * is refused as `invalid_token`, in a DPoP challenge, before any proof is looked at. Until the token endpoint
+     * binds tokens, that is every token.
+     */
+    #[DataProvider('tokenNotBoundByThumbprintProvider')]
+    public function testRefusesATokenNotBoundByThumbprintUnderTheDpopScheme(mixed $confirmation): void
+    {
+        $this->bindParsedTokenTo($confirmation);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+
+        $exception = $this->refusalOf($this->dpopRequest());
+
+        $this->assertRefusedUnderTheDpopScheme($exception, 'invalid_token', 401);
+        $this->assertStringContainsString('not a DPoP-bound access token', (string)$exception->getHint());
+    }
+
+
+    /**
+     * RFC 9449 section 7.1 has the resource "ensure that a DPoP proof was received": a bound token without one is
+     * `invalid_dpop_proof`.
+     */
+    public function testRefusesABoundTokenUnderTheDpopSchemeWithoutAProof(): void
+    {
+        $this->bindParsedTokenTo([ClaimsEnum::Jkt->value => self::JKT]);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->method('verify')->willReturn(null);
+
+        $exception = $this->refusalOf($this->dpopRequest());
+
+        $this->assertRefusedUnderTheDpopScheme($exception, 'invalid_dpop_proof', 401);
+        $this->assertStringContainsString('A DPoP proof is required', (string)$exception->getHint());
+    }
+
+
+    /**
+     * The verifier's refusal of the proof, or its own failure, is the answer as it stands.
+     */
+    public function testLetsTheVerifiersRefusalThrough(): void
+    {
+        $this->bindParsedTokenTo([ClaimsEnum::Jkt->value => self::JKT]);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $refusal = OidcServerException::invalidDpopProof('The DPoP proof has been used before.', 'DPoP');
+        $this->dpopProofVerifierMock->method('verify')->willThrowException($refusal);
+
+        $this->assertSame($refusal, $this->refusalOf($this->dpopRequest()));
+    }
+
+
+    /**
+     * RFC 9449 section 7.1, Figure 16: a proof by another key than the one the token is bound to is
+     * `invalid_token`.
+     */
+    public function testRefusesAProofByAnotherKeyAsAnInvalidToken(): void
+    {
+        $this->bindParsedTokenTo([ClaimsEnum::Jkt->value => self::JKT]);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->method('verify')->willReturn($this->verifiedProofBy(strrev(self::JKT)));
+
+        $exception = $this->refusalOf($this->dpopRequest());
+
+        $this->assertRefusedUnderTheDpopScheme($exception, 'invalid_token', 401);
+        $this->assertStringContainsString('not signed by the key', (string)$exception->getHint());
+    }
+
+
+    /**
+     * Without the URL of the resource no proof can be checked, which is the caller's fault, not the request's.
+     */
+    public function testAnswersAResourceWhichDidNotNameItsUrlAsTheServersOwnFailure(): void
+    {
+        $this->bindParsedTokenTo([ClaimsEnum::Jkt->value => self::JKT]);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($this->parsedJwsMock);
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+
+        $exception = $this->refusalOf(
+            $this->serverRequest->withAddedHeader('Authorization', 'DPoP ' . $this->accessToken),
+        );
+
+        $this->assertSame('server_error', $exception->getErrorType());
+        $this->assertSame(500, $exception->getHttpStatusCode());
+    }
+
+
+    /**
+     * A token presented under the DPoP scheme which fails a check of its own is refused in a DPoP challenge: the
+     * Bearer one would tell the client to try the other scheme.
+     */
+    public function testRefusesAnInvalidTokenUnderTheDpopSchemeInADpopChallenge(): void
+    {
+        $this->parsedJwsFactoryMock->method('fromToken')->willThrowException(new JwsException('Unparsable'));
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+
+        $this->assertRefusedUnderTheDpopScheme($this->refusalOf($this->dpopRequest()), 'invalid_token', 401);
+    }
+
+
+    public function testRefusesATokenWhoseIdentifierIsGoneUnderTheDpopSchemeInADpopChallenge(): void
+    {
+        $accessToken = $this->createMock(ParsedJws::class);
+        $accessToken->method('getIssuer')->willReturn('issuer123');
+        $accessToken->method('getJwtId')->willReturnOnConsecutiveCalls('accessToken123', null);
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($accessToken);
+
+        $this->assertRefusedUnderTheDpopScheme($this->refusalOf($this->dpopRequest()), 'invalid_token', 401);
+    }
+
+
+    public function testRefusesAnUnusableAudienceUnderTheDpopSchemeInADpopChallenge(): void
+    {
+        $accessToken = $this->createMock(ParsedJws::class);
+        $accessToken->method('getIssuer')->willReturn('issuer123');
+        $accessToken->method('getJwtId')->willReturn('accessToken123');
+        $this->parsedJwsFactoryMock->method('fromToken')->willReturn($accessToken);
+
+        $this->assertRefusedUnderTheDpopScheme($this->refusalOf($this->dpopRequest()), 'invalid_token', 401);
+    }
+
+
     protected function bearerRequest(): ServerRequestInterface
     {
         return $this->serverRequest->withAddedHeader('Authorization', 'Bearer ' . $this->accessToken);
     }
 
 
-    protected function refusalOf(ServerRequestInterface $serverRequest): OidcServerException
+    /**
+     * A request to the resource, which names its URL as ResourceServer does.
+     */
+    protected function resourceRequest(): ServerRequestInterface
     {
+        return $this->serverRequest->withAttribute(BearerTokenValidator::ATTRIBUTE_RESOURCE_URL, self::RESOURCE_URL);
+    }
+
+
+    protected function dpopRequest(): ServerRequestInterface
+    {
+        return $this->resourceRequest()->withAddedHeader('Authorization', 'DPoP ' . $this->accessToken);
+    }
+
+
+    /**
+     * The parsed token answers with the confirmation given for its `cnf` claim, and with null for every other; the
+     * claim counts as present unless it is null, or as $isPresent says.
+     */
+    protected function bindParsedTokenTo(mixed $confirmation, ?bool $isPresent = null): void
+    {
+        $isPresent ??= $confirmation !== null;
+        $this->parsedJwsMock->method('getPayloadClaim')->willReturnCallback(
+            fn(string $claim): mixed => $claim === ClaimsEnum::Cnf->value ? $confirmation : null,
+        );
+        $this->parsedJwsMock->method('hasPayloadClaim')->willReturnCallback(
+            fn(string $claim): bool => $claim === ClaimsEnum::Cnf->value && $isPresent,
+        );
+    }
+
+
+    /**
+     * The validator as it runs under an Apache which has the headers given.
+     *
+     * @param array<string,string> $apacheRequestHeaders
+     */
+    protected function sutWithApacheHeaders(array $apacheRequestHeaders): BearerTokenValidator
+    {
+        return new class (
+            $this->accessTokenRepositoryMock,
+            $this->moduleConfigMock,
+            $this->jwsMock,
+            $this->jwksMock,
+            $this->loggerServiceMock,
+            $this->dpopProofVerifierMock,
+            $apacheRequestHeaders,
+        ) extends BearerTokenValidator {
+            /** @param array<string,string> $apacheRequestHeaders */
+            public function __construct(
+                AccessTokenRepository $accessTokenRepository,
+                ModuleConfig $moduleConfig,
+                Jws $jws,
+                Jwks $jwks,
+                LoggerService $loggerService,
+                DpopProofVerifier $dpopProofVerifier,
+                private readonly array $apacheRequestHeaders,
+            ) {
+                parent::__construct(
+                    $accessTokenRepository,
+                    $moduleConfig,
+                    $jws,
+                    $jwks,
+                    $loggerService,
+                    $dpopProofVerifier,
+                );
+            }
+
+
+            protected function getApacheRequestHeaders(): array
+            {
+                return $this->apacheRequestHeaders;
+            }
+        };
+    }
+
+
+    protected function verifiedProofBy(string $jwkThumbprint): VerifiedDpopProof
+    {
+        return new VerifiedDpopProof($this->createStub(DpopProof::class), $jwkThumbprint);
+    }
+
+
+    protected function assertRefusedUnderTheDpopScheme(
+        OidcServerException $exception,
+        string $error,
+        int $status,
+    ): void {
+        $this->assertSame($error, $exception->getErrorType());
+        $this->assertSame($status, $exception->getHttpStatusCode());
+        $this->assertSame(sprintf('DPoP error="%s", algs="ES256 RS256"', $error), $exception->getWwwAuthenticate());
+        $this->assertTrue($exception->hasBody());
+    }
+
+
+    protected function refusalOf(
+        ServerRequestInterface $serverRequest,
+        ?BearerTokenValidator $sut = null,
+    ): OidcServerException {
         try {
-            $this->sut()->validateAuthorization($serverRequest);
+            ($sut ?? $this->sut())->validateAuthorization($serverRequest);
         } catch (OidcServerException $exception) {
             return $exception;
         }

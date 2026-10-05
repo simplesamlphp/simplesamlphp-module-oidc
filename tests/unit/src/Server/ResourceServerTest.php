@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server;
 
+use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -15,13 +16,17 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 
 /**
  * The module's stand-in for League's resource server: one method, which hands the request to the bearer
- * token validator and answers with the request the validator hands back, attributes and all. The userinfo
- * and credential endpoints authenticate their requests through it.
+ * token validator, naming the URL of the resource in a request attribute (what a DPoP proof's `htu` has to
+ * name), and answers with the request the validator hands back, attributes and all. The userinfo and credential
+ * endpoints authenticate their requests through it.
  */
 #[CoversClass(ResourceServer::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ResourceServerTest extends TestCase
 {
+    protected const string RESOURCE_URL = 'https://op.example.org/module.php/oidc/userinfo';
+
+
     protected MockObject $bearerTokenValidatorMock;
 
     protected MockObject $requestMock;
@@ -51,13 +56,21 @@ class ResourceServerTest extends TestCase
      */
     public function testAnswersWithTheRequestTheValidatorHandsBack(): void
     {
+        $request = new ServerRequest('GET', self::RESOURCE_URL, ['Authorization' => 'Bearer token']);
         $validatedRequest = $this->createMock(ServerRequestInterface::class);
         $this->bearerTokenValidatorMock->expects($this->once())
             ->method('validateAuthorization')
-            ->with($this->identicalTo($this->requestMock))
+            ->with($this->callback(
+                fn(ServerRequestInterface $handed): bool =>
+                    $handed->getAttribute(BearerTokenValidator::ATTRIBUTE_RESOURCE_URL) === self::RESOURCE_URL &&
+                    $handed->getHeaderLine('Authorization') === 'Bearer token',
+            ))
             ->willReturn($validatedRequest);
 
-        $this->assertSame($validatedRequest, $this->sut()->validateAuthenticatedRequest($this->requestMock));
+        $this->assertSame(
+            $validatedRequest,
+            $this->sut()->validateAuthenticatedRequest($request, self::RESOURCE_URL),
+        );
     }
 
 
@@ -71,6 +84,6 @@ class ResourceServerTest extends TestCase
 
         $this->expectExceptionObject($refusal);
 
-        $this->sut()->validateAuthenticatedRequest($this->requestMock);
+        $this->sut()->validateAuthenticatedRequest($this->requestMock, self::RESOURCE_URL);
     }
 }

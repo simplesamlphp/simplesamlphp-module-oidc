@@ -35,6 +35,8 @@ force**:
 
 - the reuse check of client assertions (`private_key_jwt`): an assertion is
   remembered until it expires, and presented again it is refused;
+- the replay check of DPoP proofs (RFC 9449): a proof is remembered for as long
+  as it is accepted (about two minutes), and presented again it is refused;
 - the limit on attempts at a Transaction Code (`vci_tx_code_max_attempts`,
   default 5): without it, the four-digit code of a pre-authorized Credential
   Offer can be guessed for as long as the code is valid;
@@ -43,21 +45,25 @@ force**:
 
 These are kept in the cache, so they hold only as far as the cache does. A
 count is read and then written, so requests arriving at the same moment can get
-past a limit together, and a cache local to one web server (the filesystem
-adapter, for one) counts per server when several serve the OP. An entry the
-cache loses -- evicted under memory pressure (Memcached, for one), or unreadable
-while its backend fails -- is forgotten by the client assertion check and the
-Status List rate limit. The Transaction Code attempts are kept the other way
-round: a code is given its attempts when the Credential Offer is made, and
-spends them from there, so a code whose record is lost is refused (the user
-needs a new offer) rather than given its attempts again, and a record which the
-cache does not store makes the request fail with `server_error`. For the same
-reason, an offer made before a protocol cache was configured can not be
+past a limit together (and a DPoP proof sent twice at once can be accepted
+twice), and a cache local to one web server (the filesystem adapter, for one)
+counts per server when several serve the OP. An entry the cache loses --
+evicted under memory pressure (Memcached, for one), or unreadable while its
+backend fails -- is forgotten by the client assertion check, the DPoP replay
+check and the Status List rate limit. The Transaction Code attempts are kept
+the other way round: a code is given its attempts when the Credential Offer is
+made, and spends them from there, so a code whose record is lost is refused
+(the user needs a new offer) rather than given its attempts again, and a record
+which the cache does not store makes the request fail with `server_error`. The
+DPoP replay check fails the request with `server_error` too when the cache does
+not store the record of a proof, which could otherwise be replayed. For the
+same reason, an offer made before a protocol cache was configured can not be
 redeemed with a transaction code once one is. A cache which keeps nothing from
 one request to the next (Symfony's `ArrayAdapter` or `NullAdapter`) holds these
-checks for one request at most, and the Transaction Code attempts count it as no
-cache at all (the admin overview warns of it). Where any of this matters, use one
-cache shared by every web server, with room enough not to evict entries.
+checks for one request at most, and the Transaction Code attempts (the admin
+overview warns of it) and the DPoP replay check count it as no cache at all.
+Where any of this matters, use one cache shared by every web server, with room
+enough not to evict entries.
 
 ## Relying Party (RP) administration
 

@@ -3742,6 +3742,7 @@ class ModuleConfigTest extends TestCase
                     'scopes',
                     ClaimsEnum::Typ->value,
                     ClaimsEnum::IssuerState->value,
+                    ClaimsEnum::Cnf->value,
                     'active',
                     'token_type',
                 ] as $reserved
@@ -3755,6 +3756,19 @@ class ModuleConfigTest extends TestCase
         }
 
         return $cases;
+    }
+
+
+    /**
+     * A DPoP proof may be signed with any of the supported algorithms, every one of them asymmetric, and with
+     * nothing else (RFC 9449 section 4.3, check 5).
+     */
+    public function testAcceptsDpopProofsSignedWithTheSupportedAlgorithms(): void
+    {
+        $this->assertSame(
+            ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'ES512', 'PS256', 'PS384', 'PS512', 'EdDSA'],
+            $this->sut()->getDpopSigningAlgorithms(),
+        );
     }
 
 
