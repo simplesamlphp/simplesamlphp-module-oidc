@@ -61,6 +61,11 @@
                 </td>
                 <td>
                     <div class="pure-button-group button-small" role="group" aria-label="Actions">
+                        {% if client.isGeneric %}
+                            <a class="pure-button" href="{{ routes.urlAdminClientsShow(client.getIdentifier) }}">
+                                <i class="fa fa-eye"></i>
+                            </a>
+                        {% else %}
                         <form method="post"
                               class="pure-form"
                               action="{{ routes.urlAdminClientsDelete(client.getIdentifier) }}">
@@ -78,6 +83,7 @@
                                 <i class="fa fa-trash-can"></i>
                             </button>
                         </form>
+                        {% endif %}
                     </div>
                 </td>
             </tr>

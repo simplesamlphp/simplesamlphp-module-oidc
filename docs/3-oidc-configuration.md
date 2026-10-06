@@ -94,6 +94,13 @@ Notes:
 - "Reset" on the client's page replaces its secret with a generated one. An
   administrator may give the new secret there instead, for example when the
   authorization server which issued it has issued another.
+- The VCI Generic Client is listed, but read-only. The pre-authorized codes of
+  credential offers are issued to it, and wallets which are not registered use
+  it when `vci_allow_non_registered_clients` is on. The module keeps
+  rebuilding it from its configuration, so it can not be edited or deleted:
+  the verifiable credential issuance options, such as
+  `vci_allowed_redirect_uri_prefixes_for_non_registered_clients` and
+  `vci_require_dpop`, set what such wallets may do.
 
 ## Cron integration
 
@@ -683,8 +690,8 @@ supports. The list is not configurable.
   requires a proof of every wallet, registered or not: the token endpoint then
   refuses an authorization code issued for an OpenID4VCI authorization
   request, and a pre-authorized code, presented without one. Wallets which are
-  not registered go through the VCI Generic Client, which the module rebuilds
-  whenever it is used: `dpop_bound_access_tokens` set on it has no effect, and
+  not registered go through the VCI Generic Client, which the module manages
+  (see [Relying Party administration](#relying-party-rp-administration)):
   `vci_require_dpop` is what requires a proof of them.
 - **Protected resources.** The UserInfo and credential endpoints take a bound
   token only under the `DPoP` authorization scheme, with a proof by its key

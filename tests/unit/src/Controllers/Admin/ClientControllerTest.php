@@ -6,12 +6,14 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils as SspBridgeUtils;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\Admin\ClientController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
@@ -305,6 +307,58 @@ class ClientControllerTest extends TestCase
         $this->expectExceptionMessage('Client secret');
 
         $this->sut()->delete($request);
+    }
+
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function changingActionProvider(): array
+    {
+        return [
+            'edit' => ['edit'],
+            'secret reset' => ['resetSecret'],
+            'delete' => ['delete'],
+        ];
+    }
+
+
+    /**
+     * The module keeps rebuilding the VCI Generic Client from its configuration, writing over whatever an
+     * administrator did to it, so no change is made: the administrator is sent back to its page with a message
+     * saying why. Everything the change would go through is set up to let it through, so that only the refusal
+     * stops it.
+     */
+    #[DataProvider('changingActionProvider')]
+    public function testTheGenericClientIsNotChanged(string $action): void
+    {
+        $request = Request::create(
+            '/' . $action . '?client_id=vci_generic',
+            'POST',
+            ['client_id' => 'vci_generic', 'secret' => '123'],
+        );
+
+        $genericClientMock = $this->createMock(ClientEntityInterface::class);
+        $genericClientMock->method('isGeneric')->willReturn(true);
+        $genericClientMock->method('getIdentifier')->willReturn('vci_generic');
+        $genericClientMock->method('getSecret')->willReturn('123');
+        $genericClientMock->method('getRegistrationType')->willReturn(RegistrationTypeEnum::Manual);
+        $genericClientMock->expects($this->never())->method('restoreSecret');
+        $this->clientRepositoryMock->method('findById')->with('vci_generic')->willReturn($genericClientMock);
+        $this->clientFormMock->method('isSuccess')->willReturn(true);
+        $this->clientFormMock->method('getValues')->willReturn($this->sampleFormData);
+        $this->clientEntityFactoryMock->method('fromData')->willReturn($this->clientEntityMock);
+
+        $this->clientRepositoryMock->expects($this->never())->method('update');
+        $this->clientRepositoryMock->expects($this->never())->method('delete');
+        $this->allowedOriginRepositoryMock->expects($this->never())->method('set');
+        $this->templateFactoryMock->expects($this->never())->method('build');
+        $this->sessionMessagesServiceMock->expects($this->once())->method('addMessage')
+            ->with('The VCI Generic Client is managed by the module, and can not be changed here.');
+        $this->routesMock->expects($this->once())->method('newRedirectResponseToModuleUrl')
+            ->with(RoutesEnum::AdminClientsShow->value, ['client_id' => 'vci_generic']);
+
+        $this->sut()->{$action}($request);
     }
 
 

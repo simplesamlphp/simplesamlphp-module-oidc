@@ -119,6 +119,10 @@ class ClientController
     {
         $client = $this->getClientFromRequest($request);
 
+        if ($client->isGeneric()) {
+            return $this->refuseChangeToGenericClient($client);
+        }
+
         $oldSecret = $request->request->getString('secret');
 
         if ($oldSecret !== $client->getSecret()) {
@@ -164,6 +168,10 @@ class ClientController
     public function delete(Request $request): Response
     {
         $client = $this->getClientFromRequest($request);
+
+        if ($client->isGeneric()) {
+            return $this->refuseChangeToGenericClient($client);
+        }
 
         $secret = $request->request->getString('secret');
 
@@ -274,6 +282,11 @@ class ClientController
     public function edit(Request $request): Response
     {
         $originalClient = $this->getClientFromRequest($request);
+
+        if ($originalClient->isGeneric()) {
+            return $this->refuseChangeToGenericClient($originalClient);
+        }
+
         $clientAllowedOrigins = $this->allowedOriginRepository->get($originalClient->getIdentifier());
         $form = $this->formFactory->build(ClientForm::class);
 
@@ -342,6 +355,26 @@ class ClientController
                 'regexHttpUriPath' => ClientForm::REGEX_HTTP_URI_PATH,
             ],
             RoutesEnum::AdminClients->value,
+        );
+    }
+
+
+    /**
+     * The VCI Generic Client belongs to the module: ClientRepository::getGenericForVci() rebuilds it from the
+     * configuration, writing over its stored record, whenever a credential offer with a pre-authorized code is made,
+     * or a wallet which is not registered makes an authorization request from a credential offer. A change made to
+     * it here would last only until then, so none is made, and the administrator is sent back to its page, which
+     * says so.
+     */
+    protected function refuseChangeToGenericClient(ClientEntityInterface $client): Response
+    {
+        $message = Translate::noop('The VCI Generic Client is managed by the module, and can not be changed here.');
+        $this->logger->notice($message, [ParametersEnum::ClientId->value => $client->getIdentifier()]);
+        $this->sessionMessagesService->addMessage($message);
+
+        return $this->routes->newRedirectResponseToModuleUrl(
+            RoutesEnum::AdminClientsShow->value,
+            [ParametersEnum::ClientId->value => $client->getIdentifier()],
         );
     }
 

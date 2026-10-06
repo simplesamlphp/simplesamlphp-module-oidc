@@ -14,6 +14,12 @@
         </div>
         <div class="pure-u-1-2">
             <div class="right">
+                {% if client.isGeneric %}
+                    <a class="pure-button " href="{{ routes.urlAdminClients }}">
+                        <i class="fa fa-chevron-left"></i>
+                        {{ 'Back'|trans }}
+                    </a>
+                {% else %}
                 <form method="post"
                       class="pure-form"
                       action="{{ routes.urlAdminClientsDelete(client.getIdentifier) }}">
@@ -34,11 +40,18 @@
                         {{ 'Delete'|trans }}
                     </button>
                 </form>
+                {% endif %}
 
 
             </div>
         </div>
     </div>
+
+    {% if client.isGeneric %}
+        <div class="message-box">
+            {% trans %}The module manages this client: the pre-authorized codes of credential offers are issued to it, and wallets which are not registered use it when vci_allow_non_registered_clients is on. The module keeps rebuilding it from its configuration, so a change made here would not last, and it can not be edited or deleted. What such wallets may do is set by the verifiable credential issuance options, such as vci_allowed_redirect_uri_prefixes_for_non_registered_clients and vci_require_dpop.{% endtrans %}
+        </div>
+    {% endif %}
 
     <div class="">
         {{ 'Registration'|trans }}: {{ client.registrationType.description }} |
