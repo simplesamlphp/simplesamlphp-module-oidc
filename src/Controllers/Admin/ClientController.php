@@ -460,6 +460,8 @@ class ClientController
             $extraMetadata[ClaimsEnum::DefaultMaxAge->value] = $defaultMaxAge;
         }
         $extraMetadata[ClaimsEnum::RequireAuthTime->value] = (bool)($data[ClaimsEnum::RequireAuthTime->value] ?? false);
+        $extraMetadata[ClaimsEnum::DpopBoundAccessTokens->value] =
+        (bool)($data[ClaimsEnum::DpopBoundAccessTokens->value] ?? false);
         /** @var mixed $defaultAcrValues */
         $defaultAcrValues = $data[ClaimsEnum::DefaultAcrValues->value] ?? null;
         $extraMetadata[ClaimsEnum::DefaultAcrValues->value] = is_array($defaultAcrValues) ? $defaultAcrValues : [];

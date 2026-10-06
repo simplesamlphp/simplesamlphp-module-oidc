@@ -504,6 +504,7 @@ class RegistrationControllerTest extends TestCase
             'getRequestUris' => ['https://client.example.org/request.jwt'],
             'getDefaultMaxAge' => 3600,
             'getRequireAuthTime' => true,
+            'getDpopBoundAccessTokens' => true,
             'getDefaultAcrValues' => ['urn:mace:incommon:iap:silver'],
             'getExtraMetadata' => [
                 'logo_uri' => 'https://client.example.org/logo.png',
@@ -547,6 +548,7 @@ class RegistrationControllerTest extends TestCase
             'token_endpoint_auth_method' => 'client_secret_basic',
             'default_max_age' => 3600,
             'require_auth_time' => true,
+            'dpop_bound_access_tokens' => true,
             'default_acr_values' => ['urn:mace:incommon:iap:silver'],
             'logo_uri' => 'https://client.example.org/logo.png',
             'client_uri' => 'https://client.example.org/',
@@ -573,6 +575,7 @@ class RegistrationControllerTest extends TestCase
             'getRequestUris' => [],
             'getDefaultMaxAge' => null,
             'getRequireAuthTime' => false,
+            'getDpopBoundAccessTokens' => false,
             'getDefaultAcrValues' => [],
             'getExtraMetadata' => [],
         ]);

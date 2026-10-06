@@ -351,6 +351,8 @@ class ModuleConfig
 
     final public const string OPTION_VCI_ACCESS_TOKEN_TTL = 'vci_access_token_ttl';
 
+    final public const string OPTION_VCI_REQUIRE_DPOP = 'vci_require_dpop';
+
     final public const string OPTION_VCI_TX_CODE_MAX_ATTEMPTS = 'vci_tx_code_max_attempts';
 
     final public const string OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
@@ -3196,6 +3198,20 @@ class ModuleConfig
         }
 
         return new DateInterval($accessTokenTtl);
+    }
+
+
+    /**
+     * Whether a token request for Verifiable Credential Issuance -- the authorization code grant for a code
+     * issued to an OpenID4VCI authorization request, and the pre-authorized code grant -- is refused without a
+     * DPoP proof (`invalid_dpop_proof`), so that every access token giving access to credentials is bound to the
+     * wallet's key. Off unless set: a wallet which sends a proof gets a bound token either way, and one which
+     * sends none a Bearer token (of 5 minutes at most, see getVciAccessTokenDuration()). A client's own
+     * `dpop_bound_access_tokens` reaches registered wallets only; this reaches every wallet.
+     */
+    public function getVciRequireDpop(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_VCI_REQUIRE_DPOP, false);
     }
 
 

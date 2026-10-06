@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
@@ -197,6 +198,18 @@ class PreAuthCodeGrant extends AuthCodeGrant
     ): ResponseTypeInterface {
         $this->loggerService->debug('PreAuthCodeGrant::respondToAccessTokenRequest');
 
+        // With vci_require_dpop, no pre-authorized code is redeemed without a DPoP proof. Settled first, before the
+        // code is looked up, so that a request which fails it spends no Transaction Code attempt.
+        $verifiedDpopProof = $this->getVerifiedDpopProof($request);
+
+        if ($verifiedDpopProof === null && $this->moduleConfig->getVciRequireDpop()) {
+            $this->loggerService->notice(
+                'Token request rejected: DPoP is required for credential issuance (vci_require_dpop), and the ' .
+                'pre-authorized code request carries no DPoP proof.',
+            );
+            throw OidcServerException::invalidDpopProof('A DPoP proof is required for credential issuance.');
+        }
+
         $preAuthorizedCodeId = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::PreAuthorizedCode->value,
             $request,
@@ -299,6 +312,24 @@ class PreAuthCodeGrant extends AuthCodeGrant
         $tokenClient = $registeredClient ?? $client;
         $boundClientId = $registeredClient === null ? $walletClient?->getIdentifier() : null;
 
+        if (!$tokenClient instanceof ClientEntityInterface) {
+            throw OidcServerException::serverError('Unexpected Client Entity instance.');
+        }
+
+        // A wallet registered with dpop_bound_access_tokens (RFC 9449 section 5.2) gets no token without a DPoP
+        // proof. Its registration is known only here, after a Transaction Code attempt was counted and before the
+        // code is consumed: only a wallet which omits the proof it registered to send loses an attempt.
+        if ($verifiedDpopProof === null && $tokenClient->getDpopBoundAccessTokens()) {
+            $this->loggerService->notice(
+                'Token request rejected: the client is registered to use DPoP for every token request ' .
+                '(dpop_bound_access_tokens), and the pre-authorized code request carries no DPoP proof.',
+                ['client_id' => $tokenClient->getIdentifier()],
+            );
+            throw OidcServerException::invalidDpopProof(
+                'A DPoP proof is required: the client is registered with dpop_bound_access_tokens.',
+            );
+        }
+
         $userIdentifier = $preAuthorizedCode->getUserIdentifier() ?
         (string) $preAuthorizedCode->getUserIdentifier() :
         null;
@@ -310,7 +341,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         // The token is bound to the key of the request's DPoP proof, if any, and lives as long as a token for
         // credential issuance does; settled before the code is consumed, so that a failure here spends nothing.
-        $dpopJkt = $this->getVerifiedDpopProof($request)?->getJwkThumbprint();
+        $dpopJkt = $verifiedDpopProof?->getJwkThumbprint();
         $accessTokenTTL = $this->accessTokenTtlFor($accessTokenTTL, FlowTypeEnum::VciPreAuthorizedCode, $dpopJkt);
 
         // Consume immediately before token issuance. The conditional database update is the

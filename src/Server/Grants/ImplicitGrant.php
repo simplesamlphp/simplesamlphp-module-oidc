@@ -12,6 +12,7 @@ use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
@@ -48,6 +49,7 @@ use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -211,6 +213,31 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $responseType = ($resultBag->getOrFail(ResponseTypeRule::class))->getValue();
         $authorizationRequest->setResponseType($responseType);
+
+        // A client registered with dpop_bound_access_tokens (RFC 9449 section 5.2) gets an access token only for a
+        // request carrying a DPoP proof, and none comes to the authorization endpoint: a response type which
+        // returns an access token from here (`id_token token`) is refused. `id_token` alone returns none.
+        if (
+            $authorizationRequest->shouldReturnAccessTokenInAuthorizationResponse() &&
+            $client instanceof ClientEntityInterface &&
+            $client->getDpopBoundAccessTokens()
+        ) {
+            $this->loggerService->notice(
+                'Authorization request rejected: the client is registered to use DPoP for every token request ' .
+                '(dpop_bound_access_tokens), and the response type would return an access token without a DPoP ' .
+                'proof.',
+                ['client_id' => $client->getIdentifier(), 'response_type' => $responseType],
+            );
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::ResponseType->value,
+                'The client is registered with dpop_bound_access_tokens, and this response type returns an access ' .
+                'token without a DPoP proof.',
+                null,
+                $redirectUri,
+                $state,
+                $responseMode,
+            );
+        }
 
         $acrValues = $resultBag->getOrFail(AcrValuesRule::class)->getValue();
         $authorizationRequest->setRequestedAcrValues($acrValues);

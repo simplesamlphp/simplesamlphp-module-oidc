@@ -86,6 +86,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildSignatureKeysSection(),
             $this->buildCredentialConfigurationsSection(),
             $this->buildNonRegisteredClientsSection(),
+            $this->buildDpopSection(),
             $this->buildStatusListsSection(),
             $this->buildDidResolutionSection(),
             $this->buildCacheSection(),
@@ -1001,6 +1002,43 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'context. The document URL is listed with its configuration above.',
                 ) : null,
                 $jsonLdContextError,
+            ),
+        );
+    }
+
+
+    /**
+     * Whether credential issuance requires DPoP of every wallet, which a client's own registration
+     * (dpop_bound_access_tokens) can not do for a wallet which is not registered.
+     */
+    protected function buildDpopSection(): Section
+    {
+        return new Section(
+            Translate::noop('DPoP'),
+            'dpop',
+            $this->guardRow(
+                Translate::noop('Require DPoP'),
+                ModuleConfig::OPTION_VCI_REQUIRE_DPOP,
+                function (): Row {
+                    $isRequired = $this->moduleConfig->getVciRequireDpop();
+
+                    return new Row(
+                        Translate::noop('Require DPoP'),
+                        $this->yesNo($isRequired),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_REQUIRE_DPOP,
+                        $isRequired ?
+                        Translate::noop(
+                            'Every token request for credential issuance needs a DPoP proof, so every access token ' .
+                            'giving access to credentials is bound to a key of the wallet.',
+                        ) :
+                        Translate::noop(
+                            'A wallet which sends a DPoP proof gets an access token bound to its key, and one which ' .
+                            'sends none a Bearer token of 5 minutes at most. A registered wallet can require DPoP ' .
+                            'for itself with dpop_bound_access_tokens.',
+                        ),
+                    );
+                },
             ),
         );
     }

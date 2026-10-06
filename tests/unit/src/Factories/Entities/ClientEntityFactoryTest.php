@@ -427,8 +427,9 @@ class ClientEntityFactoryTest extends TestCase
 
 
     /**
-     * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values) and informational
-     * metadata (initiate_login_uri, software_id, software_version) are persisted from a registration request.
+     * The behavioral default metadata (default_max_age, require_auth_time, default_acr_values),
+     * dpop_bound_access_tokens and informational metadata (initiate_login_uri, software_id, software_version) are
+     * persisted from a registration request.
      *
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -440,6 +441,7 @@ class ClientEntityFactoryTest extends TestCase
                 ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
                 ClaimsEnum::DefaultMaxAge->value => 600,
                 ClaimsEnum::RequireAuthTime->value => true,
+                ClaimsEnum::DpopBoundAccessTokens->value => true,
                 ClaimsEnum::DefaultAcrValues->value => ['acr-1', 'acr-2'],
                 ClaimsEnum::InitiateLoginUri->value => 'https://example.org/initiate',
                 ClaimsEnum::SoftwareId->value => 'suite',
@@ -450,6 +452,7 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertSame(600, $client->getDefaultMaxAge());
         $this->assertTrue($client->getRequireAuthTime());
+        $this->assertTrue($client->getDpopBoundAccessTokens());
         $this->assertSame(['acr-1', 'acr-2'], $client->getDefaultAcrValues());
         $this->assertSame('https://example.org/initiate', $client->getInitiateLoginUri());
         $this->assertSame('suite', $client->getSoftwareId());
@@ -621,6 +624,34 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertTrue($updatedClient->isConfidential());
         $this->assertSame('client_secret_basic', $updatedClient->getTokenEndpointAuthMethod());
+    }
+
+
+    /**
+     * dpop_bound_access_tokens is metadata the client registers: an RFC 7592 update which omits it resets it to
+     * false, an update replacing the registration as a whole.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testADcrUpdateWhichOmitsDpopBoundAccessTokensResetsIt(): void
+    {
+        $registered = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClaimsEnum::DpopBoundAccessTokens->value => true,
+            ],
+            RegistrationTypeEnum::Dynamic,
+        );
+        $this->assertTrue($registered->getDpopBoundAccessTokens());
+
+        $updated = $this->sut()->fromRegistrationData(
+            [ClaimsEnum::RedirectUris->value => ['https://example.org/cb']],
+            RegistrationTypeEnum::Dynamic,
+            existingClient: $registered,
+        );
+
+        $this->assertFalse($updated->getDpopBoundAccessTokens());
     }
 
 

@@ -772,6 +772,31 @@ class ClientControllerTest extends TestCase
 
 
     /**
+     * dpop_bound_access_tokens is saved as the form gives it, and as false when the form gives nothing.
+     */
+    public function testAnEditSavesDpopBoundAccessTokens(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+
+        $saved = $this->extraMetadataSavedByEdit([], [...$this->sampleFormData, 'dpop_bound_access_tokens' => true]);
+
+        $this->assertTrue($saved['dpop_bound_access_tokens']);
+    }
+
+
+    public function testAnEditWithoutDpopBoundAccessTokensSavesFalse(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+        $formData = $this->sampleFormData;
+        unset($formData['dpop_bound_access_tokens']);
+
+        $saved = $this->extraMetadataSavedByEdit(['dpop_bound_access_tokens' => true], $formData);
+
+        $this->assertFalse($saved['dpop_bound_access_tokens']);
+    }
+
+
+    /**
      * An administrator removing the foreign issuer list removes it from the record.
      */
     public function testAnAdministratorRemovesTheForeignIssuerList(): void

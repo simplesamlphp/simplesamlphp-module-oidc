@@ -232,6 +232,7 @@ class ClientMetadataValidatorTest extends TestCase
             'redirect_uris' => ['https://client.example.org/cb'],
             'default_max_age' => 600,
             'require_auth_time' => true,
+            'dpop_bound_access_tokens' => true,
             'default_acr_values' => ['urn:mace:incommon:iap:silver'],
             'initiate_login_uri' => 'https://client.example.org/initiate',
             'software_id' => 'example-suite',
@@ -258,6 +259,33 @@ class ClientMetadataValidatorTest extends TestCase
             ['redirect_uris' => ['https://client.example.org/cb'], 'require_auth_time' => 'yes'],
             'invalid_client_metadata',
             'require_auth_time',
+        );
+    }
+
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function nonBooleanProvider(): array
+    {
+        return [
+            'a string' => ['true'],
+            'a number' => [1],
+            'null' => [null],
+        ];
+    }
+
+
+    /**
+     * dpop_bound_access_tokens is a boolean (RFC 9449 section 5.2), and nothing which merely reads as one.
+     */
+    #[DataProvider('nonBooleanProvider')]
+    public function testNonBooleanDpopBoundAccessTokensIsRejected(mixed $value): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'dpop_bound_access_tokens' => $value],
+            'invalid_client_metadata',
+            'dpop_bound_access_tokens',
         );
     }
 

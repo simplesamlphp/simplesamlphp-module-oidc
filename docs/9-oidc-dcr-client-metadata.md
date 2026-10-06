@@ -59,6 +59,7 @@ contract for what was honored.
 | `token_endpoint_auth_signing_alg` | Ignored | TBD | Relevant to `private_key_jwt` / `client_secret_jwt`. |
 | `default_max_age` | **Honored** (validate + store + echo + enforce) | Honored | Admin-editable. Default applied when max_age omitted (MaxAgeRule). |
 | `require_auth_time` | **Honored** (validate + store + echo + enforce) | Honored | Admin-editable. Forces auth_time into the ID Token (MaxAgeRule -> AuthCodeGrant). |
+| `dpop_bound_access_tokens` | **Honored** (validate + store + echo + enforce) | Honored | Admin-editable. RFC 9449 §5.2, a boolean. When true, every token request of the client needs a DPoP proof (`invalid_dpop_proof` otherwise: AuthCodeGrant, PreAuthCodeGrant, RefreshTokenGrant), and `response_type` `id_token token` is refused at the authorization endpoint (`invalid_request`, ImplicitGrant). |
 | `default_acr_values` | **Honored** (validate + store + echo + enforce) | Honored | Constrained to `acr_values_supported`: DCR rejects unsupported values; the admin field is a multi-select of the supported ACRs. Default applied when acr_values omitted (AcrValuesRule). |
 | `initiate_login_uri` | **Validated + echoed** | Validated + echoed | Admin-editable; https URI. Informational. |
 | `backchannel_logout_session_required` | Ignored | TBD | |

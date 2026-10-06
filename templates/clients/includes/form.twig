@@ -237,6 +237,12 @@
             {% trans %}When enabled, the auth_time claim is always included in ID Tokens issued to this Client.{% endtrans %}
         </span>
 
+        <label for="">{{ 'Require DPoP-bound Access Tokens'|trans }}</label>
+        {{ form.dpop_bound_access_tokens.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}When enabled (dpop_bound_access_tokens, RFC 9449), the token endpoint refuses every token request from this Client which carries no DPoP proof, so each access token it gets is bound to its key. An authorization request whose response type returns an access token directly (id_token token) is refused too, since no proof comes with it. It has no effect on the VCI Generic Client, which stands in for wallets which are not registered: vci_require_dpop requires DPoP of those.{% endtrans %}
+        </span>
+
         {% if form.editsAdminOnlyProperties() %}
         <label for="">{{ 'Release User Claims in ID Token'|trans }}</label>
         {{ form.add_claims_to_id_token.control | raw }}

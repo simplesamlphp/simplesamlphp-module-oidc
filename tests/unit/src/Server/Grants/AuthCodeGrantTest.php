@@ -177,6 +177,9 @@ class AuthCodeGrantTest extends TestCase
     /** What ModuleConfig answers for the lifetime of an access token for credential issuance. */
     private string $vciAccessTokenTtl = 'PT5M';
 
+    /** What ModuleConfig answers for vci_require_dpop. */
+    private bool $vciRequireDpop = false;
+
     /** @var string[] Scope identifiers the scope repository no longer resolves, as ModuleConfig::getScopes() drops them. */
     private array $unsupportedScopes = [];
 
@@ -216,6 +219,7 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->moduleConfigMock->method('getVciAccessTokenDuration')
             ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
+        $this->moduleConfigMock->method('getVciRequireDpop')->willReturnCallback(fn(): bool => $this->vciRequireDpop);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
@@ -1793,6 +1797,120 @@ class AuthCodeGrantTest extends TestCase
         );
     }
 
+
+    /**
+     * @return array<string, array{bool, bool, \SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum, string}>
+     */
+    public static function requiredProofProvider(): array
+    {
+        return [
+            'a client registered with dpop_bound_access_tokens' => [
+                true,
+                false,
+                FlowTypeEnum::OidcAuthorizationCode,
+                'A DPoP proof is required: the client is registered with dpop_bound_access_tokens.',
+            ],
+            'a code for credential issuance, with vci_require_dpop' => [
+                false,
+                true,
+                FlowTypeEnum::VciAuthorizationCode,
+                'A DPoP proof is required for credential issuance.',
+            ],
+        ];
+    }
+
+
+    /**
+     * A proof is required of a client registered with dpop_bound_access_tokens (RFC 9449 section 5.2), and, with
+     * vci_require_dpop, for a code issued for credential issuance. A request without one is refused as
+     * `invalid_dpop_proof` before the code is looked at any further: it spends neither the code nor the Credential
+     * Offer, and issues nothing.
+     */
+    #[DataProvider('requiredProofProvider')]
+    public function testRefusesATokenRequestWithoutARequiredProof(
+        bool $dpopBoundAccessTokens,
+        bool $vciRequireDpop,
+        FlowTypeEnum $flowType,
+        string $expectedHint,
+    ): void {
+        $this->vciRequireDpop = $vciRequireDpop;
+        $this->storedAuthCode(
+            issuerState: self::ISSUER_STATE,
+            flowType: $flowType,
+            dpopBoundAccessTokens: $dpopBoundAccessTokens,
+        );
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumeAuthCode');
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->assertRejectsWithHint('invalid_dpop_proof', $expectedHint, $this->request());
+    }
+
+
+    /**
+     * A used code presented without a proof its client or the module requires revokes nothing: the requirement
+     * is checked before the code is.
+     */
+    #[DataProvider('requiredProofProvider')]
+    public function testRevokesNothingForAUsedCodeWithoutARequiredProof(
+        bool $dpopBoundAccessTokens,
+        bool $vciRequireDpop,
+        FlowTypeEnum $flowType,
+        string $expectedHint,
+    ): void {
+        $this->vciRequireDpop = $vciRequireDpop;
+        $this->storedAuthCode(isRevoked: true, flowType: $flowType, dpopBoundAccessTokens: $dpopBoundAccessTokens);
+        $this->accessTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeByAuthCodeId');
+
+        $this->assertRejectsWithHint('invalid_dpop_proof', $expectedHint, $this->request());
+    }
+
+
+    /**
+     * @return array<string, array{bool, bool, ?\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum, ?string}>
+     */
+    public static function proofNotRequiredOrPresentedProvider(): array
+    {
+        return [
+            'a client registered with dpop_bound_access_tokens, with a proof' =>
+                [true, false, FlowTypeEnum::OidcAuthorizationCode, 'thumbprint-of-the-proof-key'],
+            'a code for credential issuance with vci_require_dpop, with a proof' =>
+                [false, true, FlowTypeEnum::VciAuthorizationCode, 'thumbprint-of-the-proof-key'],
+            'an OIDC code with vci_require_dpop, without one' =>
+                [false, true, FlowTypeEnum::OidcAuthorizationCode, null],
+            'a code with no flow type recorded, with vci_require_dpop, without one' => [false, true, null, null],
+            'a code for credential issuance without vci_require_dpop, without one' =>
+                [false, false, FlowTypeEnum::VciAuthorizationCode, null],
+        ];
+    }
+
+
+    /**
+     * The proof a client or the module requires is all it takes; vci_require_dpop reaches only a code whose stored
+     * flow type is one for credential issuance.
+     */
+    #[DataProvider('proofNotRequiredOrPresentedProvider')]
+    public function testIssuesWhenNoProofIsRequiredOrTheRequiredOneCame(
+        bool $dpopBoundAccessTokens,
+        bool $vciRequireDpop,
+        ?FlowTypeEnum $flowType,
+        ?string $proofJkt,
+    ): void {
+        $this->vciRequireDpop = $vciRequireDpop;
+        $this->storedAuthCode(flowType: $flowType, dpopBoundAccessTokens: $dpopBoundAccessTokens);
+        $this->expectAccessTokenToBeIssued();
+        $this->authCodeRepositoryMock->expects($this->once())->method('consumeAuthCode')->with(self::AUTH_CODE_ID);
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->request(proofJkt: $proofJkt),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame($proofJkt, $this->accessTokenFactoryArguments[15]);
+    }
+
     // Helpers.
 
     private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): AuthCodeGrant
@@ -1848,6 +1966,27 @@ class AuthCodeGrantTest extends TestCase
             );
         } catch (OAuthServerException $exception) {
             $this->assertSame($expectedErrorType, $exception->getErrorType());
+
+            return;
+        }
+
+        $this->fail(sprintf('Expected the token request to be rejected with "%s".', $expectedErrorType));
+    }
+
+
+    /**
+     * As assertRejects(), and with the hint the client is given.
+     */
+    private function assertRejectsWithHint(
+        string $expectedErrorType,
+        string $expectedHint,
+        ServerRequestInterface $request,
+    ): void {
+        try {
+            $this->sut()->respondToAccessTokenRequest($request, $this->responseType(), new DateInterval('PT5M'));
+        } catch (OAuthServerException $exception) {
+            $this->assertSame($expectedErrorType, $exception->getErrorType());
+            $this->assertSame($expectedHint, $exception->getHint());
 
             return;
         }
@@ -1981,11 +2120,13 @@ class AuthCodeGrantTest extends TestCase
         ?string $issuerState = null,
         ?FlowTypeEnum $flowType = null,
         ?string $dpopJkt = null,
+        bool $dpopBoundAccessTokens = false,
     ): AuthCodeEntity {
         $client = $this->createMock(ClientEntity::class);
         $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
         $client->method('isGeneric')->willReturn($isGeneric);
         $client->method('getGrantTypes')->willReturn($grantTypes ?? ['authorization_code']);
+        $client->method('getDpopBoundAccessTokens')->willReturn($dpopBoundAccessTokens);
 
         $authCode = new AuthCodeEntity(
             self::AUTH_CODE_ID,

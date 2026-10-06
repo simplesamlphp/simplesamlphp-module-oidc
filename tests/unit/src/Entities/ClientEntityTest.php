@@ -275,6 +275,7 @@ class ClientEntityTest extends TestCase
                 'token_endpoint_auth_method' => null,
                 'default_max_age' => null,
                 'require_auth_time' => false,
+                'dpop_bound_access_tokens' => false,
                 'default_acr_values' => [],
                 'initiate_login_uri' => null,
                 'software_id' => null,
@@ -580,6 +581,7 @@ class ClientEntityTest extends TestCase
         ?DateTimeImmutable $expiresAt = null,
         ?array $extraMetadata = null,
         ?string $registrationAccessToken = null,
+        ?bool $isGeneric = null,
     ): ClientEntity {
         return new ClientEntity(
             $this->id,
@@ -604,7 +606,7 @@ class ClientEntityTest extends TestCase
             $updatedAt,
             $createdAt,
             $expiresAt,
-            $this->isGeneric,
+            $isGeneric ?? $this->isGeneric,
             $extraMetadata,
             $registrationAccessToken,
         );
@@ -977,5 +979,49 @@ class ClientEntityTest extends TestCase
     public function testDefaultMaxAgeIsANonNegativeInteger(?array $extraMetadata, ?int $expected): void
     {
         $this->assertSame($expected, $this->entityWith(extraMetadata: $extraMetadata)->getDefaultMaxAge());
+    }
+
+
+    /**
+     * @return array<string, array{?array<string,mixed>, bool}>
+     */
+    public static function dpopBoundAccessTokensProvider(): array
+    {
+        return [
+            'no extra metadata' => [null, false],
+            'not registered' => [[], false],
+            'registered as true' => [['dpop_bound_access_tokens' => true], true],
+            'registered as false' => [['dpop_bound_access_tokens' => false], false],
+        ];
+    }
+
+
+    /**
+     * dpop_bound_access_tokens (RFC 9449 section 5.2) is false unless the client registered it, and is exported
+     * with the rest of the metadata.
+     *
+     * @param ?array<string,mixed> $extraMetadata
+     */
+    #[DataProvider('dpopBoundAccessTokensProvider')]
+    public function testDpopBoundAccessTokensIsFalseUnlessRegistered(?array $extraMetadata, bool $expected): void
+    {
+        $client = $this->entityWith(extraMetadata: $extraMetadata);
+
+        $this->assertSame($expected, $client->getDpopBoundAccessTokens());
+        $this->assertSame($expected, $client->toArray()['dpop_bound_access_tokens']);
+    }
+
+
+    /**
+     * The generic VCI client never requires DPoP through its own metadata: it stands in for wallets which are not
+     * registered, and is rebuilt without extra metadata whenever it is used, so a stored value would hold only until
+     * then.
+     */
+    public function testTheGenericClientNeverRequiresDpopThroughItsMetadata(): void
+    {
+        $client = $this->entityWith(extraMetadata: ['dpop_bound_access_tokens' => true], isGeneric: true);
+
+        $this->assertFalse($client->getDpopBoundAccessTokens());
+        $this->assertFalse($client->toArray()['dpop_bound_access_tokens']);
     }
 }

@@ -601,8 +601,8 @@ class ClientMetadataValidator
 
     /**
      * Validate additional supported metadata: the behavioral "default when omitted" fields (default_max_age,
-     * require_auth_time, default_acr_values) and the informational fields (initiate_login_uri, software_id,
-     * software_version).
+     * require_auth_time, default_acr_values), dpop_bound_access_tokens, and the informational fields
+     * (initiate_login_uri, software_id, software_version).
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -624,6 +624,14 @@ class ClientMetadataValidator
             $requireAuthTime = $metadata[ClaimsEnum::RequireAuthTime->value];
             if (!is_bool($requireAuthTime)) {
                 throw OidcServerException::invalidClientMetadata('require_auth_time must be a boolean.');
+            }
+        }
+
+        if (array_key_exists(ClaimsEnum::DpopBoundAccessTokens->value, $metadata)) {
+            /** @var mixed $dpopBoundAccessTokens */
+            $dpopBoundAccessTokens = $metadata[ClaimsEnum::DpopBoundAccessTokens->value];
+            if (!is_bool($dpopBoundAccessTokens)) {
+                throw OidcServerException::invalidClientMetadata('dpop_bound_access_tokens must be a boolean.');
             }
         }
 

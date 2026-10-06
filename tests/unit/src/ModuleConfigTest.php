@@ -4374,6 +4374,18 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * vci_require_dpop is off unless set.
+     */
+    public function testCredentialIssuanceRequiresDpopOnlyWhenConfiguredTo(): void
+    {
+        $this->assertFalse($this->sut()->getVciRequireDpop());
+        $this->assertTrue(
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_REQUIRE_DPOP, true))->getVciRequireDpop(),
+        );
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testProofOfPossessionNoncesLastFiveMinutesUnlessConfiguredOtherwise(): void

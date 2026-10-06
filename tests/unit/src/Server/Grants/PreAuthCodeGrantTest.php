@@ -167,6 +167,9 @@ class PreAuthCodeGrantTest extends TestCase
     /** What ModuleConfig answers for the lifetime of an access token for credential issuance. */
     private string $vciAccessTokenTtl = 'PT5M';
 
+    /** What ModuleConfig answers for vci_require_dpop. */
+    private bool $vciRequireDpop = false;
+
 
     protected function setUp(): void
     {
@@ -189,6 +192,7 @@ class PreAuthCodeGrantTest extends TestCase
             ->willReturn([self::OFFERED, self::ALSO_SUPPORTED]);
         $this->moduleConfigMock->method('getVciAccessTokenDuration')
             ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
+        $this->moduleConfigMock->method('getVciRequireDpop')->willReturnCallback(fn(): bool => $this->vciRequireDpop);
         // The generic VCI client, which a code is created for: it may have every supported configuration.
         $this->clientMock = $this->createMock(ClientEntity::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -1265,6 +1269,170 @@ class PreAuthCodeGrantTest extends TestCase
             $this->fail('The token request was answered.');
         } catch (OidcServerException $exception) {
             $this->assertServerError($exception, 'Unexpected DPoP proof on the token request.');
+        }
+    }
+
+
+    /**
+     * With vci_require_dpop, a pre-authorized code is redeemed only with a DPoP proof. A request without one is
+     * refused before the code is even read from the request: it is not looked up, spends no Transaction Code
+     * attempt, and is not consumed.
+     */
+    public function testRefusesARequestWithoutAProofWhenCredentialIssuanceRequiresOne(): void
+    {
+        $this->vciRequireDpop = true;
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->withNoAuthorizationDetails();
+        $this->authCodeRepositoryMock->expects($this->never())->method('findById');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
+
+        $this->assertTokenRequestRefused('invalid_dpop_proof', 'A DPoP proof is required for credential issuance.');
+        $this->assertSame([], $this->askedParameters);
+        $this->assertLogged(
+            'notice',
+            'Token request rejected: DPoP is required for credential issuance (vci_require_dpop), and the ' .
+            'pre-authorized code request carries no DPoP proof.',
+        );
+    }
+
+
+    /**
+     * With vci_require_dpop, a request with a proof is redeemed as any other, and its token bound to the proof's
+     * key.
+     */
+    public function testRedeemsARequestWithAProofWhenCredentialIssuanceRequiresOne(): void
+    {
+        $this->vciRequireDpop = true;
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->withProofBy('thumbprint-of-the-proof-key');
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->expects($this->once())->method('consumePreAuthorizedCode')->willReturn(true);
+        $arguments = [];
+        $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
+            function (...$given) use (&$arguments): AccessTokenEntity {
+                $arguments = $given;
+
+                return $this->createMock(AccessTokenEntity::class);
+            },
+        );
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame('thumbprint-of-the-proof-key', $arguments[15]);
+    }
+
+
+    /**
+     * @return array<string, array{string, bool, bool, ?string, bool}>
+     */
+    public static function clientRequiringAProofProvider(): array
+    {
+        // Who redeems the code, whether a registered wallet registered dpop_bound_access_tokens, whether the code's
+        // client (the generic VCI client) did, the proof, whether the request is refused.
+        return [
+            'a registered wallet which registered it, without a proof' => ['registered', true, false, null, true],
+            'a non-registered wallet, the code\'s client having registered it, without a proof' =>
+                ['non-registered', false, true, null, true],
+            'an anonymous request, the code\'s client having registered it, without a proof' =>
+                ['anonymous', false, true, null, true],
+            'a registered wallet which did not, the code\'s client having registered it, without a proof' =>
+                ['registered', false, true, null, false],
+            'a registered wallet which registered it, with a proof' =>
+                ['registered', true, false, 'thumbprint-of-the-proof-key', false],
+        ];
+    }
+
+
+    /**
+     * The client the token is issued to -- a registered wallet, or else the code's client -- gets no token without a
+     * proof when it registered dpop_bound_access_tokens (RFC 9449 section 5.2). Its registration is known only once
+     * the wallet is identified, after a Transaction Code attempt was counted, and the refusal comes before the code
+     * is consumed.
+     */
+    #[DataProvider('clientRequiringAProofProvider')]
+    public function testRefusesARequestWithoutAProofForAClientRegisteredWithDpopBoundAccessTokens(
+        string $wallet,
+        bool $walletRequiresAProof,
+        bool $codesClientRequiresAProof,
+        ?string $proofJkt,
+        bool $isRefused,
+    ): void {
+        $walletClientMock = $this->createMock(ClientEntity::class);
+        $walletClientMock->method('getIdentifier')->willReturn(self::WALLET_CLIENT_ID);
+        $walletClientMock->method('getScopes')->willReturn([self::OFFERED]);
+        $walletClientMock->method('getDpopBoundAccessTokens')->willReturn($walletRequiresAProof);
+        $this->clientMock->method('getDpopBoundAccessTokens')->willReturn($codesClientRequiresAProof);
+        $walletClient = match ($wallet) {
+            'registered' => PreAuthorizedCodeClient::registered($walletClientMock),
+            'non-registered' => PreAuthorizedCodeClient::selfDeclared(self::WALLET_CLIENT_ID),
+            'anonymous' => null,
+        };
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->withProofBy($proofJkt);
+        $this->requestRulesManagerMock->method('check')->willReturn($this->resultBagWith(null, $walletClient));
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->once())->method('admitAttempt')->willReturn(true);
+        $this->authCodeRepositoryMock->expects($isRefused ? $this->never() : $this->once())
+            ->method('consumePreAuthorizedCode')
+            ->willReturn(true);
+        $this->accessTokenEntityFactoryMock->expects($isRefused ? $this->never() : $this->once())
+            ->method('fromData')
+            ->willReturn($this->createMock(AccessTokenEntity::class));
+
+        if ($isRefused) {
+            $this->assertTokenRequestRefused(
+                'invalid_dpop_proof',
+                'A DPoP proof is required: the client is registered with dpop_bound_access_tokens.',
+            );
+
+            return;
+        }
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+    }
+
+
+    /**
+     * The token goes to a client the module knows; anything else in the place of the code's client is the OP's own
+     * fault, answered before the code is consumed.
+     */
+    public function testAnswersACodeWhoseClientIsNotTheModulesOwnAsAServerError(): void
+    {
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->authCodeRepositoryMock->method('findById')->willReturn(new AuthCodeEntity(
+            self::PRE_AUTHORIZED_CODE,
+            $this->createStub(OAuth2ClientEntityInterface::class),
+            [new ScopeEntity('openid'), new ScopeEntity(self::OFFERED)],
+            new DateTimeImmutable('+1 hour'),
+            self::USER_ID,
+            'openid-credential-offer://',
+            flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+        ));
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestMock,
+                $this->createMock(ResponseTypeInterface::class),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The token request was answered.');
+        } catch (OidcServerException $exception) {
+            $this->assertServerError($exception, 'Unexpected Client Entity instance.');
         }
     }
 

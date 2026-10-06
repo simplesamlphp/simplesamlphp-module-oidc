@@ -429,6 +429,13 @@ class ClientEntityFactory
             $extraMetadata[ClaimsEnum::RequireAuthTime->value] = (bool)$metadata[ClaimsEnum::RequireAuthTime->value];
         }
 
+        // RFC 9449 section 5.2: the client uses DPoP for every token request, and the token grants refuse one which
+        // carries no proof.
+        if (array_key_exists(ClaimsEnum::DpopBoundAccessTokens->value, $metadata)) {
+            $extraMetadata[ClaimsEnum::DpopBoundAccessTokens->value] =
+            (bool)$metadata[ClaimsEnum::DpopBoundAccessTokens->value];
+        }
+
         if (
             isset($metadata[ClaimsEnum::DefaultAcrValues->value]) &&
             is_array($metadata[ClaimsEnum::DefaultAcrValues->value])

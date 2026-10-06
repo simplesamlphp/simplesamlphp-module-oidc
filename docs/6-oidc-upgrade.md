@@ -86,13 +86,17 @@ bound to the same key. The UserInfo endpoint takes a bound token under the
 `DPoP` authorization scheme with a proof by its key. An authorization code can
 be bound to a key too, with the `dpop_jkt` authorization request parameter or
 a DPoP proof on a pushed authorization request; the authorization code table
-gains a `dpop_jkt` column for it (run the DB migrations). The discovery
-documents advertise `dpop_signing_alg_values_supported`. The token
-introspection endpoint reports a bound token with `token_type` `DPoP` and its
-`cnf` claim, which a release policy can not withhold. A resource server which
-reads this OP's access tokens itself, or asks the introspection endpoint, has
-to check the binding itself: one which ignores it takes a bound token as a
-Bearer token. See the [configuration guide](3-oidc-configuration.md#dpop-sender-constrained-tokens).
+gains a `dpop_jkt` column for it (run the DB migrations). A client can require
+DPoP of itself with the `dpop_bound_access_tokens` client metadata (in client
+registration, and on the admin client form): its token requests without a
+proof are then refused, and so are its `id_token token` authorization
+requests. The discovery documents advertise
+`dpop_signing_alg_values_supported`. The token introspection endpoint reports
+a bound token with `token_type` `DPoP` and its `cnf` claim, which a release
+policy can not withhold. A resource server which reads this OP's access tokens
+itself, or asks the introspection endpoint, has to check the binding itself:
+one which ignores it takes a bound token as a Bearer token. See the
+[configuration guide](3-oidc-configuration.md#dpop-sender-constrained-tokens).
 - Support for the OAuth 2.0 Form Post Response Mode (`response_mode=form_post`).
 The OP now supports three response modes - `query`, `fragment`, and
 `form_post`. With `form_post`, the authorization response parameters are
@@ -289,6 +293,7 @@ per-field metadata policy (honored / validated / rejected) is documented in
     - Token Endpoint Authentication Method (`token_endpoint_auth_method`)
     - Default Max Age (`default_max_age`)
     - Require `auth_time` (`require_auth_time`)
+    - Require DPoP-bound Access Tokens (`dpop_bound_access_tokens`, RFC 9449)
     - Default ACR Values (`default_acr_values`)
     - Initiate Login URI (`initiate_login_uri`)
     - Software ID and Software Version (`software_id`, `software_version`)

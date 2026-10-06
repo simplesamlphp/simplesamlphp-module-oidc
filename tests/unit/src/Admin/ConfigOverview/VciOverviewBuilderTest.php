@@ -878,6 +878,30 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
+     * Whether credential issuance requires DPoP of every wallet: off unless set, and the note says what each
+     * setting means.
+     */
+    public function testShowsWhetherCredentialIssuanceRequiresDpop(): void
+    {
+        $defaultRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_REQUIRE_DPOP,
+        );
+        $this->assertNotNull($defaultRow);
+        $this->assertSame('No', $defaultRow->getValue());
+        $this->assertStringContainsString('Bearer token of 5 minutes at most', (string)$defaultRow->getNote());
+
+        $requiredRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_REQUIRE_DPOP => true])->build(),
+            ModuleConfig::OPTION_VCI_REQUIRE_DPOP,
+        );
+        $this->assertNotNull($requiredRow);
+        $this->assertSame('Yes', $requiredRow->getValue());
+        $this->assertStringContainsString('needs a DPoP proof', (string)$requiredRow->getNote());
+    }
+
+
+    /**
      * The lifetime of an access token for credential issuance, configured or not, with the ceiling a token bound
      * to no DPoP key gets either way.
      */

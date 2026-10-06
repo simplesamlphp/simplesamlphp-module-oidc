@@ -365,6 +365,9 @@ class RegistrationController
         if ($client->getRequireAuthTime()) {
             $response[ClaimsEnum::RequireAuthTime->value] = true;
         }
+        if ($client->getDpopBoundAccessTokens()) {
+            $response[ClaimsEnum::DpopBoundAccessTokens->value] = true;
+        }
         if (($defaultAcrValues = $client->getDefaultAcrValues()) !== []) {
             $response[ClaimsEnum::DefaultAcrValues->value] = $defaultAcrValues;
         }

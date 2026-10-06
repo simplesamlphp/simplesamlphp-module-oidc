@@ -274,6 +274,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                     ),
                 ),
             ),
+            $this->buildDpopReplayCheckRow(),
             $this->guardRow(
                 Translate::noop('Encryption Key'),
                 ModuleConfig::OPTION_ENCRYPTION_KEY,
@@ -852,6 +853,53 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ),
             },
             $defaultScopesError,
+        );
+    }
+
+
+    /**
+     * DPoP (RFC 9449) needs no option of its own, but its replay check remembers proofs in the protocol cache, so
+     * without one which keeps entries from one request to the next a proof can be presented again for as long as
+     * it is accepted. Whether a proof is required is up to each client (dpop_bound_access_tokens, on its page)
+     * and, for credential issuance, to vci_require_dpop on the VCI screen.
+     */
+    protected function buildDpopReplayCheckRow(): Row
+    {
+        try {
+            $isProtocolCacheConfigured = !is_null($this->moduleConfig->getProtocolCacheAdapterClass());
+            $isProtocolCacheKept = $this->moduleConfig->isProtocolCacheKeptAcrossRequests();
+        } catch (Throwable) {
+            // Reported on the cache adapter row, which owns the option; nothing is remembered in a cache which
+            // cannot be resolved.
+            $isProtocolCacheConfigured = false;
+            $isProtocolCacheKept = false;
+        }
+
+        $warning = null;
+        if (!$isProtocolCacheConfigured) {
+            $warning = Translate::noop(
+                'Not enforced: proofs are remembered in the protocol cache, and none is configured, so a DPoP proof ' .
+                'can be presented again for as long as it is accepted, about two minutes.',
+            );
+        } elseif (!$isProtocolCacheKept) {
+            $warning = Translate::noop(
+                'Not enforced: the protocol cache adapter keeps nothing from one request to the next, so a DPoP ' .
+                'proof can be presented again for as long as it is accepted, about two minutes.',
+            );
+        }
+
+        return new Row(
+            Translate::noop('DPoP Proof Replay Check'),
+            $this->yesNo($isProtocolCacheKept),
+            ConfigOverviewValueTypeEnum::Text,
+            null,
+            Translate::noop(
+                'DPoP (RFC 9449) binds an access token to a key of the client. A client which sends a DPoP proof ' .
+                'gets a bound token; one which sends none gets a Bearer token, unless a proof is required of it: by ' .
+                'its registration (dpop_bound_access_tokens, shown on its page), or, for credential issuance, by ' .
+                'vci_require_dpop. A proof is accepted once: it is remembered in the protocol cache.',
+            ),
+            $warning,
         );
     }
 

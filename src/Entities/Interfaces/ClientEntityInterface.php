@@ -162,6 +162,14 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
 
 
     /**
+     * Whether the client registered `dpop_bound_access_tokens` (RFC 9449 section 5.2): it uses DPoP for every
+     * token request, and a token request of its which carries no DPoP proof is refused. Never for a generic client,
+     * which stands in for clients which are not registered.
+     */
+    public function getDpopBoundAccessTokens(): bool;
+
+
+    /**
      * @return string[]
      */
     public function getDefaultAcrValues(): array;

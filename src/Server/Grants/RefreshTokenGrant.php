@@ -8,7 +8,6 @@ use DateInterval;
 use DateTimeImmutable;
 use Exception;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
-use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Grant\RefreshTokenGrant as OAuth2RefreshTokenGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
@@ -18,6 +17,7 @@ use League\OAuth2\Server\RequestRefreshTokenEvent;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -109,8 +109,9 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
      * subject is resolved afresh for the remainder of that token's life. The user claims of the new access
      * token are read from the user record as it is now, as for any other grant.
      *
-     * A refresh token bound to a DPoP key is taken only with a proof by that key (ensureDpopBinding()), and the new
-     * access token is bound to the key of the request's proof, if any (RFC 9449 section 5).
+     * A refresh token bound to a DPoP key is taken only with a proof by that key (ensureDpopBinding()), a client
+     * registered with `dpop_bound_access_tokens` refreshes only with a proof (section 5.2), and the new access token
+     * is bound to the key of the request's proof, if any (RFC 9449 section 5).
      *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \JsonException
@@ -125,6 +126,19 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
         $oldRefreshToken = $this->validateOldRefreshToken($request, $client->getIdentifier());
         $verifiedDpopProof = $this->getVerifiedDpopProof($request);
         $this->ensureDpopBinding($oldRefreshToken, $verifiedDpopProof, $client->getIdentifier());
+
+        // Whether or not its refresh token is bound (a confidential client's never is), and before the old tokens
+        // are revoked.
+        if ($verifiedDpopProof === null && $client->getDpopBoundAccessTokens()) {
+            $this->loggerService->notice(
+                'Refresh token request rejected: the client is registered to use DPoP for every token request ' .
+                '(dpop_bound_access_tokens), and the request carries no DPoP proof.',
+                ['client_id' => $client->getIdentifier()],
+            );
+            throw OidcServerException::invalidDpopProof(
+                'A DPoP proof is required: the client is registered with dpop_bound_access_tokens.',
+            );
+        }
 
         // The payload is the module's own (TokenResponse writes it, encrypted), so these are its fields.
         $oldScopeIdentifiers = [];

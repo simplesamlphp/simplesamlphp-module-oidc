@@ -1316,10 +1316,11 @@ class RefreshTokenGrantTest extends TestCase
      *
      * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
      */
-    protected function sutForARefresh(?UserEntity $user = null): RefreshTokenGrant
+    protected function sutForARefresh(?UserEntity $user = null, bool $dpopBoundAccessTokens = false): RefreshTokenGrant
     {
         $client = $this->createMock(ClientEntity::class);
         $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $client->method('getDpopBoundAccessTokens')->willReturn($dpopBoundAccessTokens);
         $this->clientResolverMock->method('forAnySupportedMethod')
             ->willReturn(new ResolvedClientAuthenticationMethod(
                 $client,
@@ -1907,5 +1908,53 @@ class RefreshTokenGrantTest extends TestCase
                 $this->assertSame($expectedHint, $exception->getHint());
             }
         }
+    }
+
+
+    /**
+     * A client registered with dpop_bound_access_tokens (RFC 9449 section 5.2) refreshes only with a proof, whether
+     * or not its refresh token is bound (a confidential client's never is); without one the request is refused
+     * before the old tokens are revoked.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testRefusesARefreshWithoutAProofForAClientRegisteredWithDpopBoundAccessTokens(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity(), dpopBoundAccessTokens: true);
+        $accessTokenRepository = $this->createMock(AccessTokenRepositoryInterface::class);
+        $accessTokenRepository->expects($this->never())->method('revokeAccessToken');
+        $accessTokenRepository->expects($this->never())->method('persistNewAccessToken');
+        $grant->setAccessTokenRepository($accessTokenRepository);
+        $this->refreshTokenRepositoryMock->expects($this->never())->method('revokeRefreshToken');
+
+        try {
+            $this->refreshWith($grant, self::refreshTokenPayload());
+            $this->fail('The refresh was answered where it should have been refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_dpop_proof', $exception->getErrorType());
+            $this->assertSame(
+                'A DPoP proof is required: the client is registered with dpop_bound_access_tokens.',
+                $exception->getHint(),
+            );
+        }
+    }
+
+
+    /**
+     * With a proof, such a client refreshes as any other, and the new access token is bound to the proof's key.
+     *
+     * @throws \Defuse\Crypto\Exception\EnvironmentIsBrokenException
+     * @throws \JsonException
+     */
+    public function testARefreshWithAProofIsTakenForAClientRegisteredWithDpopBoundAccessTokens(): void
+    {
+        $grant = $this->sutForARefresh($this->userEntity(), dpopBoundAccessTokens: true);
+        $this->accessTokenClaimsResolverMock->method('resolve')->willReturn([]);
+
+        $this->refreshWith($grant, self::refreshTokenPayload(), proofJkt: 'thumbprint-of-the-proof-key');
+
+        [$arguments] = $this->accessTokenFactoryArguments;
+        $this->assertSame('thumbprint-of-the-proof-key', $arguments[self::DPOP_JKT_ARGUMENT]);
     }
 }

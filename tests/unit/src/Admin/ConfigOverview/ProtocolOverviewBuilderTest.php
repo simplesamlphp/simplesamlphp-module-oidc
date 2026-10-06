@@ -22,6 +22,8 @@ use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use stdClass;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 
 #[CoversClass(ProtocolOverviewBuilder::class)]
 #[CoversClass(Row::class)]
@@ -62,6 +64,46 @@ class ProtocolOverviewBuilderTest extends TestCase
         );
 
         $this->assertSame($anchors, array_unique($anchors));
+    }
+
+
+    /**
+     * @return array<string, array{?string, string, ?string}>
+     */
+    public static function dpopReplayCheckProvider(): array
+    {
+        return [
+            'no protocol cache' => [null, 'No', 'none is configured'],
+            'a cache which keeps nothing past the request' =>
+                [ArrayAdapter::class, 'No', 'keeps nothing from one request to the next'],
+            'a cache which keeps entries' => [FilesystemAdapter::class, 'Yes', null],
+        ];
+    }
+
+
+    /**
+     * The DPoP replay check is in force only with a protocol cache which keeps entries from one request to the
+     * next, and the row says which; without one a captured proof can be presented again.
+     */
+    #[DataProvider('dpopReplayCheckProvider')]
+    public function testShowsWhetherDpopProofsAreCheckedForReplay(
+        ?string $adapter,
+        string $expectedValue,
+        ?string $expectedWarning,
+    ): void {
+        $row = $this->findRowByLabel(
+            $this->buildProtocolOverviewBuilder([ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => $adapter])->build(),
+            'DPoP Proof Replay Check',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame($expectedValue, $row->getValue());
+        $this->assertStringContainsString('dpop_bound_access_tokens', (string)$row->getNote());
+        if ($expectedWarning === null) {
+            $this->assertNull($row->getWarning());
+        } else {
+            $this->assertStringContainsString($expectedWarning, (string)$row->getWarning());
+        }
     }
 
 

@@ -457,6 +457,44 @@ class ImplicitGrantTest extends TestCase
 
 
     /**
+     * A client registered with dpop_bound_access_tokens (RFC 9449 section 5.2) gets no access token from the
+     * authorization endpoint, where no DPoP proof comes: `id_token token` is refused as `invalid_request`, sent back
+     * to the redirect URI with the request's state.
+     */
+    public function testRefusesAnAccessTokenAtTheAuthorizationEndpointForADpopBoundClient(): void
+    {
+        $client = $this->clientMock();
+        $client->method('getDpopBoundAccessTokens')->willReturn(true);
+
+        try {
+            $this->validatedAuthorizationRequest(client: $client);
+            $this->fail('The authorization request was accepted.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame(self::REDIRECT_URI, $exception->getRedirectUri());
+            $this->assertSame(self::STATE, $exception->getPayload()['state'] ?? null);
+        }
+    }
+
+
+    /**
+     * `id_token` alone returns no access token, so such a client may ask for it.
+     */
+    public function testLetsAClientRegisteredWithDpopBoundAccessTokensAskForAnIdTokenAlone(): void
+    {
+        $client = $this->clientMock();
+        $client->method('getDpopBoundAccessTokens')->willReturn(true);
+
+        $authorizationRequest = $this->validatedAuthorizationRequest(
+            ruleResults: [ResponseTypeRule::class => 'id_token'],
+            client: $client,
+        );
+
+        $this->assertSame('id_token', $authorizationRequest->getResponseType());
+    }
+
+
+    /**
      * The response mode is read from both bags: the incoming one decides the mode the rules run under, and
      * the one check() hands back is what the authorization request carries. In production they are the same
      * object, so only two different modes can show that neither read has been wired to the other bag.

@@ -1824,6 +1824,22 @@ $config = [
 //    ModuleConfig::OPTION_VCI_ACCESS_TOKEN_TTL => 'PT5M', // 5 minutes
 
     /**
+     * (optional) Whether every token request for credential issuance has to
+     * carry a DPoP proof (RFC 9449). Defaults to false. When true, the token
+     * endpoint refuses (invalid_dpop_proof) an authorization code issued for
+     * an OpenID4VCI authorization request, and a pre-authorized code,
+     * presented without a proof, so every access token giving access to
+     * credentials is bound to a key of the wallet. When false, a wallet which
+     * sends a proof gets a bound token anyway, and one which sends none a
+     * Bearer token of 5 minutes at most (see OPTION_VCI_ACCESS_TOKEN_TTL).
+     *
+     * A registered client can require DPoP for itself, for every token
+     * request, with the dpop_bound_access_tokens client metadata; this option
+     * reaches wallets which are not registered as well.
+     */
+//    ModuleConfig::OPTION_VCI_REQUIRE_DPOP => false,
+
+    /**
      * (optional) How many attempts a wallet gets at the Transaction Code of
      * one pre-authorized code. Defaults to 5; the lowest value is 1, and
      * there is no value which turns the limit off. Every attempt counts, the

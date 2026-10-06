@@ -273,6 +273,7 @@ class ClientEntity implements ClientEntityInterface
             ClaimsEnum::TokenEndpointAuthMethod->value => $this->getTokenEndpointAuthMethod(),
             ClaimsEnum::DefaultMaxAge->value => $this->getDefaultMaxAge(),
             ClaimsEnum::RequireAuthTime->value => $this->getRequireAuthTime(),
+            ClaimsEnum::DpopBoundAccessTokens->value => $this->getDpopBoundAccessTokens(),
             ClaimsEnum::DefaultAcrValues->value => $this->getDefaultAcrValues(),
             ClaimsEnum::InitiateLoginUri->value => $this->getInitiateLoginUri(),
             ClaimsEnum::SoftwareId->value => $this->getSoftwareId(),
@@ -728,6 +729,28 @@ class ClientEntity implements ClientEntityInterface
         /** @var mixed $value */
         $value = is_array($this->extraMetadata) ?
         ($this->extraMetadata[ClaimsEnum::RequireAuthTime->value] ?? null) : null;
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+
+    /**
+     * Whether the client registered `dpop_bound_access_tokens` (RFC 9449 section 5.2), so that the token endpoint
+     * refuses its token requests which carry no DPoP proof.
+     *
+     * Never for the generic VCI client: it stands in for wallets which are not registered, and
+     * ClientRepository::getGenericForVci() rebuilds it without extra metadata whenever it is used, so a value stored
+     * on it would hold only until then. ModuleConfig::getVciRequireDpop() is what requires a proof of those wallets.
+     */
+    public function getDpopBoundAccessTokens(): bool
+    {
+        if ($this->isGeneric) {
+            return false;
+        }
+
+        /** @var mixed $value */
+        $value = is_array($this->extraMetadata) ?
+        ($this->extraMetadata[ClaimsEnum::DpopBoundAccessTokens->value] ?? null) : null;
 
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }

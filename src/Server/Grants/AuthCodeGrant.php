@@ -627,7 +627,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         $verifiedDpopProof = $this->getVerifiedDpopProof($request);
-        $this->ensureDpopConditions($storedAuthCodeEntity, $verifiedDpopProof, $client->getIdentifier());
+        $this->ensureDpopConditions($storedAuthCodeEntity, $verifiedDpopProof, $client);
         $dpopJkt = $verifiedDpopProof?->getJwkThumbprint();
 
         // OAuth2 implementation
@@ -902,40 +902,70 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * authenticated and before the code is looked at any further: a request which fails one spends nothing, not
      * the code, not the Credential Offer it followed, and a code already used revokes no token on its account.
      *
-     * A code the authorization request bound to a key (RFC 9449 section 10: `dpop_jkt`, or the proof a pushed
-     * authorization request carried, section 10.1) is redeemed only with a proof by that key. Without a proof the
-     * request is refused as `invalid_dpop_proof`; with a proof by another key, which passed every check of its
-     * own, the code is what does not fit, and the request is refused as `invalid_grant`.
+     * A proof is required for a code the authorization request bound to a key (RFC 9449 section 10: `dpop_jkt`,
+     * or the proof a pushed authorization request carried, section 10.1), for a client registered with
+     * `dpop_bound_access_tokens` (section 5.2), and, with ModuleConfig::getVciRequireDpop(), for a code issued for
+     * Verifiable Credential Issuance, by its flow type as stored. Without one the request is refused as
+     * `invalid_dpop_proof`. A bound code is redeemed only with a proof by its key: with a proof by another key,
+     * which passed every check of its own, the code is what does not fit, and the request is refused as
+     * `invalid_grant`.
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function ensureDpopConditions(
         AuthCodeEntity $storedAuthCodeEntity,
         ?VerifiedDpopProof $verifiedDpopProof,
-        string $clientId,
+        ClientEntity $client,
     ): void {
         $boundJkt = $storedAuthCodeEntity->getDpopJkt();
+        $context = [
+            'client_id' => $client->getIdentifier(),
+            'auth_code_id' => $storedAuthCodeEntity->getIdentifier(),
+        ];
 
-        if ($boundJkt === null) {
+        if ($verifiedDpopProof === null) {
+            if ($boundJkt !== null) {
+                $this->loggerService->notice(
+                    'Token request rejected: the authorization code is bound to a DPoP key, and the request ' .
+                    'carries no DPoP proof.',
+                    $context,
+                );
+                throw OidcServerException::invalidDpopProof(
+                    'A DPoP proof is required: the authorization code is bound to a DPoP key.',
+                );
+            }
+
+            if ($client->getDpopBoundAccessTokens()) {
+                $this->loggerService->notice(
+                    'Token request rejected: the client is registered to use DPoP for every token request ' .
+                    '(dpop_bound_access_tokens), and the request carries no DPoP proof.',
+                    $context,
+                );
+                throw OidcServerException::invalidDpopProof(
+                    'A DPoP proof is required: the client is registered with dpop_bound_access_tokens.',
+                );
+            }
+
+            if (
+                $storedAuthCodeEntity->getFlowTypeEnum()?->isVciFlow() === true &&
+                $this->moduleConfig->getVciRequireDpop()
+            ) {
+                $this->loggerService->notice(
+                    'Token request rejected: DPoP is required for credential issuance (vci_require_dpop), and the ' .
+                    'request carries no DPoP proof.',
+                    $context,
+                );
+                throw OidcServerException::invalidDpopProof('A DPoP proof is required for credential issuance.');
+            }
+
             return;
         }
 
-        if ($verifiedDpopProof === null) {
-            $this->loggerService->notice(
-                'Token request rejected: the authorization code is bound to a DPoP key, and the request carries no ' .
-                'DPoP proof.',
-                ['client_id' => $clientId, 'auth_code_id' => $storedAuthCodeEntity->getIdentifier()],
-            );
-            throw OidcServerException::invalidDpopProof(
-                'A DPoP proof is required: the authorization code is bound to a DPoP key.',
-            );
-        }
-
-        if (!hash_equals($boundJkt, $verifiedDpopProof->getJwkThumbprint())) {
+        if ($boundJkt !== null && !hash_equals($boundJkt, $verifiedDpopProof->getJwkThumbprint())) {
             $this->loggerService->warning(
                 'Token request rejected: the DPoP proof is made with another key than the one the authorization ' .
                 'code is bound to.',
-                ['client_id' => $clientId, 'auth_code_id' => $storedAuthCodeEntity->getIdentifier()],
+                $context,
             );
             throw OidcServerException::invalidGrant('The authorization code is bound to another DPoP key.');
         }

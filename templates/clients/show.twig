@@ -321,6 +321,14 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Require DPoP-bound Access Tokens'|trans }}
+                </td>
+                <td>
+                    {{ client.dpopBoundAccessTokens ? 'Yes' : 'No' }}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Release User Claims in ID Token'|trans }}
                 </td>
                 <td>

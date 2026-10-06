@@ -359,6 +359,24 @@ class ClientFormTest extends TestCase
     }
 
 
+    /**
+     * dpop_bound_access_tokens is a checkbox: what a client stores comes back as it is, and a client which stores
+     * nothing has it unchecked.
+     */
+    public function testDpopBoundAccessTokensRoundTrips(): void
+    {
+        $values = $this->sut()->setDefaults(array_merge($this->clientDataSample, [
+            ClaimsEnum::DpopBoundAccessTokens->value => true,
+        ]))->getValues();
+        $this->assertTrue($values[ClaimsEnum::DpopBoundAccessTokens->value]);
+
+        $data = $this->clientDataSample;
+        unset($data[ClaimsEnum::DpopBoundAccessTokens->value]);
+        $values = $this->sut()->setDefaults($data)->getValues();
+        $this->assertFalse($values[ClaimsEnum::DpopBoundAccessTokens->value]);
+    }
+
+
     public function testClientTypeFollowsTokenEndpointAuthMethod(): void
     {
         // `none` => public, regardless of the submitted radio value.

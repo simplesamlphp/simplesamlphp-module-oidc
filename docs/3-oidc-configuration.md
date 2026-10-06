@@ -60,8 +60,8 @@ not store the record of a proof, which could otherwise be replayed. For the
 same reason, an offer made before a protocol cache was configured can not be
 redeemed with a transaction code once one is. A cache which keeps nothing from
 one request to the next (Symfony's `ArrayAdapter` or `NullAdapter`) holds these
-checks for one request at most, and the Transaction Code attempts (the admin
-overview warns of it) and the DPoP replay check count it as no cache at all.
+checks for one request at most, and the Transaction Code attempts and the DPoP
+replay check count it as no cache at all (the admin overview warns of both).
 Where any of this matters, use one cache shared by every web server, with room
 enough not to evict entries.
 
@@ -666,11 +666,26 @@ client holds, so that a token taken from the client is of no use without the
 key. A client which sends a DPoP proof (the `DPoP` header) to the token
 endpoint gets an access token bound to the proof's key (its `cnf` claim names
 the key), answered with `token_type` `DPoP`; a client which sends none gets a
-Bearer token, as before. The discovery documents advertise the algorithms a
-proof may be signed with (`dpop_signing_alg_values_supported`): RS256, RS384,
-RS512, PS256, PS384, PS512, ES256, ES384, ES512 and EdDSA, the asymmetric
-algorithms the module supports. The list is not configurable.
+Bearer token, unless DPoP is required of it (below). The discovery documents
+advertise the algorithms a proof may be signed with
+(`dpop_signing_alg_values_supported`): RS256, RS384, RS512, PS256, PS384,
+PS512, ES256, ES384, ES512 and EdDSA, the asymmetric algorithms the module
+supports. The list is not configurable.
 
+- **Requiring DPoP.** A client registered with `dpop_bound_access_tokens`
+  (RFC 9449 section 5.2: client registration metadata, and a checkbox on the
+  admin client form) gets no token without a proof. The token endpoint refuses
+  each of its authorization code, pre-authorized code and refresh token
+  requests which carries none (`invalid_dpop_proof`), and the authorization
+  endpoint refuses its implicit requests for an access token (`response_type`
+  `id_token token`, `invalid_request`), since no proof comes with them. For
+  credential issuance (OpenID4VCI), `vci_require_dpop` (default `false`)
+  requires a proof of every wallet, registered or not: the token endpoint then
+  refuses an authorization code issued for an OpenID4VCI authorization
+  request, and a pre-authorized code, presented without one. Wallets which are
+  not registered go through the VCI Generic Client, which the module rebuilds
+  whenever it is used: `dpop_bound_access_tokens` set on it has no effect, and
+  `vci_require_dpop` is what requires a proof of them.
 - **Protected resources.** The UserInfo and credential endpoints take a bound
   token only under the `DPoP` authorization scheme, with a proof by its key
   which carries the token's hash (`ath`), and refuse it as a Bearer token. A
@@ -694,8 +709,9 @@ algorithms the module supports. The list is not configurable.
   seconds before or after the present. A client which calls the OP under
   another host name or path than the published ones is therefore refused.
   Proofs are checked for replay in the protocol cache, and without one they
-  are not (see [Caching protocol artifacts](#caching-protocol-artifacts)). The
-  module issues no DPoP nonces.
+  are not (see [Caching protocol artifacts](#caching-protocol-artifacts)); the
+  protocol configuration overview shows which. The module issues no DPoP
+  nonces.
 - **Lifetimes.** Without DPoP nonces, RFC 9449 section 11.2 advises against
   long-lived DPoP-bound access tokens: keep the access token lifetime
   (`accessTokenDuration`) short where clients use DPoP. Access tokens issued

@@ -714,6 +714,9 @@ class ClientForm extends Form
 
         $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
 
+        $values[ClaimsEnum::DpopBoundAccessTokens->value] =
+        (bool)($values[ClaimsEnum::DpopBoundAccessTokens->value] ?? false);
+
         $values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] =
         (bool)($values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false);
 
@@ -911,6 +914,9 @@ class ClientForm extends Form
 
         $values[ClaimsEnum::RequireAuthTime->value] = (bool)($values[ClaimsEnum::RequireAuthTime->value] ?? false);
 
+        $values[ClaimsEnum::DpopBoundAccessTokens->value] =
+        (bool)($values[ClaimsEnum::DpopBoundAccessTokens->value] ?? false);
+
         $values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] =
         (bool)($values[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN] ?? false);
 
@@ -1106,6 +1112,11 @@ class ClientForm extends Form
             ->setHtmlType('number');
 
         $this->addCheckbox(ClaimsEnum::RequireAuthTime->value, Translate::noop('Require auth_time in ID Token'));
+
+        $this->addCheckbox(
+            ClaimsEnum::DpopBoundAccessTokens->value,
+            Translate::noop('Require DPoP-bound Access Tokens'),
+        );
 
         // Bound to the OP's supported ACRs (acr_values_supported). When the OP advertises no ACRs, this has no
         // items and the field is hidden in the template (a per-client default ACR cannot do anything in that case).
