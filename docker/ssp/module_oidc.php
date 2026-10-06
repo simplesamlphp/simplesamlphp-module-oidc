@@ -261,6 +261,9 @@ $config = [
             'credential_configurations' => ['ResearchAndScholarshipCredentialDcSdJwt'],
         ],
     ],
+    // Require DPoP for credential issuance. The plan runs with sender_constrain=dpop, so every token request it
+    // makes carries a proof, and a run shows that each of its flows gets through the module's enforcement.
+    ModuleConfig::OPTION_VCI_REQUIRE_DPOP => true,
     ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
         'ResearchAndScholarshipCredentialDcSdJwt' => [
             ['uid' => ['eduPersonPrincipalName']],

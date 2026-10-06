@@ -263,8 +263,14 @@ All three runs share these variants:
   supports DPoP (RFC 9449). The suite sends a DPoP proof to the token endpoint,
   gets a DPoP-bound access token (`token_type` `DPoP`), and calls the credential
   endpoint under the `DPoP` scheme with a proof carrying the token's hash. The
-  plan sends no `dpop_jkt` and has no DPoP negative test, so code binding and
-  the module's DPoP refusals rest on its own unit tests.
+  conformance image requires a proof for credential issuance
+  (`vci_require_dpop`), so every token request the plan makes has to carry one.
+  The plan's one DPoP refusal check, in the multiple-clients test, presents the
+  second client's access token with a proof by the first client's key and
+  expects a 4xx answer (the module answers 401 `invalid_token`); in the offer
+  run the test stops before reaching it, as described below. The plan sends no
+  `dpop_jkt`, so code binding and the module's other DPoP refusals rest on its
+  own unit tests.
 - `fapi_profile=vci` (not `vci_haip`) and `vci_credential_encryption=plain`.
   The `openid` and `fapi_response_mode` variants do not apply to this profile.
 

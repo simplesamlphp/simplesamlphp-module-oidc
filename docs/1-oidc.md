@@ -70,6 +70,13 @@ OAuth 2.0:
 - [OAuth 2.0 Pushed Authorization Requests, PAR (RFC 9126)](https://www.rfc-editor.org/rfc/rfc9126)
 - [OAuth 2.0 Authorization Server Issuer Identification (RFC 9207)](https://www.rfc-editor.org/rfc/rfc9207)
   — `iss` in every authorization response, error responses included
+- [OAuth 2.0 Demonstrating Proof of Possession, DPoP (RFC 9449)](https://www.rfc-editor.org/rfc/rfc9449)
+  — access tokens bound to the client's key (`token_type` `DPoP`, checked at
+  the UserInfo and credential endpoints), public clients' refresh tokens bound
+  too, authorization code binding (`dpop_jkt`, or a proof on the pushed
+  authorization request) and the `dpop_bound_access_tokens` client metadata;
+  the module issues no DPoP nonces. See
+  [Configuration](3-oidc-configuration.md#dpop-sender-constrained-tokens)
 - [OAuth 2.0 Dynamic Client Registration Protocol (RFC 7591)](https://www.rfc-editor.org/rfc/rfc7591)
   and [OAuth 2.0 Dynamic Client Registration Management Protocol (RFC 7592)](https://www.rfc-editor.org/rfc/rfc7592)
   — client register / read / update / delete at the `registration_endpoint`;
