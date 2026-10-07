@@ -30,7 +30,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *  - Pushed Authorization Request URIs (RFC 9126, urn form): existence,
  *    expiration, not yet consumed, and client binding (the request is
  *    consumed when the authorization response is issued, in
- *    AuthorizationServer::completeAuthorizationRequest()),
+ *    AuthorizationServer::completeAuthorizationRequest()); the request is
+ *    redeemed with the pushed params only (RequestParamsResolver), and the
+ *    names of other params sent with the request_uri are logged,
  *  - https Request URIs (Request Object by reference): the OP must support
  *    the request_uri parameter, and the Request Object must be resolvable
  *    (registration / federation policy is enforced in RequestParamsResolver),
@@ -127,6 +129,8 @@ class RequestUriRule extends AbstractRule
                 $clientIdParam,
                 $client,
                 $loggerService,
+                $request,
+                $allowedServerRequestMethods,
             );
         }
 
@@ -147,6 +151,7 @@ class RequestUriRule extends AbstractRule
 
 
     /**
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable
      */
@@ -155,6 +160,8 @@ class RequestUriRule extends AbstractRule
         string $clientIdParam,
         ClientEntityInterface $client,
         LoggerService $loggerService,
+        ServerRequestInterface $request,
+        array $allowedServerRequestMethods,
     ): Result {
         $parEntity = $this->pushedAuthorizationRequestRepository->find($requestUri);
 
@@ -192,6 +199,25 @@ class RequestUriRule extends AbstractRule
             throw OidcServerException::invalidRequest(
                 ParamsEnum::ClientId->value,
                 'Pushed authorization request is bound to different client.',
+            );
+        }
+
+        // The request is redeemed with the pushed params only (RequestParamsResolver), so any other param sent
+        // with the request_uri is ignored. The names of those the pushed request does not carry are logged, since
+        // the client may have meant to add them this way. The client_id is always among the pushed params.
+        $ignoredParams = array_values(array_diff(
+            array_keys($this->requestParamsResolver->getAllFromRequestBasedOnAllowedMethods(
+                $request,
+                $allowedServerRequestMethods,
+            )),
+            [ParamsEnum::RequestUri->value],
+            array_keys($parEntity->getParameters()),
+        ));
+
+        if ($ignoredParams !== []) {
+            $loggerService->notice(
+                'RequestUriRule: params sent with a pushed authorization request_uri are ignored.',
+                ['clientId' => $clientIdParam, 'ignoredParams' => $ignoredParams],
             );
         }
 

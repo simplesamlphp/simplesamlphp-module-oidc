@@ -31,6 +31,7 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 class AuthenticationService
 {
@@ -233,8 +234,14 @@ class AuthenticationService
                 fn(/** @param array-key $key */ $key) => $key !== 'secret',
                 ARRAY_FILTER_USE_KEY,
             ),
+            // Read as the grants validate the request (AuthCodeGrant::$allowedAuthorizationHttpMethods): from the
+            // query of a GET, from the body of a POST. A request_uri the other one carries is then not redeemed
+            // here either.
             'AuthorizationRequestParameters' => array_filter(
-                $this->requestParamsResolver->getAll($request),
+                $this->requestParamsResolver->getAllBasedOnAllowedMethods(
+                    $request,
+                    [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+                ),
                 function (/** @param array-key $key */ $key) {
                     $authzParams = ['response_type', 'client_id', 'redirect_uri', 'scope', 'code_challenge_method'];
                     return in_array($key, $authzParams, true);

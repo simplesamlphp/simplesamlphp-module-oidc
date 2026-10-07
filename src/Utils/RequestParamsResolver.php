@@ -29,10 +29,25 @@ use Throwable;
  * Resolve authorization params from an HTTP request (based or not based on
  * a used method), from Request Object param if present, and from Request URI
  * param (Pushed Authorization Request or Request Object by reference) if
- * present.
+ * present. A Pushed Authorization Request is redeemed with its pushed params
+ * only, see resolveParams().
  */
 class RequestParamsResolver
 {
+    /**
+     * The request attribute an endpoint which takes no authorization requests
+     * (the token and the end session endpoints) sets on the PSR-7 request it
+     * hands on: the params of that request are then read as they were sent,
+     * with no Request Object (request param) or request_uri resolved into
+     * them. Only the authorization request has those, so they are parameters
+     * such an endpoint does not recognize, which it ignores (RFC 6749 section
+     * 3.2 has the token endpoint do so): one sent there neither adds params
+     * nor takes any away. A request without it is read as an authorization
+     * request.
+     */
+    public const string ATTRIBUTE_OWN_PARAMS_ONLY = 'oidc_own_params_only';
+
+
     /**
      * Request Object Bags parsed from a Request Object JWT passed by value
      * (request param), keyed by token.
@@ -116,13 +131,7 @@ class RequestParamsResolver
      */
     public function getAll(Request|ServerRequestInterface $request): array
     {
-        $requestParams = $this->getAllFromRequest($request);
-
-        return array_merge(
-            $requestParams,
-            $this->resolveRequestObjectParams($requestParams),
-            $this->resolveRequestUriParams($requestParams),
-        );
+        return $this->resolveParams($request, $this->getAllFromRequest($request));
     }
 
 
@@ -137,12 +146,9 @@ class RequestParamsResolver
         Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): array {
-        $requestParams = $this->getAllFromRequestBasedOnAllowedMethods($request, $allowedMethods);
-
-        return array_merge(
-            $requestParams,
-            $this->resolveRequestObjectParams($requestParams),
-            $this->resolveRequestUriParams($requestParams),
+        return $this->resolveParams(
+            $request,
+            $this->getAllFromRequestBasedOnAllowedMethods($request, $allowedMethods),
         );
     }
 
@@ -215,6 +221,62 @@ class RequestParamsResolver
 
 
     /**
+     * Assemble the authorization request params from the HTTP request params,
+     * or leave them as they are for a request marked with
+     * ATTRIBUTE_OWN_PARAMS_ONLY.
+     *
+     * A Request Object, passed by value or by an https Request URI, complements
+     * the HTTP request params, its claims superseding params of the same name,
+     * the way OpenID Connect Core has it.
+     *
+     * A Pushed Authorization Request URI (urn form) does not: the request is the
+     * pushed one. RFC 9126 section 4 has it built as RFC 9101 defines, whose
+     * sections 5 and 6.3 have the authorization server use only the params of
+     * the Request Object, even where the client repeats them in the query. So
+     * of the HTTP request params, only client_id and request_uri are kept,
+     * which RequestUriRule needs to find the pushed request and to check that
+     * the client pushed it. Any other param sent with the request_uri is
+     * ignored, so one the client did not push can not be added to the request
+     * on the way through the user agent.
+     *
+     * @return mixed[]
+     */
+    protected function resolveParams(Request|ServerRequestInterface $request, array $requestParams): array
+    {
+        if (
+            $request instanceof ServerRequestInterface &&
+            $request->getAttribute(self::ATTRIBUTE_OWN_PARAMS_ONLY) === true
+        ) {
+            return $requestParams;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $requestUri = $requestParams[ParamsEnum::RequestUri->value] ?? null;
+
+        // Whatever else the request carries: one which also carries the request
+        // param is refused by RequestUriRule, which reads the raw params.
+        if (
+            is_string($requestUri) &&
+            str_starts_with($requestUri, PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX)
+        ) {
+            return array_merge(
+                array_intersect_key(
+                    $requestParams,
+                    [ParamsEnum::ClientId->value => true, ParamsEnum::RequestUri->value => true],
+                ),
+                $this->resolvePushedAuthorizationRequestParams($requestUri),
+            );
+        }
+
+        return array_merge(
+            $requestParams,
+            $this->resolveRequestObjectParams($requestParams),
+            $this->resolveRequestUriParams($requestParams),
+        );
+    }
+
+
+    /**
      * Check if Request Object is present as a request param (passed by value)
      * and parse it to use its claims as params.
      *
@@ -238,12 +300,12 @@ class RequestParamsResolver
 
 
     /**
-     * Check if Request URI is present as a request param and resolve its claims
-     * to use them as params. For Pushed Authorization Request URIs (urn form),
-     * params are resolved from the previously pushed (validated) authorization
-     * request. For https Request URIs, the Request Object is fetched and parsed
-     * (if allowed by policy), but note that this won't do signature validation
-     * of it, nor any policy checks like one-time use or expiration.
+     * Check if an https Request URI is present as a request param and resolve
+     * its claims to use them as params: the Request Object is fetched and
+     * parsed (if allowed by policy), but note that this won't do signature
+     * validation of it, nor any policy checks like one-time use or expiration.
+     * A Pushed Authorization Request URI (urn form) is redeemed by
+     * resolveParams() before this is reached.
      *
      * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule
      * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
@@ -263,12 +325,6 @@ class RequestParamsResolver
         // resolve anything and let the caller produce the proper error.
         if (array_key_exists(ParamsEnum::Request->value, $requestParams)) {
             return [];
-        }
-
-        // Pushed Authorization Request URI (urn form): resolve from the
-        // previously pushed (validated) params.
-        if (str_starts_with($requestUri, PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX)) {
-            return $this->resolvePushedAuthorizationRequestParams($requestUri);
         }
 
         // https Request URI (by reference): fetch and parse the Request Object

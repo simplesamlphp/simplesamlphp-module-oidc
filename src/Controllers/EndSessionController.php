@@ -15,6 +15,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\Session;
@@ -52,7 +53,11 @@ class EndSessionController
         // only category the spec asks us to revoke is never created here, and the offline_access ones are
         // intentionally left intact. No token revocation is therefore required during logout.
 
-        $logoutRequest = $this->authorizationServer->validateLogoutRequest($request);
+        // A logout request is read as it was sent: a request or request_uri param in it is ignored, rather than read
+        // as an authorization request's.
+        $logoutRequest = $this->authorizationServer->validateLogoutRequest(
+            $request->withAttribute(RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY, true),
+        );
 
         $uiLanguage = $this->resolveUiLanguage($logoutRequest);
 

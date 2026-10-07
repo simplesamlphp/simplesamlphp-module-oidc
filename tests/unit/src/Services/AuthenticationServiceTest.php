@@ -39,6 +39,7 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\Session;
 
 /**
@@ -166,7 +167,9 @@ class AuthenticationServiceTest extends TestCase
         $this->helpersMock->method('client')->willReturn($this->clientHelperMock);
 
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
-        $this->requestParamsResolverMock->method('getAll')->with($this->serverRequestMock)
+        // The authorization request as the grants validate it: from the query of a GET, the body of a POST.
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->with($this->serverRequestMock, [HttpMethodsEnum::GET, HttpMethodsEnum::POST])
             ->willReturn(self::AUTHZ_REQUEST_PARAMS);
 
         $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);

@@ -317,7 +317,12 @@ class PushedAuthorizationControllerTest extends TestCase
     }
 
 
-    public function testPersistsRequestObjectPayloadOnlyWhenJarIsUsed(): void
+    /**
+     * The rules validate a Request Object together with the form body, its claims superseding form parameters of
+     * the same name (RequestParamsResolver), so that is what is persisted, without the client authentication
+     * parameters and the Request Object itself: a pushed request is redeemed with its persisted parameters only.
+     */
+    public function testPersistsTheFormBodyWithTheRequestObjectClaimsSupersedingItWhenJarIsUsed(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
         $this->prepareAuthenticatedClient();
@@ -326,6 +331,8 @@ class PushedAuthorizationControllerTest extends TestCase
             'request' => 'token',
             'client_secret' => 'verysecret',
             'some_stray_param' => 'value',
+            'scope' => 'profile',
+            'state' => 'xyz',
         ];
         $this->serverRequestMock->method('getParsedBody')->willReturn($params);
 
@@ -341,7 +348,17 @@ class PushedAuthorizationControllerTest extends TestCase
 
         $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())
             ->method('fromData')
-            ->with('client123', $requestObjectPayload)
+            ->with(
+                'client123',
+                $this->identicalTo([
+                    'some_stray_param' => 'value',
+                    'scope' => 'openid',
+                    'state' => 'xyz',
+                    'client_id' => 'client123',
+                    'redirect_uri' => 'https://localhost/callback',
+                    'response_type' => 'code',
+                ]),
+            )
             ->willReturn($this->parEntityMock);
 
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())->method('persist');
@@ -351,11 +368,11 @@ class PushedAuthorizationControllerTest extends TestCase
 
 
     /**
-     * A Request Object which leaves the scope to the form body was validated with the scope from there (the rules
-     * read both), so that is the scope persisted with its payload: a request validated as an OpenID Connect one is
-     * redeemed as one, and not as a plain OAuth 2.0 request, whatever the front channel sends with the request_uri.
+     * A Request Object which leaves the scope to the form body was validated with the scope from there, so that
+     * scope is persisted with it: a request validated as an OpenID Connect one is redeemed as one, and not as a
+     * plain OAuth 2.0 request.
      */
-    public function testPersistsTheValidatedScopeWithARequestObjectWhichLeavesItOut(): void
+    public function testPersistsTheFormBodyScopeWithARequestObjectWhichLeavesItOut(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
         $this->prepareAuthenticatedClient();
@@ -369,19 +386,11 @@ class PushedAuthorizationControllerTest extends TestCase
         ];
         $requestObjectResult = new Result(RequestObjectRule::class, $requestObjectPayload);
         $this->resultBagMock->method('get')->with(RequestObjectRule::class)->willReturn($requestObjectResult);
-        $this->resultBagMock->method('getOrFail')->willReturnCallback(
-            fn(string $key): Result => match ($key) {
-                RequestObjectRule::class => $requestObjectResult,
-                ScopeRule::class => new Result(
-                    ScopeRule::class,
-                    [new ScopeEntity('openid'), new ScopeEntity('profile')],
-                ),
-            },
-        );
+        $this->resultBagMock->method('getOrFail')->with(RequestObjectRule::class)->willReturn($requestObjectResult);
 
         $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())
             ->method('fromData')
-            ->with('client123', $this->identicalTo([...$requestObjectPayload, 'scope' => 'openid profile']))
+            ->with('client123', $this->identicalTo(['scope' => 'openid profile', ...$requestObjectPayload]))
             ->willReturn($this->parEntityMock);
 
         $this->sut()->__invoke($this->serverRequestMock);
@@ -570,9 +579,8 @@ class PushedAuthorizationControllerTest extends TestCase
 
     /**
      * The scope decides whether a request is an OpenID Connect one. A request pushed without one, a plain OAuth 2.0
-     * or an OpenID4VCI request, is persisted with an empty one, so a scope sent with the request_uri on the front
-     * channel can not fill the gap: the pushed parameters take precedence over those (RequestParamsResolver), but
-     * one missing from them would be taken from there.
+     * or an OpenID4VCI request, is persisted with the empty one it was validated with, rather than none, which
+     * would leave its scope to the default scope of the grant at the authorization endpoint.
      */
     public function testPersistsARequestPushedWithoutAScopeWithAnEmptyOne(): void
     {
@@ -588,6 +596,30 @@ class PushedAuthorizationControllerTest extends TestCase
             ->willReturn($this->parEntityMock);
 
         $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * A pushed request is redeemed with its persisted parameters only (RequestParamsResolver), so one without a
+     * response_type, which nothing could supply later, is refused at the push.
+     */
+    public function testRefusesAPushedRequestWithoutAResponseType(): void
+    {
+        $this->preparePushedRequest(['scope' => 'openid', 'state' => 'xyz'], null);
+        $this->dpopProofVerifierMock->method('verify')->willReturn(null);
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->never())->method('fromData');
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+        $this->loggerMock->expects($this->once())->method('notice')
+            ->with('Pushed authorization request rejected: `response_type` parameter not provided.');
+
+        try {
+            $this->sut()->__invoke($this->serverRequestMock);
+            $this->fail('The request must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame(400, $exception->getHttpStatusCode());
+            $this->assertSame('Missing response_type', $exception->getHint());
+        }
     }
 
 

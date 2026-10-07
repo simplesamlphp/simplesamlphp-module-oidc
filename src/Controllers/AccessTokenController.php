@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -54,6 +55,10 @@ class AccessTokenController
         if ($verifiedDpopProof !== null) {
             $request = $request->withAttribute(DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF, $verifiedDpopProof);
         }
+
+        // A token request is read as it was sent: a request or request_uri param in it is ignored, rather than read
+        // as an authorization request's (RFC 6749 section 3.2).
+        $request = $request->withAttribute(RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY, true);
 
         return $this->authorizationServer->respondToAccessTokenRequest(
             $request,

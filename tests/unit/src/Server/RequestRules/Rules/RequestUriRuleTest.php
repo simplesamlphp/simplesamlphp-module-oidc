@@ -25,6 +25,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 
 #[CoversClass(RequestUriRule::class)]
@@ -246,6 +247,59 @@ class RequestUriRuleTest extends TestCase
 
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame(self::PAR_REQUEST_URI, $result->getValue());
+    }
+
+
+    /**
+     * The request is redeemed with the pushed params only (RequestParamsResolver). Those sent with the request_uri
+     * which the pushed request does not carry are ignored, and named in the log, since the client may have meant
+     * to add them this way; those it repeats are not.
+     */
+    public function testLogsTheNamesOfParamsSentWithAPushedRequestUriWhichThePushedRequestLacks(): void
+    {
+        $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
+        $this->requestParamsResolverMock->expects($this->once())->method('getAllFromRequestBasedOnAllowedMethods')
+            ->with($this->requestStub, [HttpMethodsEnum::GET])
+            ->willReturn([
+                'request_uri' => self::PAR_REQUEST_URI,
+                'client_id' => 'client123',
+                'prompt' => 'none',
+                'scope' => 'openid',
+                'state' => 'xyz',
+            ]);
+        $this->parEntityMock->method('isExpired')->willReturn(false);
+        $this->parEntityMock->method('isConsumed')->willReturn(false);
+        $this->parEntityMock->method('getClientId')->willReturn('client123');
+        $this->parEntityMock->method('getParameters')
+            ->willReturn(['client_id' => 'client123', 'response_type' => 'code', 'scope' => 'openid']);
+        $this->pushedAuthorizationRequestRepositoryMock->method('find')->willReturn($this->parEntityMock);
+        $this->loggerServiceMock->expects($this->once())->method('notice')->with(
+            'RequestUriRule: params sent with a pushed authorization request_uri are ignored.',
+            ['clientId' => 'client123', 'ignoredParams' => ['prompt', 'state']],
+        );
+
+        $this->assertInstanceOf(Result::class, $this->checkRule());
+    }
+
+
+    public function testLogsNothingForParamsThePushedRequestRepeats(): void
+    {
+        $this->prepareRawParams(['request_uri' => self::PAR_REQUEST_URI, 'client_id' => 'client123']);
+        $this->requestParamsResolverMock->method('getAllFromRequestBasedOnAllowedMethods')->willReturn([
+            'response_type' => 'code',
+            'client_id' => 'client123',
+            'request_uri' => self::PAR_REQUEST_URI,
+            'scope' => 'openid',
+        ]);
+        $this->parEntityMock->method('isExpired')->willReturn(false);
+        $this->parEntityMock->method('isConsumed')->willReturn(false);
+        $this->parEntityMock->method('getClientId')->willReturn('client123');
+        $this->parEntityMock->method('getParameters')
+            ->willReturn(['client_id' => 'client123', 'response_type' => 'code', 'scope' => 'openid']);
+        $this->pushedAuthorizationRequestRepositoryMock->method('find')->willReturn($this->parEntityMock);
+        $this->loggerServiceMock->expects($this->never())->method('notice');
+
+        $this->assertInstanceOf(Result::class, $this->checkRule());
     }
 
 

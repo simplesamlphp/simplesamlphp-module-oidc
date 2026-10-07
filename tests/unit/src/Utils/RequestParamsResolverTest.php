@@ -282,10 +282,15 @@ class RequestParamsResolverTest extends TestCase
     }
 
 
-    public function testCanGetAllWithPushedAuthorizationRequestUri(): void
+    /**
+     * A pushed request is redeemed with its pushed params, plus the client_id and the request_uri sent with it,
+     * which RequestUriRule needs (RFC 9126 section 4, RFC 9101 sections 5 and 6.3). Any other param sent with the
+     * request_uri is ignored.
+     */
+    public function testRedeemsAPushedAuthorizationRequestUriWithThePushedParamsOnly(): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
-        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
+        $queryParams = [...$this->queryParams, 'client_id' => 'client123', 'request_uri' => $requestUri];
         $helpersMock = $this->helpersWithParams($queryParams);
 
         $parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
@@ -298,14 +303,115 @@ class RequestParamsResolverTest extends TestCase
             ->willReturn($parEntityMock);
 
         $sut = $this->mock($helpersMock);
+        $expected = ['client_id' => 'client123', 'request_uri' => $requestUri, 'e' => 'f'];
+
+        $this->assertSame($expected, $sut->getAll($this->requestMock));
+        $this->assertSame($expected, $sut->getAll($this->requestMock));
+    }
+
+
+    /**
+     * Params the pushed request does not carry can not be added on the way through the user agent, whatever they
+     * would change: how the End-User authenticates, what the code is bound to, or what is asked for.
+     */
+    public function testIgnoresParamsSentWithAPushedRequestUriWhichThePushedRequestLacks(): void
+    {
+        $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
+        $helpersMock = $this->helpersWithParams([
+            'client_id' => 'client123',
+            'request_uri' => $requestUri,
+            'prompt' => 'none',
+            'max_age' => '0',
+            'nonce' => 'injected-nonce',
+            'code_challenge' => 'injected-challenge',
+            'dpop_jkt' => 'injected-jkt',
+            'issuer_state' => 'injected-state',
+            'authorization_details' => '[{"type":"openid_credential"}]',
+        ]);
+        $parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
+        $parEntityMock->method('getParameters')
+            ->willReturn(['client_id' => 'client123', 'response_type' => 'code', 'scope' => 'openid']);
+        $this->pushedAuthorizationRequestRepositoryMock->method('findValid')->willReturn($parEntityMock);
 
         $this->assertSame(
-            array_merge($queryParams, $this->requestObjectParams),
-            $sut->getAll($this->requestMock),
+            ['client_id' => 'client123', 'request_uri' => $requestUri, 'response_type' => 'code', 'scope' => 'openid'],
+            $this->mock($helpersMock)->getAllBasedOnAllowedMethods($this->requestMock, [HttpMethodsEnum::GET]),
         );
+    }
+
+
+    /**
+     * The client_id the request was pushed with is the request's, as every pushed param is: RequestUriRule refuses
+     * a request_uri sent with another one.
+     */
+    public function testAPushedClientIdSupersedesTheOneSentWithTheRequestUri(): void
+    {
+        $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
+        $helpersMock = $this->helpersWithParams(['client_id' => 'otherClient', 'request_uri' => $requestUri]);
+        $parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
+        $parEntityMock->method('getParameters')->willReturn(['client_id' => 'client123']);
+        $this->pushedAuthorizationRequestRepositoryMock->method('findValid')->willReturn($parEntityMock);
+
         $this->assertSame(
-            array_merge($queryParams, $this->requestObjectParams),
-            $sut->getAll($this->requestMock),
+            ['client_id' => 'client123', 'request_uri' => $requestUri],
+            $this->mock($helpersMock)->getAll($this->requestMock),
+        );
+    }
+
+
+    /**
+     * The token and the end session endpoints mark the request they hand on, whose params are then read as they
+     * were sent: a request_uri, pushed or not, neither adds params nor takes any away, there or anywhere else.
+     */
+    public function testReadsTheOwnParamsOnlyOfARequestMarkedSoWhateverRequestUriItCarries(): void
+    {
+        $queryParams = [
+            'grant_type' => 'urn:ietf:params:oauth:grant-type:pre-authorized_code',
+            'pre-authorized_code' => 'a-code',
+            'request_uri' => PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123',
+        ];
+        $this->requestMock->method('getAttribute')
+            ->with(RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY)->willReturn(true);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('findValid');
+        $sut = $this->mock($this->helpersWithParams($queryParams));
+
+        $this->assertSame($queryParams, $sut->getAll($this->requestMock));
+        $this->assertSame(
+            $queryParams,
+            $sut->getAllBasedOnAllowedMethods($this->requestMock, [HttpMethodsEnum::POST]),
+        );
+    }
+
+
+    public function testReadsTheOwnParamsOnlyOfARequestMarkedSoWhateverRequestObjectItCarries(): void
+    {
+        $queryParams = [...$this->queryParams, 'request' => 'token'];
+        $this->requestMock->method('getAttribute')
+            ->with(RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY)->willReturn(true);
+        $this->requestObjectParserMock->expects($this->never())->method('fromToken');
+
+        $this->assertSame(
+            $queryParams,
+            $this->mock($this->helpersWithParams($queryParams))->getAll($this->requestMock),
+        );
+    }
+
+
+    /**
+     * Only a request_uri sent as a string is one to redeem; one sent as an array is no request_uri, and the request
+     * is read as one without it.
+     */
+    public function testDoesNotRedeemARequestUriSentAsAnArray(): void
+    {
+        $queryParams = [
+            ...$this->queryParams,
+            'request_uri' => [PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123'],
+        ];
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('findValid');
+
+        $this->assertSame(
+            $queryParams,
+            $this->mock($this->helpersWithParams($queryParams))->getAll($this->requestMock),
         );
     }
 
@@ -329,31 +435,59 @@ class RequestParamsResolverTest extends TestCase
     }
 
 
-    public function testGetAllResolvesNothingForInvalidPushedAuthorizationRequestUri(): void
+    /**
+     * A request_uri which names no pushed request which can still be redeemed resolves no params of its own, and
+     * the others sent with it are ignored all the same: RequestUriRule refuses it.
+     */
+    public function testGetAllResolvesOnlyTheClientIdAndRequestUriForInvalidPushedAuthorizationRequestUri(): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
-        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
+        $queryParams = [...$this->queryParams, 'client_id' => 'client123', 'request_uri' => $requestUri];
         $helpersMock = $this->helpersWithParams($queryParams);
 
         $this->pushedAuthorizationRequestRepositoryMock->method('findValid')->willReturn(null);
 
         $this->assertSame(
-            $queryParams,
+            ['client_id' => 'client123', 'request_uri' => $requestUri],
             $this->mock($helpersMock)->getAll($this->requestMock),
         );
     }
 
 
-    public function testGetAllSkipsRequestUriResolutionIfRequestParamIsAlsoPresent(): void
+    public static function requestParamValueProvider(): array
+    {
+        return [
+            'a Request Object' => ['token'],
+            'empty' => [''],
+            'null, as a decoded JSON body may carry it' => [null],
+        ];
+    }
+
+
+    /**
+     * A pushed request_uri is redeemed with the pushed params only whatever else the request carries, a request
+     * param too: RequestUriRule refuses the two together, reading the raw params, and until then nothing of the
+     * request param is read, so no value of it, null included, makes the front channel's params the request's.
+     */
+    #[DataProvider('requestParamValueProvider')]
+    public function testRedeemsAPushedRequestUriWithThePushedParamsOnlyNextToARequestParam(?string $request): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
-        $queryParams = [...$this->queryParams, 'request_uri' => $requestUri, 'request' => 'token'];
-        $helpersMock = $this->helpersWithParams($queryParams);
+        $queryParams = [
+            ...$this->queryParams,
+            'client_id' => 'client123',
+            'request_uri' => $requestUri,
+            'request' => $request,
+        ];
+        $parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
+        $parEntityMock->method('getParameters')->willReturn(['client_id' => 'client123', 'e' => 'f']);
+        $this->pushedAuthorizationRequestRepositoryMock->method('findValid')->willReturn($parEntityMock);
+        $this->requestObjectParserMock->expects($this->never())->method('fromToken');
 
-        $this->requestObjectParserMock->method('fromToken')->willReturn($this->bagWithCore());
-        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('findValid');
-
-        $this->mock($helpersMock)->getAll($this->requestMock);
+        $this->assertSame(
+            ['client_id' => 'client123', 'request_uri' => $requestUri, 'e' => 'f'],
+            $this->mock($this->helpersWithParams($queryParams))->getAll($this->requestMock),
+        );
     }
 
 
@@ -668,7 +802,8 @@ class RequestParamsResolverTest extends TestCase
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
         $queryParams = [...$this->queryParams, 'request_uri' => $requestUri];
-        // Memoized as empty, so the repository is asked once across repeated getAll() calls.
+        // Memoized as empty, so the repository is asked once across repeated getAll() calls; the params sent with
+        // the request_uri are ignored all the same.
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())->method('findValid')
             ->with($requestUri)->willThrowException(new Exception('store is down'));
         $this->loggerServiceMock->expects($this->once())->method('warning')->with(
@@ -677,8 +812,8 @@ class RequestParamsResolverTest extends TestCase
         );
         $sut = $this->mock($this->helpersWithParams($queryParams));
 
-        $this->assertSame($queryParams, $sut->getAll($this->requestMock));
-        $this->assertSame($queryParams, $sut->getAll($this->requestMock));
+        $this->assertSame(['request_uri' => $requestUri], $sut->getAll($this->requestMock));
+        $this->assertSame(['request_uri' => $requestUri], $sut->getAll($this->requestMock));
     }
 
 

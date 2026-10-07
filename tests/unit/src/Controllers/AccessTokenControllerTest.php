@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\OAuth2\DpopProof;
@@ -123,10 +124,14 @@ class AccessTokenControllerTest extends TestCase
      */
     public function testItRespondsToAccessTokenRequest(): void
     {
+        $markedRequestMock = $this->createMock(ServerRequest::class);
+        $this->serverRequestMock->expects($this->once())->method('withAttribute')
+            ->with(RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY, true)
+            ->willReturn($markedRequestMock);
         $this->authorizationServerMock
             ->expects($this->once())
             ->method('respondToAccessTokenRequest')
-            ->with($this->serverRequestMock, $this->isInstanceOf(ResponseInterface::class))
+            ->with($this->identicalTo($markedRequestMock), $this->isInstanceOf(ResponseInterface::class))
             ->willReturn($this->responseMock);
 
         $this->assertSame(
@@ -294,7 +299,8 @@ class AccessTokenControllerTest extends TestCase
                 $this->callback(
                     fn(ServerRequest $handed): bool => $handed->getAttribute(
                         DpopProofVerifier::ATTRIBUTE_VERIFIED_PROOF,
-                    ) === $verifiedDpopProof && $handed->getMethod() === 'POST',
+                    ) === $verifiedDpopProof && $handed->getMethod() === 'POST' &&
+                    $handed->getAttribute(RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY) === true,
                 ),
                 $this->isInstanceOf(ResponseInterface::class),
             )
@@ -305,14 +311,23 @@ class AccessTokenControllerTest extends TestCase
 
 
     /**
-     * A request without a DPoP header reaches the grants as it came, with no proof on it.
+     * A request without a DPoP header reaches the grants with no proof on it. Like every token request, it is
+     * marked to be read as it was sent, not as an authorization request with a Request Object or a request_uri
+     * (RequestParamsResolver).
      */
-    public function testHandsARequestWithoutAProofToTheGrantsAsItIs(): void
+    public function testHandsARequestWithoutAProofToTheGrantsReadAsItWasSent(): void
     {
         $request = new ServerRequest('POST', 'https://op.example.org/oidc/token');
         $this->dpopProofVerifierMock->expects($this->once())->method('verify')->willReturn(null);
         $this->authorizationServerMock->expects($this->once())->method('respondToAccessTokenRequest')
-            ->with($this->identicalTo($request), $this->isInstanceOf(ResponseInterface::class))
+            ->with(
+                $this->callback(
+                    fn(ServerRequest $handed): bool => $handed->getAttributes() === [
+                        RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY => true,
+                    ] && $handed->getUri() === $request->getUri(),
+                ),
+                $this->isInstanceOf(ResponseInterface::class),
+            )
             ->willReturn($this->responseMock);
 
         $this->assertSame($this->responseMock, $this->mock()->__invoke($request));

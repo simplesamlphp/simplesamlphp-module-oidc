@@ -621,10 +621,10 @@ It differs in what OpenID Connect alone defines:
   is not demanded of the login either (`acr_values` is, see below).
 - A Request Object it comes in has to be a signed JAR one (RFC 9101) whose
   `client_id` claim names the client, as for any request without `openid`.
-- Pushed to the PAR endpoint without a `scope`, it is kept with an empty one,
-  so a `scope` added in the browser when the `request_uri` is used can not
-  turn it into an OpenID Connect request. (Every pushed request is kept with
-  the scope it was validated with.)
+- Pushed to the PAR endpoint, it is used with the parameters it was pushed
+  with only, so a `scope` added in the browser when the `request_uri` is used
+  can not turn it into an OpenID Connect request (see
+  [The PAR endpoint](#the-par-endpoint)).
 - The client gets no back-channel logout token on account of such a login:
   without an ID token it has no session with the OP to be told the end of
   (OpenID Connect Back-Channel Logout 1.0).
@@ -666,6 +666,14 @@ A client can send authorization request parameters in several ways:
   - **Remote `https://` request_uri** — the OP fetches the Request Object
     from the given URL (JAR by reference, or OpenID Federation by reference).
 
+A Request Object passed by value or by a remote `request_uri` is combined with
+the plain parameters sent with it, its claims taking precedence over
+parameters of the same name (OpenID Connect Core). A pushed request is not
+combined with anything, see below. The token and end session endpoints take
+neither: a `request` or `request_uri` parameter sent to them is ignored, as any
+parameter they do not recognize is (RFC 6749 section 3.2 for the token
+endpoint).
+
 ### The PAR endpoint
 
 The PAR endpoint is published in the discovery document as
@@ -677,6 +685,33 @@ It authenticates the client the same way as the token endpoint (including
 `private_key_jwt`), validates the pushed parameters, stores them, and returns a
 JSON response with the generated `request_uri` and an `expires_in` value. Errors
 are returned as JSON (token-endpoint style); the endpoint never redirects.
+
+A pushed request is used as it was pushed. When the client sends the user
+agent to the authorization endpoint with the `request_uri`, the OP takes the
+request from the pushed parameters only (RFC 9126 section 4 has the request
+built as RFC 9101 defines, whose sections 5 and 6.3 have the server use only
+the parameters of the Request Object). Of the parameters sent along, only
+`client_id`, which has to name the client that pushed the request, and the
+`request_uri` itself are read. Any other one is ignored, also one the pushed
+request does not carry, so nothing can be added to a pushed request on its way
+through the browser. A client may still repeat parameters there (RFC 9101
+section 5 allows it); the pushed values are the ones used. The names (never the
+values) of ignored parameters which the pushed request does not carry are
+logged at the notice level, since a client may have meant to add them this way.
+
+What is stored is therefore all there is to the request:
+
+- A pushed request without `response_type` is refused with `invalid_request`,
+  since nothing could supply it later.
+- A pushed request is stored with the scope it was validated with, an empty
+  one if it named none.
+- A pushed request which carries a Request Object (`request`) is validated
+  together with the other parameters of the form body, the Request Object's
+  claims taking precedence over form parameters of the same name, and that is
+  what is stored, without the client authentication parameters. RFC 9126
+  section 3 has a client put every authorization request parameter in the
+  Request Object; a client which leaves some in the form body still gets them
+  used, as they were validated.
 
 ### Request Object flavors
 

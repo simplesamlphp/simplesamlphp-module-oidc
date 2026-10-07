@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreBuilder;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreInterface;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\Session;
@@ -198,6 +199,31 @@ class EndSessionControllerTest extends TestCase
         $this->expectException(BadRequest::class);
 
         $this->mock()->__invoke($this->serverRequestStub);
+    }
+
+
+    /**
+     * A logout request is marked to be read as it was sent, not as an authorization request with a Request Object
+     * or a request_uri (RequestParamsResolver).
+     *
+     * @throws \Throwable
+     */
+    public function testValidatesTheLogoutRequestReadAsItWasSent(): void
+    {
+        $request = new ServerRequest('GET', 'https://op.example.org/oidc/end-session');
+        $authorizationServerMock = $this->createMock(AuthorizationServer::class);
+        $authorizationServerMock->expects($this->once())->method('validateLogoutRequest')
+            ->with($this->callback(
+                fn(ServerRequest $handed): bool => $handed->getAttributes() === [
+                    RequestParamsResolver::ATTRIBUTE_OWN_PARAMS_ONLY => true,
+                ] && $handed->getUri() === $request->getUri(),
+            ))
+            ->willThrowException(new BadRequest('Invalid parameter provided.'));
+        $this->authorizationServerStub = $authorizationServerMock;
+
+        $this->expectException(BadRequest::class);
+
+        $this->mock()->__invoke($request);
     }
 
 
@@ -514,9 +540,12 @@ class EndSessionControllerTest extends TestCase
         $psrHttpFactoryMock->expects($this->once())->method('createRequest')
             ->with($this->identicalTo($symfonyRequest))->willReturn($this->serverRequestStub);
         $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($psrHttpFactoryMock);
+        // The bridged request, marked to be read as it was sent (testValidatesTheLogoutRequestReadAsItWasSent).
+        $markedRequestStub = $this->createStub(ServerRequest::class);
+        $this->serverRequestStub->method('withAttribute')->willReturn($markedRequestStub);
         $authorizationServerMock = $this->createMock(AuthorizationServer::class);
         $authorizationServerMock->expects($this->once())->method('validateLogoutRequest')
-            ->with($this->identicalTo($this->serverRequestStub))->willReturn($this->logoutRequestStub);
+            ->with($this->identicalTo($markedRequestStub))->willReturn($this->logoutRequestStub);
         $this->authorizationServerStub = $authorizationServerMock;
         $this->logoutRequestStub->method('getPostLogoutRedirectUri')->willReturn(self::POST_LOGOUT_REDIRECT_URI);
         $this->errorResponderMock->expects($this->never())->method('forException');

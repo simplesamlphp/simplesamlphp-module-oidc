@@ -198,30 +198,33 @@ class PushedAuthorizationController
             );
         }
 
-        $requestObjectResult = $resultBag->get(RequestObjectRule::class);
+        // Make sure not to persist client authentication related params (they are not part of the authorization
+        // request itself).
+        $parameters = $bodyParams;
+        unset(
+            $parameters[ParamsEnum::ClientSecret->value],
+            $parameters[ParamsEnum::ClientAssertion->value],
+            $parameters[ParamsEnum::ClientAssertionType->value],
+        );
 
-        if ($requestObjectResult !== null) {
-            // Request Object (JAR) was used. Per RFC 9126, all authorization request parameters must appear
-            // as claims of the Request Object, so only use its (validated) payload.
-            $parameters = $resultBag->getOrFail(RequestObjectRule::class)->getValue();
+        if ($resultBag->get(RequestObjectRule::class) !== null) {
+            // Request Object (JAR) was used. RFC 9126 section 3 has every authorization request parameter appear as
+            // a claim of it, but the rules validated it together with the form body, its claims superseding form
+            // parameters of the same name, the way a Request Object is read at the authorization endpoint
+            // (RequestParamsResolver). That is what is persisted: a pushed request is redeemed with its persisted
+            // parameters only, so a parameter validated here and not persisted would be lost.
+            $requestObjectParameters = $resultBag->getOrFail(RequestObjectRule::class)->getValue();
 
             /** @psalm-suppress MixedAssignment */
-            $clientIdClaim = $parameters[ParamsEnum::ClientId->value] ?? null;
+            $clientIdClaim = $requestObjectParameters[ParamsEnum::ClientId->value] ?? null;
             if (!is_null($clientIdClaim) && $clientIdClaim !== $clientId) {
                 throw OidcServerException::invalidRequest(
                     ParamsEnum::ClientId->value,
                     'The client_id claim in request object does not match the authenticated client.',
                 );
             }
-        } else {
-            // Plain pushed authorization request. Make sure not to persist client authentication related
-            // params (they are not part of the authorization request itself).
-            $parameters = $bodyParams;
-            unset(
-                $parameters[ParamsEnum::ClientSecret->value],
-                $parameters[ParamsEnum::ClientAssertion->value],
-                $parameters[ParamsEnum::ClientAssertionType->value],
-            );
+
+            $parameters = array_merge($parameters, $requestObjectParameters);
         }
 
         unset(
@@ -232,12 +235,17 @@ class PushedAuthorizationController
         // Bind the parameters to the authenticated client.
         $parameters[ParamsEnum::ClientId->value] = $clientId;
 
-        // The scope decides whether the request is an OpenID Connect one, so it is always persisted, as the one the
-        // request was validated with (ScopeRule): the pushed parameters take precedence over those sent with the
-        // request_uri (RequestParamsResolver), but one missing here would be taken from there, so a scope added on
-        // the front channel would make another request of it. A request pushed without one, a plain OAuth 2.0 or an
-        // OpenID4VCI request, gets an empty one; one whose Request Object leaves the scope to the form body gets
-        // the one from there, which it was validated with.
+        // A pushed request is redeemed with its persisted parameters only (RequestParamsResolver), so one without a
+        // response_type could never be: it is refused here rather than at the authorization endpoint.
+        if (!isset($parameters[ParamsEnum::ResponseType->value])) {
+            $this->logger->notice('Pushed authorization request rejected: `response_type` parameter not provided.');
+            throw OidcServerException::invalidRequest(ParamsEnum::ResponseType->value, 'Missing response_type');
+        }
+
+        // The scope decides whether the request is an OpenID Connect one, so the one the request was validated with
+        // (ScopeRule) is always persisted: a request pushed without one, a plain OAuth 2.0 or an OpenID4VCI request,
+        // gets an empty one, rather than none, which would leave its scope to the default scope of the grant at the
+        // authorization endpoint.
         if (!isset($parameters[ParamsEnum::Scope->value])) {
             $validatedScopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
             $parameters[ParamsEnum::Scope->value] = implode(

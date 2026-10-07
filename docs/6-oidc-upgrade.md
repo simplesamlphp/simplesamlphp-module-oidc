@@ -64,7 +64,10 @@ endpoint (`pushed_authorization_request_endpoint`, served at
 `<basepath>/module.php/oidc/par`) lets clients push authorization request
 parameters in a back-channel `POST` and receive a one-time, short-lived
 `request_uri` (`urn:ietf:params:oauth:request_uri:...`) to use at the
-authorization endpoint. It can be required globally or per client.
+authorization endpoint, which then takes the request from the pushed
+parameters only: of the parameters sent along with the `request_uri`, only
+`client_id` is read (RFC 9126 section 4, RFC 9101). It can be required
+globally or per client.
 - Support for passing a Request Object by reference using the `request_uri`
 parameter (in addition to the existing by-value `request` support), covering
 both JWT-Secured Authorization Request (JAR, RFC 9101) by reference and OpenID
@@ -825,6 +828,13 @@ Connect Core 1.0 section 5.3). Before the new
 refresh request which narrowed the scopes to leave `openid` out; it used to get
 the claims of its remaining scopes. A token of an OpenID4VCI flow is answered
 as before.
+- The token endpoint and the end session endpoint now read a request's
+parameters as it sends them: a `request` parameter (a Request Object) in one
+is ignored, as a parameter they do not recognize is (RFC 6749 section 3.2 for
+the token endpoint),
+where its claims used to be read as parameters of the request, superseding
+those of the same name. Only the authorization endpoint and the PAR endpoint
+take a Request Object.
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
 - The requirements on packages `lcobucci/jwt` and `web-token/jwt-framework`
