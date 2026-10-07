@@ -335,9 +335,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::serverError('Unexpected auth code repository entity type.');
         }
 
-        $flowType = $authorizationRequest->isVciRequest() ?
-        FlowTypeEnum::VciAuthorizationCode :
-        FlowTypeEnum::OidcAuthorizationCode;
+        // The flow validateAuthorizationRequestWithRequestRules() found the request to belong to; one which names
+        // none is told apart by the VCI marker, as before.
+        $flowType = $authorizationRequest->getFlowType() ?? ($authorizationRequest->isVciRequest() ?
+            FlowTypeEnum::VciAuthorizationCode :
+            FlowTypeEnum::OidcAuthorizationCode);
 
         while ($maxGenerationAttempts-- > 0) {
             try {
@@ -1229,20 +1231,21 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'isVciAuthorizationCodeRequest' => $isVciAuthorizationCodeRequest,
         ]);
 
+        // A request which is neither an OpenID Connect nor an OpenID4VCI one is a plain OAuth 2.0 request, which
+        // RequiredOpenIdScopeRule lets through only where the deployment enables it. It is still built as this
+        // module's own request, so its code carries what every code issued here does (the response mode, PKCE, the
+        // PAR request_uri, the DPoP key, the flow), but nothing which only OpenID Connect has: no nonce and no
+        // requested claims, which only an ID token and a UserInfo response would carry, and it gets neither.
+        // RequestedClaimsRule has already left its claims out, so an essential acr among them is not demanded.
+        $isPlainOAuth2Request = !$isOidcCandidate && !$isVciAuthorizationCodeRequest;
 
-        if (
-            (! $isOidcCandidate) &&
-            (! $isVciAuthorizationCodeRequest)
-        ) {
-            $this->loggerService->debug('Not an OIDC nor VCI request, returning as OAuth2 request.');
-            return $oAuth2AuthorizationRequest;
-        }
-
-        $this->loggerService->debug('AuthCodeGrant: OIDC or VCI request, continuing with request setup.');
+        $this->loggerService->debug('AuthCodeGrant: Is plain OAuth2 request: ', [
+            'isPlainOAuth2Request' => $isPlainOAuth2Request,
+        ]);
 
         $authorizationRequest = AuthorizationRequest::fromOAuth2AuthorizationRequest($oAuth2AuthorizationRequest);
 
-        $nonce = $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
+        $nonce = $isPlainOAuth2Request ? null : $this->requestParamsResolver->getAsStringBasedOnAllowedMethods(
             ParamsEnum::Nonce->value,
             $request,
             $this->allowedAuthorizationHttpMethods,
@@ -1258,7 +1261,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $authorizationRequest->setAuthTime($maxAge->getValue());
         }
 
-        $requestClaims = $resultBag->get(RequestedClaimsRule::class);
+        $requestClaims = $isPlainOAuth2Request ? null : $resultBag->get(RequestedClaimsRule::class);
         $this->loggerService->debug('AuthCodeGrant: Requested claims: ', ['requestClaims' => $requestClaims]);
         if (null !== $requestClaims) {
             /** @var ?array $requestClaimValues */
@@ -1293,8 +1296,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
 
         $authorizationRequest->setIsVciRequest($isVciAuthorizationCodeRequest);
-        $flowType = $isVciAuthorizationCodeRequest ?
-        FlowTypeEnum::VciAuthorizationCode : FlowTypeEnum::OidcAuthorizationCode;
+        $flowType = match (true) {
+            $isVciAuthorizationCodeRequest => FlowTypeEnum::VciAuthorizationCode,
+            $isPlainOAuth2Request => FlowTypeEnum::OAuth2AuthorizationCode,
+            default => FlowTypeEnum::OidcAuthorizationCode,
+        };
         $this->loggerService->debug('AuthCodeGrant: FlowType: ', ['flowType' => $flowType]);
         $authorizationRequest->setFlowType($flowType);
 

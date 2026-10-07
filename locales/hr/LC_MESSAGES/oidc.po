@@ -2578,6 +2578,16 @@ msgstr ""
 msgid "Grant types"
 msgstr ""
 
+msgid "Plain OAuth 2.0 Authorization Code Requests"
+msgstr ""
+
+msgid ""
+"Whether an authorization code request without the 'openid' scope, which is "
+"not an OpenID4VCI one either, is served as a plain OAuth 2.0 request rather "
+"than refused. Such a request gets no ID token, and the UserInfo endpoint "
+"refuses its access token."
+msgstr ""
+
 msgid "Enabled Grant Types"
 msgstr ""
 

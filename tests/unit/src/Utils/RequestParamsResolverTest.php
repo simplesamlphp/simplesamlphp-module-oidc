@@ -310,6 +310,25 @@ class RequestParamsResolverTest extends TestCase
     }
 
 
+    /**
+     * A request pushed without a scope is persisted with an empty one (PushedAuthorizationController), which takes
+     * precedence over a scope sent with the request_uri on the front channel, as every pushed parameter does.
+     */
+    public function testAnEmptyPushedScopeSupersedesOneSentWithTheRequestUri(): void
+    {
+        $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';
+        $helpersMock = $this->helpersWithParams(['request_uri' => $requestUri, 'scope' => 'openid']);
+        $parEntityMock = $this->createMock(PushedAuthorizationRequestEntity::class);
+        $parEntityMock->method('getParameters')->willReturn(['response_type' => 'code', 'scope' => '']);
+        $this->pushedAuthorizationRequestRepositoryMock->method('findValid')->willReturn($parEntityMock);
+
+        $this->assertSame(
+            '',
+            $this->mock($helpersMock)->getAsStringBasedOnAllowedMethods('scope', $this->requestMock),
+        );
+    }
+
+
     public function testGetAllResolvesNothingForInvalidPushedAuthorizationRequestUri(): void
     {
         $requestUri = PushedAuthorizationRequestEntityFactory::REQUEST_URI_PREFIX . 'abc123';

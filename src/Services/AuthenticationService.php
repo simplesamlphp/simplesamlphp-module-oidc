@@ -12,6 +12,7 @@ use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -164,6 +165,18 @@ class AuthenticationService
         $client = $this->clientRepository->findById((string)$state['Oidc']['RelyingPartyMetadata']['id']);
         if (!$client) {
             throw new OidcException('Client not found.');
+        }
+
+        // A plain OAuth 2.0 login gets its client no ID token, so no session with this OP which it could be told the
+        // end of (OpenID Connect Back-Channel Logout 1.0): the client is not associated with the session, and gets no
+        // logout token on account of this login.
+        /** @psalm-suppress MixedAssignment */
+        $authorizationRequest = $state['authorizationRequest'] ?? null;
+        if (
+            $authorizationRequest instanceof AuthorizationRequest &&
+            $authorizationRequest->getFlowType() === FlowTypeEnum::OAuth2AuthorizationCode
+        ) {
+            return $user;
         }
 
         $this->addRelyingPartyAssociation($client, $user);

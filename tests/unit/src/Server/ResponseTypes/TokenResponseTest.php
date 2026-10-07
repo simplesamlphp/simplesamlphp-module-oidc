@@ -614,7 +614,8 @@ class TokenResponseTest extends TestCase
 
     /**
      * Outside a VCI flow the authorization details stay off the wire even when the access token carries some,
-     * and a VCI flow without any carries none; neither case logs.
+     * and a VCI flow without any carries none; neither case logs. The token is not granted openid, so no ID
+     * token goes with it either.
      */
     #[DataProvider('noAuthorizationDetailsProvider')]
     public function testLeavesTheAuthorizationDetailsOutUnlessTheFlowIsVci(
@@ -629,6 +630,7 @@ class TokenResponseTest extends TestCase
         $result = $this->generateResponse();
 
         $this->assertArrayNotHasKey('authorization_details', $result);
+        $this->assertArrayNotHasKey('id_token', $result);
         $this->assertSame('AccessToken123', $result['access_token']);
     }
 
@@ -643,6 +645,10 @@ class TokenResponseTest extends TestCase
             'no flow type' => [null, self::AUTHORIZATION_DETAILS],
             'OIDC authorization code flow' => [FlowTypeEnum::OidcAuthorizationCode, self::AUTHORIZATION_DETAILS],
             'OIDC refresh token flow' => [FlowTypeEnum::OidcRefreshToken, self::AUTHORIZATION_DETAILS],
+            'plain OAuth 2.0 authorization code flow' => [
+                FlowTypeEnum::OAuth2AuthorizationCode,
+                self::AUTHORIZATION_DETAILS,
+            ],
             'VCI flow without details' => [FlowTypeEnum::VciAuthorizationCode, null],
         ];
     }

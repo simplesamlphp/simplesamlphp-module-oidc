@@ -597,6 +597,58 @@ Provider supports, so with `implicit` disabled the OP is not one in that
 strict sense, and the OpenID Connect Implicit certification profile no longer
 applies to it.
 
+### Plain OAuth 2.0 authorization code requests
+
+An authorization code request (`response_type=code`) which does not ask for
+the `openid` scope, and is not an OpenID4VCI request either, is a plain OAuth
+2.0 request (RFC 6749 section 4.1). The module refuses it with
+`invalid_request` ("Scope openid is required"), unless the deployment turns
+such requests on:
+
+```php
+ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED => true,
+```
+
+Such a request then runs the authorization code grant as an OpenID Connect
+request does: PKCE, Pushed Authorization Requests and Request Objects, DPoP,
+the response modes and the `iss` authorization response parameter all apply.
+It differs in what OpenID Connect alone defines:
+
+- No ID token is issued for it. The token endpoint decides that by the
+  `openid` scope, on a refresh as well.
+- Its `nonce` and `claims` parameters are ignored, since they only concern an
+  ID token and a UserInfo response, so an essential `acr` requested in `claims`
+  is not demanded of the login either (`acr_values` is, see below).
+- A Request Object it comes in has to be a signed JAR one (RFC 9101) whose
+  `client_id` claim names the client, as for any request without `openid`.
+- Pushed to the PAR endpoint without a `scope`, it is kept with an empty one,
+  so a `scope` added in the browser when the `request_uri` is used can not
+  turn it into an OpenID Connect request. (Every pushed request is kept with
+  the scope it was validated with.)
+- The client gets no back-channel logout token on account of such a login:
+  without an ID token it has no session with the OP to be told the end of
+  (OpenID Connect Back-Channel Logout 1.0).
+- The UserInfo endpoint refuses its access token with `insufficient_scope`
+  (HTTP 403, RFC 6750 section 3.1). The endpoint answers for tokens obtained by
+  an OpenID Connect request (OpenID Connect Core 1.0 section 5.3), and an OAuth
+  2.0 access token is no statement of who the user is. A resource server checks
+  such a token through [token introspection](#token-introspection) or as the
+  JWT it is (RFC 9068).
+
+The parameters which steer the login itself (`prompt`, `max_age`,
+`acr_values`, `login_hint`, `ui_locales`, `id_token_hint`) are honoured as for
+an OpenID Connect request. The client may ask for any of the scopes it is
+registered with, and, as for any request, gets a refresh token only when it is
+granted `offline_access`. A request without a `scope` parameter is served with
+no scope at all, since the module has no default scope (RFC 6749 section 3.3);
+its access token then carries no `scope` claim. The implicit grant still
+requires `openid`, since its response types deliver an ID token.
+
+The UserInfo endpoint refuses any access token without the `openid` scope in
+the same way, whatever this option says, so also one a refresh narrowed to
+scopes without it. A token of an OpenID4VCI flow, which need not carry the
+scope, is the exception.
+
 ## Pushed Authorization Requests (PAR) and Request Objects
 
 A client can send authorization request parameters in several ways:

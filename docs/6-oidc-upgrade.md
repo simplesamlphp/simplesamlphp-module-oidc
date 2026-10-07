@@ -136,6 +136,12 @@ the implicit grant should disable it, as OAuth 2.0 Security Best Current
 Practice (RFC 9700) advises; the protocol configuration overview in the
 administration area says as much next to the enabled set. See the
 [configuration guide](3-oidc-configuration.md#enabled-grant-types-flows).
+- Plain OAuth 2.0 authorization code requests, ones without the `openid` scope
+which are not OpenID4VCI requests either, can be served by turning on the
+`plain_oauth2_authorization_code_enabled` option. They are still refused by
+default, as in version 6. Such a request gets no ID token, and the UserInfo
+endpoint refuses its access token. See the
+[configuration guide](3-oidc-configuration.md#plain-oauth-20-authorization-code-requests).
 - The access token JWT now follows the shape of the JWT Profile for OAuth 2.0
 Access Tokens (RFC 9068): the header carries `typ: at+jwt` (section 2.1), and
 the payload carries `client_id` (section 2.2) and `scope`, a space-separated
@@ -534,6 +540,9 @@ perform. Trust Chain resolution is reachable before a Request Object signature c
 be verified, so these limit what an anonymous request can make the OP do. The
 defaults mirror the `openid` library's own and need no action; raise them only for
 a legitimately large federation.
+- `ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED` - optional,
+serve plain OAuth 2.0 authorization code requests, ones without the `openid`
+scope (default `false`).
 - Several new options regarding experimental support for OpenID4VCI.
 
 Major impact changes:
@@ -808,6 +817,14 @@ and shown the module's own "you are logged out" page instead of being
 redirected. Requests that do include `id_token_hint` are unchanged: the
 `post_logout_redirect_uri` is still validated against the client's registered
 values, and the redirection is performed as before.
+- The UserInfo endpoint now refuses an access token which was not granted the
+`openid` scope, with `insufficient_scope` (HTTP 403, RFC 6750 section 3.1),
+since it answers for tokens obtained by an OpenID Connect request (OpenID
+Connect Core 1.0 section 5.3). Before the new
+`plain_oauth2_authorization_code_enabled` option, such a token came only from a
+refresh request which narrowed the scopes to leave `openid` out; it used to get
+the claims of its remaining scopes. A token of an OpenID4VCI flow is answered
+as before.
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
 - The requirements on packages `lcobucci/jwt` and `web-token/jwt-framework`

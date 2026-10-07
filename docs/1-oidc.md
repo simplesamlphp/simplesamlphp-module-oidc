@@ -19,6 +19,11 @@ server alike (the `offline_access` scope goes with the Refresh Token flow); see
 Security Best Current Practice (RFC 9700) advises against the implicit grant,
 so a deployment with no client depending on it should disable it.
 
+A plain OAuth 2.0 authorization code request, one without the `openid` scope,
+is refused unless `plain_oauth2_authorization_code_enabled` turns such requests
+on; it then gets no ID token. See
+[Configuration](3-oidc-configuration.md#plain-oauth-20-authorization-code-requests).
+
 Authorization request parameters can be sent as plain parameters, by value as a
 Request Object (`request`, OpenID Connect Core / JAR), or by reference
 (`request_uri`) — either via Pushed Authorization Requests (PAR, RFC 9126) or a

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers;
 
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -230,6 +231,20 @@ class PushedAuthorizationController
 
         // Bind the parameters to the authenticated client.
         $parameters[ParamsEnum::ClientId->value] = $clientId;
+
+        // The scope decides whether the request is an OpenID Connect one, so it is always persisted, as the one the
+        // request was validated with (ScopeRule): the pushed parameters take precedence over those sent with the
+        // request_uri (RequestParamsResolver), but one missing here would be taken from there, so a scope added on
+        // the front channel would make another request of it. A request pushed without one, a plain OAuth 2.0 or an
+        // OpenID4VCI request, gets an empty one; one whose Request Object leaves the scope to the form body gets
+        // the one from there, which it was validated with.
+        if (!isset($parameters[ParamsEnum::Scope->value])) {
+            $validatedScopes = $resultBag->getOrFail(ScopeRule::class)->getValue();
+            $parameters[ParamsEnum::Scope->value] = implode(
+                ' ',
+                array_map(static fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), $validatedScopes),
+            );
+        }
 
         return $parameters;
     }

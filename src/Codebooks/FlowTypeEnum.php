@@ -6,6 +6,8 @@ namespace SimpleSAML\Module\oidc\Codebooks;
 
 enum FlowTypeEnum: string
 {
+    case OAuth2AuthorizationCode = 'oauth2_authorization_code';
+
     case OidcAuthorizationCode = 'oidc_authorization_code';
     case OidcImplicit = 'oidc_implicit';
     case OidcHybrid = 'oidc_hybrid';

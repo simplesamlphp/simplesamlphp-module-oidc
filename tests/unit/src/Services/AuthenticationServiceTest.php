@@ -18,6 +18,7 @@ use SimpleSAML\Auth\Source;
 use SimpleSAML\Auth\State;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
@@ -278,6 +279,47 @@ class AuthenticationServiceTest extends TestCase
             $this->mock()->getAuthenticateUser(self::STATE),
             $this->userEntityMock,
         );
+    }
+
+
+    /**
+     * @return array<string, array{0: ?\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum, 1: bool}>
+     */
+    public static function associationProvider(): array
+    {
+        return [
+            'a plain OAuth 2.0 login' => [FlowTypeEnum::OAuth2AuthorizationCode, false],
+            'an OpenID Connect login' => [FlowTypeEnum::OidcAuthorizationCode, true],
+            'a credential login' => [FlowTypeEnum::VciAuthorizationCode, true],
+            'a login whose request names no flow' => [null, true],
+        ];
+    }
+
+
+    /**
+     * A plain OAuth 2.0 login gets its client no ID token, so no session with the OP which it could be told the
+     * end of: the client is not associated with the session, and gets no back-channel logout token on account of
+     * this login. Every other login is associated as before.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('associationProvider')]
+    public function testAssociatesTheClientWithTheSessionUnlessTheLoginIsAPlainOAuth2One(
+        ?FlowTypeEnum $flowType,
+        bool $associated,
+    ): void {
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->willReturn($this->userEntityMock);
+        $this->userEntityMock->method('getClaims')->willReturn([]);
+        $this->sessionServiceMock->expects($associated ? $this->once() : $this->never())
+            ->method('addRelyingPartyAssociation');
+
+        $authorizationRequest = new AuthorizationRequest();
+        $authorizationRequest->setFlowType($flowType);
+        $state = self::STATE;
+        $state['authorizationRequest'] = $authorizationRequest;
+
+        $this->assertSame($this->userEntityMock, $this->mock()->getAuthenticateUser($state));
     }
 
 

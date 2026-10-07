@@ -2885,6 +2885,25 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * Opt-in: an authorization code request without the openid scope is refused, as in version 6, until an
+     * operator turns plain OAuth 2.0 ones on.
+     *
+     * @throws \Exception
+     */
+    public function testPlainOAuth2AuthorizationCodeRequestsAreRefusedUntilAnOperatorEnablesThem(): void
+    {
+        $this->assertFalse($this->sut()->isPlainOAuth2AuthorizationCodeEnabled());
+
+        $this->assertTrue(
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED,
+                true,
+            ))->isPlainOAuth2AuthorizationCodeEnabled(),
+        );
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testRequestObjectsMayBeUnsignedUntilAnOperatorRequiresSignatures(): void

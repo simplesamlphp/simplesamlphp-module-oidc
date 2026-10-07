@@ -159,7 +159,7 @@ class RequestRulesManagerFactory
                 $this->sspBridge,
             ),
             new ScopeRule($this->requestParamsResolver, $this->helpers, $this->scopeRepository),
-            new RequiredOpenIdScopeRule($this->requestParamsResolver, $this->helpers),
+            new RequiredOpenIdScopeRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new CodeChallengeRule($this->requestParamsResolver, $this->helpers),
             new CodeChallengeMethodRule(
                 $this->requestParamsResolver,

@@ -281,6 +281,47 @@ class OidcServerExceptionTest extends TestCase
 
 
     /**
+     * An access token which was not granted what the request needs is refused with `insufficient_scope` and a 403,
+     * the challenge naming the error as well (RFC 6750 section 3.1).
+     */
+    public function testRendersAnInsufficientScopeWithAChallengeNamingTheError(): void
+    {
+        $exception = OidcServerException::insufficientScope('The access token was not granted the openid scope.');
+
+        $this->assertSame('Bearer error="insufficient_scope"', $exception->getWwwAuthenticate());
+        $this->assertTrue($exception->hasBody());
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame('Bearer error="insufficient_scope"', $response->getHeaderLine('WWW-Authenticate'));
+
+        $body = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertIsArray($body);
+        $this->assertSame('insufficient_scope', $body['error']);
+        $this->assertStringContainsString('not granted the openid scope', (string)$body['error_description']);
+    }
+
+
+    /**
+     * The challenge of another scheme, given by the caller, is the one sent (RFC 9449 section 7.1).
+     */
+    public function testRendersAnInsufficientScopeWithTheChallengeGiven(): void
+    {
+        $exception = OidcServerException::insufficientScope(null, 'DPoP error="insufficient_scope", algs="ES256"');
+
+        $response = $exception->generateHttpResponse(new Response());
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame(
+            'DPoP error="insufficient_scope", algs="ES256"',
+            $response->getHeaderLine('WWW-Authenticate'),
+        );
+    }
+
+
+    /**
      * @return array<string,array{0:\SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum,1:?string,2:string[],3:string}>
      */
     public static function challengeProvider(): array

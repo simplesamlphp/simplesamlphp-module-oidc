@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\PushedAuthorizationController;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
+use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
@@ -283,6 +284,8 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->serverRequestMock->method('getParsedBody')->willReturn(['response_type' => 'code']);
         $this->prepareAuthenticatedClient();
         $this->pushedAuthorizationRequestEntityFactoryMock->method('fromData')->willReturn($this->parEntityMock);
+        // The scopes ScopeRule found for a request without a scope parameter: none.
+        $this->resultBagMock->method('getOrFail')->willReturn(new Result(ScopeRule::class, []));
 
         $checkedRules = null;
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
@@ -342,6 +345,44 @@ class PushedAuthorizationControllerTest extends TestCase
             ->willReturn($this->parEntityMock);
 
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())->method('persist');
+
+        $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * A Request Object which leaves the scope to the form body was validated with the scope from there (the rules
+     * read both), so that is the scope persisted with its payload: a request validated as an OpenID Connect one is
+     * redeemed as one, and not as a plain OAuth 2.0 request, whatever the front channel sends with the request_uri.
+     */
+    public function testPersistsTheValidatedScopeWithARequestObjectWhichLeavesItOut(): void
+    {
+        $this->serverRequestMock->method('getMethod')->willReturn('POST');
+        $this->prepareAuthenticatedClient();
+        $this->serverRequestMock->method('getParsedBody')
+            ->willReturn(['request' => 'token', 'scope' => 'openid profile']);
+
+        $requestObjectPayload = [
+            'client_id' => 'client123',
+            'redirect_uri' => 'https://localhost/callback',
+            'response_type' => 'code',
+        ];
+        $requestObjectResult = new Result(RequestObjectRule::class, $requestObjectPayload);
+        $this->resultBagMock->method('get')->with(RequestObjectRule::class)->willReturn($requestObjectResult);
+        $this->resultBagMock->method('getOrFail')->willReturnCallback(
+            fn(string $key): Result => match ($key) {
+                RequestObjectRule::class => $requestObjectResult,
+                ScopeRule::class => new Result(
+                    ScopeRule::class,
+                    [new ScopeEntity('openid'), new ScopeEntity('profile')],
+                ),
+            },
+        );
+
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())
+            ->method('fromData')
+            ->with('client123', $this->identicalTo([...$requestObjectPayload, 'scope' => 'openid profile']))
+            ->willReturn($this->parEntityMock);
 
         $this->sut()->__invoke($this->serverRequestMock);
     }
@@ -423,6 +464,14 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->resultBagMock->method('getOrFail')->willReturnCallback(
             fn(string $key): Result => match ($key) {
                 DpopJktRule::class => new Result(DpopJktRule::class, $dpopJkt),
+                // The scopes ScopeRule found: the ones the request names, none without a scope parameter.
+                ScopeRule::class => new Result(
+                    ScopeRule::class,
+                    array_map(
+                        static fn(string $scope): ScopeEntity => new ScopeEntity($scope),
+                        array_filter(explode(' ', $params['scope'] ?? '')),
+                    ),
+                ),
             },
         );
     }
@@ -471,7 +520,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
             ->with(
                 'client123',
-                ['response_type' => 'code', 'dpop_jkt' => 'proof-key-jkt', 'client_id' => 'client123'],
+                ['response_type' => 'code', 'dpop_jkt' => 'proof-key-jkt', 'client_id' => 'client123', 'scope' => ''],
             )
             ->willReturn($this->parEntityMock);
 
@@ -509,7 +558,33 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->preparePushedRequest(['response_type' => 'code', 'dpop_jkt' => 'a-key-jkt'], 'a-key-jkt');
         $this->dpopProofVerifierMock->method('verify')->willReturn(null);
         $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
-            ->with('client123', ['response_type' => 'code', 'dpop_jkt' => 'a-key-jkt', 'client_id' => 'client123'])
+            ->with(
+                'client123',
+                ['response_type' => 'code', 'dpop_jkt' => 'a-key-jkt', 'client_id' => 'client123', 'scope' => ''],
+            )
+            ->willReturn($this->parEntityMock);
+
+        $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * The scope decides whether a request is an OpenID Connect one. A request pushed without one, a plain OAuth 2.0
+     * or an OpenID4VCI request, is persisted with an empty one, so a scope sent with the request_uri on the front
+     * channel can not fill the gap: the pushed parameters take precedence over those (RequestParamsResolver), but
+     * one missing from them would be taken from there.
+     */
+    public function testPersistsARequestPushedWithoutAScopeWithAnEmptyOne(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'state' => 'xyz'], null);
+        $this->dpopProofVerifierMock->method('verify')->willReturn(null);
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                'client123',
+                $this->identicalTo(
+                    ['response_type' => 'code', 'state' => 'xyz', 'client_id' => 'client123', 'scope' => ''],
+                ),
+            )
             ->willReturn($this->parEntityMock);
 
         $this->sut()->__invoke($this->serverRequestMock);
@@ -548,6 +623,8 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->serverRequestMock->method('getParsedBody')->willReturn(['response_type' => 'code']);
         $this->prepareAuthenticatedClient();
         $this->pushedAuthorizationRequestEntityFactoryMock->method('fromData')->willReturn($this->parEntityMock);
+        // The scopes ScopeRule found for a request without a scope parameter: none.
+        $this->resultBagMock->method('getOrFail')->willReturn(new Result(ScopeRule::class, []));
 
         $checkedRules = null;
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);

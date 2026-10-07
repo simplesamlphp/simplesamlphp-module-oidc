@@ -48,6 +48,8 @@ class RequestedClaimsRuleTest extends TestCase
 
     protected Stub $responseModeStub;
 
+    protected ?string $scopeParam = 'openid profile';
+
 
     /**
      * @throws \Exception
@@ -61,6 +63,8 @@ class RequestedClaimsRuleTest extends TestCase
         $this->resultBag->add(new Result(ClientRule::class, $this->clientStub));
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturnCallback(fn(string $param): ?string => $param === 'scope' ? $this->scopeParam : null);
         $this->claimSetEntityFactoryStub = $this->createStub(ClaimSetEntityFactory::class);
         $this->claimSetEntityFactoryStub->method('build')
             ->willReturnCallback(function (string $scope, array $claims) {
@@ -174,5 +178,58 @@ class RequestedClaimsRuleTest extends TestCase
         );
         $this->assertNotNull($result);
         $this->assertEquals($expectedClaims, $result->getValue());
+    }
+
+
+    /**
+     * A plain OAuth 2.0 request, which asks for neither the openid scope nor a credential, gets neither an ID
+     * token nor a UserInfo response, so its claims parameter is ignored: an essential acr in it is not demanded
+     * of the login (AcrValuesRule reads this rule's result).
+     *
+     * @throws \Throwable
+     */
+    public function testIgnoresTheClaimsOfAPlainOAuth2Request(): void
+    {
+        $this->scopeParam = 'profile';
+        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode([
+            'id_token' => ['acr' => ['essential' => true, 'value' => 'urn:example:unavailable']],
+            'userinfo' => ['email' => null],
+        ]));
+        $this->requestParamsResolverStub->method('isVciAuthorizationCodeRequest')->willReturn(false);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertNull($result);
+    }
+
+
+    /**
+     * An OpenID4VCI request need not carry the openid scope, and its claims are kept as before.
+     *
+     * @throws \Throwable
+     */
+    public function testKeepsTheClaimsOfACredentialRequestWithoutTheOpenIdScope(): void
+    {
+        $this->scopeParam = 'ResearchCredential';
+        $requestedClaims = ['userinfo' => ['email' => null]];
+        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')->willReturn(json_encode($requestedClaims));
+        $this->requestParamsResolverStub->method('isVciAuthorizationCodeRequest')->willReturn(true);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->resultBag,
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertNotNull($result);
+        $this->assertEquals($requestedClaims, $result->getValue());
     }
 }

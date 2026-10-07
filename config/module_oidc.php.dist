@@ -186,6 +186,25 @@ $config = [
 //    ],
 
     /**
+     * (optional) Serve plain OAuth 2.0 authorization code requests: ones with
+     * response_type 'code' which do not ask for the 'openid' scope and are not
+     * OpenID4VCI requests either. Unless this is enabled, such a request is
+     * refused with 'invalid_request' ("Scope openid is required").
+     *
+     * Enabled, such a request runs the authorization code grant as an OpenID
+     * Connect one does (PKCE, PAR and Request Objects, DPoP, the response
+     * modes, 'iss' in the authorization response), except that no ID token is
+     * issued for it, its 'nonce' and 'claims' parameters are ignored, and the
+     * UserInfo endpoint refuses its access token with 'insufficient_scope'.
+     * As for any request, a refresh token is issued only when the
+     * 'offline_access' scope is granted. The implicit grant still requires the
+     * 'openid' scope.
+     *
+     * Default is false.
+     */
+//    ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED => false,
+
+    /**
      * Authorization code and tokens TTL (validity duration), with given
      * examples. For duration format info, check
      * https://www.php.net/manual/en/dateinterval.construct.php

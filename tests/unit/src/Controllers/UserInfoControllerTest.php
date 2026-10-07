@@ -14,15 +14,18 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Controllers\UserInfoController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
+use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
@@ -77,6 +80,8 @@ class UserInfoControllerTest extends TestCase
 
     protected MockObject $psrHttpFactoryMock;
 
+    protected MockObject $moduleConfigMock;
+
 
     protected function setUp(): void
     {
@@ -117,6 +122,9 @@ class UserInfoControllerTest extends TestCase
         $this->psrHttpFactoryMock = $this->createMock(PsrHttpFactory::class);
         $this->psrHttpFactoryMock->method('createRequest')->willReturn($this->serverRequestMock);
         $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($this->psrHttpFactoryMock);
+
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getDpopSigningAlgorithms')->willReturn(['ES256']);
     }
 
 
@@ -131,6 +139,7 @@ class UserInfoControllerTest extends TestCase
             $this->psrHttpBridgeMock,
             $this->errorResponderMock,
             $this->routesMock,
+            $this->moduleConfigMock,
         );
     }
 
@@ -401,6 +410,7 @@ class UserInfoControllerTest extends TestCase
                 $this->psrHttpBridgeMock,
                 $this->errorResponderMock,
                 $this->routesMock,
+                $this->moduleConfigMock,
             ])
             ->onlyMethods(['handleCors'])
             ->getMock();
@@ -589,6 +599,132 @@ class UserInfoControllerTest extends TestCase
             $psrHttpBridge,
             new ErrorResponder($psrHttpBridge, $this->createStub(LoggerService::class)),
             $this->routesMock,
+            $this->moduleConfigMock,
+        );
+    }
+
+
+    /**
+     * The response to a request with an access token of the given scopes and flow, presented under the given
+     * scheme, through the real error responder and bridge.
+     *
+     * @param string[]|null $scopes Null for a token which carries no scopes claim.
+     */
+    protected function userInfoResponseFor(?array $scopes, ?FlowTypeEnum $flowType, string $scheme): Response
+    {
+        $attributes = [
+            'oauth_access_token_id' => 'tokenid',
+            'oauth_scopes' => $scopes,
+            'oauth_user_id' => 'the-subject',
+            'oauth_access_token_typ' => 'at+jwt',
+            BearerTokenValidator::ATTRIBUTE_ACCESS_TOKEN_SCHEME => $scheme,
+        ];
+        $this->authorizationServerRequestMock->method('getAttribute')
+            ->willReturnCallback(fn(string $name): mixed => $attributes[$name] ?? null);
+        $this->resourceServerMock->method('validateAuthenticatedRequest')
+            ->willReturn($this->authorizationServerRequestMock);
+        $this->accessTokenEntityMock->method('getFlowTypeEnum')->willReturn($flowType);
+        $this->accessTokenEntityMock->method('getUserIdentifier')->willReturn('userid');
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn([]);
+        $this->accessTokenRepositoryMock->method('findById')->willReturn($this->accessTokenEntityMock);
+        $this->userEntityMock->method('getClaims')->willReturn(['uid' => ['userid']]);
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->willReturn($this->userEntityMock);
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturn(['email' => 'userid@localhost.localdomain']);
+        $this->claimTranslatorExtractorMock->method('extractAdditionalUserInfoClaims')->willReturn([]);
+
+        return $this->userInfoControllerWithRealResponses()
+            ->userInfo(Request::create('https://op.example.org/oidc/userinfo'));
+    }
+
+
+    /**
+     * @return array<string, array{0: ?string[], 1: ?\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum}>
+     */
+    public static function tokenWithoutTheOpenIdScopeProvider(): array
+    {
+        return [
+            'a plain OAuth 2.0 token' => [['profile', 'email'], FlowTypeEnum::OAuth2AuthorizationCode],
+            'a plain OAuth 2.0 token granted no scope, without a scopes claim' => [
+                null,
+                FlowTypeEnum::OAuth2AuthorizationCode,
+            ],
+            'a token a refresh narrowed to scopes without openid' => [['email'], null],
+            'a token of an OpenID Connect code without openid' => [['email'], FlowTypeEnum::OidcAuthorizationCode],
+        ];
+    }
+
+
+    /**
+     * The endpoint answers for an access token obtained by an OpenID Connect request (OpenID Connect Core 1.0
+     * section 5.3), one granted the openid scope. Any other is refused as RFC 6750 section 3.1 has it, with a 403
+     * and the challenge naming the error, before the user is looked up. The refusal carries the CORS headers, so
+     * that a JavaScript client can read it.
+     *
+     * @param string[]|null $scopes
+     */
+    #[DataProvider('tokenWithoutTheOpenIdScopeProvider')]
+    public function testRefusesATokenWithoutTheOpenIdScope(?array $scopes, ?FlowTypeEnum $flowType): void
+    {
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+
+        $response = $this->userInfoResponseFor($scopes, $flowType, 'Bearer');
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame(
+            'Bearer error="insufficient_scope", DPoP algs="ES256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
+        $this->assertSame('*', $response->headers->get('Access-Control-Allow-Origin'));
+        $this->assertSame('WWW-Authenticate', $response->headers->get('Access-Control-Expose-Headers'));
+
+        $body = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertIsArray($body);
+        $this->assertSame('insufficient_scope', $body['error']);
+    }
+
+
+    /**
+     * A token presented under the DPoP scheme is refused under it alone, naming the algorithms a proof may be
+     * signed with (RFC 9449 section 7.1).
+     */
+    public function testRefusesATokenWithoutTheOpenIdScopeUnderTheSchemeItCameUnder(): void
+    {
+        $response = $this->userInfoResponseFor(['email'], FlowTypeEnum::OAuth2AuthorizationCode, 'DPoP');
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame(
+            'DPoP error="insufficient_scope", algs="ES256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
+    }
+
+
+    /**
+     * @return array<string, array{0: \SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum}>
+     */
+    public static function credentialFlowProvider(): array
+    {
+        return [
+            'the authorization code flow' => [FlowTypeEnum::VciAuthorizationCode],
+            'the pre-authorized code flow' => [FlowTypeEnum::VciPreAuthorizedCode],
+        ];
+    }
+
+
+    /**
+     * A token of an OpenID4VCI flow need not carry the openid scope, and is answered as before.
+     */
+    #[DataProvider('credentialFlowProvider')]
+    public function testAnswersATokenOfACredentialFlowWithoutTheOpenIdScope(FlowTypeEnum $flowType): void
+    {
+        $response = $this->userInfoResponseFor(['ResearchCredential'], $flowType, 'Bearer');
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(
+            ['email' => 'userid@localhost.localdomain', 'sub' => 'the-subject'],
+            json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR),
         );
     }
 

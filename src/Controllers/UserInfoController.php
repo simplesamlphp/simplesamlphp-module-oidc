@@ -11,14 +11,19 @@ use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResourceServer;
+use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -36,6 +41,7 @@ class UserInfoController
         private readonly PsrHttpBridge $psrHttpBridge,
         private readonly ErrorResponder $errorResponder,
         private readonly Routes $routes,
+        private readonly ModuleConfig $moduleConfig,
     ) {
     }
 
@@ -56,13 +62,37 @@ class UserInfoController
 
         /** @var string $tokenId */
         $tokenId = $authorization->getAttribute('oauth_access_token_id');
+        // A token granted no scope carries no scopes claim at all.
         /** @var string[] $scopes */
-        $scopes = $authorization->getAttribute('oauth_scopes');
+        $scopes = $authorization->getAttribute('oauth_scopes') ?? [];
 
         $accessToken = $this->accessTokenRepository->findById($tokenId);
         if (!$accessToken instanceof AccessTokenEntity) {
             throw new UserNotFound('Access token not found');
         }
+
+        // The endpoint answers for an access token obtained by an OpenID Connect request (OpenID Connect Core 1.0
+        // section 5.3), one granted the 'openid' scope. A plain OAuth 2.0 token
+        // (ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED), or one a refresh narrowed to scopes
+        // without 'openid', is refused as RFC 6750 section 3.1 has it, under the scheme it was presented under. A
+        // token of an OpenID4VCI flow, which need not carry the scope, is answered as before.
+        if (
+            !in_array(ScopesEnum::OpenId->value, $scopes, true) &&
+            $accessToken->getFlowTypeEnum()?->isVciFlow() !== true
+        ) {
+            /** @psalm-suppress MixedAssignment */
+            $scheme = $authorization->getAttribute(BearerTokenValidator::ATTRIBUTE_ACCESS_TOKEN_SCHEME);
+
+            throw OidcServerException::insufficientScope(
+                "The access token was not granted the 'openid' scope.",
+                OidcServerException::buildResourceChallenges(
+                    AccessTokenTypesEnum::tryFrom(is_string($scheme) ? $scheme : ''),
+                    'insufficient_scope',
+                    $this->moduleConfig->getDpopSigningAlgorithms(),
+                ),
+            );
+        }
+
         $user = $this->getUser($accessToken);
 
         // The claims are read from the user record as it is now; the response is the fresher statement when an

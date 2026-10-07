@@ -1125,20 +1125,70 @@ class AuthCodeGrantTest extends TestCase
 
     // Authorization request validation.
 
-    public function testReturnsAPlainOAuth2RequestWhenItIsNeitherOidcNorVerifiableCredential(): void
+    /**
+     * A request which asks for neither the openid scope nor a credential is a plain OAuth 2.0 one, which
+     * RequiredOpenIdScopeRule let through where the deployment enables such requests. It is built as this
+     * module's own request all the same, so that its code is issued as every other one is, and it names its flow.
+     */
+    public function testBuildsAPlainOAuth2RequestAsThisModulesOwnNamingItsFlow(): void
     {
-        // No openid scope and not a credential request, so there is nothing OIDC-specific to carry and the
-        // grant must not promote it to the richer request type.
         $request = $this->validatedAuthorizationRequest(scopes: [new ScopeEntity('profile')]);
 
-        $this->assertInstanceOf(OAuth2AuthorizationRequest::class, $request);
-        $this->assertNotInstanceOf(AuthorizationRequest::class, $request);
+        $this->assertInstanceOf(AuthorizationRequest::class, $request);
+        $this->assertFalse($request->isVciRequest());
+        $this->assertSame(FlowTypeEnum::OAuth2AuthorizationCode, $request->getFlowType());
     }
 
 
     public function testReturnsAnOidcRequestWhenTheOpenidScopeIsRequested(): void
     {
-        $this->assertInstanceOf(AuthorizationRequest::class, $this->validatedAuthorizationRequest());
+        $request = $this->validatedAuthorizationRequest();
+
+        $this->assertInstanceOf(AuthorizationRequest::class, $request);
+        $this->assertSame(FlowTypeEnum::OidcAuthorizationCode, $request->getFlowType());
+    }
+
+
+    /**
+     * The nonce and the requested claims only go into an ID token and a UserInfo response, and a plain OAuth 2.0
+     * request gets neither, so they are not carried. What steers the login, PKCE, the DPoP key and the response
+     * mode are, as for any request.
+     */
+    public function testCarriesNothingOnlyOpenIdConnectHasOntoAPlainOAuth2Request(): void
+    {
+        $idTokenHint = $this->createMock(IdTokenHint::class);
+        $idTokenHint->method('getSubject')->willReturn('the-subject');
+        $responseMode = $this->createStub(ResponseModeInterface::class);
+
+        $request = $this->validatedAuthorizationRequest(
+            scopes: [new ScopeEntity('profile')],
+            nonce: 'the-nonce',
+            ruleResults: [
+                RequestedClaimsRule::class => ['userinfo' => ['email' => null]],
+                MaxAgeRule::class => 1_700_000_000,
+                AcrValuesRule::class => ['urn:mace:incommon:iap:silver'],
+                UiLocalesRule::class => 'hr en',
+                LoginHintRule::class => 'user@example.org',
+                IdTokenHintRule::class => $idTokenHint,
+                CodeChallengeRule::class => $this->codeChallenge(),
+                CodeChallengeMethodRule::class => 'S256',
+                DpopJktRule::class => 'thumbprint-of-the-key',
+                ResponseModeRule::class => $responseMode,
+            ],
+        );
+
+        $this->assertInstanceOf(AuthorizationRequest::class, $request);
+        $this->assertNull($request->getNonce());
+        $this->assertNull($request->getClaims());
+        $this->assertSame(1_700_000_000, $request->getAuthTime());
+        $this->assertSame(['urn:mace:incommon:iap:silver'], $request->getRequestedAcrValues());
+        $this->assertSame('hr en', $request->getUiLocales());
+        $this->assertSame('user@example.org', $request->getLoginHint());
+        $this->assertSame('the-subject', $request->getIdTokenHintSubject());
+        $this->assertSame($this->codeChallenge(), $request->getCodeChallenge());
+        $this->assertSame('S256', $request->getCodeChallengeMethod());
+        $this->assertSame('thumbprint-of-the-key', $request->getDpopJkt());
+        $this->assertSame($responseMode, $request->getResponseMode());
     }
 
 
@@ -1418,6 +1468,56 @@ class AuthCodeGrantTest extends TestCase
             FlowTypeEnum::OidcAuthorizationCode,
             $this->argumentsTheAuthCodeWasBuiltFrom($this->approvedAuthorizationRequest()),
         );
+
+        $this->setUp();
+
+        // The flow the request names, which the validation found, is the one the code is stamped with.
+        $plainOAuth2Request = $this->approvedAuthorizationRequest();
+        $plainOAuth2Request->setScopes([new ScopeEntity('profile')]);
+        $plainOAuth2Request->setFlowType(FlowTypeEnum::OAuth2AuthorizationCode);
+
+        $this->assertContains(
+            FlowTypeEnum::OAuth2AuthorizationCode,
+            $this->argumentsTheAuthCodeWasBuiltFrom($plainOAuth2Request),
+        );
+    }
+
+
+    /**
+     * A plain OAuth 2.0 request completes as any other: its code is issued by this module, stamped with its flow
+     * and carrying no nonce, and the client is sent back with it, the state and the issuer. Before, the grant
+     * handed such a request to League's completion, which asks for a code from a repository method this module
+     * does not implement.
+     */
+    public function testIssuesACodeForAPlainOAuth2Request(): void
+    {
+        $authorizationRequest = $this->validatedAuthorizationRequest(
+            scopes: [new ScopeEntity('profile')],
+            nonce: 'the-nonce',
+        );
+        $this->assertInstanceOf(AuthorizationRequest::class, $authorizationRequest);
+        $user = new UserEntity(self::USER_ID, new DateTimeImmutable(), new DateTimeImmutable());
+        $authorizationRequest->setUser($user);
+        $authorizationRequest->setAuthorizationApproved(true);
+
+        $arguments = [];
+        $this->authCodeEntityFactoryMock->method('fromData')->willReturnCallback(
+            function (...$captured) use (&$arguments): AuthCodeEntity {
+                $arguments = $captured;
+
+                return $this->authCodeEntity();
+            },
+        );
+        $this->authCodeRepositoryMock->expects($this->once())->method('persistNewAuthCode');
+
+        $query = $this->redirectQueryOf($this->sut()->completeAuthorizationRequest($authorizationRequest));
+
+        // The factory's arguments by position: the nonce is the seventh, the flow the tenth.
+        $this->assertNull($arguments[6]);
+        $this->assertSame(FlowTypeEnum::OAuth2AuthorizationCode, $arguments[9]);
+        $this->assertArrayHasKey('code', $query);
+        $this->assertSame(self::STATE, $query['state']);
+        $this->assertSame(self::ISSUER, $query['iss'] ?? null);
     }
 
 
@@ -1730,6 +1830,7 @@ class AuthCodeGrantTest extends TestCase
             'a VCI token bound to a key' =>
                 [FlowTypeEnum::VciAuthorizationCode, 'thumbprint-of-the-proof-key', 'PT1H', 3600],
             'an OIDC token' => [FlowTypeEnum::OidcAuthorizationCode, null, 'PT1H', 600],
+            'a plain OAuth 2.0 token' => [FlowTypeEnum::OAuth2AuthorizationCode, null, 'PT1H', 600],
             'a code with no flow type recorded' => [null, 'thumbprint-of-the-proof-key', 'PT1H', 600],
         ];
     }
@@ -1763,6 +1864,21 @@ class AuthCodeGrantTest extends TestCase
         $this->assertInstanceOf(DateTimeImmutable::class, $expiry);
         $this->assertGreaterThanOrEqual($before + $expectedSeconds, $expiry->getTimestamp());
         $this->assertLessThanOrEqual($after + $expectedSeconds, $expiry->getTimestamp());
+    }
+
+
+    /**
+     * The access token a plain OAuth 2.0 code is redeemed for is stamped with the code's flow, which the UserInfo
+     * endpoint and the token response read.
+     */
+    public function testStampsTheAccessTokenOfAPlainOAuth2CodeWithItsFlow(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::OAuth2AuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT10M'));
+
+        $this->assertContains(FlowTypeEnum::OAuth2AuthorizationCode, $this->accessTokenFactoryArguments);
     }
 
 

@@ -866,6 +866,34 @@ class ProtocolOverviewBuilderTest extends TestCase
 
 
     /**
+     * Off unless configured. The note says what serving such requests means for the ID token and the UserInfo
+     * endpoint.
+     */
+    public function testShowsWhetherPlainOAuth2AuthorizationCodeRequestsAreServed(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('No', $row->getValue());
+        $this->assertStringContainsString('UserInfo', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED => true,
+            ])->build(),
+            ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('Yes', $row->getValue());
+    }
+
+
+    /**
      * Both lists are empty unless configured, and shown as such rather than left out: an administrator
      * checking what the access token carries about the user should find the answer here.
      */

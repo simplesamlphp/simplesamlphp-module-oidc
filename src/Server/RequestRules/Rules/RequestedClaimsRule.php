@@ -55,6 +55,18 @@ class RequestedClaimsRule extends AbstractRule
         if ($claimsParam === null) {
             return null;
         }
+
+        // The claims parameter is OpenID Connect's (Core 1.0 section 5.5). A plain OAuth 2.0 request, which asks for
+        // neither the openid scope nor a credential, gets neither an ID token nor a UserInfo response, so its claims
+        // are ignored, as an unrecognized parameter is (RFC 6749 section 3.1). Left in, an essential acr among them
+        // would still be demanded of the login (AcrValuesRule).
+        if (
+            !$this->isOidcAuthorizationRequest($request, $allowedServerRequestMethods) &&
+            !$this->requestParamsResolver->isVciAuthorizationCodeRequest($request, $allowedServerRequestMethods)
+        ) {
+            $loggerService->debug('RequestedClaimsRule: Ignoring the claims parameter of a plain OAuth2 request.');
+            return null;
+        }
         // In case the claims param is sent using request object, this will already be array type.
         /** @var ?array $claims */
         $claims = is_array($claimsParam) ?

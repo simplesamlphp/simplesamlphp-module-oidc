@@ -105,6 +105,9 @@ class ModuleConfig
 
     final public const string OPTION_ENABLED_GRANT_TYPES = 'enabled_grant_types';
 
+    final public const string OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED =
+    'plain_oauth2_authorization_code_enabled';
+
     final public const string OPTION_TOKEN_AUTHORIZATION_CODE_TTL = 'authCodeDuration';
 
     final public const string OPTION_TOKEN_REFRESH_TOKEN_TTL = 'refreshTokenDuration';
@@ -1039,6 +1042,19 @@ class ModuleConfig
     public function isGrantTypeEnabled(GrantTypesEnum $grantType): bool
     {
         return in_array($grantType->value, $this->getSupportedGrantTypes(), true);
+    }
+
+
+    /**
+     * Whether an authorization code request without the `openid` scope, which is not an OpenID4VCI one either -- a
+     * plain OAuth 2.0 request (RFC 6749 section 4.1) -- is served. Otherwise RequiredOpenIdScopeRule refuses it as
+     * `invalid_request`, as version 6 did. Off by default. Such a request gets no ID token, and the UserInfo
+     * endpoint refuses its access token. The implicit grant's response types deliver an ID token, so they still
+     * need the scope.
+     */
+    public function isPlainOAuth2AuthorizationCodeEnabled(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED, false);
     }
 
 

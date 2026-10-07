@@ -337,6 +337,31 @@ class OidcServerException extends OAuthServerException
 
 
     /**
+     * A protected resource refusing an access token which was not granted what the request needs: RFC 6750
+     * section 3.1's `insufficient_scope`, with a 403 and a challenge naming the error. It is a Bearer one unless
+     * the caller gives the one of the scheme the token was presented under (buildResourceChallenges()).
+     *
+     * @param string|null $hint
+     * @param string|null $challenge
+     * @return static
+     */
+    public static function insufficientScope(?string $hint = null, ?string $challenge = null): static
+    {
+        $e = self::create(
+            'The request requires higher privileges than provided by the access token.',
+            20,
+            'insufficient_scope',
+            403,
+            $hint,
+        );
+
+        $e->wwwAuthenticate = $challenge ?? self::buildChallenge(AccessTokenTypesEnum::Bearer, 'insufficient_scope');
+
+        return $e;
+    }
+
+
+    /**
      * A WWW-Authenticate challenge (RFC 9110 section 11.6.1) under the scheme given: the scheme name alone, or with
      * the error code a protected resource names in it (RFC 6750 section 3, RFC 9449 section 7.1) and, for DPoP,
      * the signature algorithms it accepts proofs signed with (`algs`, RFC 9449 section 7.1). Two challenges go into

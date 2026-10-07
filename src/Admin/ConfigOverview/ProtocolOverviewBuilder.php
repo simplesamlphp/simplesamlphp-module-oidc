@@ -200,6 +200,22 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                     ),
                 ),
             ),
+            $this->guardRow(
+                Translate::noop('Plain OAuth 2.0 Authorization Code Requests'),
+                ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED,
+                fn(): Row => new Row(
+                    Translate::noop('Plain OAuth 2.0 Authorization Code Requests'),
+                    $this->yesNo($this->moduleConfig->isPlainOAuth2AuthorizationCodeEnabled()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED,
+                    Translate::noop(
+                        "Whether an authorization code request without the 'openid' scope, which is " .
+                        'not an OpenID4VCI one either, is served as a plain OAuth 2.0 request rather ' .
+                        'than refused. Such a request gets no ID token, and the UserInfo endpoint ' .
+                        'refuses its access token.',
+                    ),
+                ),
+            ),
         );
     }
 
