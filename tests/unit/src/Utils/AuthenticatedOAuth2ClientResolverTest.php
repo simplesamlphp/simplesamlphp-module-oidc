@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use DateInterval;
 use InvalidArgumentException;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -12,6 +13,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\CacheItemInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
@@ -36,6 +38,11 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\ClientAssertion;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
+use Symfony\Component\Cache\Adapter\AdapterInterface;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\ChainAdapter;
+use Symfony\Component\Cache\Adapter\NullAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use TypeError;
@@ -81,6 +88,8 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
     protected MockObject $clientAssertionMock;
 
+    protected bool $protocolCacheKeptAcrossRequests = true;
+
 
     protected function setUp(): void
     {
@@ -93,6 +102,9 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->jwksResolverMock = $this->createMock(JwksResolver::class);
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('isProtocolCacheKeptAcrossRequests')
+            ->willReturnCallback(fn(): bool => $this->protocolCacheKeptAcrossRequests);
+        $this->moduleConfigMock->method('getTimestampValidationLeeway')->willReturn(new DateInterval('PT1M'));
         $this->routesMock = $this->createMock(Routes::class);
         $this->routesMock->method('getModuleUrl')
             ->willReturnMap([
@@ -1004,9 +1016,10 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ->with($expirationTime)
             ->willReturn(1);
         $protocolCacheMock = $this->createMock(ProtocolCache::class);
-        $protocolCacheMock->method('has')->willReturn(false);
+        $protocolCacheMock->method('has')->willReturnOnConsecutiveCalls(false, true);
         $protocolCacheMock->expects($this->once())->method('set')
-            ->with('unique-jti-value', 1, 'client_assertion_jti', 'unique-jti-value');
+            ->with('unique-jti-value', 61, 'client_assertion_jti', 'unique-jti-value')
+            ->willReturn(true);
 
         $result = $this->sut($protocolCacheMock)->forPrivateKeyJwt($this->serverRequestMock);
 
@@ -1071,28 +1084,122 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
 
-    public function testForPrivateKeyJwtStoresJtiInCacheAfterSuccess(): void
+    /**
+     * The parser accepts an assertion until its expiration time and for the leeway past it (a minute here), so it
+     * is remembered as long; one past its expiration time but within the leeway, for what is left of it, and one
+     * whose time is up by now, for a second.
+     *
+     * @return array<string,array{int,int}>
+     */
+    public static function rememberedForProvider(): array
     {
-        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
-            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
-        $this->requestParamsResolverMock->method('parseClientAssertionToken')
-            ->willReturn($this->clientAssertionMock);
-        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
-        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
-        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn(60);
+        return [
+            'a minute before it expires' => [60, 120],
+            'half a minute after it expired' => [-30, 30],
+            'as its leeway runs out' => [-60, 1],
+            'past its leeway' => [-90, 1],
+        ];
+    }
 
+
+    #[DataProvider('rememberedForProvider')]
+    public function testForPrivateKeyJwtRemembersAnAssertionForAsLongAsItIsAccepted(
+        int $secondsToExpiration,
+        int $ttl,
+    ): void {
+        $this->arrangeAcceptedClientAssertion($secondsToExpiration);
         $protocolCacheMock = $this->createMock(ProtocolCache::class);
-        $protocolCacheMock->method('has')->willReturn(false);
+        $protocolCacheMock->method('has')->willReturnOnConsecutiveCalls(false, true);
         $protocolCacheMock->expects($this->once())
             ->method('set')
-            ->with(
-                'unique-jti-value',
-                60,
-                'client_assertion_jti',
-                'unique-jti-value',
-            );
+            ->with('unique-jti-value', $ttl, 'client_assertion_jti', 'unique-jti-value')
+            ->willReturn(true);
 
         $this->sut($protocolCacheMock)->forPrivateKeyJwt($this->serverRequestMock);
+    }
+
+
+    /**
+     * Presented again, an assertion is refused: the protocol cache remembers it from the first time.
+     */
+    public function testForPrivateKeyJwtRefusesAnAssertionPresentedAgain(): void
+    {
+        $this->arrangeAcceptedClientAssertion();
+        $protocolCache = new ProtocolCache(new Psr16Cache(new ArrayAdapter()));
+
+        $this->assertInstanceOf(
+            ResolvedClientAuthenticationMethod::class,
+            $this->sut($protocolCache)->forPrivateKeyJwt($this->serverRequestMock),
+        );
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage('Client Assertion reused');
+
+        $this->sut($protocolCache)->forPrivateKeyJwt($this->serverRequestMock);
+    }
+
+
+    /**
+     * @return array<string,array{\Symfony\Component\Cache\Adapter\AdapterInterface}>
+     */
+    public static function cacheWhichDoesNotKeepTheAssertionProvider(): array
+    {
+        return [
+            'writes failing' => [self::adapterWhoseWritesFail()],
+            'a chained backend whose writes fail' => [
+                new ChainAdapter([new ArrayAdapter(), self::adapterWhoseWritesFail()]),
+            ],
+            'an adapter which keeps nothing' => [new NullAdapter()],
+        ];
+    }
+
+
+    /**
+     * Symfony's adapters log a failed write rather than throw, so an assertion whose record the cache did not
+     * keep would be accepted again: one adapter reports the write as not done, a chain of adapters reports a
+     * write one of its layers lost though a read is answered from another, and an adapter which keeps nothing
+     * reports every write as done (named as the protocol cache adapter it turns the check off, but inside an
+     * adapter built of others the configuration does not say what it is). The request fails instead, as the
+     * OP's own failure rather than a refusal of the client, which the endpoints answer with `server_error`.
+     */
+    #[DataProvider('cacheWhichDoesNotKeepTheAssertionProvider')]
+    public function testForAnySupportedMethodFailsWhenTheCacheDoesNotKeepTheAssertion(AdapterInterface $adapter): void
+    {
+        $this->arrangeAcceptedClientAssertion();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('the protocol cache did not keep it');
+
+        $this->sut(new ProtocolCache(new Psr16Cache($adapter)))->forAnySupportedMethod($this->serverRequestMock);
+    }
+
+
+    /**
+     * In a protocol cache which keeps nothing from one request to the next an assertion remembered here would be
+     * forgotten by the next request, so the cache is not asked, as when there is none, and the debug log says so.
+     */
+    public function testForPrivateKeyJwtChecksNoReuseInACacheWhichKeepsNothingAcrossRequests(): void
+    {
+        $this->arrangeAcceptedClientAssertion();
+        $this->protocolCacheKeptAcrossRequests = false;
+        $protocolCacheMock = $this->createMock(ProtocolCache::class);
+        $protocolCacheMock->expects($this->never())->method('has');
+        $protocolCacheMock->expects($this->never())->method('set');
+        $messages = [];
+        $this->loggerServiceMock->method('debug')
+            ->willReturnCallback(function (string $message) use (&$messages): void {
+                $messages[] = $message;
+            });
+
+        $this->assertInstanceOf(
+            ResolvedClientAuthenticationMethod::class,
+            $this->sut($protocolCacheMock)->forPrivateKeyJwt($this->serverRequestMock),
+        );
+        $this->assertContains(
+            'Client assertions are not checked for reuse, since no protocol cache which keeps entries across ' .
+            'requests is configured.',
+            $messages,
+        );
     }
 
 
@@ -1522,6 +1629,40 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
         $this->assertTrue($this->sut()->presentsClientCredentials($request));
         $this->assertNull($this->sut()->forClientSecretBasic($request));
+    }
+
+
+    /**
+     * An assertion every check accepts, presented as often as the test asks.
+     */
+    protected function arrangeAcceptedClientAssertion(int $secondsToExpiration = 60): void
+    {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(static fn(string $paramKey): ?string => match ($paramKey) {
+                ParamsEnum::ClientAssertion->value => 'some-assertion-token',
+                ParamsEnum::ClientAssertionType->value => ClientAssertionTypesEnum::JwtBaerer->value,
+                default => null,
+            });
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($this->clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => []]);
+        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn($secondsToExpiration);
+    }
+
+
+    /**
+     * A Symfony adapter whose writes fail the way Symfony's adapters fail them: reported as not done, rather
+     * than thrown.
+     */
+    protected static function adapterWhoseWritesFail(): ArrayAdapter
+    {
+        return new class extends ArrayAdapter {
+            public function save(CacheItemInterface $item): bool
+            {
+                return false;
+            }
+        };
     }
 
 

@@ -722,6 +722,19 @@ answers any unexpected failure while processing a request in the token error
 format (`{"error": "server_error", ...}`, HTTP 500, with the cause in the OP
 log rather than in the response) instead of with SimpleSAMLphp's HTML error
 page.
+- The reuse checks of `private_key_jwt` client assertions (in the protocol
+cache) and of OpenID Federation Request Objects (in the federation cache) now
+fail the request with `server_error` when the cache does not store the record
+of an assertion or a Request Object. Previously it was accepted unrecorded,
+and could be presented again: Symfony's cache adapters report a failed write
+rather than throw, so the record is now also read back. A Request Object is
+marked as used before its client is registered, so such a failure registers
+nothing. The record is now kept until the assertion or Request Object is no
+longer accepted, `timestamp_validation_leeway` past its expiry included; it
+used to expire with it, which left the leeway open to a replay. With an
+adapter which keeps nothing from one request to the next (`ArrayAdapter`,
+`NullAdapter`) the checks are not made at all, as without a cache, since they
+could not refuse a replay in a later request anyway.
 - The UserInfo endpoint now refuses an access token as RFC 6750 section 3 has
 it (OpenID Connect Core 1.0 section 5.3.3). A token which is expired, revoked,
 malformed or otherwise not accepted is answered with `invalid_token` instead of

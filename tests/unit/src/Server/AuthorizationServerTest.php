@@ -304,6 +304,41 @@ class AuthorizationServerTest extends TestCase
 
 
     /**
+     * A failure of the OP's own while a rule is checked, such as a federation cache which does not keep the
+     * record of a Request Object, is no verdict on the request: it stays a `server_error`, which the endpoint
+     * answers as one (with no redirect URI attached, to the user agent), rather than a Bad Request.
+     *
+     * @throws \Throwable
+     */
+    public function testPassesAServerErrorOfARuleOnAsItIs(): void
+    {
+        $this->ruleException = OidcServerException::serverError('Unable to mark the request object as used.');
+
+        $this->expectExceptionObject($this->ruleException);
+
+        $this->sut()->validateAuthorizationRequest($this->requestMock);
+    }
+
+
+    /**
+     * No rule's failure may send the user agent to a redirect URI before one is established, a server error
+     * included.
+     *
+     * @throws \Throwable
+     */
+    public function testTurnsAServerErrorWhichWouldRedirectIntoABadRequest(): void
+    {
+        $this->ruleException = OidcServerException::serverError('Unable to mark the request object as used.');
+        $this->ruleException->setRedirectUri('https://rp.example.org/cb');
+
+        $this->expectException(BadRequest::class);
+        $this->expectExceptionMessageMatches('/Unable to mark the request object as used/');
+
+        $this->sut()->validateAuthorizationRequest($this->requestMock);
+    }
+
+
+    /**
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      * @throws \Throwable

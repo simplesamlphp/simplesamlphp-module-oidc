@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Utils;
 
 use Psr\Http\Message\ServerRequestInterface;
+use RuntimeException;
 use SensitiveParameter;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -19,6 +20,7 @@ use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Decorators\DateIntervalDecorator;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 
@@ -49,7 +51,8 @@ class AuthenticatedOAuth2ClientResolver
      * `invalid_client` (RFC 6749 section 5.2, RFC 7521 section 4.2.1), which both cases deserve.
      *
      * Anything else thrown is not a verdict on the client and propagates: a database or cache failure while
-     * looking the client up or checking assertion reuse is the OP's own fault, and answering it as
+     * looking the client up or checking assertion reuse, a cache which does not keep the record of an accepted
+     * assertion included, is the OP's own fault, and answering it as
      * `invalid_client` would tell a client with valid credentials that they are wrong, and hide an outage
      * behind a 401. The endpoint answers such a failure as `server_error` instead.
      *
@@ -477,10 +480,12 @@ class AuthenticatedOAuth2ClientResolver
      * does not verify are all the client's doing (RFC 7521 section 4.2.1). The exceptions the parser and the
      * JWKS resolver throw are converted here so that forAnySupportedMethod() can tell such a refusal from a
      * failure of the OP's own. The client lookup and the reuse cache are left to throw as themselves: a
-     * database or cache which cannot answer is a server fault, not a verdict.
+     * database or cache which cannot answer is a server fault, not a verdict, and so is a cache which does
+     * not keep the record of an accepted assertion (rememberClientAssertion()).
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
      * @throws \Psr\SimpleCache\InvalidArgumentException
+     * @throws \RuntimeException When the protocol cache does not keep the record of the assertion.
      */
     public function forPrivateKeyJwt(
         Request|ServerRequestInterface $request,
@@ -506,7 +511,8 @@ class AuthenticatedOAuth2ClientResolver
         }
 
         // Its length only, never the assertion: it is a credential until it expires, and one that can be replayed
-        // wherever its replay protection is off (no protocol cache configured), so a debug log must not hold it.
+        // wherever its replay protection is off (no protocol cache which keeps entries across requests), so a
+        // debug log must not hold it.
         $this->loggerService->debug(
             sprintf('Client assertion param received (%d bytes, not logged).', strlen($clientAssertionParam)),
         );
@@ -569,10 +575,11 @@ class AuthenticatedOAuth2ClientResolver
             );
         }
 
-        // Check if the Client Assertion token has already been used. Only
-        // applicable if we have a cache available.
-        if ($this->protocolCache) {
-            ($this->protocolCache->has(self::KEY_CLIENT_ASSERTION_JTI, $clientAssertion->getJwtId()) === false)
+        // Check if the Client Assertion token has already been used. Only applicable with a protocol cache which
+        // keeps entries from one request to the next.
+        $reuseCheckCache = $this->clientAssertionReuseCheckCache();
+        if ($reuseCheckCache instanceof ProtocolCache) {
+            ($reuseCheckCache->has(self::KEY_CLIENT_ASSERTION_JTI, $clientAssertion->getJwtId()) === false)
             || throw new AuthorizationException('Client Assertion reused.');
         }
 
@@ -603,17 +610,75 @@ class AuthenticatedOAuth2ClientResolver
         (!empty(array_intersect($expectedAudience, $clientAssertion->getAudience()))) ||
         throw new AuthorizationException('Invalid Client Assertion Audience claim.');
 
-        // Everything seems ok. Save it in a cache so we can check for reuse.
-        $this->protocolCache?->set(
-            $clientAssertion->getJwtId(),
-            $this->helpers->dateTime()->getSecondsToExpirationTime($clientAssertionExpirationTime),
-            self::KEY_CLIENT_ASSERTION_JTI,
-            $clientAssertion->getJwtId(),
-        );
+        // Everything seems ok. Remember it, so that it is refused when presented again.
+        if ($reuseCheckCache instanceof ProtocolCache) {
+            $this->rememberClientAssertion(
+                $reuseCheckCache,
+                $clientAssertion->getJwtId(),
+                $clientAssertionExpirationTime,
+            );
+        }
 
         return new ResolvedClientAuthenticationMethod(
             $client,
             ClientAuthenticationMethodsEnum::PrivateKeyJwt,
+        );
+    }
+
+
+    /**
+     * The protocol cache, when it is one which keeps entries from one request to the next
+     * (ModuleConfig::isProtocolCacheKeptAcrossRequests()). In any other an assertion remembered here would be
+     * forgotten by the next request, so reuse is not checked, as without a cache.
+     */
+    protected function clientAssertionReuseCheckCache(): ?ProtocolCache
+    {
+        if (
+            $this->protocolCache instanceof ProtocolCache &&
+            $this->moduleConfig->isProtocolCacheKeptAcrossRequests()
+        ) {
+            return $this->protocolCache;
+        }
+
+        $this->loggerService->debug(
+            'Client assertions are not checked for reuse, since no protocol cache which keeps entries across ' .
+            'requests is configured.',
+        );
+
+        return null;
+    }
+
+
+    /**
+     * Remembers an accepted assertion for as long as it would be accepted again: until it expires, and for the
+     * timestamp validation leeway the parser allows past that. An assertion whose time is up by now is kept for
+     * a second, the least a cache entry can be given.
+     *
+     * Symfony's adapters log a failed write rather than throw, so the write is checked: the cache has to report
+     * it as stored (a chain of adapters reports a write one of its layers lost, which a read answered from
+     * another layer would not show), and the record has to read back (an adapter which stores nothing may still
+     * report the write as done). An assertion the cache did not keep could be presented again, so the request
+     * fails instead, as the OP's own failure, which the endpoint answers as `server_error`.
+     *
+     * @throws \Psr\SimpleCache\InvalidArgumentException
+     * @throws \RuntimeException When the cache does not keep the record.
+     */
+    protected function rememberClientAssertion(
+        ProtocolCache $protocolCache,
+        string $jwtId,
+        int $expirationTime,
+    ): void {
+        $ttl = max(
+            1,
+            $this->helpers->dateTime()->getSecondsToExpirationTime($expirationTime) +
+            DateIntervalDecorator::toSeconds($this->moduleConfig->getTimestampValidationLeeway()),
+        );
+
+        $kept = $protocolCache->set($jwtId, $ttl, self::KEY_CLIENT_ASSERTION_JTI, $jwtId) &&
+        $protocolCache->has(self::KEY_CLIENT_ASSERTION_JTI, $jwtId);
+
+        $kept || throw new RuntimeException(
+            'Unable to remember the client assertion for its reuse check: the protocol cache did not keep it.',
         );
     }
 

@@ -26,6 +26,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Decorators\DateIntervalDecorator;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Exceptions\TrustChainResolutionBudgetException;
 use SimpleSAML\OpenID\Federation;
@@ -202,16 +203,30 @@ class ClientRule extends AbstractRule
             return null;
         }
 
+        // Its expiration time is read here, once, while it is judged: the accessor checks the clock again on every
+        // call, and the trust chain resolution below can take long enough for the Request Object to expire before
+        // it is marked as used.
+        try {
+            $requestObjectExpirationTime = $requestObject->getExpirationTime();
+        } catch (Throwable $exception) {
+            $this->loggerService->error('ClientRule: Request object expired: ' . $exception->getMessage());
+            return null;
+        }
+
         // Check for reuse of the Request Object. Request Object MUST only be used once (by OpenID Federation spec).
-        if (is_null($this->federationCache)) {
-            // Without a cache there is nowhere to remember which JTIs have been seen, so the replay check
-            // below is silently a no-op. That also means the (expensive, unauthenticated) trust chain
-            // resolution further down can be triggered repeatedly with one and the same Request Object.
+        $replayCheckCache = $this->moduleConfig->isFederationCacheKeptAcrossRequests() ?
+        $this->federationCache :
+        null;
+        if (!$replayCheckCache instanceof FederationCache) {
+            // Without a cache which keeps entries from one request to the next there is nowhere to remember which
+            // JTIs have been seen, so the replay check is skipped. That also means the (expensive, unauthenticated)
+            // trust chain resolution further down can be triggered repeatedly with one and the same Request Object.
             $this->loggerService->warning(
-                'ClientRule: Federation cache is not configured, so the Request Object replay check is ' .
-                'skipped. Configure ' . ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER . ' to enable it.',
+                'ClientRule: No federation cache which keeps entries across requests is configured, so the ' .
+                'Request Object replay check is skipped. Configure ' . ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER .
+                ' with such an adapter to enable it.',
             );
-        } elseif ($this->federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $requestObject->getJwtId())) {
+        } elseif ($this->isRequestObjectSeen($replayCheckCache, $requestObject->getJwtId())) {
             $this->loggerService->error(
                 'ClientRule: Request object reused.',
                 ['request_object_jti' => $requestObject->getJwtId()],
@@ -362,6 +377,16 @@ class ClientRule extends AbstractRule
             }
         }
 
+        // All is verified. The Request Object is marked as used before the registration is persisted, so that one
+        // the cache does not keep is refused with nothing changed.
+        if ($replayCheckCache instanceof FederationCache) {
+            $this->markRequestObjectAsUsed(
+                $replayCheckCache,
+                $requestObject->getJwtId(),
+                $requestObjectExpirationTime,
+            );
+        }
+
         $this->loggerService->debug('ClientRule: All verified, persisting client registration.');
 
         // All is verified, We can persist (new) client registration.
@@ -371,24 +396,62 @@ class ClientRule extends AbstractRule
             $this->clientRepository->add($registrationClient);
         }
 
-        // Mark Request Object as used.
-        try {
-            $this->federationCache?->set(
-                $requestObject->getJwtId(),
-                $this->helpers->dateTime()->getSecondsToExpirationTime($requestObject->getExpirationTime()),
-                self::KEY_REQUEST_OBJECT_JTI,
-                $requestObject->getJwtId(),
-            );
-        } catch (Throwable $e) {
-            $this->loggerService->error(
-                'ClientRule: Error while trying to mark request object as used: ' . $e->getMessage(),
-            );
-        }
-
         // We will also update a result for RequestParameterRule (inject value from here), since the request object
         // is already resolved.
         $currentResultBag->add(new Result(RequestObjectRule::class, $requestObject->getPayload()));
 
         return $registrationClient;
+    }
+
+
+    /**
+     * A cache which can not be asked is the OP's own failure, and no verdict on the Request Object.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function isRequestObjectSeen(FederationCache $federationCache, string $jwtId): bool
+    {
+        try {
+            return $federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $jwtId);
+        } catch (Throwable $exception) {
+            throw OidcServerException::serverError('Unable to check the request object for reuse.', $exception);
+        }
+    }
+
+
+    /**
+     * Remembers the Request Object as used for as long as it would be accepted again: until it expires, and for
+     * the timestamp validation leeway the parser allows past that. One whose time is up by now is kept for a
+     * second, the least a cache entry can be given.
+     *
+     * Symfony's adapters log a failed write rather than throw, so the write is checked: the cache has to report
+     * it as stored (a chain of adapters reports a write one of its layers lost, which a read answered from
+     * another layer would not show), and the record has to read back (an adapter which stores nothing may still
+     * report the write as done). A Request Object the cache did not keep could be used again, so the request is
+     * refused instead, as the OP's own failure: `server_error`.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function markRequestObjectAsUsed(
+        FederationCache $federationCache,
+        string $jwtId,
+        int $expirationTime,
+    ): void {
+        $ttl = max(
+            1,
+            $this->helpers->dateTime()->getSecondsToExpirationTime($expirationTime) +
+            DateIntervalDecorator::toSeconds($this->moduleConfig->getTimestampValidationLeeway()),
+        );
+
+        try {
+            $kept = $federationCache->set($jwtId, $ttl, self::KEY_REQUEST_OBJECT_JTI, $jwtId) &&
+            $federationCache->has(self::KEY_REQUEST_OBJECT_JTI, $jwtId);
+        } catch (Throwable $exception) {
+            throw OidcServerException::serverError('Unable to mark the request object as used.', $exception);
+        }
+
+        $kept || throw OidcServerException::serverError(
+            'Unable to mark the request object as used: the federation cache did not keep its record.',
+        );
     }
 }

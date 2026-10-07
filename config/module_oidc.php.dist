@@ -1017,10 +1017,13 @@ $config = [
 
     /**
      * (optional) Dedicated federation cache adapter, used to cache federation
-     * artifacts like trust chains, entity statements, etc. It will also be
-     * used for token reuse check in federation context. Setting this option is
-     * recommended in production environments. If set to null, no caching will
-     * be used. Can be set to any Symfony Cache Adapter class. If set, make
+     * artifacts like trust chains, entity statements, etc. It is also where
+     * OpenID Federation Request Objects are remembered, so that each is
+     * accepted once. Setting this option is recommended in production
+     * environments. If set to null, no caching will be used, and the reuse
+     * check of Request Objects is not in force; nor is it with an adapter
+     * which keeps nothing from one request to the next (ArrayAdapter,
+     * NullAdapter). Can be set to any Symfony Cache Adapter class. If set, make
      * sure to also give proper adapter arguments for its instantiation below.
      * See examples for a protocol cache adapter option.
      * @see https://symfony.com/doc/current/components/cache.html#available-cache-adapters

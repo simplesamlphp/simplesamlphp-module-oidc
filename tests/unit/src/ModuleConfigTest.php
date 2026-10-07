@@ -4523,7 +4523,7 @@ class ModuleConfigTest extends TestCase
      *
      * @return array<string,array{?string, bool}>
      */
-    public static function protocolCacheAdapterProvider(): array
+    public static function cacheAdapterProvider(): array
     {
         return [
             'none' => [null, false],
@@ -4543,13 +4543,27 @@ class ModuleConfigTest extends TestCase
     /**
      * @throws \Exception
      */
-    #[DataProvider('protocolCacheAdapterProvider')]
+    #[DataProvider('cacheAdapterProvider')]
     public function testTellsWhetherTheProtocolCacheKeepsEntriesAcrossRequests(?string $adapter, bool $kept): void
     {
         $this->assertSame(
             $kept,
             $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER, $adapter))
                 ->isProtocolCacheKeptAcrossRequests(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('cacheAdapterProvider')]
+    public function testTellsWhetherTheFederationCacheKeepsEntriesAcrossRequests(?string $adapter, bool $kept): void
+    {
+        $this->assertSame(
+            $kept,
+            $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER, $adapter))
+                ->isFederationCacheKeptAcrossRequests(),
         );
     }
 

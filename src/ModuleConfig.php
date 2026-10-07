@@ -1438,14 +1438,23 @@ class ModuleConfig
     /**
      * Whether a protocol cache is configured which keeps what it is given from one request to the next: not when
      * none is, and not when the adapter keeps entries in the memory of one request (Symfony's ArrayAdapter) or
-     * not at all (NullAdapter), subclasses included. A check which counts or remembers across requests -- the
-     * Transaction Code attempt limit -- is not in force without one. An adapter built of others (ChainAdapter)
-     * is taken at its word, since only its arguments say what it is made of.
+     * not at all (NullAdapter), subclasses included. The checks which count or remember across requests -- the
+     * Transaction Code attempt limit, and the reuse checks of client assertions and of DPoP proofs -- are not in
+     * force without one. An adapter built of others (ChainAdapter) is taken at its word, since only its arguments
+     * say what it is made of.
      */
     public function isProtocolCacheKeptAcrossRequests(): bool
     {
-        $adapterClass = $this->getProtocolCacheAdapterClass();
+        return self::isCacheAdapterKeptAcrossRequests($this->getProtocolCacheAdapterClass());
+    }
 
+
+    /**
+     * Whether the adapter class given, if any, is one which keeps entries from one request to the next, as
+     * isProtocolCacheKeptAcrossRequests() describes.
+     */
+    protected static function isCacheAdapterKeptAcrossRequests(?string $adapterClass): bool
+    {
         return $adapterClass !== null &&
         !is_a($adapterClass, ArrayAdapter::class, true) &&
         !is_a($adapterClass, NullAdapter::class, true);
@@ -1751,6 +1760,17 @@ class ModuleConfig
     public function getFederationCacheAdapterArguments(): array
     {
         return $this->config()->getOptionalArray(self::OPTION_FEDERATION_CACHE_ADAPTER_ARGUMENTS, []);
+    }
+
+
+    /**
+     * Whether a federation cache is configured which keeps what it is given from one request to the next, by the
+     * measure isProtocolCacheKeptAcrossRequests() applies to the protocol cache. The reuse check of OpenID
+     * Federation Request Objects is not in force without one.
+     */
+    public function isFederationCacheKeptAcrossRequests(): bool
+    {
+        return self::isCacheAdapterKeptAcrossRequests($this->getFederationCacheAdapterClass());
     }
 
 

@@ -35,6 +35,7 @@ use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
@@ -112,6 +113,17 @@ class AuthorizationServer extends OAuth2AuthorizationServer
                 [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
             );
         } catch (OidcServerException $exception) {
+            // A failure of the OP's own, such as a federation cache which does not keep the record of a Request
+            // Object (ClientRule), is no verdict on the request, so it keeps its `server_error` for the endpoint
+            // to answer. No redirect URI is established yet, so the answer goes to the user agent; one which
+            // would redirect is refused below like any other.
+            if (
+                $exception->getErrorType() === ErrorsEnum::ServerError->value &&
+                !$exception->hasRedirect()
+            ) {
+                throw $exception;
+            }
+
             $reason = sprintf(
                 "AuthorizationServer: %s %s",
                 $exception->getMessage(),

@@ -34,7 +34,8 @@ checks which need it, and **without a protocol cache these checks are not in
 force**:
 
 - the reuse check of client assertions (`private_key_jwt`): an assertion is
-  remembered until it expires, and presented again it is refused;
+  remembered for as long as it is accepted (until it expires, and for the
+  `timestamp_validation_leeway` past that), and presented again it is refused;
 - the replay check of DPoP proofs (RFC 9449): a proof is remembered for as long
   as it is accepted (about two minutes), and presented again it is refused;
 - the limit on attempts at a Transaction Code (`vci_tx_code_max_attempts`,
@@ -45,8 +46,8 @@ force**:
 
 These are kept in the cache, so they hold only as far as the cache does. A
 count is read and then written, so requests arriving at the same moment can get
-past a limit together (and a DPoP proof sent twice at once can be accepted
-twice), and a cache local to one web server (the filesystem adapter, for one)
+past a limit together (and a client assertion or a DPoP proof sent twice at once
+can be accepted twice), and a cache local to one web server (the filesystem adapter, for one)
 counts per server when several serve the OP. An entry the cache loses --
 evicted under memory pressure (Memcached, for one), or unreadable while its
 backend fails -- is forgotten by the client assertion check, the DPoP replay
@@ -54,16 +55,22 @@ check and the Status List rate limit. The Transaction Code attempts are kept
 the other way round: a code is given its attempts when the Credential Offer is
 made, and spends them from there, so a code whose record is lost is refused
 (the user needs a new offer) rather than given its attempts again, and a record
-which the cache does not store makes the request fail with `server_error`. The
-DPoP replay check fails the request with `server_error` too when the cache does
-not store the record of a proof, which could otherwise be replayed. For the
-same reason, an offer made before a protocol cache was configured can not be
-redeemed with a transaction code once one is. A cache which keeps nothing from
-one request to the next (Symfony's `ArrayAdapter` or `NullAdapter`) holds these
-checks for one request at most, and the Transaction Code attempts and the DPoP
-replay check count it as no cache at all (the admin overview warns of both).
-Where any of this matters, use one cache shared by every web server, with room
-enough not to evict entries.
+which the cache does not store makes the request fail with `server_error`; for
+the same reason, an offer made before a protocol cache was configured can not
+be redeemed with a transaction code once one is. The client assertion check and
+the DPoP replay check fail the request with `server_error` too when the cache
+does not store the record of an assertion or a proof, which could otherwise be
+presented again. A cache which keeps nothing from one request to the next
+(Symfony's `ArrayAdapter` or `NullAdapter`) holds these checks for one request
+at most, and the Transaction Code attempts, the client assertion check and the
+DPoP replay check count it as no cache at all (the admin overview warns of it
+for the Transaction Code attempts and the DPoP replay check). Where any of this
+matters, use one cache shared by every web server, with room enough not to
+evict entries.
+
+The federation cache (`federation_cache_adapter`) holds the reuse check of
+OpenID Federation Request Objects in the same way (see
+[Request Object flavors](#request-object-flavors)).
 
 ## Relying Party (RP) administration
 
@@ -629,7 +636,14 @@ its flavor and applies the matching rules:
 - **JAR (RFC 9101)** for plain OAuth 2.0 requests: the Request Object **must be
   signed** and must contain the `client_id` claim.
 - **OpenID Federation**: the Request Object is used for automatic client
-  registration (handled during client resolution).
+  registration (handled during client resolution). It is accepted once: its
+  `jti` is remembered in the federation cache (`federation_cache_adapter`) for
+  as long as the Request Object is accepted (until it expires, and for the
+  `timestamp_validation_leeway` past that), and presented again it is refused.
+  Without a federation cache which keeps entries from one request to the next
+  (not Symfony's `ArrayAdapter` or `NullAdapter`) this check is not in force,
+  and the OP logs a warning on each such request. A record the cache does not
+  store fails the request with `server_error`, before the client is registered.
 
 For the OpenID Connect Core and JAR flavors, the `aud` and `iss` claims are
 optional, but when present they are validated: `aud` must include this OP's

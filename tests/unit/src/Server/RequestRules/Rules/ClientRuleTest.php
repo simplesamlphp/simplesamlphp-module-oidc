@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use DateInterval;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Cache\CacheItemInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use SimpleSAML\Error\ConfigurationError;
@@ -45,6 +47,11 @@ use SimpleSAML\OpenID\Helpers\Json;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 use SimpleSAML\OpenID\ValueAbstracts\JwksClaim;
 use Stringable;
+use Symfony\Component\Cache\Adapter\AdapterInterface;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Cache\Adapter\ChainAdapter;
+use Symfony\Component\Cache\Adapter\NullAdapter;
+use Symfony\Component\Cache\Psr16Cache;
 use Throwable;
 
 /**
@@ -159,6 +166,20 @@ class ClientRuleTest extends TestCase
 
     private bool $requestObjectJtiAlreadySeen = false;
 
+    private int $requestObjectExpirationTime = self::TRUST_CHAIN_EXPIRATION;
+
+    private ?Throwable $requestObjectExpirationFailure = null;
+
+    private bool $requestObjectExpiresOnceJudged = false;
+
+    private bool $federationCacheKeptAcrossRequests = true;
+
+    private ?Throwable $cacheReadFailure = null;
+
+    private bool $cacheWriteReportedAsStored = true;
+
+    private bool $cacheKeepsWrites = true;
+
     private ?Throwable $requestObjectSignatureFailure = null;
 
     private ?Throwable $trustChainResolutionFailure = null;
@@ -185,6 +206,10 @@ class ClientRuleTest extends TestCase
     private ?string $lookedUpClientId = null;
 
     private bool $federationResolutionAttempted = false;
+
+    private bool $trustChainResolutionAttempted = false;
+
+    private int $requestObjectExpirationReads = 0;
 
     private bool $genericVciClientRequested = false;
 
@@ -271,6 +296,9 @@ class ClientRuleTest extends TestCase
             ->willReturnCallback(fn(): ?string => $this->localTrustAnchorJwksJson);
         $this->moduleConfigMock->method('isFederationParticipationLimitedByTrustMarksFor')
             ->willReturnCallback(fn(): bool => $this->participationLimitedByTrustMarks);
+        $this->moduleConfigMock->method('isFederationCacheKeptAcrossRequests')
+            ->willReturnCallback(fn(): bool => $this->federationCacheKeptAcrossRequests);
+        $this->moduleConfigMock->method('getTimestampValidationLeeway')->willReturn(new DateInterval('PT1M'));
     }
 
 
@@ -322,7 +350,20 @@ class ClientRuleTest extends TestCase
             ->willReturnCallback(fn(): array => $this->requestObjectAudience);
         $this->requestObjectMock->method('getIssuer')->willReturnCallback(fn(): string => $this->requestObjectIssuer);
         $this->requestObjectMock->method('getJwtId')->willReturn(self::REQUEST_OBJECT_JTI);
-        $this->requestObjectMock->method('getExpirationTime')->willReturn(self::TRUST_CHAIN_EXPIRATION);
+        // The accessor checks the clock again on every call, so a request object can expire after it is judged.
+        $this->requestObjectMock->method('getExpirationTime')->willReturnCallback(function (): int {
+            $this->requestObjectExpirationReads++;
+
+            if ($this->requestObjectExpirationFailure !== null) {
+                throw $this->requestObjectExpirationFailure;
+            }
+
+            if ($this->requestObjectExpiresOnceJudged && $this->requestObjectExpirationReads > 1) {
+                throw new JwsException('Expiration Time claim is not after current time.');
+            }
+
+            return $this->requestObjectExpirationTime;
+        });
         $this->requestObjectMock->method('getPayload')->willReturn(self::REQUEST_OBJECT_PAYLOAD);
         $this->requestObjectMock->method('verifyWithKeySet')->willReturnCallback(function (): void {
             if ($this->requestObjectSignatureFailure !== null) {
@@ -330,8 +371,14 @@ class ClientRuleTest extends TestCase
             }
         });
 
-        $this->federationCacheMock->method('has')
-            ->willReturnCallback(fn(): bool => $this->requestObjectJtiAlreadySeen);
+        // A cache which keeps what it is given, unless the test says otherwise.
+        $this->federationCacheMock->method('has')->willReturnCallback(function (): bool {
+            if ($this->cacheReadFailure !== null) {
+                throw $this->cacheReadFailure;
+            }
+
+            return $this->requestObjectJtiAlreadySeen || ($this->cacheKeepsWrites && $this->cacheWrites !== []);
+        });
         $this->federationCacheMock->method('set')
             ->willReturnCallback(function (mixed $value, mixed $ttl, string ...$keyElements): bool {
                 $this->cacheWrites[] = ['value' => $value, 'ttl' => $ttl, 'key' => $keyElements];
@@ -340,7 +387,7 @@ class ClientRuleTest extends TestCase
                     throw $this->cacheWriteFailure;
                 }
 
-                return true;
+                return $this->cacheWriteReportedAsStored;
             });
 
         $openIdHelpersMock = $this->createMock(OpenIdHelpers::class);
@@ -349,6 +396,8 @@ class ClientRuleTest extends TestCase
         $this->federationMock->method('trustChainResolver')->willReturn($this->trustChainResolverMock);
 
         $this->trustChainResolverMock->method('for')->willReturnCallback(function (): TrustChainBag {
+            $this->trustChainResolutionAttempted = true;
+
             if ($this->trustChainResolutionFailure !== null) {
                 throw $this->trustChainResolutionFailure;
             }
@@ -565,18 +614,80 @@ class ClientRuleTest extends TestCase
     }
 
 
-    public function testSkipsTheReplayCheckAndWarnsWhenNoFederationCacheIsConfigured(): void
+    /**
+     * Presented again, the request object is refused: a real federation cache remembers it from the first time.
+     */
+    public function testRefusesARequestObjectPresentedAgain(): void
     {
-        // Without a cache there is nowhere to remember which JTIs have been seen. The rule deliberately keeps
-        // working rather than refusing every client, so the warning is the only thing telling an operator that
-        // replay protection is off -- and that trust chain resolution can be driven repeatedly with one and the
-        // same request object.
         $this->arrangeFederation();
-        $this->federationCache = null;
+        $this->federationCache = new FederationCache(new Psr16Cache(new ArrayAdapter()));
+        $this->assertSame($this->registrationClientMock, $this->check()?->getValue());
+        $this->addedClients = [];
+
+        $this->assertClientIsRefused();
+
+        $this->logContaining('error', 'Request object reused');
+    }
+
+
+    public function testRefusesARequestObjectWhichHasExpired(): void
+    {
+        // Parsed moments earlier, it can only have expired since; either way it is past being accepted, and is
+        // refused before anything is fetched for it.
+        $this->arrangeFederation();
+        $this->requestObjectExpirationFailure = new JwsException('Expiration Time claim is not after current time.');
+
+        $this->assertClientIsRefused();
+
+        $this->assertFalse($this->trustChainResolutionAttempted);
+        $this->logContaining('error', 'Request object expired');
+    }
+
+
+    /**
+     * A federation cache which can not be asked whether the request object was used before is the OP's own
+     * failure, not a verdict on the request object: the request fails with `server_error`, before the trust
+     * chain is resolved.
+     */
+    public function testFailsWithAServerErrorWhenTheFederationCacheCanNotBeAsked(): void
+    {
+        $this->arrangeFederation();
+        $this->cacheReadFailure = new RuntimeException('The cache backend is unavailable.');
+
+        $this->assertFailsWithAServerError();
+
+        $this->assertFalse($this->trustChainResolutionAttempted);
+    }
+
+
+    /**
+     * @return array<string,array{bool}>
+     */
+    public static function noCacheWhichKeepsEntriesProvider(): array
+    {
+        return [
+            'no federation cache' => [false],
+            'a federation cache which keeps nothing across requests' => [true],
+        ];
+    }
+
+
+    #[DataProvider('noCacheWhichKeepsEntriesProvider')]
+    public function testSkipsTheReplayCheckAndWarnsWithoutAFederationCacheWhichKeepsEntries(bool $hasCache): void
+    {
+        // Without a cache which keeps entries from one request to the next there is nowhere to remember which
+        // JTIs have been seen (one which keeps them for the request alone would forget them by the next). The
+        // rule deliberately keeps working rather than refusing every client, so the warning is the only thing
+        // telling an operator that replay protection is off -- and that trust chain resolution can be driven
+        // repeatedly with one and the same request object.
+        $this->arrangeFederation();
+        $this->federationCache = $hasCache ? $this->federationCacheMock : null;
+        $this->federationCacheKeptAcrossRequests = false;
 
         $result = $this->check();
 
         $this->assertSame($this->registrationClientMock, $result?->getValue());
+        $this->assertSame([], $this->cacheWrites);
         $warning = $this->logContaining('warning', 'replay check');
         $this->assertStringContainsString(ModuleConfig::OPTION_FEDERATION_CACHE_ADAPTER, $warning['message']);
     }
@@ -808,9 +919,28 @@ class ClientRuleTest extends TestCase
     }
 
 
-    public function testMarksTheRequestObjectAsUsedSoItCannotBeReplayed(): void
+    /**
+     * The request object is accepted until its expiration time and for the leeway past it (a minute here), so it
+     * is remembered as long: one past its expiration time but within the leeway, for what is left of it, and one
+     * whose time is up by now, for a second.
+     *
+     * @return array<string,array{int,int}>
+     */
+    public static function rememberedForProvider(): array
+    {
+        return [
+            'half a minute before it expires' => [30, 90],
+            'half a minute after it expired' => [-30, 30],
+            'past its leeway' => [-90, 1],
+        ];
+    }
+
+
+    #[DataProvider('rememberedForProvider')]
+    public function testMarksTheRequestObjectAsUsedForAsLongAsItIsAccepted(int $secondsToExpiration, int $ttl): void
     {
         $this->arrangeFederation();
+        $this->requestObjectExpirationTime = time() + $secondsToExpiration;
 
         $this->check();
 
@@ -820,22 +950,94 @@ class ClientRuleTest extends TestCase
             [self::CACHE_KEY_REQUEST_OBJECT_JTI, self::REQUEST_OBJECT_JTI],
             $this->cacheWrites[0]['key'],
         );
-        // Remembering it for longer than the request object lives would only grow the cache.
-        $this->assertIsInt($this->cacheWrites[0]['ttl']);
+        // A second either way, should the clock tick between the two readings of it.
+        $this->assertEqualsWithDelta($ttl, $this->cacheWrites[0]['ttl'], 1);
     }
 
 
-    public function testStillReturnsTheClientWhenMarkingTheRequestObjectAsUsedFails(): void
+    /**
+     * The trust chain resolution can take long enough for the request object to expire after it was judged.
+     * It was valid then, so it is accepted, and marked as used with the expiration time read then: the
+     * accessor, which checks the clock again on every call, would now throw.
+     */
+    public function testMarksARequestObjectWhichExpiresAfterItWasJudgedAsUsed(): void
     {
-        // A cache write failure is an operational problem, not a reason to reject a client whose trust chain
-        // and request object signature have both already been verified.
         $this->arrangeFederation();
-        $this->cacheWriteFailure = new RuntimeException('The cache backend is unavailable.');
+        $this->requestObjectExpirationTime = time() + 30;
+        $this->requestObjectExpiresOnceJudged = true;
 
         $result = $this->check();
 
         $this->assertSame($this->registrationClientMock, $result?->getValue());
-        $this->logContaining('error', 'mark request object as used');
+        $this->assertCount(1, $this->cacheWrites);
+        $this->assertEqualsWithDelta(90, $this->cacheWrites[0]['ttl'], 1);
+    }
+
+
+    /**
+     * @return array<string,array{?\Throwable,bool,bool}>
+     */
+    public static function requestObjectNotKeptProvider(): array
+    {
+        return [
+            'the write throws' => [new RuntimeException('The cache backend is unavailable.'), true, true],
+            'the write is reported as not stored' => [null, false, true],
+            'the write does not read back' => [null, true, false],
+        ];
+    }
+
+
+    /**
+     * A request object the cache does not remember as used could be used again, so the request fails, as the
+     * OP's own failure (`server_error`), and since it is marked before the registration is persisted, nothing is
+     * registered.
+     */
+    #[DataProvider('requestObjectNotKeptProvider')]
+    public function testFailsWithAServerErrorWhenTheRequestObjectCanNotBeMarkedAsUsed(
+        ?Throwable $writeFailure,
+        bool $reportedAsStored,
+        bool $kept,
+    ): void {
+        $this->arrangeFederation();
+        $this->cacheWriteFailure = $writeFailure;
+        $this->cacheWriteReportedAsStored = $reportedAsStored;
+        $this->cacheKeepsWrites = $kept;
+
+        $this->assertFailsWithAServerError();
+
+        $this->assertCount(1, $this->cacheWrites);
+    }
+
+
+    /**
+     * @return array<string,array{\Symfony\Component\Cache\Adapter\AdapterInterface}>
+     */
+    public static function federationCacheWhichDoesNotKeepTheRecordProvider(): array
+    {
+        return [
+            'writes failing' => [self::adapterWhoseWritesFail()],
+            'a chained backend whose writes fail' => [
+                new ChainAdapter([new ArrayAdapter(), self::adapterWhoseWritesFail()]),
+            ],
+            'an adapter which keeps nothing' => [new NullAdapter()],
+        ];
+    }
+
+
+    /**
+     * The same on real Symfony caches, which log a failed write rather than throw: one reports the write as not
+     * done, a chain of adapters reports a write one of its layers lost though a read is answered from another,
+     * and an adapter which keeps nothing reports every write as done (named as the federation cache adapter it
+     * turns the check off, but inside an adapter built of others the configuration does not say what it is).
+     */
+    #[DataProvider('federationCacheWhichDoesNotKeepTheRecordProvider')]
+    public function testFailsWithAServerErrorWhenTheFederationCacheDoesNotKeepTheRecord(
+        AdapterInterface $adapter,
+    ): void {
+        $this->arrangeFederation();
+        $this->federationCache = new FederationCache(new Psr16Cache($adapter));
+
+        $this->assertFailsWithAServerError();
     }
 
 
@@ -913,6 +1115,35 @@ class ClientRuleTest extends TestCase
         // A refusal that still wrote to the client table would be worse than no refusal at all.
         $this->assertSame([], $this->addedClients, 'No client registration may be persisted on refusal.');
         $this->assertSame([], $this->updatedClients, 'No client registration may be updated on refusal.');
+    }
+
+
+    private function assertFailsWithAServerError(): void
+    {
+        try {
+            $this->check();
+            $this->fail('The request must have failed.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('server_error', $exception->getErrorType());
+        }
+
+        $this->assertSame([], $this->addedClients, 'No client registration may be persisted on failure.');
+        $this->assertSame([], $this->updatedClients, 'No client registration may be updated on failure.');
+    }
+
+
+    /**
+     * A Symfony adapter whose writes fail the way Symfony's adapters fail them: reported as not done, rather
+     * than thrown.
+     */
+    private static function adapterWhoseWritesFail(): ArrayAdapter
+    {
+        return new class extends ArrayAdapter {
+            public function save(CacheItemInterface $item): bool
+            {
+                return false;
+            }
+        };
     }
 
 
