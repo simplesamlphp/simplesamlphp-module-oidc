@@ -103,7 +103,7 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
 
     protected function issueRefreshToken(
         OAuth2AccessTokenEntityInterface $accessToken,
-        string $authCodeId = null,
+        ?string $authCodeId = null,
     ): ?RefreshTokenEntityInterface {
         if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
             throw OidcServerException::serverError('Unexpected access token entity type.');
