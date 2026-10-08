@@ -270,6 +270,14 @@ jobs:
       - name: Run RP backchannel
         run: |
           ./conformance-suite/scripts/run-test-plan.py     "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" ./main/conformance-tests/conformance-back-channel-logout-ci.json
+      - name: Dump Incomplete Test Log to Console
+        if: failure()
+        run: |
+          echo "=== SimpleSAMLphp OP Container Log (Last 100 lines) ==="
+          docker compose -f ./main/docker/docker-compose.yml --project-directory ./main logs --tail=100 || true
+
+          echo "=== Conformance Runner Log Entries ==="
+          curl -sk "https://localhost.emobix.co.uk:8443/api/log" | jq 'if type == "array" then .[] elif type == "object" and has("data") and (.data | type == "array") then .data[] else empty end | select(.result != "PASSED") | {testId: ._id, testName: .testName, status: .status, result: .result}' || true
       - name: Stop SSP
         working-directory: ./main
         run: |
