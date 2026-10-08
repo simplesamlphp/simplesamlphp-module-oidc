@@ -214,7 +214,6 @@ jobs:
         ssp-version: ["v2.5.0"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-      VERSION: release-v5.1.39
     steps:
       - uses: actions/checkout@v6
         with:
@@ -223,6 +222,18 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install httpx
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y jq
+      - name: Resolve latest Conformance Suite release
+        run: |
+          set -euo pipefail
+          VERSION="$(curl --location --fail --silent --show-error \
+            https://gitlab.com/api/v4/projects/openid%2Fconformance-suite/releases/permalink/latest \
+            | jq --raw-output --exit-status '.tag_name')"
+          echo "Using Conformance Suite release: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Conformance Suite Checkout
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         run: git clone --depth 1 --single-branch --branch $VERSION https://gitlab.com/openid/conformance-suite.git
@@ -259,6 +270,14 @@ jobs:
       - name: Run RP backchannel
         run: |
           ./conformance-suite/scripts/run-test-plan.py     "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" ./main/conformance-tests/conformance-back-channel-logout-ci.json
+      - name: Dump Incomplete Test Log to Console
+        if: failure()
+        run: |
+          echo "=== SimpleSAMLphp OP Container Log (Last 100 lines) ==="
+          docker compose -f ./main/docker/docker-compose.yml --project-directory ./main logs --tail=100 || true
+
+          echo "=== Conformance Runner Log Entries ==="
+          curl -sk "https://localhost.emobix.co.uk:8443/api/log" | jq 'if type == "array" then .[] elif type == "object" and has("data") and (.data | type == "array") then .data[] else empty end | select(.result != "PASSED") | {testId: ._id, testName: .testName, status: .status, result: .result}' || true
       - name: Stop SSP
         working-directory: ./main
         run: |
