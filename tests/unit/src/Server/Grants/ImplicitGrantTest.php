@@ -171,4 +171,36 @@ class ImplicitGrantTest extends TestCase
     {
         $this->markTestIncomplete('RequestRulesManager needs to be refactored so it can be strongly typed.');
     }
+
+    /**
+     * @see https://datatracker.ietf.org/doc/html/rfc6749#section-10.3
+     * @see https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
+     */
+    public function testValidateAuthorizationRequestThrowsForConfidentialClient(): void
+    {
+        $redirectUriResult = new \SimpleSAML\Module\oidc\Server\RequestRules\Result(
+            \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule::class,
+            'https://example.com/callback'
+        );
+        $stateResult = new \SimpleSAML\Module\oidc\Server\RequestRules\Result(
+            \SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule::class,
+            'test-state'
+        );
+
+        $this->clientEntityMock->method('isConfidential')->willReturn(true);
+        $clientResult = new \SimpleSAML\Module\oidc\Server\RequestRules\Result(
+            \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule::class,
+            $this->clientEntityMock
+        );
+
+        $resultBag = new \SimpleSAML\Module\oidc\Server\RequestRules\ResultBag();
+        $resultBag->add($redirectUriResult);
+        $resultBag->add($stateResult);
+        $resultBag->add($clientResult);
+
+        $this->expectException(\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException::class);
+        $this->expectExceptionMessageMatches('/unauthorized_client/');
+
+        $this->sut()->validateAuthorizationRequestWithRequestRules($this->serverRequestMock, $resultBag);
+    }
 }

@@ -144,6 +144,20 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
 
+        // Confidential clients MUST authenticate and are not permitted to use the implicit flow:
+        // https://datatracker.ietf.org/doc/html/rfc6749#section-10.3
+        // https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
+        // https://datatracker.ietf.org/doc/html/rfc7591#section-2
+        // https://openid.net/specs/openid-connect-core-1_0.html#ClientAuthentication
+        if ($client->isConfidential()) {
+            throw OidcServerException::unauthorizedClient(
+                'Confidential clients are not allowed to use the implicit grant.',
+                $redirectUri,
+                $state,
+                $this->shouldUseFragment(),
+            );
+        }
+
         // Some rules need certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);

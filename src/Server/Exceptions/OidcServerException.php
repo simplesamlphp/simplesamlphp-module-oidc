@@ -107,6 +107,33 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * Unauthorized client error.
+     *
+     * @see https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.2.1
+     * @see https://datatracker.ietf.org/doc/html/rfc6749#section-10.3
+     * @see https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
+     * @see https://datatracker.ietf.org/doc/html/rfc7591#section-2
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param string|null $state
+     * @param bool $useFragment
+     * @return self
+     */
+    public static function unauthorizedClient(
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?string $state = null,
+        bool $useFragment = false,
+    ): self {
+        $errorMessage = 'The client is not authorized to request an authorization code or access token using this method (unauthorized_client).';
+        $e = new self($errorMessage, 4, 'unauthorized_client', 400, $hint, $redirectUri, null, $state);
+        $e->useFragmentInHttpResponses($useFragment);
+
+        return $e;
+    }
+
+    /**
      * Invalid scope error.
      *
      * @param string $scope The bad scope
