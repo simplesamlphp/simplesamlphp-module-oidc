@@ -214,7 +214,6 @@ jobs:
         ssp-version: ["v2.5.0"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-      VERSION: release-v5.1.39
     steps:
       - uses: actions/checkout@v6
         with:
@@ -223,6 +222,18 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install httpx
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y jq
+      - name: Resolve latest Conformance Suite release
+        run: |
+          set -euo pipefail
+          VERSION="$(curl --location --fail --silent --show-error \
+            https://gitlab.com/api/v4/projects/openid%2Fconformance-suite/releases/permalink/latest \
+            | jq --raw-output --exit-status '.tag_name')"
+          echo "Using Conformance Suite release: $VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Conformance Suite Checkout
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         run: git clone --depth 1 --single-branch --branch $VERSION https://gitlab.com/openid/conformance-suite.git
