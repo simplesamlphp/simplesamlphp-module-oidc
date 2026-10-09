@@ -3096,33 +3096,6 @@ class ModuleConfig
     }
 
 
-    public function getVciCredentialConfigurationIdForCredentialDefinitionType(array $credentialDefinitionType): ?string
-    {
-        foreach (
-            $this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $credentialConfiguration
-        ) {
-            if (!is_array($credentialConfiguration)) {
-                continue;
-            }
-
-            $credentialDefinition = $credentialConfiguration[ClaimsEnum::CredentialDefinition->value] ?? null;
-
-            if (!is_array($credentialDefinition)) {
-                continue;
-            }
-
-            /** @psalm-suppress MixedAssignment */
-            $configuredType = $credentialDefinition[ClaimsEnum::Type->value] ?? null;
-
-            if ($configuredType === $credentialDefinitionType) {
-                return (string)$credentialConfigurationId;
-            }
-        }
-
-        return null;
-    }
-
-
     /**
      * Extract and parse the claims path definition from the credential configuration supported.
      * Returns an array of valid paths for the claims.

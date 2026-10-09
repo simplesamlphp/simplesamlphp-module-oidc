@@ -712,7 +712,7 @@ class RoutesTest extends TestCase
      */
     public function testNewJsonErrorResponseEscapesHtmlSensitiveCharacters(): void
     {
-        $description = '<script>alert(document.cookie)&\'"</script>';
+        $description = '<script>alert(document.cookie)&\'</script>';
 
         $content = (string)$this->sut()->newJsonErrorResponse('invalid_request', $description)->getContent();
 
@@ -720,17 +720,50 @@ class RoutesTest extends TestCase
             $this->assertStringNotContainsString($character, $content);
         }
 
-        // The double quote cannot be searched for the same way, since it delimits every string in
-        // the document, so its escape is asserted present instead. `JSON_HEX_QUOT` writes the hex
-        // form; without that option the quote is merely backslash escaped, which is still valid
-        // JSON and decodes cleanly, so the round trip below would not notice. chr(92) is the
-        // backslash the literal would otherwise need.
-        $this->assertStringContainsString(chr(92) . 'u0022', $content);
-
-        // Escaped, not dropped: the description still decodes back to exactly what was passed in.
+        // Escaped, not dropped: an error description may hold all four, so the description still decodes back to
+        // exactly what was passed in.
         $this->assertSame(
             ['error' => 'invalid_request', 'error_description' => $description],
             json_decode($content, true),
         );
+    }
+
+
+    /**
+     * RFC 6749 section 5.2, and OpenID4VCI 1.0 section 8.3.1.2 for Credential Request errors, allow an
+     * `error_description` the characters %x20-21 / %x23-5B / %x5D-7E only. Whatever else a caller passes is
+     * dropped, since no escape is allowed either.
+     */
+    #[DataProvider('errorDescriptionCharactersProvider')]
+    public function testNewJsonErrorResponseKeepsOnlyTheCharactersAnErrorDescriptionMayHold(
+        string $description,
+        string $expectedDescription,
+    ): void {
+        $content = (string)$this->sut()->newJsonErrorResponse('invalid_request', $description)->getContent();
+
+        $this->assertSame(
+            ['error' => 'invalid_request', 'error_description' => $expectedDescription],
+            json_decode($content, true),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0: string, 1: string}>
+     */
+    public static function errorDescriptionCharactersProvider(): array
+    {
+        $everyCharacterAllowed = implode('', array_map(
+            chr(...),
+            [...range(0x20, 0x21), ...range(0x23, 0x5B), ...range(0x5D, 0x7E)],
+        ));
+
+        return [
+            'a double quote' => ['The "proofs" parameter.', 'The proofs parameter.'],
+            'a backslash' => ['C:' . chr(92) . 'wallet', 'C:wallet'],
+            'control characters' => ["One.\nTwo.\tThree." . chr(0x7F), 'One.Two.Three.'],
+            'characters outside ASCII' => ['Caf' . "\u{E9}" . ' ' . "\u{1F600}", 'Caf '],
+            'every character allowed' => [$everyCharacterAllowed, $everyCharacterAllowed],
+        ];
     }
 }

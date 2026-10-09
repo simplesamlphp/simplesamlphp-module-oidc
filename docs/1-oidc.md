@@ -164,7 +164,9 @@ Currently implemented OpenID4VCI features:
   - Credential Issuer Metadata | `.well-known/openid-credential-issuer` -
   Advertises supported credentials, algorithms, and endpoints.
   - Credential Endpoint | `credential-issuer/credential` - Handles credential
-  requests with proof of possession.
+  requests with proof of possession. A request names its credential by
+  `credential_identifier` or `credential_configuration_id`, as OpenID4VCI 1.0
+  has it; the pre-final `format` with a credential type or `vct` is not read.
   - Nonce Endpoint | `credential-issuer/nonce` - Provides nonces (`c_nonce`).
   - Credential Offer (API) | `api/vci/credential-offer` - Allows triggering
   credential offers via administrative API.
@@ -219,6 +221,10 @@ Currently implemented OpenID4VCI features:
   `c_nonce` is a JWS of a type of its own (`c-nonce+jwt`), so nothing else this
   issuer signs with the same key, a credential or a Status List Token, passes as
   one.
+  - A key proof's `key_attestation` and `trust_chain` headers are accepted when
+  signed with an algorithm advertised for key proofs
+  (`proof_signing_alg_values_supported`). What they attest is not evaluated,
+  so neither changes the key a credential is bound to.
   - Holder binding is stated in a `cnf` claim, in every credential format.
   - Each credential configuration decides for itself whether a key proof is
   required and which identifier rules apply to it. See

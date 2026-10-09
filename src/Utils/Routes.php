@@ -65,6 +65,14 @@ class Routes
     }
 
 
+    /**
+     * An error response of the OAuth 2.0 shape, `error` and `error_description`.
+     *
+     * The description keeps only the characters RFC 6749 section 5.2 allows in one, %x20-21 / %x23-5B / %x5D-7E:
+     * printable ASCII without the double quote and the backslash. OpenID4VCI 1.0 section 8.3.1.2 has the same
+     * rule for Credential Request errors. Several callers pass an exception message, so what arrives here is not
+     * fixed where it is written, and the rest are dropped rather than escaped, since no escape is allowed either.
+     */
     public function newJsonErrorResponse(
         string $error,
         string $description,
@@ -72,7 +80,10 @@ class Routes
         array $headers = [],
     ): JsonResponse {
         return $this->newJsonResponse(
-            ['error' => $error, 'error_description' => $description],
+            [
+                'error' => $error,
+                'error_description' => (string)preg_replace('/[^\x20\x21\x23-\x5B\x5D-\x7E]/', '', $description),
+            ],
             $httpCode,
             $headers,
         );

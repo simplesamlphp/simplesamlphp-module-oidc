@@ -109,7 +109,8 @@ class CredentialIssuerCredentialController
      * section 7.2 recommends (OidcServerException::buildResourceChallenges()). A refused token is named in the
      * challenge of the scheme it was presented under (`error="invalid_token"`), and a request which carried none
      * gets both challenges with no error and no body (RFC 6750 section 3.1); these come with the refusal. A 401
-     * from anywhere else gets both challenges with no error.
+     * from anywhere else gets both challenges with no error. The 403 for a token which does not grant the
+     * credential asked for carries its challenge too, `error="insufficient_scope"` (tokenErrorResponse()).
      *
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException
      * @throws \ReflectionException
@@ -145,14 +146,30 @@ class CredentialIssuerCredentialController
      */
     protected function invalidTokenResponse(string $description, AccessTokenTypesEnum $scheme): Response
     {
+        return $this->tokenErrorResponse('invalid_token', $description, 401, $scheme);
+    }
+
+
+    /**
+     * A refusal for the access token as RFC 6750 section 3 has a protected resource answer one: the error, its
+     * status, and the `WWW-Authenticate` challenge it MUST carry when the token "does not contain an access token
+     * that enables access to the protected resource", naming the error under the scheme the token was presented
+     * under (OidcServerException::buildResourceChallenges()).
+     */
+    protected function tokenErrorResponse(
+        string $error,
+        string $description,
+        int $httpCode,
+        AccessTokenTypesEnum $scheme,
+    ): Response {
         return $this->routes->newJsonErrorResponse(
-            'invalid_token',
+            $error,
             $description,
-            401,
+            $httpCode,
             [
                 'WWW-Authenticate' => OidcServerException::buildResourceChallenges(
                     $scheme,
-                    'invalid_token',
+                    $error,
                     $this->moduleConfig->getDpopSigningAlgorithms(),
                 ),
             ],
@@ -242,9 +259,35 @@ class CredentialIssuerCredentialController
         // the code carrying it for this token (AuthCodeGrant), so the token can be used for as many credential
         // requests as its lifetime allows, like one which followed no offer (OpenID4VCI 1.0 section 14.3).
 
+        // The user a credential would be about, checked with the rest of the token and before anything the
+        // request asks for: a token naming no user, or one who no longer exists, buys no credential whatever is
+        // asked with it, which no change to the request would mend.
+        $userId = $accessToken->getUserIdentifier();
+        if (!is_string($userId)) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Access token names no user.',
+                ['accessTokenId' => $accessToken->getIdentifier()],
+            );
+            return $this->invalidTokenResponse('The access token names no user.', $scheme);
+        }
+        $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
+        if ($userEntity === null) {
+            $this->loggerService->error('User entity not found.', ['userId' => $userId]);
+            return $this->invalidTokenResponse(
+                'The user the access token was issued for no longer exists.',
+                $scheme,
+            );
+        }
+
+        // A request names its credential by `credential_identifier` when the token response returned authorization
+        // details, by `credential_configuration_id` otherwise, and never by both (OpenID4VCI 1.0 section 8.2).
+        // Which members it carries is read by name rather than by value, so a member sent as null still counts as
+        // sent: next to the other one the request names its credential both ways, and alone it names nothing.
+        $hasCredentialIdentifier = array_key_exists(ClaimsEnum::CredentialIdentifier->value, $requestData);
+
         if (
-            isset($requestData[ClaimsEnum::CredentialConfigurationId->value]) &&
-            isset($requestData[ClaimsEnum::CredentialIdentifier->value])
+            $hasCredentialIdentifier &&
+            array_key_exists(ClaimsEnum::CredentialConfigurationId->value, $requestData)
         ) {
             $this->loggerService->error(
                 'CredentialIssuerCredentialController::credential: Credential configuration ID ' .
@@ -259,9 +302,6 @@ class CredentialIssuerCredentialController
             );
         }
 
-        // Resolve the requested credential identifier.
-        $resolvedCredentialIdentifier = null;
-
         /** @psalm-suppress MixedAssignment */
         $credentialIdentifier = $requestData[ClaimsEnum::CredentialIdentifier->value] ?? null;
 
@@ -271,14 +311,14 @@ class CredentialIssuerCredentialController
         // section 8.2), so one sent for a flow which used no `authorization_details`, and so was issued none,
         // is unknown rather than ignored.
         $authorizationDetails = $accessToken->getAuthorizationDetails();
-        if ($authorizationDetails !== null || $credentialIdentifier !== null) {
-            if (!is_string($credentialIdentifier)) {
+        if ($authorizationDetails !== null || $hasCredentialIdentifier) {
+            if (!is_string($credentialIdentifier) || $credentialIdentifier === '') {
                 $this->loggerService->error(
                     'CredentialIssuerCredentialController::credential: Credential identifier missing in request.',
                 );
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
-                    'Can not resolve credential identifier.',
+                    'The credential_identifier parameter is missing, or is not a non-empty string.',
                     400,
                 );
             }
@@ -333,118 +373,29 @@ class CredentialIssuerCredentialController
                 ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
             );
         } else {
-            $this->loggerService->debug(
-                'No authorization details in the access token and no credential identifier in the request. ' .
-                'Skipping resolution from "credential_identifier".',
-            );
-        }
-
-        if (!is_string($resolvedCredentialIdentifier)) {
-            $this->loggerService->debug('Resolving credential identifier from "credential_configuration_id".');
-
+            // The one other way a request names its credential. What came before OpenID4VCI 1.0, a `format`
+            // with a credential type or a `vct`, is not read: a request naming neither identifier is malformed.
             /** @psalm-suppress MixedAssignment */
             $credentialConfigurationId = $requestData[ClaimsEnum::CredentialConfigurationId->value] ?? null;
 
-            if (is_string($credentialConfigurationId)) {
-                /** @psalm-suppress MixedAssignment */
-                $resolvedCredentialIdentifier = $credentialConfigurationId;
-
-                $this->loggerService->debug(
-                    'Resolved credential identifier from "credential_configuration_id" parameter.',
-                    ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
+            if (!is_string($credentialConfigurationId) || $credentialConfigurationId === '') {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: The request names its credential by ' .
+                    'neither credential_identifier nor credential_configuration_id.',
                 );
-            } else {
-                $this->loggerService->warning('Credential identifier not provided in request parameters.');
-            }
-        }
-
-        if (!is_string($resolvedCredentialIdentifier)) {
-            $this->loggerService->warning(
-                'CredentialIssuerCredentialController::credential: No credential identifier found in request. ' .
-                'Falling back to resolution from format and credential type.',
-            );
-
-            $requestedCredentialFormatId = $requestData[ClaimsEnum::Format->value] ?? null;
-
-            if (!is_string($requestedCredentialFormatId)) {
-                $this->loggerService->error('Credential format missing in request (fallback resolution failed).');
                 return $this->routes->newJsonErrorResponse(
                     'invalid_credential_request',
-                    'Can not resolve credential format.',
+                    'The request must name the credential it asks for in the credential_configuration_id ' .
+                    'parameter.',
                     400,
                 );
             }
 
-            if (
-                !in_array($requestedCredentialFormatId, [
-                    CredentialFormatIdentifiersEnum::JwtVcJson->value,
-                    CredentialFormatIdentifiersEnum::DcSdJwt->value,
-                    CredentialFormatIdentifiersEnum::VcSdJwt->value,
-                ])
-            ) {
-                $this->loggerService->error(
-                    'CredentialIssuerCredentialController::credential: Unsupported credential format.',
-                    ['requestedCredentialFormatId' => $requestedCredentialFormatId],
-                );
-                return $this->routes->newJsonErrorResponse(
-                    'unsupported_credential_type',
-                    sprintf('Credential format ID "%s" is not supported.', $requestedCredentialFormatId),
-                    400,
-                );
-            }
+            $resolvedCredentialIdentifier = $credentialConfigurationId;
 
             $this->loggerService->debug(
-                'Resolved requested credential format.',
-                ['format' => $requestedCredentialFormatId],
-            );
-
-            $fallbackCredentialConfigurationId = null;
-
-            // TODO mivanci Update this to newest draft.
-            // Check per draft 14 (Sphereon wallet case).
-            /** @psalm-suppress MixedAssignment */
-            if (
-                $requestedCredentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value &&
-                is_array(
-                    $credentialDefinitionType =
-                        $requestData[ClaimsEnum::CredentialDefinition->value][ClaimsEnum::Type->value] ?? null,
-                )
-            ) {
-                $this->loggerService->debug(
-                    'Resolving configuration from credential definition types.',
-                    ['types' => $credentialDefinitionType],
-                );
-                $fallbackCredentialConfigurationId =
-                $this->moduleConfig->getVciCredentialConfigurationIdForCredentialDefinitionType(
-                    $credentialDefinitionType,
-                );
-            } elseif (
-                in_array($requestedCredentialFormatId, self::SD_JWT_FORMAT_IDS, true) &&
-                is_string($vct = $requestData[ClaimsEnum::Vct->value] ?? null)
-            ) {
-                $this->loggerService->debug(
-                    'Resolving configuration from VCT parameter.',
-                    ['vct' => $vct],
-                );
-                $fallbackCredentialConfigurationId = $vct;
-            }
-
-            if (!is_string($fallbackCredentialConfigurationId)) {
-                $this->loggerService->error('Fallback resolution failed to find a valid credential configuration.');
-            } else {
-                $this->loggerService->debug(
-                    'Resolved credential identifier via fallback mechanism.',
-                    ['resolvedCredentialIdentifier' => $fallbackCredentialConfigurationId],
-                );
-
-                $resolvedCredentialIdentifier = $fallbackCredentialConfigurationId;
-            }
-        }
-        if (!is_string($resolvedCredentialIdentifier)) {
-            return $this->routes->newJsonErrorResponse(
-                'invalid_credential_request',
-                'Can not resolve credential configuration ID.',
-                400,
+                'Resolved credential identifier from "credential_configuration_id" parameter.',
+                ['resolvedCredentialIdentifier' => $resolvedCredentialIdentifier],
             );
         }
 
@@ -458,7 +409,7 @@ class CredentialIssuerCredentialController
         if (!is_array($resolvedCredentialConfiguration)) {
             return $this->routes->newJsonErrorResponse(
                 'unknown_credential_configuration',
-                sprintf('Credential ID "%s" is not supported.', $resolvedCredentialIdentifier),
+                'The credential configuration the request names is not supported.',
                 400,
             );
         }
@@ -477,10 +428,11 @@ class CredentialIssuerCredentialController
                     'accessTokenId' => $accessToken->getIdentifier(),
                 ],
             );
-            return $this->routes->newJsonErrorResponse(
+            return $this->tokenErrorResponse(
                 'insufficient_scope',
                 'The access token does not grant the requested credential.',
                 403,
+                $scheme,
             );
         }
 
@@ -496,15 +448,6 @@ class CredentialIssuerCredentialController
             );
         }
 
-        $userId = $accessToken->getUserIdentifier();
-        if (!is_string($userId)) {
-            throw OidcServerException::invalidRequest('User identifier not available in Access Token.');
-        }
-        $userEntity = $this->userRepository->getUserEntityByIdentifier($userId);
-        if ($userEntity === null) {
-            $this->loggerService->error('User entity not found.', ['userId' => $userId]);
-            throw OidcServerException::invalidRequest('User not found.');
-        }
         $this->loggerService->info('Issuing credential for user.', ['userId' => $userId]);
 
         // Every key proof is validated before anything at all is issued. Validating and issuing in one

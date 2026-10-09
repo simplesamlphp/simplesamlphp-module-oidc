@@ -23,8 +23,10 @@ use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidDocument;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
+use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
+use stdClass;
 use Throwable;
 
 /**
@@ -74,6 +76,34 @@ class OpenId4VciProofValidator
      * resolution rather than applied afterwards, so a fetch which would overrun it is not started.
      */
     final public const int REQUEST_DEADLINE_SECONDS = 15;
+
+    /**
+     * The JOSE header parameter of a key proof carrying a key attestation (OpenID4VCI 1.0 Appendices D and F.1).
+     */
+    final public const string HEADER_KEY_ATTESTATION = 'key_attestation';
+
+    /**
+     * The key proof members which, when present, have to hold a value: the header parameters first, then the
+     * claims.
+     *
+     * The getters read a member written as null the same way as one left out, so `kid: null` next to a `jwk`
+     * passed as a header naming one key, and `iss: null` as a proof which omits the claim. None of these is
+     * defined to take null: a key identifier and an `iss` are strings, a key is a JSON object, a certificate
+     * chain and a trust chain are arrays, and a key attestation is a JWT. Checked by name, so that a member
+     * sent as null is never read as one not sent.
+     */
+    protected const array NON_NULL_HEADER_PARAMETERS = [
+        ClaimsEnum::Kid->value,
+        ClaimsEnum::Jwk->value,
+        ClaimsEnum::X5c->value,
+        self::HEADER_KEY_ATTESTATION,
+        ClaimsEnum::TrustChain->value,
+    ];
+
+    /** {@see NON_NULL_HEADER_PARAMETERS} */
+    protected const array NON_NULL_PAYLOAD_CLAIMS = [
+        ClaimsEnum::Iss->value,
+    ];
 
     /**
      * JWK members which describe a key without being part of it, so they are acceptable whatever the
@@ -254,7 +284,7 @@ class OpenId4VciProofValidator
         if (array_key_exists(ClaimsEnum::Proof->value, $requestData)) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'The "proof" parameter is not supported. Send the key proof in the "proofs" parameter.',
+                'The proof parameter is not supported. Send the key proof in the proofs parameter.',
             );
         }
 
@@ -264,21 +294,21 @@ class OpenId4VciProofValidator
         if (!is_array($proofs) || $proofs === []) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'The "proofs" parameter is required for this credential configuration.',
+                'The proofs parameter is required for this credential configuration.',
             );
         }
 
         if (count($proofs) !== 1) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'The "proofs" parameter must name exactly one proof type.',
+                'The proofs parameter must name exactly one proof type.',
             );
         }
 
         if ((string)array_key_first($proofs) !== self::PROOF_TYPE_JWT) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                sprintf('The only supported proof type is "%s".', self::PROOF_TYPE_JWT),
+                sprintf('The only supported proof type is %s.', self::PROOF_TYPE_JWT),
             );
         }
 
@@ -288,7 +318,7 @@ class OpenId4VciProofValidator
         if (!is_array($proofValues) || !array_is_list($proofValues) || $proofValues === []) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'The "proofs" parameter must carry a non-empty array of key proofs.',
+                'The proofs parameter must carry a non-empty array of key proofs.',
             );
         }
 
@@ -299,7 +329,7 @@ class OpenId4VciProofValidator
             throw new CredentialRequestException(
                 'invalid_proof',
                 sprintf(
-                    'The "proofs" parameter carries more key proofs than the advertised batch size of %d.',
+                    'The proofs parameter carries more key proofs than the advertised batch size of %d.',
                     ModuleConfig::VCI_BATCH_SIZE,
                 ),
             );
@@ -312,7 +342,7 @@ class OpenId4VciProofValidator
             if (!is_string($proofValue) || $proofValue === '') {
                 throw new CredentialRequestException(
                     'invalid_proof',
-                    'Every entry in the "proofs" parameter must be a key proof in compact serialization.',
+                    'Every entry in the proofs parameter must be a key proof in compact serialization.',
                 );
             }
 
@@ -345,6 +375,8 @@ class OpenId4VciProofValidator
 
         try {
             $this->validateAlgorithm($proof);
+            $this->refuseNullMembers($proof);
+            $this->validateAttachedJwsAlgorithms($proof, $proofJwt);
             $this->validateAudience($proof);
             $this->validateIssuer($proof, $accessToken);
 
@@ -404,17 +436,188 @@ class OpenId4VciProofValidator
      */
     protected function validateAlgorithm(OpenId4VciProof $proof): void
     {
-        $advertisedAlgorithms = $this->moduleConfig->getSupportedAlgorithms()
-            ->getSignatureAlgorithmBag()
-            ->getAllNamesUnique();
-
         // Advertised, not merely usable with the key. A wallet was told which algorithms this issuer
         // accepts for key proofs, and honouring one it was not told about verifies a signature under
         // rules nobody published.
-        if (!in_array($proof->getAlgorithm(), $advertisedAlgorithms, true)) {
+        if (!in_array($proof->getAlgorithm(), $this->advertisedProofSigningAlgorithms(), true)) {
             throw new CredentialRequestException(
                 'invalid_proof',
                 'Key proof is signed with an algorithm this issuer does not advertise for key proofs.',
+            );
+        }
+    }
+
+
+    /**
+     * The algorithms this issuer advertises as `proof_signing_alg_values_supported` for the `jwt` proof type, in
+     * every configuration which takes a key proof (CredentialIssuerMetadataService).
+     *
+     * @return string[]
+     */
+    protected function advertisedProofSigningAlgorithms(): array
+    {
+        return $this->moduleConfig->getSupportedAlgorithms()
+            ->getSignatureAlgorithmBag()
+            ->getAllNamesUnique();
+    }
+
+
+    /**
+     * Refuse a key proof which writes any of the members in NON_NULL_HEADER_PARAMETERS or
+     * NON_NULL_PAYLOAD_CLAIMS as null.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    protected function refuseNullMembers(OpenId4VciProof $proof): void
+    {
+        foreach (self::NON_NULL_HEADER_PARAMETERS as $parameter) {
+            if ($proof->hasHeaderClaim($parameter) && $proof->getHeaderClaim($parameter) === null) {
+                throw new CredentialRequestException(
+                    'invalid_proof',
+                    sprintf('The %s header parameter of the key proof is null, which it may not be.', $parameter),
+                );
+            }
+        }
+
+        foreach (self::NON_NULL_PAYLOAD_CLAIMS as $claim) {
+            if ($proof->hasPayloadClaim($claim) && $proof->getPayloadClaim($claim) === null) {
+                throw new CredentialRequestException(
+                    'invalid_proof',
+                    sprintf('The %s claim of the key proof is null, which it may not be.', $claim),
+                );
+            }
+        }
+    }
+
+
+    /**
+     * OpenID4VCI 1.0 Appendix F.1: "the alg JWT header of the key proof, and if present, the alg JOSE headers of
+     * both key_attestation and trust_chain, MUST match one of the values listed in the
+     * proof_signing_alg_values_supported metadata parameter".
+     *
+     * That is all that is checked of them. This issuer evaluates no key attestation and reads no trust chain
+     * (left for the HAIP plan, H-G4), so a proof carrying either is otherwise taken as a proof carrying neither:
+     * its key is the one its `kid` or `jwk` header names, and that is the key its signature is verified with.
+     * Neither is verified here, so the `alg` is read from a protected header nothing has checked; what holds
+     * is that a wallet sending one was told the algorithms to sign it with.
+     *
+     * @param non-empty-string $proofJwt The proof as it was sent, whose header says what JSON type a member is.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    protected function validateAttachedJwsAlgorithms(OpenId4VciProof $proof, string $proofJwt): void
+    {
+        if ($proof->hasHeaderClaim(self::HEADER_KEY_ATTESTATION)) {
+            $this->assertSignedWithAnAdvertisedAlgorithm(
+                $proof->getHeaderClaim(self::HEADER_KEY_ATTESTATION),
+                self::HEADER_KEY_ATTESTATION,
+            );
+        }
+
+        if (!$proof->hasHeaderClaim(ClaimsEnum::TrustChain->value)) {
+            return;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $trustChain = $proof->getHeaderClaim(ClaimsEnum::TrustChain->value);
+
+        // An OpenID Federation Trust Chain: a JSON array of Entity Statements, each a JWT with an `alg` of its own.
+        // The JSON type is read from the header as sent, since decoded into PHP arrays an object whose members are
+        // named 0, 1 and so on reads as a list too.
+        if (
+            !$this->protectedHeaderHoldsJsonArray($proofJwt, ClaimsEnum::TrustChain->value) ||
+            !is_array($trustChain) ||
+            $trustChain === []
+        ) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The trust_chain header parameter of the key proof must be a non-empty array of JWTs.',
+            );
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($trustChain as $entityStatement) {
+            $this->assertSignedWithAnAdvertisedAlgorithm($entityStatement, ClaimsEnum::TrustChain->value);
+        }
+    }
+
+
+    /**
+     * Whether the protected header of the compact JWS given holds a JSON array as the parameter given.
+     *
+     * @param non-empty-string $compactJws
+     */
+    protected function protectedHeaderHoldsJsonArray(string $compactJws, string $parameter): bool
+    {
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $header = json_decode(
+                $this->verifiableCredentials->helpers()->base64Url()->decode(explode('.', $compactJws, 2)[0]),
+                false,
+                512,
+                JSON_THROW_ON_ERROR,
+            );
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $header instanceof stdClass && property_exists($header, $parameter) && is_array($header->$parameter);
+    }
+
+
+    /**
+     * A JWT in compact serialization whose protected header names an algorithm this issuer advertises for key
+     * proofs, or the proof carrying it is refused.
+     *
+     * A JWT and not merely a JWS: its payload is a claims set, a JSON object (RFC 7519 section 7.2), and its
+     * header does not carry the unencoded payload option of RFC 7797 (`b64`), which the openid library refuses
+     * of every JWT it parses.
+     *
+     * @param non-empty-string $headerParameter The header parameter of the proof which carries it, for the refusal.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     */
+    protected function assertSignedWithAnAdvertisedAlgorithm(mixed $jwt, string $headerParameter): void
+    {
+        $algorithm = null;
+
+        if (is_string($jwt) && $jwt !== '') {
+            try {
+                $serialization = null;
+                $jws = $this->verifiableCredentials->jwsSerializerManagerDecorator()
+                    ->unserialize($jwt, $serialization)
+                    ->jws();
+                $signature = $jws->getSignature(0);
+                $payload = $jws->getPayload();
+
+                // A JWT is a JWS in compact serialization, and the one serialization which carries no
+                // unprotected header for an `alg` to hide in.
+                if (
+                    $serialization === JwsSerializerEnum::Compact->value &&
+                    !$signature->hasProtectedHeaderParameter(ClaimsEnum::B64->value) &&
+                    is_string($payload) &&
+                    json_decode($payload, false, 512, JSON_THROW_ON_ERROR) instanceof stdClass
+                ) {
+                    /** @psalm-suppress MixedAssignment */
+                    $algorithm = $signature->getProtectedHeaderParameter(ClaimsEnum::Alg->value);
+                }
+            } catch (Throwable $throwable) {
+                $this->loggerService->warning(
+                    'A JWT a key proof carries could not be read.',
+                    ['headerParameter' => $headerParameter, 'error' => $throwable->getMessage()],
+                );
+            }
+        }
+
+        if (!in_array($algorithm, $this->advertisedProofSigningAlgorithms(), true)) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                sprintf(
+                    'The %s header parameter of the key proof must %s signed with an algorithm this issuer ' .
+                    'advertises for key proofs.',
+                    $headerParameter,
+                    $headerParameter === ClaimsEnum::TrustChain->value ? 'hold JWTs' : 'be a JWT',
+                ),
             );
         }
     }
@@ -474,7 +677,7 @@ class OpenId4VciProofValidator
             if ($proofIssuer !== null) {
                 throw new CredentialRequestException(
                     'invalid_proof',
-                    'Key proof must not carry an "iss" claim, because the access token it accompanies ' .
+                    'Key proof must not carry an iss claim, because the access token it accompanies ' .
                     'identifies no client.',
                 );
             }
@@ -496,7 +699,7 @@ class OpenId4VciProofValidator
         if ($proofIssuer !== $clientId) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proof "iss" claim does not name the client the access token was issued to.',
+                'The iss claim of the key proof does not name the client the access token was issued to.',
             );
         }
     }
@@ -529,14 +732,14 @@ class OpenId4VciProofValidator
         if (count($keySources) !== 1) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'The key proof header must carry exactly one of "kid", "jwk" or "x5c".',
+                'The key proof header must carry exactly one of the kid, jwk and x5c parameters.',
             );
         }
 
         if ($certificateChain !== null) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proofs carrying an "x5c" header are not supported by this issuer.',
+                'Key proofs carrying an x5c header are not supported by this issuer.',
             );
         }
 
@@ -549,7 +752,7 @@ class OpenId4VciProofValidator
                 throw new CredentialRequestException(
                     'invalid_proof',
                     'This credential configuration requires the key proof to name a verification ' .
-                    'method in a "kid" header, so a key carried inline in a "jwk" header can not be ' .
+                    'method in a kid header, so a key carried inline in a jwk header can not be ' .
                     'accepted.',
                 );
             }
@@ -561,7 +764,7 @@ class OpenId4VciProofValidator
             } catch (JsonException) {
                 throw new CredentialRequestException(
                     'invalid_proof',
-                    'The "jwk" header of the key proof could not be read as a key.',
+                    'The jwk header of the key proof could not be read as a key.',
                 );
             }
 
@@ -600,7 +803,7 @@ class OpenId4VciProofValidator
 
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proof "kid" header must be a DID URL naming a verification method.',
+                'The kid header of the key proof must be a DID URL naming a verification method.',
             );
         }
 
@@ -610,8 +813,8 @@ class OpenId4VciProofValidator
         if (!$didUrl->hasFragment()) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proof "kid" header must name a verification method within a DID document, not ' .
-                'just the DID itself.',
+                'The kid header of the key proof must name a verification method within a DID document, ' .
+                'not just the DID itself.',
             );
         }
 
@@ -672,7 +875,7 @@ class OpenId4VciProofValidator
 
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proof "kid" header names a verification method which could not be resolved.',
+                'The kid header of the key proof names a verification method which could not be resolved.',
             );
         }
     }
@@ -726,7 +929,7 @@ class OpenId4VciProofValidator
 
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proof "kid" header names a verification method which could not be resolved.',
+                'The kid header of the key proof names a verification method which could not be resolved.',
             );
         }
     }
@@ -831,7 +1034,7 @@ class OpenId4VciProofValidator
         if (!is_string($keyType) || !array_key_exists($keyType, self::PUBLIC_JWK_MEMBERS_BY_KEY_TYPE)) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'The "jwk" header of the key proof is of a key type this issuer does not accept.',
+                'The jwk header of the key proof is of a key type this issuer does not accept.',
             );
         }
 
@@ -854,8 +1057,8 @@ class OpenId4VciProofValidator
             throw new CredentialRequestException(
                 'invalid_proof',
                 sprintf(
-                    'The "jwk" header of the key proof carries members which are not part of a public ' .
-                    '"%s" key. Private key material must never be sent.',
+                    'The jwk header of the key proof carries members which are not part of a public ' .
+                    '%s key. Private key material must never be sent.',
                     $keyType,
                 ),
             );
@@ -876,7 +1079,7 @@ class OpenId4VciProofValidator
         if (!is_string($nonce)) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                'Key proof must carry a "nonce" claim obtained from the Nonce Endpoint.',
+                'Key proof must carry a nonce claim obtained from the Nonce Endpoint.',
             );
         }
 

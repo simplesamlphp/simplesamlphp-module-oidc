@@ -33,7 +33,11 @@ use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
 use SimpleSAML\OpenID\Exceptions\DidException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Helpers;
+use SimpleSAML\OpenID\Jwk\JwkDecorator;
+use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
+use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\SupportedAlgorithms;
+use SimpleSAML\OpenID\SupportedSerializers;
 use SimpleSAML\OpenID\VerifiableCredentials as VerifiableCredentialsService;
 use SimpleSAML\OpenID\VerifiableCredentials\Factories\OpenId4VciProofFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
@@ -110,6 +114,9 @@ class OpenId4VciProofValidatorTest extends TestCase
      */
     protected array $resolvedKeys = [];
 
+    /** The library's own facade, which builds and parses key proofs as a wallet and this issuer do. */
+    protected static ?VerifiableCredentialsService $realVerifiableCredentials = null;
+
 
     protected function setUp(): void
     {
@@ -131,6 +138,9 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->verifiableCredentialsMock->method('openId4VciProofFactory')->willReturn($this->proofFactoryMock);
         // The library's own helpers, so a key's representation is checked as it is in production.
         $this->verifiableCredentialsMock->method('helpers')->willReturn(new Helpers());
+        // And its own serializers, so a JWT a proof carries in its header is read by the library's own parser.
+        $this->verifiableCredentialsMock->method('jwsSerializerManagerDecorator')
+            ->willReturn(self::realVerifiableCredentials()->jwsSerializerManagerDecorator());
 
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn(self::HOLDER_DID);
 
@@ -416,6 +426,122 @@ class OpenId4VciProofValidatorTest extends TestCase
 
 
     /**
+     * With ES384 as well as ES256, so a JWT can be signed with an algorithm the test configuration does not
+     * advertise, and with the flattened JSON serialization as well as the compact one, which production does not
+     * read, so that the validator's own requirement of a compact JWT is what refuses a JWS in that serialization.
+     */
+    protected static function realVerifiableCredentials(): VerifiableCredentialsService
+    {
+        return self::$realVerifiableCredentials ??= new VerifiableCredentialsService(
+            supportedSerializers: new SupportedSerializers(
+                new JwsSerializerBag(JwsSerializerEnum::Compact, JwsSerializerEnum::JsonFlattened),
+            ),
+            supportedAlgorithms: new SupportedAlgorithms(
+                new SignatureAlgorithmBag(SignatureAlgorithmEnum::ES256, SignatureAlgorithmEnum::ES384),
+            ),
+        );
+    }
+
+
+    /**
+     * A JWT with exactly the header and payload given, and the `alg` of the algorithm, signed with the key given or
+     * a fresh P-256 one.
+     *
+     * @param array<non-empty-string,mixed> $header
+     * @param array<non-empty-string,mixed> $payload
+     */
+    protected static function signedJwt(
+        array $header,
+        array $payload = ['iss' => 'https://wallet-provider.example.org'],
+        ?JWK $key = null,
+        SignatureAlgorithmEnum $algorithm = SignatureAlgorithmEnum::ES256,
+        JwsSerializerEnum $serialization = JwsSerializerEnum::Compact,
+    ): string {
+        $facade = self::realVerifiableCredentials();
+
+        return $facade->jwsSerializerManagerDecorator()->serialize(
+            $serialization->value,
+            $facade->jwsDecoratorBuilder()->fromData(
+                new JwkDecorator($key ?? JWKFactory::createECKey('P-256')),
+                $algorithm,
+                $payload,
+                $header,
+            ),
+        );
+    }
+
+
+    /**
+     * A JWS in compact serialization built by hand, for what the library's builder will not build: a payload which
+     * is not a JSON object, or one left unencoded. Its signature is not one, which nothing here checks.
+     *
+     * @param array<string,mixed> $header
+     */
+    protected static function handBuiltJws(array $header, string $payload, bool $encodePayload = true): string
+    {
+        $base64Url = (new Helpers())->base64Url();
+
+        return $base64Url->encode(json_encode($header, JSON_THROW_ON_ERROR)) . '.' .
+        ($encodePayload ? $base64Url->encode($payload) : $payload) . '.' .
+        $base64Url->encode('not a signature');
+    }
+
+
+    /**
+     * A key proof as a wallet builds one, naming the verification method HOLDER_DID_URL with a `kid` header and
+     * signed with the key that method resolves to, which passes everything; each test spoils one thing of it.
+     *
+     * @param array<string,mixed> $header Merged over the proof's header. A member set to null is sent as null.
+     * @param array<string,mixed> $payload Merged over the proof's claims, likewise.
+     * @param string[] $without Members left out of the header and the claims.
+     * @param ?\Jose\Component\Core\JWK $key The key to sign with, for a test which sends it inline as well.
+     */
+    protected function realProof(
+        array $header = [],
+        array $payload = [],
+        array $without = [],
+        ?JWK $key = null,
+    ): string {
+        $key ??= JWKFactory::createECKey('P-256');
+        $this->resolvedKeys[self::HOLDER_DID_URL] = $key->toPublic()->all();
+
+        /** @var array<non-empty-string,mixed> $proofHeader */
+        $proofHeader = array_diff_key(
+            array_merge(['typ' => 'openid4vci-proof+jwt', 'kid' => self::HOLDER_DID_URL], $header),
+            array_flip($without),
+        );
+        /** @var array<non-empty-string,mixed> $proofPayload */
+        $proofPayload = array_diff_key(
+            array_merge(
+                ['iss' => self::CLIENT_ID, 'aud' => self::ISSUER, 'iat' => time(), 'nonce' => 'nonce-value'],
+                $payload,
+            ),
+            array_flip($without),
+        );
+
+        return self::signedJwt($proofHeader, $proofPayload, $key);
+    }
+
+
+    /**
+     * A request carrying the proofs given, parsed by the library's own proof factory.
+     *
+     * @param list<string> $proofJwts
+     * @return array<string,mixed>
+     */
+    protected function requestWithRealProofs(array $proofJwts): array
+    {
+        $this->proofFactoryMock->method('fromToken')->willReturnCallback(
+            static fn(string $token): OpenId4VciProof => self::realVerifiableCredentials()
+                ->openId4VciProofFactory()
+                ->fromToken($token),
+        );
+
+        return ['proofs' => ['jwt' => $proofJwts]];
+    }
+
+
+    /**
      * @param array<array-key,mixed> $requestData
      */
     protected function assertRefusedWith(
@@ -428,6 +554,12 @@ class OpenId4VciProofValidatorTest extends TestCase
             $this->sut()->validateRequest($requestData, $bindingPolicy, $this->accessTokenMock);
         } catch (CredentialRequestException $credentialRequestException) {
             $this->assertSame($expectedErrorCode, $credentialRequestException->getErrorCode());
+            // The message is the error_description, which holds printable ASCII without the double quote and the
+            // backslash (OpenID4VCI 1.0 section 8.3.1.2). Checked here, so every refusal a test provokes is.
+            $this->assertMatchesRegularExpression(
+                '/^[\x20\x21\x23-\x5B\x5D-\x7E]*$/',
+                $credentialRequestException->getMessage(),
+            );
 
             if (is_string($expectedMessageFragment)) {
                 $this->assertStringContainsString(
@@ -1043,7 +1175,7 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->assertRefusedWith(
             'invalid_proof',
             $this->requestWith(['getIssuer' => $issuer]),
-            expectedMessageFragment: 'must not carry an "iss" claim',
+            expectedMessageFragment: 'must not carry an iss claim',
         );
     }
 
@@ -1113,6 +1245,299 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->proofFactoryMock->method('fromToken')->willReturnOnConsecutiveCalls($goodProof, $badProof);
 
         $this->assertRefusedWith('invalid_proof', ['proofs' => ['jwt' => ['good-jwt', 'bad-jwt']]]);
+    }
+
+
+    /*****************************************************************************************************
+     * Key proofs as the library parses them, for what a double of one can not show: a member written as
+     * null, the proof type, the issue time, and the JWTs a proof may carry in its header.
+     ****************************************************************************************************/
+
+    /**
+     * The proof every test below spoils one thing of passes as it is, so each refusal below is that one thing's.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsARealProof(): void
+    {
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithRealProofs([$this->realProof()]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+        $this->assertSame(self::HOLDER_DID_URL, $validatedProofs[0]?->getKeyId());
+    }
+
+
+    /**
+     * Appendix F.1 has a key proof typed `openid4vci-proof+jwt`. A JWT of any other type, or of none, is not one,
+     * even signed with the holder's key: it was made for some other use (RFC 8725 section 3.11).
+     *
+     * @param array<string,mixed> $header
+     * @param string[] $without
+     */
+    #[DataProvider('notAKeyProofTypeProvider')]
+    public function testRefusesAJwtWhichIsNotTypedAsAKeyProof(array $header, array $without): void
+    {
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof($header, without: $without)]),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0: array<string,mixed>, 1: string[]}>
+     */
+    public static function notAKeyProofTypeProvider(): array
+    {
+        return [
+            'a plain JWT' => [['typ' => 'JWT'], []],
+            'a DPoP proof' => [['typ' => 'dpop+jwt'], []],
+            'no type' => [[], ['typ']],
+        ];
+    }
+
+
+    /**
+     * Appendix F.1 has a key proof carry `iat`, and one issued later than now, beyond the leeway for clocks
+     * apart, says nothing true about when it was made.
+     *
+     * @param int|string|null $issuedAt Seconds from now, made into a time here: PHPUnit runs the provider when it
+     * loads the suite, a minute and more before this test runs in a full pass. A string is sent as it is, and
+     * null leaves the claim out.
+     */
+    #[DataProvider('issueTimeWhichDoesNotHoldProvider')]
+    public function testRefusesAProofWhoseIssueTimeDoesNotHold(int|string|null $issuedAt): void
+    {
+        $proof = $issuedAt === null ?
+        $this->realProof(without: ['iat']) :
+        $this->realProof(payload: ['iat' => is_int($issuedAt) ? time() + $issuedAt : $issuedAt]);
+
+        $this->assertRefusedWith('invalid_proof', $this->requestWithRealProofs([$proof]));
+    }
+
+
+    /**
+     * @return array<string,array{0: int|string|null}>
+     */
+    public static function issueTimeWhichDoesNotHoldProvider(): array
+    {
+        return [
+            'none' => [null],
+            // The library's leeway is a minute.
+            'two minutes from now' => [120],
+            'not a number' => ['now'],
+        ];
+    }
+
+
+    /**
+     * The leeway is there for a wallet whose clock runs a little ahead.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsAProofIssuedWithinTheLeeway(): void
+    {
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithRealProofs([$this->realProof(payload: ['iat' => time() + 30])]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+    }
+
+
+    /**
+     * A member written as null is not a member left out. Read as one, `kid: null` passed next to a `jwk` as a
+     * header naming one key, and `iss: null` as a proof which omits the claim.
+     *
+     * @param array<string,mixed> $header `jwk` set to true stands for the key the proof is signed with.
+     * @param array<string,mixed> $payload
+     * @param string[] $without
+     */
+    #[DataProvider('memberWrittenAsNullProvider')]
+    public function testRefusesAMemberWrittenAsNull(array $header, array $payload, array $without): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        if (($header['jwk'] ?? null) === true) {
+            $header['jwk'] = $key->toPublic()->all();
+        }
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof($header, $payload, $without, $key)]),
+            expectedMessageFragment: 'is null',
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0: array<string,mixed>, 1: array<string,mixed>, 2: string[]}>
+     */
+    public static function memberWrittenAsNullProvider(): array
+    {
+        return [
+            'kid next to a jwk' => [['kid' => null, 'jwk' => true], [], []],
+            'x5c next to a jwk' => [['x5c' => null, 'jwk' => true], [], ['kid']],
+            'jwk next to a kid' => [['jwk' => null], [], []],
+            'x5c next to a kid' => [['x5c' => null], [], []],
+            'key_attestation' => [['key_attestation' => null], [], []],
+            'trust_chain' => [['trust_chain' => null], [], []],
+            'iss' => [[], ['iss' => null], []],
+        ];
+    }
+
+
+    /**
+     * A wallet with no client identifier leaves `iss` out, and one written as null is not left out.
+     */
+    public function testRefusesAnIssuerClaimWrittenAsNullWhenTheAccessTokenIdentifiesNoClient(): void
+    {
+        $this->preAuthorizedTokenIssuedTo(self::GENERIC_CLIENT_ID, isGeneric: true);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof(payload: ['iss' => null])]),
+            expectedMessageFragment: 'is null',
+        );
+    }
+
+
+    /**
+     * The control for the test above: the same wallet's proof with `iss` left out is accepted.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsAProofWithoutAnIssuerClaimWhenTheAccessTokenIdentifiesNoClient(): void
+    {
+        $this->preAuthorizedTokenIssuedTo(self::GENERIC_CLIENT_ID, isGeneric: true);
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithRealProofs([$this->realProof(without: ['iss'])]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+    }
+
+
+    /**
+     * Appendix F.1 has the `alg` of a key attestation and of each statement of a trust chain be one this issuer
+     * advertises for key proofs. Nothing else of them is evaluated, so the credential is bound to the key the
+     * `kid` header names, as it would be without them.
+     *
+     * @param array<string,mixed> $header
+     * @throws \Throwable
+     */
+    #[DataProvider('attachedJwtsSignedWithAnAdvertisedAlgorithmProvider')]
+    public function testAcceptsAttachedJwtsSignedWithAnAdvertisedAlgorithm(array $header): void
+    {
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithRealProofs([$this->realProof($header)]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+        $this->assertSame(self::HOLDER_DID_URL, $validatedProofs[0]?->getKeyId());
+    }
+
+
+    /**
+     * @return array<string,array{0: array<string,mixed>}>
+     */
+    public static function attachedJwtsSignedWithAnAdvertisedAlgorithmProvider(): array
+    {
+        $keyAttestation = self::signedJwt(['typ' => 'key-attestation+jwt']);
+        $trustChain = [self::signedJwt(['typ' => 'entity-statement+jwt']), self::signedJwt([])];
+
+        return [
+            'a key attestation' => [[OpenId4VciProofValidator::HEADER_KEY_ATTESTATION => $keyAttestation]],
+            // The control for the hand-built ones refused below: the same shape, its claims set an object.
+            'a key attestation built by hand' => [
+                [OpenId4VciProofValidator::HEADER_KEY_ATTESTATION => self::handBuiltJws(['alg' => 'ES256'], '{}')],
+            ],
+            'a trust chain' => [[ClaimsEnum::TrustChain->value => $trustChain]],
+            'both' => [
+                [
+                    OpenId4VciProofValidator::HEADER_KEY_ATTESTATION => $keyAttestation,
+                    ClaimsEnum::TrustChain->value => $trustChain,
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * @param array<string,mixed> $header
+     */
+    #[DataProvider('attachedJwtsWhichDoNotHoldProvider')]
+    public function testRefusesAttachedJwtsWhichDoNotHold(array $header): void
+    {
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof($header)]),
+        );
+    }
+
+
+    /**
+     * The test configuration advertises ES256 alone.
+     *
+     * @return array<string,array{0: array<string,mixed>}>
+     */
+    public static function attachedJwtsWhichDoNotHoldProvider(): array
+    {
+        $keyAttestation = OpenId4VciProofValidator::HEADER_KEY_ATTESTATION;
+        $trustChain = ClaimsEnum::TrustChain->value;
+        $advertised = self::signedJwt([]);
+        $notAdvertised = self::signedJwt(
+            [],
+            key: JWKFactory::createECKey('P-384'),
+            algorithm: SignatureAlgorithmEnum::ES384,
+        );
+        $base64Url = (new Helpers())->base64Url();
+        $unsigned = $base64Url->encode('{"alg":"none"}') . '.' . $base64Url->encode('{}') . '.';
+        $jsonSerialized = self::signedJwt([], serialization: JwsSerializerEnum::JsonFlattened);
+        $es256 = ['alg' => 'ES256'];
+
+        return [
+            'a key attestation signed with an algorithm not advertised' => [[$keyAttestation => $notAdvertised]],
+            'an unsigned key attestation' => [[$keyAttestation => $unsigned]],
+            'a key attestation in JSON serialization' => [[$keyAttestation => $jsonSerialized]],
+            'a key attestation which is not a JWS' => [[$keyAttestation => 'not-a-jws']],
+            'a key attestation which is empty' => [[$keyAttestation => '']],
+            'a key attestation which is not a string' => [[$keyAttestation => 42]],
+            'a key attestation which is a list' => [[$keyAttestation => [$advertised]]],
+            'a key attestation whose payload is not JSON' => [
+                [$keyAttestation => self::handBuiltJws($es256, 'claims')],
+            ],
+            'a key attestation whose payload is a JSON array' => [
+                [$keyAttestation => self::handBuiltJws($es256, '[]')],
+            ],
+            'a key attestation whose payload is a JSON string' => [
+                [$keyAttestation => self::handBuiltJws($es256, '"claims"')],
+            ],
+            'a key attestation with an unencoded payload' => [
+                [$keyAttestation => self::handBuiltJws($es256 + ['b64' => false, 'crit' => ['b64']], '{}', false)],
+            ],
+            'a trust chain with a statement signed with an algorithm not advertised' => [
+                [$trustChain => [$advertised, $notAdvertised]],
+            ],
+            'a trust chain which is one statement, not a list' => [[$trustChain => $advertised]],
+            'a trust chain which is empty' => [[$trustChain => []]],
+            'a trust chain which is not a list' => [[$trustChain => ['first' => $advertised]]],
+            // Decoded into PHP arrays, a JSON object whose members are named 0, 1 and so on reads as a list.
+            'a trust chain which is an object with numbered members' => [
+                [$trustChain => (object)['0' => $advertised]],
+            ],
+            'a trust chain with a statement which is not a string' => [[$trustChain => [$advertised, 42]]],
+        ];
     }
 
 

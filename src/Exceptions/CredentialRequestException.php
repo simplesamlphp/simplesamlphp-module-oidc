@@ -13,7 +13,9 @@ namespace SimpleSAML\Module\oidc\Exceptions;
  * choice with the check that made it, rather than flattening every refusal to one code at the boundary.
  *
  * The message is returned to the wallet as `error_description`, so it says what is wrong with the
- * request without repeating back anything the request itself supplied.
+ * request without repeating back anything the request itself supplied, in the characters OpenID4VCI 1.0
+ * section 8.3.1.2 allows there: printable ASCII without the double quote and the backslash. Parameter names
+ * are written bare for that reason.
  */
 class CredentialRequestException extends OidcException
 {

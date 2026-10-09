@@ -4111,62 +4111,6 @@ class ModuleConfigTest extends TestCase
 
 
     /**
-     * A credential request names the credential by its definition type rather than by the id this OP
-     * files it under, so the two have to be matched up.
-     *
-     * @throws \Exception
-     */
-    public function testResolvesTheCredentialConfigurationIdForADeclaredCredentialDefinitionType(): void
-    {
-        $sut = $this->sut(overrides: $this->withCredentialConfigurations([
-            'TestCredential' => [
-                ClaimsEnum::CredentialDefinition->value => [
-                    ClaimsEnum::Type->value => ['VerifiableCredential', 'TestCredential'],
-                ],
-            ],
-        ]));
-
-        $this->assertSame(
-            'TestCredential',
-            $sut->getVciCredentialConfigurationIdForCredentialDefinitionType(
-                ['VerifiableCredential', 'TestCredential'],
-            ),
-        );
-        $this->assertNull(
-            $sut->getVciCredentialConfigurationIdForCredentialDefinitionType(['VerifiableCredential']),
-        );
-    }
-
-
-    /**
-     * Malformed entries are stepped over rather than matched against, so one broken configuration does
-     * not stop the credential a wallet asked for from being found.
-     *
-     * @throws \Exception
-     */
-    public function testStepsOverMalformedConfigurationsWhileResolvingACredentialDefinitionType(): void
-    {
-        $sut = $this->sut(overrides: $this->withCredentialConfigurations([
-            'NotAMap' => 'dc+sd-jwt',
-            'NoDefinition' => ['format' => 'dc+sd-jwt'],
-            'DefinitionIsNotAMap' => [ClaimsEnum::CredentialDefinition->value => 'VerifiableCredential'],
-            'TestCredential' => [
-                ClaimsEnum::CredentialDefinition->value => [
-                    ClaimsEnum::Type->value => ['VerifiableCredential', 'TestCredential'],
-                ],
-            ],
-        ]));
-
-        $this->assertSame(
-            'TestCredential',
-            $sut->getVciCredentialConfigurationIdForCredentialDefinitionType(
-                ['VerifiableCredential', 'TestCredential'],
-            ),
-        );
-    }
-
-
-    /**
      * The claim paths are what a credential is allowed to carry, so they are read from the credential
      * metadata, or from the older top-level `claims` key for a configuration written before the
      * metadata one existed.

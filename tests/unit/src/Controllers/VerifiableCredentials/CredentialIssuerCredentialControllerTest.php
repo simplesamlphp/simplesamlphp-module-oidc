@@ -379,6 +379,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->routesMock->method('newJsonErrorResponse')->willReturnCallback(
             function (string $error, string $description, int $httpCode = 500, array $headers = []): JsonResponse {
+                // Printable ASCII without the double quote and the backslash (OpenID4VCI 1.0 section 8.3.1.2),
+                // as written here rather than as Routes cuts it down, so every refusal a test provokes is checked.
+                $this->assertMatchesRegularExpression('/^[\x20\x21\x23-\x5B\x5D-\x7E]*$/', $description);
+
                 $this->errorResponses[] = [
                     'error' => $error,
                     'description' => $description,
@@ -518,7 +522,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         string $format = CredentialFormatIdentifiersEnum::JwtVcJson->value,
         array $proofJwts = ['jwt1'],
         ?array $inlineKey = null,
-    ): void {
+    ): Response {
         $this->credentialConfiguration = [ClaimsEnum::Format->value => $format];
 
         $this->requestData = [
@@ -532,7 +536,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         }
         $this->validatedProofs = $validatedProofs;
 
-        $this->dispatch();
+        return $this->dispatch();
     }
 
 
@@ -1593,6 +1597,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             'revoked' => ['revoked'],
             'not issued for credential issuance' => ['not vci'],
             'no issuer state of the generic client' => ['no issuer state'],
+            'naming no user' => ['no user'],
+            'naming a user who no longer exists' => ['user gone'],
         ];
     }
 
@@ -1615,6 +1621,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
                 break;
             case 'not vci':
                 $this->flowType = FlowTypeEnum::OidcAuthorizationCode;
+                break;
+            case 'no user':
+                $this->accessTokenUserIdentifier = null;
+                break;
+            case 'user gone':
+                $this->userEntity = null;
                 break;
             default:
                 $this->flowType = FlowTypeEnum::VciAuthorizationCode;
@@ -1684,10 +1696,31 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->clientIsGeneric = $clientIsGeneric;
         $this->tokenScopes = [new ScopeEntity('another_configuration')];
 
-        $this->issue();
+        $response = $this->issue();
 
         $this->assertRefusedWith('insufficient_scope', 403);
+        // RFC 6750 section 3: a token which does not enable the request is answered with a challenge, naming the
+        // error under the scheme the token came under, the DPoP one beside it (RFC 9449 section 7.2).
+        $this->assertSame(
+            'Bearer error="insufficient_scope", DPoP algs="ES256 PS256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    public function testRefusesACredentialTheTokenDoesNotGrantUnderTheSchemeItWasPresentedUnder(): void
+    {
+        $this->presentedScheme = 'DPoP';
+        $this->tokenScopes = [new ScopeEntity('another_configuration')];
+
+        $response = $this->issue();
+
+        $this->assertRefusedWith('insufficient_scope', 403);
+        $this->assertSame(
+            'DPoP error="insufficient_scope", algs="ES256 PS256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
     }
 
 
@@ -1753,19 +1786,58 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     /**
      * The two parameters name a credential in two different ways, and a request uses one of them.
-     * Picking one would mean guessing which credential was meant.
+     * Picking one would mean guessing which credential was meant. One sent as null is sent all the same: each
+     * request below would be issued if the member written as null were taken as left out.
+     *
+     * @param array<string,mixed> $requestData
      */
-    public function testRefusesACredentialConfigurationIdSentTogetherWithACredentialIdentifier(): void
-    {
-        $this->requestData = [
-            ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
-            ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID,
-        ];
+    #[DataProvider('bothWaysOfNamingTheCredentialProvider')]
+    public function testRefusesACredentialConfigurationIdSentTogetherWithACredentialIdentifier(
+        array $requestData,
+        bool $withAuthorizationDetails,
+    ): void {
+        $authorizationDetails = [$this->authorizationDetail(self::CONFIGURATION_ID)];
+        $this->authorizationDetails = $withAuthorizationDetails ? $authorizationDetails : null;
+        $this->requestData = $requestData;
+        $this->validatedProofs = [$this->validatedProof()];
 
         $this->dispatch();
 
         $this->assertRefusedWith('invalid_credential_request', 400);
+        // For naming it both ways, not for a member which names nothing.
+        $this->assertStringContainsString('together', $this->errorResponses[0]['description']);
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * @return array<string,array{0: array<string,mixed>, 1: bool}>
+     */
+    public static function bothWaysOfNamingTheCredentialProvider(): array
+    {
+        return [
+            'both with a value' => [
+                [
+                    ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
+                    ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID,
+                ],
+                false,
+            ],
+            'a credential identifier of null' => [
+                [
+                    ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
+                    ClaimsEnum::CredentialIdentifier->value => null,
+                ],
+                false,
+            ],
+            'a credential configuration id of null' => [
+                [
+                    ClaimsEnum::CredentialConfigurationId->value => null,
+                    ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID,
+                ],
+                true,
+            ],
+        ];
     }
 
 
@@ -1804,17 +1876,13 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /**
      * A credential identifier names one the token response issued with `authorization_details`. A flow
      * which used none was issued none, so the identifier is unknown, rather than ignored while the
-     * credential is resolved from whatever else the request carries: here a format and a `vct` which on
-     * their own would be issued.
+     * credential is resolved some other way: here it names a configuration the token grants, which
+     * `credential_configuration_id` would have been issued.
      */
     public function testRefusesACredentialIdentifierForAFlowWhichWasIssuedNone(): void
     {
         $this->authorizationDetails = null;
-        $this->requestData = [
-            ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID,
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            ClaimsEnum::Vct->value => self::CONFIGURATION_ID,
-        ];
+        $this->requestData = [ClaimsEnum::CredentialIdentifier->value => self::CONFIGURATION_ID];
         $this->validatedProofs = [$this->validatedProof()];
 
         $this->dispatch();
@@ -1825,23 +1893,38 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * A credential identifier which is not a string names nothing at all, and is a malformed request
+     * A credential identifier which is not a non-empty string names nothing at all, and is a malformed request
      * rather than an unknown identifier, with or without `authorization_details`.
      */
-    public function testRefusesACredentialIdentifierWhichIsNotAString(): void
-    {
-        $this->authorizationDetails = null;
-        $this->requestData = [
-            ClaimsEnum::CredentialIdentifier->value => [self::CONFIGURATION_ID],
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            ClaimsEnum::Vct->value => self::CONFIGURATION_ID,
-        ];
+    #[DataProvider('credentialIdentifierWhichIsNotANonEmptyStringProvider')]
+    public function testRefusesACredentialIdentifierWhichIsNotANonEmptyString(
+        mixed $credentialIdentifier,
+        bool $withAuthorizationDetails,
+    ): void {
+        $authorizationDetails = [$this->authorizationDetail(self::CONFIGURATION_ID)];
+        $this->authorizationDetails = $withAuthorizationDetails ? $authorizationDetails : null;
+        $this->requestData = [ClaimsEnum::CredentialIdentifier->value => $credentialIdentifier];
         $this->validatedProofs = [$this->validatedProof()];
 
         $this->dispatch();
 
         $this->assertRefusedWith('invalid_credential_request', 400);
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * @return array<string,array{0: mixed, 1: bool}>
+     */
+    public static function credentialIdentifierWhichIsNotANonEmptyStringProvider(): array
+    {
+        return [
+            'a list, no authorization details' => [[self::CONFIGURATION_ID], false],
+            'a list, with authorization details' => [[self::CONFIGURATION_ID], true],
+            'null, no authorization details' => [null, false],
+            'null, with authorization details' => [null, true],
+            'empty, with authorization details' => ['', true],
+        ];
     }
 
 
@@ -1876,12 +1959,18 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * With neither identifier and no format either, there is nothing left to resolve a configuration
-     * from.
+     * A request names its credential by `credential_identifier` or by `credential_configuration_id` (OpenID4VCI
+     * 1.0 section 8.2). What came before 1.0, a `format` with a credential definition type or a `vct`, names
+     * nothing to this issuer, so a request which sends only that is as malformed as one sending nothing; so is a
+     * `credential_configuration_id` which is not a non-empty string.
+     *
+     * @param array<string,mixed> $requestData
      */
-    public function testRefusesWhenNeitherAnIdentifierNorAFormatWasSent(): void
+    #[DataProvider('requestNamingNoCredentialProvider')]
+    public function testRefusesARequestWhichNamesNoCredential(array $requestData): void
     {
-        $this->requestData = [];
+        $this->requestData = $requestData;
+        $this->validatedProofs = [$this->validatedProof()];
 
         $this->dispatch();
 
@@ -1891,84 +1980,49 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * A format outside the three this issuer can produce is refused as a format, rather than left to
-     * fail later as a credential no branch knows how to build.
+     * @return array<string,array{0: array<string,mixed>}>
      */
-    public function testRefusesAFormatItCanNotIssue(): void
+    public static function requestNamingNoCredentialProvider(): array
     {
-        $this->requestData = [ClaimsEnum::Format->value => 'mso_mdoc'];
-
-        $this->dispatch();
-
-        $this->assertRefusedWith('unsupported_credential_type', 400);
-        $this->assertSame([], $this->signedPayloads);
-    }
-
-
-    /**
-     * A wallet which names no configuration can still be served when what it did send identifies one:
-     * the credential definition's types, for the W3C format.
-     */
-    public function testResolvesTheConfigurationFromTheCredentialDefinitionType(): void
-    {
-        $this->requestData = [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
-            ClaimsEnum::CredentialDefinition->value => [
-                ClaimsEnum::Type->value => ['VerifiableCredential', 'UniversityDegree'],
+        return [
+            'nothing' => [[]],
+            'a format and a credential definition type' => [
+                [
+                    ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                    ClaimsEnum::CredentialDefinition->value => [
+                        ClaimsEnum::Type->value => ['VerifiableCredential', self::CONFIGURATION_ID],
+                    ],
+                ],
+            ],
+            'a format and a vct' => [
+                [
+                    ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                    ClaimsEnum::Vct->value => self::CONFIGURATION_ID,
+                ],
+            ],
+            'a format alone' => [[ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value]],
+            'a format this issuer does not issue' => [[ClaimsEnum::Format->value => 'mso_mdoc']],
+            'a credential configuration id of null' => [[ClaimsEnum::CredentialConfigurationId->value => null]],
+            'an empty credential configuration id' => [[ClaimsEnum::CredentialConfigurationId->value => '']],
+            'a credential configuration id which is a list' => [
+                [ClaimsEnum::CredentialConfigurationId->value => [self::CONFIGURATION_ID]],
             ],
         ];
-        $this->validatedProofs = [$this->validatedProof()];
-
-        $this->moduleConfigMock->expects($this->once())
-            ->method('getVciCredentialConfigurationIdForCredentialDefinitionType')
-            ->with(['VerifiableCredential', 'UniversityDegree'])
-            ->willReturn(self::CONFIGURATION_ID);
-
-        $this->dispatch();
-
-        $this->assertSame([], $this->errorResponses);
-        $this->assertCount(1, $this->signedPayloads);
     }
 
 
     /**
-     * And the `vct`, for the SD-JWT formats, where the credential type is the configuration identifier.
+     * The configuration id is the issued `vct` of an SD-JWT VC.
      */
-    public function testResolvesTheConfigurationFromTheVct(): void
+    public function testAnSdJwtVcStatesTheConfigurationIdAsItsVct(): void
     {
-        $this->credentialConfiguration = [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-        ];
-        $this->requestData = [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            ClaimsEnum::Vct->value => self::CONFIGURATION_ID,
-        ];
-        $this->validatedProofs = [$this->validatedProof()];
-
-        $this->dispatch();
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
 
         $this->assertSame([], $this->errorResponses);
         $this->assertSame(
             self::CONFIGURATION_ID,
             $this->signedPayloads[0][ClaimsEnum::Vct->value] ?? null,
         );
-    }
-
-
-    /**
-     * A supported format on its own is not enough: something has to say which configuration is being
-     * asked for.
-     */
-    public function testRefusesWhenFallbackResolutionFindsNothing(): void
-    {
-        $this->requestData = [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
-        ];
-
-        $this->dispatch();
-
-        $this->assertRefusedWith('invalid_credential_request', 400);
-        $this->assertSame([], $this->signedPayloads);
     }
 
 
@@ -1982,6 +2036,22 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         // A request refused for what it asks, not for its token, carries no challenge.
         $this->assertFalse($response->headers->has('WWW-Authenticate'));
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * An error description says what is wrong without repeating what the request sent, which is the wallet's
+     * own text and may hold anything.
+     */
+    public function testDoesNotNameAnUnknownCredentialConfigurationBack(): void
+    {
+        $this->credentialConfiguration = null;
+        $this->requestData = [ClaimsEnum::CredentialConfigurationId->value => 'Wanted"Configuration'];
+
+        $this->dispatch();
+
+        $this->assertRefusedWith('unknown_credential_configuration', 400);
+        $this->assertStringNotContainsString('Wanted', $this->errorResponses[0]['description']);
     }
 
 
@@ -2015,27 +2085,45 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * The credential is about a user, so an access token which names none is not one a credential can
-     * be issued against.
+     * The credential is about a user, so an access token which names none, or one who no longer exists, can
+     * not buy one, and that is the token's fault: RFC 6750's `invalid_token` (OpenID4VCI 1.0 section 8.3.1.1).
      */
-    public function testFailsWhenTheAccessTokenNamesNoUser(): void
+    public function testRefusesAnAccessTokenWhichNamesNoUser(): void
     {
         $this->accessTokenUserIdentifier = null;
 
         $response = $this->dispatch();
 
-        $this->assertAnsweredWithOAuthError('invalid_request', 400);
-        $this->assertFalse($response->headers->has('WWW-Authenticate'));
+        $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesTheRefusedToken($response);
+        $this->assertSame([], $this->signedPayloads);
     }
 
 
-    public function testFailsWhenTheUserIsNotFound(): void
+    public function testRefusesAnAccessTokenWhoseUserNoLongerExists(): void
     {
         $this->userEntity = null;
 
+        $response = $this->dispatch();
+
+        $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesTheRefusedToken($response);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * The user is checked with the rest of the token, before the request: a wallet told to mend its request
+     * first would mend it only to learn that its token buys nothing.
+     */
+    public function testRefusesATokenWithoutAUserBeforeLookingAtTheRequest(): void
+    {
+        $this->userEntity = null;
+        $this->requestData = [];
+
         $this->dispatch();
 
-        $this->assertAnsweredWithOAuthError('invalid_request', 400);
+        $this->assertRefusedWith('invalid_token', 401);
     }
 
 
