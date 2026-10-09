@@ -84,7 +84,11 @@ class ClientRedirectUriRule extends AbstractRule
                 throw OidcServerException::invalidRequest(ParamsEnum::RedirectUri->value);
             }
         } catch (Throwable $exception) {
+            // The prefixes stand in for the registration a non-registered wallet does not have, so they are
+            // offered to the generic client ClientRule hands such a wallet, and to nothing else: a registered
+            // client is held to the redirect URIs it registered, in a credential request too.
             if (
+                $client->isGeneric() &&
                 $this->requestParamsResolver->isVciAuthorizationCodeRequestWithIssuerState(
                     $request,
                     $allowedServerRequestMethods,
@@ -120,7 +124,8 @@ class ClientRedirectUriRule extends AbstractRule
                 throw $exception;
             } else {
                 $loggerService->debug(
-                    'RedirectUriRule: Verifiable Credential capabilities with non-registered clients are not enabled. ',
+                    'RedirectUriRule: Not a non-registered wallet in a credential request, or such wallets are ' .
+                    'not allowed.',
                 );
                 $loggerService->error(
                     'RedirectUriRule: Redirect URI param does not correspond to the client redirect URI.',

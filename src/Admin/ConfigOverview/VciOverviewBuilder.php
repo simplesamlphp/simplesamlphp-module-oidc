@@ -1079,6 +1079,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         // starts with an empty string.
         $normalizedPrefixes = [];
         $hasEmptyPrefix = false;
+        $hasHostOnlyPrefix = false;
         $hasNonStringPrefix = false;
         $hasUncastablePrefix = false;
 
@@ -1100,6 +1101,12 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             if ($normalizedPrefix === '') {
                 $hasEmptyPrefix = true;
             }
+
+            // Nothing closes the host name, so the prefix also matches a longer one: "https://wallet.example"
+            // is the start of "https://wallet.example.evil/". A custom scheme has no host to extend.
+            if (preg_match('~^https?://[^/?#]*$~i', $normalizedPrefix) === 1) {
+                $hasHostOnlyPrefix = true;
+            }
         }
 
         $prefixesWarning = match (true) {
@@ -1107,6 +1114,11 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 'One of the configured prefixes is empty, which every redirect URI starts with, so ' .
                 'a non-registered client can be redirected anywhere. Note that a configured null ' .
                 'becomes an empty prefix.',
+            ),
+            $areAllowed && $hasHostOnlyPrefix => Translate::noop(
+                'One of the configured https or http prefixes has nothing after its host name, so it also ' .
+                'matches other hosts (https://wallet.example matches https://wallet.example.evil). End it ' .
+                'with a slash.',
             ),
             $areAllowed && $hasUncastablePrefix => Translate::noop(
                 'One of the configured prefixes cannot be turned into a string at all, so the ' .

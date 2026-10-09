@@ -215,7 +215,10 @@ Currently implemented OpenID4VCI features:
     policy of its own, separate from the federation one.
     - A key proof may also carry its key inline in a `jwk` header. That is a
     documented extension rather than a profile feature.
-  - Nonce Validation for mandatory `c_nonce` validation in proofs.
+  - Nonce Validation for mandatory `c_nonce` validation in proofs. A
+  `c_nonce` is a JWS of a type of its own (`c-nonce+jwt`), so nothing else this
+  issuer signs with the same key, a credential or a Status List Token, passes as
+  one.
   - Holder binding is stated in a `cnf` claim, in every credential format.
   - Each credential configuration decides for itself whether a key proof is
   required and which identifier rules apply to it. See

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
+use chillerlan\QRCode\QRCode;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -434,14 +435,14 @@ class VerifiableCredentailsTestControllerTest extends TestCase
 
 
     /**
-     * The offer is delivered by being scanned, so the page renders it as a QR code - with the URI
-     * encoded, since it is being carried inside another one.
+     * The offer is delivered by being scanned, so the page renders it as a QR code, drawn here as an SVG data URI:
+     * a code drawn by another service would hand that service the offer, with its pre-authorized code.
      *
      * @throws \SimpleSAML\Error\ConfigurationError
      * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
      * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
      */
-    public function testRendersTheOfferAsAScannableCode(): void
+    public function testRendersTheOfferAsAScannableCodeDrawnHere(): void
     {
         $this->requestParams = [
             'credentialConfigurationId' => self::CONFIGURATION_ID,
@@ -450,10 +451,42 @@ class VerifiableCredentailsTestControllerTest extends TestCase
 
         $this->sut()->verifiableCredentialIssuance($this->request());
 
-        $this->assertSame(
-            'https://quickchart.io/qr?size=200&margin=1&text=' . urlencode(self::OFFER_URI),
-            $this->templateData['credentialOfferQrUri'] ?? null,
+        $qrCodeUri = $this->templateData['credentialOfferQrUri'] ?? null;
+        $this->assertIsString($qrCodeUri);
+        $this->assertStringStartsWith('data:image/svg+xml;base64,', $qrCodeUri);
+        $this->assertStringContainsString(
+            '<svg',
+            (string)base64_decode(substr($qrCodeUri, strlen('data:image/svg+xml;base64,')), true),
         );
+        // The code of the offer itself, not of anything else.
+        $this->assertSame((new QRCode())->render(self::OFFER_URI), $qrCodeUri);
+        $this->assertSame(self::OFFER_URI, $this->templateData['credentialOfferUri'] ?? null);
+    }
+
+
+    /**
+     * An offer too long for any QR code is still shown, as text: the page tells the administrator why there is no
+     * code rather than falling back to the form.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     */
+    public function testShowsAnOfferTooLongForAQrCodeAsTextAlone(): void
+    {
+        // More than the 2,953 bytes the largest QR code holds at the lowest error correction level.
+        $longOfferUri = self::OFFER_URI . str_repeat('%7B', 1500);
+        $this->credentialOfferUriFactoryMock = $this->createMock(CredentialOfferUriFactory::class);
+        $this->credentialOfferUriFactoryMock->method('buildForAuthorization')->willReturn($longOfferUri);
+        $this->requestParams = [
+            'credentialConfigurationId' => self::CONFIGURATION_ID,
+            'grantType' => GrantTypesEnum::AuthorizationCode->value,
+        ];
+
+        $this->sut()->verifiableCredentialIssuance($this->request());
+
+        $this->assertSame($longOfferUri, $this->templateData['credentialOfferUri'] ?? null);
+        $this->assertNull($this->templateData['credentialOfferQrUri'] ?? null);
     }
 
 

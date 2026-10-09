@@ -68,6 +68,7 @@ use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel\Factories\JwtVcJsonFacto
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel\JwtVcJson;
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\Factories\VcSdJwtFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\VcSdJwt;
+use Stringable;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -551,6 +552,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $holderDid,
             $inlineKey === null ? $holderDid . '#0' : null,
             $inlineKey,
+            hash('sha256', $holderDid),
         );
     }
 
@@ -716,6 +718,40 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             self::HOLDER_DID,
             $payload[ClaimsEnum::Vc->value][ClaimsEnum::Credential_Subject->value][ClaimsEnum::Id->value] ?? null,
         );
+    }
+
+
+    /**
+     * OpenID4VCI 1.0 section 15.4.1: an issuer should discard values a verifier could track the user by, the key a
+     * credential is bound to among them. At every log level, nothing names the holder, its key or the proof; the
+     * issuance line says which kind of holder identifier it was.
+     */
+    public function testKeepsTheHolderKeyAndTheProofOutOfTheLog(): void
+    {
+        $logged = [];
+        foreach (['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'] as $level) {
+            $this->loggerServiceMock->method($level)->willReturnCallback(
+                function (string|Stringable $message, array $context = []) use (&$logged): void {
+                    $logged[] = [(string)$message, $context];
+                },
+            );
+        }
+
+        $inlineKey = ['kty' => 'EC', 'crv' => 'P-256', 'x' => 'holder-key-x', 'y' => 'holder-key-y'];
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value, ['holder-proof-jwt'], $inlineKey);
+
+        $this->assertCount(1, $this->signedPayloads);
+        $log = json_encode($logged, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        foreach ([self::HOLDER_DID, 'holder-key-x', 'holder-key-y', 'holder-proof-jwt'] as $value) {
+            $this->assertStringNotContainsString($value, $log);
+        }
+
+        $issuanceLines = array_values(array_filter(
+            $logged,
+            static fn(array $line): bool => $line[0] === 'Signing and issuing verifiable credential.',
+        ));
+        $this->assertCount(1, $issuanceLines);
+        $this->assertSame('did:jwk', $issuanceLines[0][1]['holderDidMethod'] ?? null);
     }
 
 

@@ -829,6 +829,75 @@ class VciOverviewBuilderTest extends TestCase
     }
 
 
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function prefixesEndingInTheHostNameProvider(): array
+    {
+        return [
+            'https host' => ['https://wallet.example'],
+            'http host and port' => ['http://wallet.example:8080'],
+            'scheme in capitals' => ['HTTPS://wallet.example'],
+            'https and no host at all' => ['https://'],
+        ];
+    }
+
+
+    /**
+     * Matched by its start, a prefix which stops inside the host name also matches a longer host name.
+     */
+    #[DataProvider('prefixesEndingInTheHostNameProvider')]
+    public function testWarnsAboutAPrefixWhichEndsInTheHostName(string $prefix): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => true,
+                ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS => [
+                    'openid-credential-offer://',
+                    $prefix,
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('also matches other hosts', (string)$row->getWarning());
+    }
+
+
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function prefixesClosingTheHostNameProvider(): array
+    {
+        return [
+            'https host and slash' => ['https://wallet.example/'],
+            'https host and path' => ['https://wallet.example/callback'],
+            'https host and query' => ['https://wallet.example?wallet=1'],
+            'the default custom scheme' => ['openid-credential-offer://'],
+            'another custom scheme' => ['eudi-wallet://'],
+        ];
+    }
+
+
+    #[DataProvider('prefixesClosingTheHostNameProvider')]
+    public function testDoesNotWarnAboutAPrefixWhichClosesTheHostName(string $prefix): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => true,
+                ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS => [$prefix],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+
     public function testDoesNotWarnAboutPrefixesWhenNonRegisteredClientsAreDisallowed(): void
     {
         $row = $this->findRowForOption(

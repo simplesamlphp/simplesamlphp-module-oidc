@@ -1326,6 +1326,12 @@ $config = [
      * Allowed redirect URI prefixes for non-registered clients. By default,
      * this is set to
      * 'openid-credential-offer://' to allow only redirect URIs with this prefix.
+     * They apply only to wallets which are not registered: a registered client
+     * is always held to the redirect URIs it registered.
+     *
+     * A redirect URI is matched by its start, so end an https prefix with a
+     * slash after the host name at least: 'https://wallet.example' would also
+     * match 'https://wallet.example.evil/'.
      *
      * Example:
      *  [

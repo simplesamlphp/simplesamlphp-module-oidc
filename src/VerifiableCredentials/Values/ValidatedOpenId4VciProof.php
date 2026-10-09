@@ -22,12 +22,15 @@ class ValidatedOpenId4VciProof
      * key inline in a `jwk` header and so named no verification method at all.
      * @param ?array<array-key,mixed> $holderJwk The key the proof carried inline, or null when it named
      * a verification method instead.
+     * @param string $keyThumbprint The JWK SHA-256 Thumbprint (RFC 7638) of the key the proof was verified
+     * with: the key the credential is bound to, however the proof named it.
      */
     public function __construct(
         protected readonly OpenId4VciProof $proof,
         protected readonly string $subject,
         protected readonly ?string $keyId,
-        protected readonly ?array $holderJwk = null,
+        protected readonly ?array $holderJwk,
+        protected readonly string $keyThumbprint,
     ) {
     }
 
@@ -56,6 +59,25 @@ class ValidatedOpenId4VciProof
     public function getHolderJwk(): ?array
     {
         return $this->holderJwk;
+    }
+
+
+    public function getKeyThumbprint(): string
+    {
+        return $this->keyThumbprint;
+    }
+
+
+    /**
+     * The DID method of the holder identifier, such as `did:jwk`, or null when the identifier is not a DID: what a
+     * log line may say about the holder. The identifier itself names the holder's key for a key sent inline, a
+     * `did:jwk` made from it, and OpenID4VCI 1.0 section 15.4.1 asks an issuer to discard such values.
+     */
+    public function getSubjectDidMethod(): ?string
+    {
+        $parts = explode(':', $this->subject, 3);
+
+        return count($parts) === 3 && $parts[0] === 'did' && $parts[1] !== '' ? 'did:' . $parts[1] : null;
     }
 
 

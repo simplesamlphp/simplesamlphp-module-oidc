@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\VerifiableCredentials;
 
+use Jose\Component\Core\JWK;
 use JsonException;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
@@ -188,13 +189,29 @@ class OpenId4VciProofValidator
         );
 
         $validatedProofs = [];
+        $provenKeyThumbprints = [];
         foreach ($proofJwts as $proofJwt) {
-            $validatedProofs[] = $this->validateProof(
+            $validatedProof = $this->validateProof(
                 $proofJwt,
                 $accessToken,
                 $bindingPolicy,
                 $didResolutionBudget,
             );
+
+            // OpenID4VCI 1.0 section 8.3: "Each key provided by the Wallet is used to bind to, at most, one
+            // Credential". Compared by thumbprint, so the same key named twice in two ways (inline and by a
+            // verification method, or under two DID URLs) is still one key. Refused rather than issued one
+            // credential for: a wallet repeating a key has made a mistake which a shorter batch would hide,
+            // and credentials bound to one key are linkable by it.
+            if (isset($provenKeyThumbprints[$validatedProof->getKeyThumbprint()])) {
+                throw new CredentialRequestException(
+                    'invalid_proof',
+                    'Each key proof must prove a different key, and two of them prove the same one.',
+                );
+            }
+
+            $provenKeyThumbprints[$validatedProof->getKeyThumbprint()] = true;
+            $validatedProofs[] = $validatedProof;
         }
 
         return $validatedProofs;
@@ -337,6 +354,8 @@ class OpenId4VciProofValidator
                 $didResolutionBudget,
             );
 
+            $jwk = $this->enforceCanonicalPublicKey($jwk);
+
             try {
                 $proof->verifyWithKey($jwk);
             } catch (Throwable $throwable) {
@@ -351,9 +370,18 @@ class OpenId4VciProofValidator
             // After the signature, so a nonce is only ever reported on a proof which is otherwise sound.
             $this->validateNonce($proof);
 
-            $this->loggerService->debug('Key proof validated.', ['subject' => $subject]);
+            // RFC 7638: computed over the members which define the key, so it is the same however the key
+            // was written down or found.
+            $keyThumbprint = (new JWK($jwk))->thumbprint('sha256');
 
-            return new ValidatedOpenId4VciProof($proof, $subject, $keyId, $holderJwk);
+            $validatedProof = new ValidatedOpenId4VciProof($proof, $subject, $keyId, $holderJwk, $keyThumbprint);
+
+            $this->loggerService->debug(
+                'Key proof validated.',
+                ['holderDidMethod' => $validatedProof->getSubjectDidMethod()],
+            );
+
+            return $validatedProof;
         } catch (CredentialRequestException $credentialRequestException) {
             throw $credentialRequestException;
         } catch (Throwable $throwable) {
@@ -755,6 +783,39 @@ class OpenId4VciProofValidator
                 implode(' or ', $acceptedDidMethods),
             ),
         );
+    }
+
+
+    /**
+     * The key a proof is to be verified with, sent inline or found through a verification method, in the one
+     * representation RFC 7518 defines for it, or the proof is refused.
+     *
+     * Signature verification reads a coordinate or a modulus as a number, so a leading zero octet, or stray bits
+     * after the last octet of its base64url string, verify as the same key written properly. The key's RFC 7638
+     * thumbprint is computed over those strings, though, and RFC 7638 section 7 relies on the representation
+     * being checked: without the check one key written two ways would be two keys to the one-key-one-credential
+     * rule of validateRequest(), and bind two credentials.
+     *
+     * @param mixed[] $jwk
+     * @return array<string,mixed>
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     */
+    protected function enforceCanonicalPublicKey(array $jwk): array
+    {
+        try {
+            return $this->verifiableCredentials->helpers()->jwk()->enforcePublicKey($jwk, 'key proof');
+        } catch (Throwable $throwable) {
+            $this->loggerService->warning(
+                'Key proof key is not a public key in its canonical representation.',
+                ['error' => $throwable->getMessage()],
+            );
+
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The key the proof is to be verified with is not a public key in the representation RFC 7518 ' .
+                'defines for it.',
+            );
+        }
     }
 
 

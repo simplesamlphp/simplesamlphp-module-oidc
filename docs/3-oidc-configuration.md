@@ -472,6 +472,13 @@ share one Credential Dataset. The W3C formats keep the holder DID in
 `sub`. A credential bound to no key carries a `sub` this issuer derives from the
 user, as before.
 
+Each key binds one credential at most (OpenID4VCI 1.0 section 8.3): a request
+in which two proofs prove the same key, whether they name it the same way or
+not, is refused with `invalid_proof`. Keys are compared by their JWK
+Thumbprint (RFC 7638), and a key which is not in the one representation RFC
+7518 defines for it (a leading zero octet in a coordinate or the modulus, for
+example) is refused, so that one key can not be written two ways.
+
 ### Three interpretations this module makes
 
 **The `iss` claim is not required to be a DID.** DIIP v5 says implementations

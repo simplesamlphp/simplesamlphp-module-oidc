@@ -1456,6 +1456,12 @@ msgid "Not served, since Verifiable Credential Issuance is disabled."
 msgstr ""
 
 msgid ""
+"One of the configured https or http prefixes has nothing after its "
+"host name, so it also matches other hosts (https://wallet.example "
+"matches https://wallet.example.evil). End it with a slash."
+msgstr ""
+
+msgid ""
 "One of the configured prefixes cannot be turned into a string at "
 "all, so the redirect URI check will fail rather than match."
 msgstr ""
@@ -1621,6 +1627,9 @@ msgid "Test Federation Discovery"
 msgstr ""
 
 msgid "Test Verifiable Credential Issuance"
+msgstr ""
+
+msgid "The Credential Offer is too long to be shown as a QR code."
 msgstr ""
 
 msgid ""

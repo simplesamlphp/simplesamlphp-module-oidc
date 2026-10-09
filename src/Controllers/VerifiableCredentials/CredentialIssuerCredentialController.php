@@ -177,9 +177,12 @@ class CredentialIssuerCredentialController
             [HttpMethodsEnum::POST],
         );
 
+        // The names of the members only: the proofs carry the holder's keys, and the response encryption
+        // parameters a key of the wallet's, which an issuer is to keep no more of than it needs (OpenID4VCI 1.0
+        // sections 15.3 and 15.4.1). The identifiers the request names are logged where they are resolved.
         $this->loggerService->debug(
-            'CredentialIssuerCredentialController: Request data: ',
-            $requestData,
+            'CredentialIssuerCredentialController: Request members: ',
+            ['members' => array_keys($requestData)],
         );
 
         $this->loggerService->debug('Verifying access token and authorizing request.');
@@ -768,7 +771,9 @@ class CredentialIssuerCredentialController
                 'format' => $credentialFormatId,
                 'issuer' => $issuerIdentity->getIssuer(),
                 'issuerKeyId' => $issuerIdentity->getKeyId(),
-                'sub' => $sub,
+                // The kind of holder identifier, not the identifier: for a key sent inline it is a did:jwk
+                // made from that key, the value OpenID4VCI 1.0 section 15.4.1 asks an issuer to discard.
+                'holderDidMethod' => $validatedProof?->getSubjectDidMethod(),
                 'algorithm' => $signatureAlgorithm->value,
                 'expiresAt' => $expiresAt?->getTimestamp(),
                 'hasStatusClaim' => $statusClaim instanceof StatusClaim,

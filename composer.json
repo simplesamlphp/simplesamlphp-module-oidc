@@ -31,6 +31,7 @@
     "ext-json": "*",
     "ext-openssl": "*",
     "ext-pdo": "*",
+    "chillerlan/php-qrcode": "^6.0",
     "guzzlehttp/guzzle": "^7.0",
     "league/oauth2-server": "^9.4",
     "nette/forms": "^3",

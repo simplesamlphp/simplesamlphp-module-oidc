@@ -168,8 +168,23 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $this->assertSame(
             $walletUri,
-            $this->check($this->resultBagFor($this->client([self::REGISTERED_URI])))?->getValue(),
+            $this->check($this->resultBagFor($this->genericClient()))?->getValue(),
         );
+    }
+
+
+    /**
+     * The prefixes stand in for a registration, so a client which has one is held to it: a registered client's
+     * credential request, every switch on and the redirect URI matching an allowed prefix, is still refused when
+     * the URI is not one it registered.
+     */
+    public function testHoldsARegisteredClientToItsRegisteredRedirectUrisInACredentialRequestToo(): void
+    {
+        $this->enableUnregisteredWallets(['openid-credential-offer://'], 'openid-credential-offer://callback');
+
+        $this->expectException(OidcServerException::class);
+
+        $this->check($this->resultBagFor($this->client([self::REGISTERED_URI])));
     }
 
 
@@ -181,7 +196,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $this->expectException(OidcServerException::class);
 
-        $this->check($this->resultBagFor($this->client([self::REGISTERED_URI])));
+        $this->check($this->resultBagFor($this->genericClient()));
     }
 
 
@@ -204,7 +219,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $rule->checkRule(
             $this->requestMock,
-            $this->resultBagFor($this->client([self::REGISTERED_URI])),
+            $this->resultBagFor($this->genericClient()),
             $this->loggerServiceMock,
             [],
             $this->responseModeMock,
@@ -221,6 +236,8 @@ class ClientRedirectUriRuleTest extends TestCase
         $moduleConfig = $this->createMock(ModuleConfig::class);
         $moduleConfig->method('getVciEnabled')->willReturn(true);
         $moduleConfig->method('getVciAllowNonRegisteredClients')->willReturn(false);
+        $moduleConfig->method('getVciAllowedRedirectUriPrefixesForNonRegisteredClients')
+            ->willReturn(['openid-credential-offer://']);
 
         $rule = new ClientRedirectUriRule($requestParamsResolver, new Helpers(), $moduleConfig);
 
@@ -228,7 +245,7 @@ class ClientRedirectUriRuleTest extends TestCase
 
         $rule->checkRule(
             $this->requestMock,
-            $this->resultBagFor($this->client([self::REGISTERED_URI])),
+            $this->resultBagFor($this->genericClient()),
             $this->loggerServiceMock,
             [],
             $this->responseModeMock,
@@ -262,13 +279,26 @@ class ClientRedirectUriRuleTest extends TestCase
     }
 
 
-    private function client(array|string $registeredRedirectUri): ClientEntityInterface&MockObject
-    {
+    private function client(
+        array|string $registeredRedirectUri,
+        bool $isGeneric = false,
+    ): ClientEntityInterface&MockObject {
         $client = $this->createMock(ClientEntityInterface::class);
         $client->method('getRedirectUri')->willReturn($registeredRedirectUri);
         $client->method('getIdentifier')->willReturn('client-id');
+        $client->method('isGeneric')->willReturn($isGeneric);
 
         return $client;
+    }
+
+
+    /**
+     * The client ClientRule hands a wallet which is not registered, with the redirect URI the generic client is
+     * built with.
+     */
+    private function genericClient(): ClientEntityInterface&MockObject
+    {
+        return $this->client(['openid-credential-offer://'], true);
     }
 
 

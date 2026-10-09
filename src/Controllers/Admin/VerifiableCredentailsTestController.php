@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QRCodeException;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
@@ -150,9 +152,7 @@ class VerifiableCredentailsTestController
             }
         }
 
-        $credentialOfferQrUri = is_string($credentialOfferUri)
-        ? 'https://quickchart.io/qr?size=200&margin=1&text=' . urlencode($credentialOfferUri)
-        : null;
+        $credentialOfferQrUri = is_string($credentialOfferUri) ? $this->buildQrCodeDataUri($credentialOfferUri) : null;
 
         return $this->templateFactory->build(
             'oidc:tests/verifiable-credential-issuance.twig',
@@ -174,5 +174,27 @@ class VerifiableCredentailsTestController
             ],
             RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
         );
+    }
+
+
+    /**
+     * The offer as a QR code, drawn here, as an SVG data URI.
+     *
+     * Drawn by another service, the code would hand that service the offer: for the pre-authorized code flow a
+     * code which, without a Transaction Code, whoever reads it first can redeem until it expires.
+     *
+     * @return ?string Null when the offer can not be drawn, being too long for a QR code: the page then shows the
+     * offer as text alone.
+     */
+    protected function buildQrCodeDataUri(string $credentialOfferUri): ?string
+    {
+        try {
+            /** @var mixed $dataUri The library declares mixed: a string for the default SVG output. */
+            $dataUri = (new QRCode())->render($credentialOfferUri);
+        } catch (QRCodeException) {
+            return null;
+        }
+
+        return is_string($dataUri) ? $dataUri : null;
     }
 }

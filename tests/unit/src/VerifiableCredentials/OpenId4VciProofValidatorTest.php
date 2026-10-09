@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials;
 
+use Jose\Component\Core\JWK;
+use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,10 +32,12 @@ use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
 use SimpleSAML\OpenID\Exceptions\DidException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\VerifiableCredentials as VerifiableCredentialsService;
 use SimpleSAML\OpenID\VerifiableCredentials\Factories\OpenId4VciProofFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
+use Stringable;
 
 /**
  * What a key proof has to satisfy before a credential is issued against it.
@@ -66,8 +70,16 @@ class OpenId4VciProofValidatorTest extends TestCase
     protected const array PUBLIC_EC_JWK = [
         'kty' => 'EC',
         'crv' => 'P-256',
-        'x' => 'x-value',
-        'y' => 'y-value',
+        'x' => 'aD36wSb6L0vCDFIBPNKE6Ft7LTL_O77DjMxTfraeCOM',
+        'y' => 'DQapyjBYCMG0OKJki1FpwCpj27pjChOldYOVDAUb--U',
+    ];
+
+    /** @var array<string,string> Another public EC key. */
+    protected const array OTHER_PUBLIC_EC_JWK = [
+        'kty' => 'EC',
+        'crv' => 'P-256',
+        'x' => 'HXVREWnCLtJEzT_0TRBNwtQVN-lbOZrtth1uF1sNfm4',
+        'y' => 'HMDe3Q4LpRazX427Ur-PgMV0_guz_f1vOV_3BA9_8EI',
     ];
 
 
@@ -90,6 +102,14 @@ class OpenId4VciProofValidatorTest extends TestCase
     /** How many times the request under test sent this issuer out to resolve a DID document. */
     protected int $documentResolutions = 0;
 
+    /**
+     * The key a verification method resolves to, by DID URL, where a test needs two to share one; any other
+     * resolves to a key of its own (resolvedKeyFor()).
+     *
+     * @var array<string,array<string,mixed>>
+     */
+    protected array $resolvedKeys = [];
+
 
     protected function setUp(): void
     {
@@ -109,6 +129,8 @@ class OpenId4VciProofValidatorTest extends TestCase
 
         $this->proofFactoryMock = $this->createMock(OpenId4VciProofFactory::class);
         $this->verifiableCredentialsMock->method('openId4VciProofFactory')->willReturn($this->proofFactoryMock);
+        // The library's own helpers, so a key's representation is checked as it is in production.
+        $this->verifiableCredentialsMock->method('helpers')->willReturn(new Helpers());
 
         $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturn(self::HOLDER_DID);
 
@@ -116,6 +138,7 @@ class OpenId4VciProofValidatorTest extends TestCase
         // one. Whichever verification method a proof names resolves to a key under the DID it sits
         // under, which is what lets a test spoil that relationship on purpose.
         $this->documentResolutions = 0;
+        $this->resolvedKeys = [];
         $this->didMock->method('resolveDocument')->willReturnCallback(
             function (string $did): DidDocument {
                 $this->documentResolutions++;
@@ -195,9 +218,44 @@ class OpenId4VciProofValidatorTest extends TestCase
         return new ResolvedVerificationMethod(
             $didUrl->getDid(),
             $didUrl,
-            self::PUBLIC_EC_JWK,
+            $this->resolvedKeyFor($didUrl->getValue()),
             $relationship,
         );
+    }
+
+
+    /**
+     * A key of the verification method's own, generated on first use, since a request whose proofs prove one key
+     * twice is refused, unless the test set the key it resolves to.
+     *
+     * @return array<string,mixed>
+     */
+    protected function resolvedKeyFor(string $didUrl): array
+    {
+        return $this->resolvedKeys[$didUrl] ??= JWKFactory::createECKey('P-256')->toPublic()->all();
+    }
+
+
+    /**
+     * The same octets as the base64url string, with a leading zero octet: a second spelling of the same number.
+     */
+    protected static function withLeadingZeroOctet(string $base64Url): string
+    {
+        $helper = (new Helpers())->base64Url();
+
+        return $helper->encode("\0" . $helper->decode($base64Url));
+    }
+
+
+    /**
+     * The base64url string of 32 octets with a stray bit after its last octet: it decodes to the same octets.
+     */
+    protected static function withStrayBit(string $base64Url): string
+    {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+        $lastIndex = strpos($alphabet, $base64Url[-1]);
+
+        return substr($base64Url, 0, -1) . $alphabet[(int)$lastIndex ^ 1];
     }
 
 
@@ -208,7 +266,7 @@ class OpenId4VciProofValidatorTest extends TestCase
         return new ResolvedVerificationMethod(
             $parsedDidUrl->getDid(),
             $parsedDidUrl,
-            self::PUBLIC_EC_JWK,
+            $this->resolvedKeyFor($didUrl),
             VerificationRelationshipEnum::Authentication,
         );
     }
@@ -405,6 +463,10 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->assertSame(self::HOLDER_DID, $validatedProofs[0]->getSubject());
         // The verification method the wallet named, so the credential's `cnf` claim can carry it.
         $this->assertSame(self::HOLDER_DID_URL, $validatedProofs[0]->getKeyId());
+        $this->assertSame(
+            (new JWK($this->resolvedKeyFor(self::HOLDER_DID_URL)))->thumbprint('sha256'),
+            $validatedProofs[0]->getKeyThumbprint(),
+        );
     }
 
 
@@ -510,7 +572,7 @@ class OpenId4VciProofValidatorTest extends TestCase
     public function testRefusesMoreProofsThanTheAdvertisedBatchSize(): void
     {
         $atTheLimit = $this->sut()->validateRequest(
-            $this->requestWith(proofCount: ModuleConfig::VCI_BATCH_SIZE),
+            $this->requestWithProofs($this->proofsNamingKeysOf(self::HOLDER_DID_URL, ModuleConfig::VCI_BATCH_SIZE)),
             VciCredentialBindingPolicyEnum::ProofBound,
             $this->accessTokenMock,
         );
@@ -733,7 +795,7 @@ class OpenId4VciProofValidatorTest extends TestCase
     public function testResolvesADidOnlyOncePerRequest(): void
     {
         $this->sut()->validateRequest(
-            $this->requestWithProofs(array_fill(0, 4, ['getKeyId' => self::HOLDER_DID_WEB_URL])),
+            $this->requestWithProofs($this->proofsNamingKeysOf(self::HOLDER_DID_WEB . '#key-', 4)),
             VciCredentialBindingPolicyEnum::ProofBound,
             $this->accessTokenMock,
         );
@@ -1266,5 +1328,182 @@ class OpenId4VciProofValidatorTest extends TestCase
 
         $this->assertNotNull($validatedProofs[0]);
         $this->assertSame(self::HOLDER_DID_WEB, $validatedProofs[0]->getSubject());
+    }
+
+
+    /**
+     * Proofs naming as many verification methods, the given prefix followed by a number.
+     *
+     * @return list<array<string,mixed>>
+     */
+    protected function proofsNamingKeysOf(string $didUrlPrefix, int $count): array
+    {
+        $overridesPerProof = [];
+
+        for ($index = 0; $index < $count; $index++) {
+            $overridesPerProof[] = ['getKeyId' => $didUrlPrefix . $index];
+        }
+
+        return $overridesPerProof;
+    }
+
+
+    /*****************************************************************************************************
+     * One key, one credential (OpenID4VCI 1.0 section 8.3).
+     ****************************************************************************************************/
+
+    public function testRefusesTwoProofsNamingTheSameVerificationMethod(): void
+    {
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithProofs([['getKeyId' => self::HOLDER_DID_URL], ['getKeyId' => self::HOLDER_DID_URL]]),
+            expectedMessageFragment: 'two of them prove the same one',
+        );
+    }
+
+
+    /**
+     * Two verification methods, even under two DIDs, which resolve to one key are one key.
+     */
+    public function testRefusesTwoVerificationMethodsResolvingToTheSameKey(): void
+    {
+        $this->resolvedKeys[self::HOLDER_DID_URL] = self::PUBLIC_EC_JWK;
+        $this->resolvedKeys[self::HOLDER_DID_WEB_URL] = self::PUBLIC_EC_JWK;
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithProofs([['getKeyId' => self::HOLDER_DID_URL], ['getKeyId' => self::HOLDER_DID_WEB_URL]]),
+            expectedMessageFragment: 'two of them prove the same one',
+        );
+    }
+
+
+    /**
+     * A key carried inline and the same key found through a verification method are one key.
+     */
+    public function testRefusesAnInlineKeyWhichAVerificationMethodAlsoResolvesTo(): void
+    {
+        $this->resolvedKeys[self::HOLDER_DID_URL] = self::PUBLIC_EC_JWK;
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithProofs([
+                ['getKeyId' => self::HOLDER_DID_URL],
+                ['getKeyId' => null, 'getJsonWebKey' => self::PUBLIC_EC_JWK],
+            ]),
+            expectedMessageFragment: 'two of them prove the same one',
+        );
+    }
+
+
+    /**
+     * The thumbprint is computed over the members which define the key (RFC 7638 section 3.2), so a key written
+     * down again with other members beside them is still the same key.
+     */
+    public function testRefusesTheSameInlineKeyWrittenWithOtherMembers(): void
+    {
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithProofs([
+                ['getKeyId' => null, 'getJsonWebKey' => self::PUBLIC_EC_JWK],
+                ['getKeyId' => null, 'getJsonWebKey' => self::PUBLIC_EC_JWK + ['kid' => 'k-2', 'use' => 'sig']],
+            ]),
+            expectedMessageFragment: 'two of them prove the same one',
+        );
+    }
+
+
+    /**
+     * Two inline keys which differ in a member defining the key are two keys.
+     */
+    public function testAcceptsTwoInlineKeysWhichDiffer(): void
+    {
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithProofs([
+                ['getKeyId' => null, 'getJsonWebKey' => self::PUBLIC_EC_JWK],
+                ['getKeyId' => null, 'getJsonWebKey' => self::OTHER_PUBLIC_EC_JWK],
+            ]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(2, $validatedProofs);
+    }
+
+
+    /**
+     * The validated proof's log line says which kind of holder identifier the proof resolved to, not the identifier,
+     * which for a key sent inline is a did:jwk made from that key.
+     */
+    public function testLogsTheHolderDidMethodRatherThanTheHolder(): void
+    {
+        $logged = [];
+        $this->loggerServiceMock->method('debug')->willReturnCallback(
+            function (string|Stringable $message, array $context = []) use (&$logged): void {
+                $logged[] = [(string)$message, $context];
+            },
+        );
+
+        $this->sut()->validateRequest(
+            $this->requestWith(['getKeyId' => null, 'getJsonWebKey' => self::PUBLIC_EC_JWK]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertStringNotContainsString(
+            self::HOLDER_DID,
+            json_encode($logged, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+        );
+        $this->assertContains(['Key proof validated.', ['holderDidMethod' => 'did:jwk']], $logged);
+    }
+
+
+    /*****************************************************************************************************
+     * The key in its one representation (RFC 7518, and RFC 7638 section 7 for the thumbprint).
+     ****************************************************************************************************/
+
+    public function testRefusesAnInlineKeyWithALeadingZeroOctetInACoordinate(): void
+    {
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith([
+                'getKeyId' => null,
+                'getJsonWebKey' => ['x' => self::withLeadingZeroOctet(self::PUBLIC_EC_JWK['x'])] + self::PUBLIC_EC_JWK,
+            ]),
+            expectedMessageFragment: 'not a public key in the representation RFC 7518 defines',
+        );
+    }
+
+
+    public function testRefusesAResolvedKeyWithAStrayBitAfterTheLastOctet(): void
+    {
+        $this->resolvedKeys[self::HOLDER_DID_URL] = ['y' => self::withStrayBit(self::PUBLIC_EC_JWK['y'])] +
+        self::PUBLIC_EC_JWK;
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith(),
+            expectedMessageFragment: 'not a public key in the representation RFC 7518 defines',
+        );
+    }
+
+
+    /**
+     * The case the representation check is there for: the same key, written a second way, in a second proof.
+     */
+    public function testRefusesASecondProofOfTheSameKeyWrittenWithALeadingZeroOctet(): void
+    {
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithProofs([
+                ['getKeyId' => null, 'getJsonWebKey' => self::PUBLIC_EC_JWK],
+                [
+                    'getKeyId' => null,
+                    'getJsonWebKey' => ['x' => self::withLeadingZeroOctet(self::PUBLIC_EC_JWK['x'])] +
+                        self::PUBLIC_EC_JWK,
+                ],
+            ]),
+            expectedMessageFragment: 'not a public key in the representation RFC 7518 defines',
+        );
     }
 }
