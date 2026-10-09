@@ -158,7 +158,12 @@ class RequestRulesManagerFactory
                 $this->authenticationService,
                 $this->sspBridge,
             ),
-            new ScopeRule($this->requestParamsResolver, $this->helpers, $this->scopeRepository),
+            new ScopeRule(
+                $this->requestParamsResolver,
+                $this->helpers,
+                $this->scopeRepository,
+                $this->moduleConfig,
+            ),
             new RequiredOpenIdScopeRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new CodeChallengeRule($this->requestParamsResolver, $this->helpers),
             new CodeChallengeMethodRule(

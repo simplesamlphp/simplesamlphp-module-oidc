@@ -9,73 +9,95 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use ReflectionProperty;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
+use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
- * The Rich Authorization Requests gate, from RFC 9396.
+ * The authorization_details parameter (RFC 9396), as OpenID4VCI 1.0 section 5.1.1 uses it.
  *
- * The rule reads the `authorization_details` parameter, decodes it, and either hands the decoded value on
- * or refuses the request. It runs at the authorization endpoint from AuthCodeGrant and at the token
- * endpoint from PreAuthCodeGrant, and both of them read its result by this rule's own class name.
+ * The rule reads the parameter, decodes it, and either hands the decoded value on or refuses the request with
+ * invalid_authorization_details. It runs at the authorization and pushed authorization request endpoints, and at
+ * the token endpoint from PreAuthCodeGrant; the grants read its result by this rule's own class name.
  *
- * Almost the whole of the class is one decision, and the decision is which malformed input is ignored and
- * which is refused:
- *
- * - Ignored, yielding no result at all: an absent parameter, a value which will not JSON decode, a value
- *   which decodes to something other than an array, and an empty array.
- * - Refused with an `invalid_request` error: the server not issuing credentials at all, a detail which is
- *   not an object, a detail with no type, a detail whose type is not `openid_credential`, and a detail
- *   with no credential configuration identifier.
- *
- * The order of those two groups is load bearing and reads like an accident. All four ignored cases are
- * settled before the rule ever asks whether Verifiable Credential Issuance is enabled, so on a server
- * which does not issue credentials a garbled `authorization_details` is dropped rather than rejected.
- * Hoisting the enabled check to the top would look like a tidy-up -- it is the cheapest of the five -- and
- * would turn a parameter a plain OpenID Connect server has never cared about into a hard failure. Each of
- * the four therefore has a test holding issuance disabled which still expects null, and there is one
- * going the other way, holding issuance disabled with a malformed detail, so the gate cannot drift below
- * the loop either.
- *
- * The five refusals are one exception class carrying one error code. Each names the offending parameter
- * at its throw site, but that name only ever serves as the fallback for a missing hint, and all five pass
- * an explicit hint, so the name is discarded and never reaches the client. The hint is therefore the only
- * thing separating one refusal from another, and every test below which expects a refusal asserts it.
- * Logging is deliberately not asserted anywhere; the rule logs each branch it takes, but the branch is
- * already the thing under test.
+ * The hint is what tells one refusal from another, so every refusal test asserts it; the rest of the shape (the
+ * error code, the status, the redirect and the characters RFC 6749 section 5.2 allows in a description) is
+ * asserted for every refusal too, in assertRefusedWith(). Logging is not asserted.
  */
 #[CoversClass(AuthorizationDetailsRule::class)]
 class AuthorizationDetailsRuleTest extends TestCase
 {
     /**
-     * The parameter name RFC 9396 fixes on the wire. Spelled out rather than read back from ParamsEnum, so
-     * that a change to the enum case surfaces here as a failure instead of travelling silently with the
-     * production code this is supposed to be checking.
+     * Spelled out rather than read from ParamsEnum, so that a change to the enum surfaces here.
      */
     protected const string PARAM = 'authorization_details';
 
-    /**
-     * The only authorization details type this server understands, fixed by OpenID4VCI.
-     */
     protected const string VALID_TYPE = 'openid_credential';
 
-    /**
-     * Whatever the rule might ask the result bag for, it gets this back. See setUp().
-     */
-    protected const string AVAILABLE_IN_RESULT_BAG = 'https://client.example.org/cb';
+    protected const string CONFIGURATION_ID = 'UniversityDegree_JWT';
+
+    protected const string OTHER_CONFIGURATION_ID = 'SecondCredential';
+
+    protected const string REDIRECT_URI = 'https://wallet.example.org/cb';
+
+    protected const string STATE = 'state-123';
+
+    protected const string NOT_AN_ARRAY_OF_DETAILS =
+    'The authorization_details parameter is not a non-empty JSON array of authorization details.';
+
+    protected const string RAR_NOT_USED = 'Rich Authorization Requests are not used by this server.';
+
+    protected const string NOT_AN_OBJECT = 'An authorization detail is not a JSON object.';
+
+    protected const string NO_TYPE = 'An authorization detail has no type.';
+
+    protected const string UNKNOWN_TYPE =
+    'An authorization detail is of a type this server does not support; the one it supports is ' .
+    'openid_credential.';
+
+    protected const string NO_CONFIGURATION_ID = 'An authorization detail has no credential_configuration_id.';
+
+    protected const string CONFIGURATION_ID_NOT_A_STRING =
+    'The credential_configuration_id of an authorization detail is not a non-empty string.';
+
+    protected const string UNKNOWN_CONFIGURATION_ID =
+    'An authorization detail names a credential configuration this issuer does not support.';
+
+    protected const string CLAIMS_NOT_AN_ARRAY =
+    'The claims of an authorization detail are not a non-empty array of claims descriptions.';
+
+    protected const string CLAIMS_DESCRIPTION_NOT_AN_OBJECT =
+    'A claims description of an authorization detail is not a JSON object.';
+
+    protected const string NO_PATH =
+    'A claims description of an authorization detail has no path which is a claims path pointer: a ' .
+    'non-empty array of strings, nulls and non-negative integers.';
+
+    protected const string MANDATORY_NOT_A_BOOLEAN =
+    'The mandatory member of a claims description of an authorization detail is not a boolean.';
+
+    protected const string CONTRADICTORY =
+    'Two claims descriptions of an authorization detail contradict each other: one addresses an object ' .
+    'member where another addresses an array, or all elements of an array where another addresses one of ' .
+    'them.';
+
+    protected const string REPEATED = 'Two claims descriptions of an authorization detail address the same claim.';
 
 
     protected Stub $requestStub;
 
-    protected Stub $resultBagStub;
+    protected ResultBagInterface $resultBag;
 
     protected Stub $loggerServiceStub;
 
@@ -92,67 +114,47 @@ class AuthorizationDetailsRuleTest extends TestCase
     {
         $this->requestStub = $this->createStub(ServerRequestInterface::class);
 
-        // The rule reads nothing out of the bag, which is what lets it serve the token endpoint as well,
-        // where the bag is empty. The stub still answers everything it might be asked, because otherwise
-        // the redirect assertion in assertRefusedWithHint() could not fail: an unconfigured stub returns
-        // null for get() and getOrFail(), so even a rule which had started reading a redirect URI out of
-        // the bag would go on building an exception that carried none, and the assertion would hold
-        // either way.
-        $this->resultBagStub = $this->createStub(ResultBagInterface::class);
-        $this->resultBagStub->method('get')->willReturnCallback(
-            fn(string $key): Result => new Result($key, self::AVAILABLE_IN_RESULT_BAG),
-        );
-        $this->resultBagStub->method('getOrFail')->willReturnCallback(
-            fn(string $key): Result => new Result($key, self::AVAILABLE_IN_RESULT_BAG),
-        );
-        $this->resultBagStub->method('getValueOrFail')->willReturn(self::AVAILABLE_IN_RESULT_BAG);
-        $this->resultBagStub->method('has')->willReturn(true);
+        // As at the authorization endpoint, where the client's redirect URI and the state are established before
+        // the rule runs. The token endpoint's bag is empty (testDoesNotRedirectWhereNoRedirectUriIsEstablished).
+        $this->resultBag = new ResultBag();
+        $this->resultBag->add(new Result(ClientRedirectUriRule::class, self::REDIRECT_URI));
+        $this->resultBag->add(new Result(StateRule::class, self::STATE));
 
         $this->loggerServiceStub = $this->createStub(LoggerService::class);
         $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->moduleConfigStub->method('getVciCredentialConfigurationIdsSupported')
+            ->willReturn([self::CONFIGURATION_ID, self::OTHER_CONFIGURATION_ID]);
         $this->requestParamsResolverStub = $this->createStub(RequestParamsResolver::class);
         $this->helpers = new Helpers();
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
     }
 
 
-    protected function sut(
-        ?RequestParamsResolver $requestParamsResolver = null,
-        ?Helpers $helpers = null,
-        ?ModuleConfig $moduleConfig = null,
-    ): AuthorizationDetailsRule {
-        $requestParamsResolver ??= $this->requestParamsResolverStub;
-        $helpers ??= $this->helpers;
-        $moduleConfig ??= $this->moduleConfigStub;
-
-        return new AuthorizationDetailsRule($requestParamsResolver, $helpers, $moduleConfig);
+    protected function sut(?RequestParamsResolver $requestParamsResolver = null): AuthorizationDetailsRule
+    {
+        return new AuthorizationDetailsRule(
+            $requestParamsResolver ?? $this->requestParamsResolverStub,
+            $this->helpers,
+            $this->moduleConfigStub,
+        );
     }
 
 
     /**
-     * Run the rule over an `authorization_details` parameter value, with credential issuance either on or
-     * off. The value is the serialized JSON a query or form parameter carries, or the decoded array a
-     * Request Object claim holds.
-     *
-     * The resolver stub here answers every call with the same value, which cannot tell which parameter was
-     * asked for or with which allowed methods. That is what the two wiring tests below are for, and they
-     * are the only ones which care; everywhere else the parameter's value is the subject and the lookup is
-     * scaffolding. Those two set issuance explicitly even though the rule returns before the gate when
-     * the parameter is absent, so it changes nothing as the code stands. It is there so that if the gate
-     * ever moves above the parameter lookup, those two fail for a wiring reason or not at all, rather
-     * than joining the ordering tests as collateral -- which is what they did before it was set.
+     * Run the rule over an authorization_details value: the serialized JSON a query or form parameter carries,
+     * or the decoded value a Request Object claim holds. Without the parameter at all when it is not present.
      *
      * @throws \Throwable
      */
-    protected function check(mixed $parameterValue, bool $vciEnabled = true): ?Result
+    protected function check(mixed $parameterValue, bool $vciEnabled = true, bool $present = true): ?Result
     {
-        $this->requestParamsResolverStub->method('getBasedOnAllowedMethods')
-            ->willReturn($parameterValue);
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')
+            ->willReturn($present ? [self::PARAM => $parameterValue, 'scope' => 'openid'] : ['scope' => 'openid']);
         $this->moduleConfigStub->method('getVciEnabled')->willReturn($vciEnabled);
 
         return $this->sut()->checkRule(
             $this->requestStub,
-            $this->resultBagStub,
+            $this->resultBag,
             $this->loggerServiceStub,
             [],
             $this->responseModeStub,
@@ -161,11 +163,9 @@ class AuthorizationDetailsRuleTest extends TestCase
 
 
     /**
-     * A single authorization detail the rule accepts.
-     *
      * @return array<string, mixed>
      */
-    protected function validDetail(string $credentialConfigurationId = 'UniversityDegree_JWT'): array
+    protected static function validDetail(string $credentialConfigurationId = self::CONFIGURATION_ID): array
     {
         return [
             'type' => self::VALID_TYPE,
@@ -175,50 +175,39 @@ class AuthorizationDetailsRuleTest extends TestCase
 
 
     /**
-     * @param array<mixed> $authorizationDetails
      * @throws \JsonException
      */
-    protected function encode(array $authorizationDetails): string
+    protected static function encode(mixed $value): string
     {
-        return json_encode($authorizationDetails, JSON_THROW_ON_ERROR);
+        return json_encode($value, JSON_THROW_ON_ERROR);
     }
 
 
     /**
-     * The hint is the only thing separating one refusal from the next, so a test naming only the exception
-     * class could not tell a missing type from an unknown one, nor either of those from the refusal to
-     * accept Rich Authorization Requests at all -- and any one of the five guards could be deleted or
-     * reordered with such a test still green.
-     *
-     * The rest of the shape is asserted here, for every refusal, rather than in one test of its own. Kept
-     * in one test it would have covered a single guard, leaving the other four free to start attaching a
-     * redirect, or answering with a different code or status, without anything failing.
-     *
-     * The redirect assertion pins something the rule does not do rather than something it does.
-     * CodeChallengeRule, three positions earlier in the same rule list at the authorization endpoint,
-     * reads the redirect URI and state out of the bag and passes them, along with the response mode it
-     * was handed, into its own `invalidRequest` call, so its refusals travel back to the client as an
-     * `error=invalid_request` redirect. This rule passes none of the three -- it accepts a response mode
-     * and ignores it -- so its refusals surface as a bare 400 in the end user's browser instead. It
-     * cannot simply copy the neighbour: it also runs at the token endpoint from PreAuthCodeGrant, which
-     * predefines no bag, so reading those results would raise a LogicException there. Recorded so a later
-     * fix has to come past these assertions deliberately, and the bag stub hands back a redirect URI for
-     * the asking (see setUp), so they fail the moment the rule starts using one.
+     * A refusal is invalid_authorization_details (RFC 9396 section 5), sent back to the redirect URI with the
+     * state and in the response mode the rule was given, where the redirect URI is established, as it is in
+     * setUp(). Its description keeps to the characters RFC 6749 section 5.2 allows.
      *
      * @throws \Throwable
      */
-    protected function assertRefusedWithHint(
-        string $expectedHint,
-        mixed $parameterValue,
-        bool $vciEnabled = true,
-    ): void {
+    protected function assertRefusedWith(string $expectedHint, mixed $parameterValue, bool $vciEnabled = true): void
+    {
         try {
             $this->check($parameterValue, $vciEnabled);
         } catch (OidcServerException $exception) {
             $this->assertSame($expectedHint, $exception->getHint());
-            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('invalid_authorization_details', $exception->getErrorType());
             $this->assertSame(400, $exception->getHttpStatusCode());
-            $this->assertFalse($exception->hasRedirect());
+            $this->assertSame(self::REDIRECT_URI, $exception->getRedirectUri());
+            $this->assertSame(self::STATE, $exception->getPayload()['state'] ?? null);
+            $this->assertSame(
+                $this->responseModeStub,
+                (new ReflectionProperty(OidcServerException::class, 'responseMode'))->getValue($exception),
+            );
+            $this->assertMatchesRegularExpression(
+                '/^[\x20\x21\x23-\x5B\x5D-\x7E]*$/',
+                (string)($exception->getPayload()['error_description'] ?? ''),
+            );
 
             return;
         }
@@ -242,37 +231,28 @@ class AuthorizationDetailsRuleTest extends TestCase
 
 
     /**
-     * The rule reads one parameter, out of the request it was handed, using the methods its caller allows.
-     * A stub which answers every call alike can tell none of that apart: it answers the same whether the
-     * rule asks for `authorization_details` or for `scope`, and whether the rule forwards the caller's
-     * allowed methods or quietly falls back to the GET-only default in its own signature. Neither row of
-     * the provider is that default: the first for the sharpest possible contrast with it, the second
-     * because it is what AuthCodeGrant forwards at the authorization endpoint, and nothing else here
-     * passes more than one method.
+     * The rule reads the parameters of the request it was handed, with the methods its caller allows. That it
+     * reads authorization_details among them the tests which get a result show.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedServerRequestMethods
      * @throws \Throwable
      */
     #[DataProvider('allowedMethodsProvider')]
-    public function testAsksForTheAuthorizationDetailsParameterOfTheGivenRequestUsingTheAllowedMethods(
+    public function testAsksForTheParametersOfTheGivenRequestUsingTheAllowedMethods(
         array $allowedServerRequestMethods,
     ): void {
         $this->moduleConfigStub->method('getVciEnabled')->willReturn(true);
 
         $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $requestParamsResolverMock->expects($this->once())
-            ->method('getBasedOnAllowedMethods')
-            ->with(
-                self::PARAM,
-                $this->identicalTo($this->requestStub),
-                $allowedServerRequestMethods,
-            )
-            ->willReturn(null);
+            ->method('getAllBasedOnAllowedMethods')
+            ->with($this->identicalTo($this->requestStub), $allowedServerRequestMethods)
+            ->willReturn([]);
 
         $this->assertNull(
             $this->sut($requestParamsResolverMock)->checkRule(
                 $this->requestStub,
-                $this->resultBagStub,
+                $this->resultBag,
                 $this->loggerServiceStub,
                 [],
                 $this->responseModeStub,
@@ -283,11 +263,7 @@ class AuthorizationDetailsRuleTest extends TestCase
 
 
     /**
-     * Called without a method list, the rule falls back to the default in its own signature. No production
-     * caller leans on that default -- AuthCodeGrant forwards [GET, POST] and PreAuthCodeGrant forwards
-     * [POST], both of them explicitly -- so this pins the signature and nothing more. It is here because
-     * the test above always passes a list, and a default nothing exercises is a default nothing would
-     * notice changing.
+     * Called without a method list, the rule falls back to the default in its own signature.
      *
      * @throws \Throwable
      */
@@ -297,18 +273,14 @@ class AuthorizationDetailsRuleTest extends TestCase
 
         $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $requestParamsResolverMock->expects($this->once())
-            ->method('getBasedOnAllowedMethods')
-            ->with(
-                self::PARAM,
-                $this->identicalTo($this->requestStub),
-                [HttpMethodsEnum::GET],
-            )
-            ->willReturn(null);
+            ->method('getAllBasedOnAllowedMethods')
+            ->with($this->identicalTo($this->requestStub), [HttpMethodsEnum::GET])
+            ->willReturn([]);
 
         $this->assertNull(
             $this->sut($requestParamsResolverMock)->checkRule(
                 $this->requestStub,
-                $this->resultBagStub,
+                $this->resultBag,
                 $this->loggerServiceStub,
                 [],
                 $this->responseModeStub,
@@ -330,47 +302,87 @@ class AuthorizationDetailsRuleTest extends TestCase
 
 
     /**
-     * A request carrying no `authorization_details` at all is not a Rich Authorization Request, and the
-     * rule leaves it alone. It yields no result rather than an empty one, which is what lets both grants
-     * write `$resultBag->get(...)?->getValue()` and read back null.
-     *
-     * Run with issuance both ways. This is the first of the four ignored cases, and the one which would
-     * take down every ordinary authorization request on a server that issues no credentials, were the
-     * issuance gate ever hoisted above it.
+     * A request without authorization_details is not a Rich Authorization Request: no result at all, which is
+     * what lets the grants read null back.
      *
      * @throws \Throwable
      */
     #[DataProvider('vciEnabledProvider')]
     public function testYieldsNoResultWhenTheParameterIsAbsent(bool $vciEnabled): void
     {
-        $this->assertNull($this->check(null, $vciEnabled));
+        $this->assertNull($this->check(null, $vciEnabled, present: false));
     }
 
 
     /**
-     * @throws \Throwable
-     */
-    public function testIgnoresUndecodableJsonEvenWhenVciIsDisabled(): void
-    {
-        $this->assertNull($this->check('{"type": "openid_credential"', vciEnabled: false));
-    }
-
-
-    /**
-     * The string case is the valid type on its own, so a rule which went looking for the type in the raw
-     * parameter text rather than in a decoded detail would not survive it.
+     * Values which are not a non-empty array of details: a serialized one which does not decode, or decodes to
+     * something else, and a decoded one (a Request Object claim) which is not one, null included. A single detail
+     * sent in place of an array of them is an object, not an array.
      *
-     * @return array<string, array{string}>
+     * @return array<string, array{mixed}>
+     * @throws \JsonException
      */
-    public static function nonArrayJsonProvider(): array
+    public static function notAnArrayOfDetailsProvider(): array
     {
         return [
-            'string' => ['"' . self::VALID_TYPE . '"'],
-            'number' => ['5'],
-            'boolean' => ['true'],
-            // Valid JSON, so nothing is thrown on the way in. This dataset alone cannot say which of the
-            // two checks dropped it, since `empty(null)` is true as well; the three above it can.
-            'null' => ['null'],
+            'undecodable JSON' => ['[{"type": "openid_credential"'],
+            'a JSON string' => ['"' . self::VALID_TYPE . '"'],
+            'a JSON number' => ['5'],
+            'a JSON boolean' => ['true'],
+            'JSON null' => ['null'],
+            'an empty JSON array' => ['[]'],
+            'an empty JSON object' => ['{}'],
+            'a single detail object' => [self::encode(self::validDetail())],
+            'a decoded boolean' => [true],
+            // A Request Object claim written as null: present, so not taken for an absent parameter.
+            'a decoded null' => [null],
+            'a decoded empty array' => [[]],
+            'a decoded single detail' => [self::validDetail()],
+        ];
+    }
+
+
+    /**
+     * A server which does not issue credentials does not use the parameter, so it ignores a value which is not
+     * an array of details rather than refusing a plain OpenID Connect request for it (RFC 6749 section 3.1).
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('notAnArrayOfDetailsProvider')]
+    public function testIgnoresAValueWhichIsNotAnArrayOfDetailsWhileNotIssuing(mixed $parameterValue): void
+    {
+        $this->assertNull($this->check($parameterValue, vciEnabled: false));
+    }
+
+
+    /**
+     * A server which issues credentials refuses it: OpenID4VCI 1.0 section 5.1.1 makes it the parameter that
+     * says which credentials are wanted, and dropping it would issue a token for none of them, or for the
+     * scope's alone, without the wallet hearing why.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('notAnArrayOfDetailsProvider')]
+    public function testRefusesAValueWhichIsNotAnArrayOfDetailsWhileIssuing(mixed $parameterValue): void
+    {
+        $this->assertRefusedWith(self::NOT_AN_ARRAY_OF_DETAILS, $parameterValue);
+    }
+
+
+    /**
+     * A server which does not issue credentials knows no type of authorization details, so it refuses an array
+     * of them, whatever they say: the gate comes before any detail is looked at.
+     *
+     * @return array<string, array{mixed}>
+     * @throws \JsonException
+     */
+    public static function arrayOfDetailsProvider(): array
+    {
+        return [
+            'a valid detail' => [self::encode([self::validDetail()])],
+            'a detail of another type' => [self::encode([['type' => 'payment_initiation']])],
+            'a detail which is not an object' => [self::encode([self::VALID_TYPE])],
+            'decoded details' => [[self::validDetail()]],
         ];
     }
 
@@ -378,23 +390,61 @@ class AuthorizationDetailsRuleTest extends TestCase
     /**
      * @throws \Throwable
      */
-    #[DataProvider('nonArrayJsonProvider')]
-    public function testIgnoresANonArrayValueEvenWhenVciIsDisabled(string $parameterValue): void
+    #[DataProvider('arrayOfDetailsProvider')]
+    public function testRefusesAnArrayOfDetailsWhileNotIssuing(mixed $parameterValue): void
     {
-        $this->assertNull($this->check($parameterValue, vciEnabled: false));
+        $this->assertRefusedWith(self::RAR_NOT_USED, $parameterValue, vciEnabled: false);
     }
 
 
     /**
-     * Both decode to the same empty array once objects are decoded as associative arrays.
+     * One detail at a time: each case changes a valid detail in one way, and the request is refused for that.
      *
-     * @return array<string, array{string}>
+     * @return array<string, array{mixed, string}>
      */
-    public static function emptyJsonProvider(): array
+    public static function faultyDetailProvider(): array
     {
+        $without = function (string $member): array {
+            $detail = self::validDetail();
+            unset($detail[$member]);
+            return $detail;
+        };
+        $with = fn(string $member, mixed $value): array => [...self::validDetail(), $member => $value];
+
         return [
-            'empty array' => ['[]'],
-            'empty object' => ['{}'],
+            'a string' => [self::VALID_TYPE, self::NOT_AN_OBJECT],
+            'a number' => [5, self::NOT_AN_OBJECT],
+            'null' => [null, self::NOT_AN_OBJECT],
+            'an array' => [[self::VALID_TYPE, self::CONFIGURATION_ID], self::NOT_AN_OBJECT],
+            'no type' => [$without('type'), self::NO_TYPE],
+            'a null type' => [$with('type', null), self::NO_TYPE],
+            'another type' => [$with('type', 'payment_initiation'), self::UNKNOWN_TYPE],
+            'a type which is not a string' => [$with('type', 5), self::UNKNOWN_TYPE],
+            'no credential_configuration_id' => [$without('credential_configuration_id'), self::NO_CONFIGURATION_ID],
+            'a null credential_configuration_id' => [
+                $with('credential_configuration_id', null),
+                self::NO_CONFIGURATION_ID,
+            ],
+            'an empty credential_configuration_id' => [
+                $with('credential_configuration_id', ''),
+                self::CONFIGURATION_ID_NOT_A_STRING,
+            ],
+            'a numeric credential_configuration_id' => [
+                $with('credential_configuration_id', 5),
+                self::CONFIGURATION_ID_NOT_A_STRING,
+            ],
+            'a credential_configuration_id which is an array' => [
+                $with('credential_configuration_id', [self::CONFIGURATION_ID]),
+                self::CONFIGURATION_ID_NOT_A_STRING,
+            ],
+            'an unknown credential_configuration_id' => [
+                $with('credential_configuration_id', 'UnknownCredential'),
+                self::UNKNOWN_CONFIGURATION_ID,
+            ],
+            'a credential_configuration_id in another case' => [
+                $with('credential_configuration_id', strtolower(self::CONFIGURATION_ID)),
+                self::UNKNOWN_CONFIGURATION_ID,
+            ],
         ];
     }
 
@@ -402,267 +452,262 @@ class AuthorizationDetailsRuleTest extends TestCase
     /**
      * @throws \Throwable
      */
-    #[DataProvider('emptyJsonProvider')]
-    public function testIgnoresAnEmptyValueEvenWhenVciIsDisabled(string $parameterValue): void
+    #[DataProvider('faultyDetailProvider')]
+    public function testRefusesAFaultyDetail(mixed $detail, string $expectedHint): void
     {
-        $this->assertNull($this->check($parameterValue, vciEnabled: false));
+        $this->assertRefusedWith($expectedHint, self::encode([$detail]));
     }
 
 
     /**
-     * A well formed Rich Authorization Request is refused outright by a server which does not issue
-     * credentials, rather than being dropped the way the malformed values above are. RFC 9396 asks for the
-     * error; silently ignoring the parameter would let the client believe its request had been honoured.
+     * The same checks hold for decoded details, as a Request Object carries them.
      *
      * @throws \Throwable
      */
-    public function testRefusesRichAuthorizationRequestsWhenVciIsDisabled(): void
+    #[DataProvider('faultyDetailProvider')]
+    public function testRefusesAFaultyDecodedDetail(mixed $detail, string $expectedHint): void
     {
-        $this->assertRefusedWithHint(
-            'Rich Authorization Requests are not used by this server.',
-            $this->encode([$this->validDetail()]),
-            vciEnabled: false,
-        );
+        $this->assertRefusedWith($expectedHint, [$detail]);
     }
 
 
     /**
-     * The issuance gate sits above the loop as well as below the four ignored cases, so a server which
-     * issues no credentials says so rather than reporting whatever else is wrong with the detail. Were the
-     * gate to drift below the loop, this request would come back as an unknown type instead.
+     * Every detail is checked, not the first alone.
      *
      * @throws \Throwable
      */
-    public function testRefusesOnIssuanceBeingDisabledBeforeLookingAtTheDetails(): void
+    public function testRefusesAFaultyDetailWhichIsNotTheFirst(): void
     {
-        $detail = $this->validDetail();
-        $detail['type'] = 'payment_initiation';
-
-        $this->assertRefusedWithHint(
-            'Rich Authorization Requests are not used by this server.',
-            $this->encode([$detail]),
-            vciEnabled: false,
+        $this->assertRefusedWith(
+            self::UNKNOWN_CONFIGURATION_ID,
+            self::encode([self::validDetail(), self::validDetail('UnknownCredential')]),
         );
     }
 
 
     /**
-     * @throws \Throwable
-     */
-    public function testRefusesADetailWhichIsNotAnObject(): void
-    {
-        $this->assertRefusedWithHint(
-            'Malformed authorization_details parameter value.',
-            $this->encode([self::VALID_TYPE]),
-        );
-    }
-
-
-    /**
-     * RFC 9396 puts a JSON array of objects in this parameter, and a client which sends one bare object
-     * instead produces a PHP associative array -- still an array, so it passes the non-array check and the
-     * empty check both, and reaches the loop, where its members are strings rather than details. The shape
-     * error therefore surfaces as a malformed detail. Nothing in the class says so, and it is true only
-     * because the check is `is_array` rather than `array_is_list`.
-     *
-     * @throws \Throwable
-     */
-    public function testRefusesASingleDetailObjectSentInPlaceOfAnArrayOfThem(): void
-    {
-        $this->assertRefusedWithHint(
-            'Malformed authorization_details parameter value.',
-            $this->encode($this->validDetail()),
-        );
-    }
-
-
-    /**
-     * @throws \Throwable
-     */
-    public function testRefusesADetailWithNoType(): void
-    {
-        $detail = $this->validDetail();
-        unset($detail['type']);
-
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has no type.',
-            $this->encode([$detail]),
-        );
-    }
-
-
-    /**
-     * `isset` reads false for a null value, so a detail whose type is present but null is refused as having
-     * no type rather than as having an unknown one. The two guards are adjacent and their hints are all
-     * that separates them, and this is the case which would cross from one to the other were `isset` ever
-     * relaxed to `array_key_exists`.
-     *
-     * @throws \Throwable
-     */
-    public function testRefusesADetailWhoseTypeIsNull(): void
-    {
-        $detail = $this->validDetail();
-        $detail['type'] = null;
-
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has no type.',
-            $this->encode([$detail]),
-        );
-    }
-
-
-    /**
-     * @throws \Throwable
-     */
-    public function testRefusesADetailWithAnUnknownType(): void
-    {
-        $detail = $this->validDetail();
-        $detail['type'] = 'payment_initiation';
-
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has unknown type.',
-            $this->encode([$detail]),
-        );
-    }
-
-
-    /**
-     * @throws \Throwable
-     */
-    public function testRefusesADetailWithNoCredentialConfigurationId(): void
-    {
-        $detail = $this->validDetail();
-        unset($detail['credential_configuration_id']);
-
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has no credential_configuration_id.',
-            $this->encode([$detail]),
-        );
-    }
-
-
-    /**
-     * The same `isset` reading as for the type above, on the guard which follows it.
-     *
-     * @throws \Throwable
-     */
-    public function testRefusesADetailWhoseCredentialConfigurationIdIsNull(): void
-    {
-        $detail = $this->validDetail();
-        $detail['credential_configuration_id'] = null;
-
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has no credential_configuration_id.',
-            $this->encode([$detail]),
-        );
-    }
-
-
-    /**
-     * A detail can fail two guards at once, and only their order decides which the client hears about.
-     * Every other refusal test here isolates its own guard, holding the rest of the detail valid, so none
-     * of them constrains the order at all: this one does. With both the type and the credential
-     * configuration identifier wrong, the type is reported, which is the more useful of the two, an
-     * unknown type making the identifier moot.
+     * A detail failing two checks is refused for the one checked first: an unknown type makes the identifier
+     * moot.
      *
      * @throws \Throwable
      */
     public function testReportsAnUnknownTypeAheadOfAMissingCredentialConfigurationId(): void
     {
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has unknown type.',
-            $this->encode([['type' => 'payment_initiation']]),
-        );
+        $this->assertRefusedWith(self::UNKNOWN_TYPE, self::encode([['type' => 'payment_initiation']]));
     }
 
 
     /**
-     * The loop has to reach every detail, not only the first. A rule which examined
-     * `$authorizationDetails[0]` alone, or which stopped once a detail passed, would accept this request,
-     * whose second detail names a type the server does not issue.
+     * The claims of a detail (OpenID4VCI 1.0 Appendix B.1): a non-empty array of claims description objects,
+     * each with a path which is a claims path pointer into a JSON-based credential (Appendix C.1) and, if it has
+     * one, a boolean mandatory; none repeating or contradicting another (Appendix B.3).
      *
-     * @throws \Throwable
+     * @return array<string, array{mixed, string}>
      */
-    public function testRefusesADetailWhichIsNotTheFirst(): void
+    public static function faultyClaimsProvider(): array
     {
-        $second = $this->validDetail('SomethingElse');
-        $second['type'] = 'payment_initiation';
-
-        $this->assertRefusedWithHint(
-            'Authorization details parameter value has unknown type.',
-            $this->encode([$this->validDetail(), $second]),
-        );
+        return [
+            'claims a string' => ['given_name', self::CLAIMS_NOT_AN_ARRAY],
+            'claims null' => [null, self::CLAIMS_NOT_AN_ARRAY],
+            'claims empty' => [[], self::CLAIMS_NOT_AN_ARRAY],
+            'claims an object' => [['path' => ['given_name']], self::CLAIMS_NOT_AN_ARRAY],
+            'a description which is a string' => [['given_name'], self::CLAIMS_DESCRIPTION_NOT_AN_OBJECT],
+            'a description which is null' => [[null], self::CLAIMS_DESCRIPTION_NOT_AN_OBJECT],
+            'a description which is an array' => [[['given_name']], self::CLAIMS_DESCRIPTION_NOT_AN_OBJECT],
+            'a description which is not the first' => [
+                [['path' => ['given_name']], 'family_name'],
+                self::CLAIMS_DESCRIPTION_NOT_AN_OBJECT,
+            ],
+            'no path' => [[['mandatory' => true]], self::NO_PATH],
+            'a null path' => [[['path' => null]], self::NO_PATH],
+            'an empty path' => [[['path' => []]], self::NO_PATH],
+            'a path which is a string' => [[['path' => 'given_name']], self::NO_PATH],
+            'a path which is an object' => [[['path' => ['claim' => 'given_name']]], self::NO_PATH],
+            'a negative index' => [[['path' => ['nationalities', -1]]], self::NO_PATH],
+            'a fractional index' => [[['path' => ['nationalities', 1.5]]], self::NO_PATH],
+            'a boolean component' => [[['path' => ['nationalities', true]]], self::NO_PATH],
+            'an object component' => [[['path' => ['address', ['locality' => null]]]], self::NO_PATH],
+            'mandatory a string' => [
+                [['path' => ['given_name'], 'mandatory' => 'true']],
+                self::MANDATORY_NOT_A_BOOLEAN,
+            ],
+            'mandatory a number' => [[['path' => ['given_name'], 'mandatory' => 1]], self::MANDATORY_NOT_A_BOOLEAN],
+            'mandatory null' => [[['path' => ['given_name'], 'mandatory' => null]], self::MANDATORY_NOT_A_BOOLEAN],
+            'the same claim twice' => [[['path' => ['given_name']], ['path' => ['given_name']]], self::REPEATED],
+            'the same claim twice, once mandatory' => [
+                [['path' => ['given_name'], 'mandatory' => true], ['path' => ['given_name']]],
+                self::REPEATED,
+            ],
+            'the same elements twice' => [
+                [['path' => ['degrees', null, 'type']], ['path' => ['degrees', null, 'type']]],
+                self::REPEATED,
+            ],
+            'the same claim twice, apart' => [
+                [['path' => ['given_name']], ['path' => ['family_name']], ['path' => ['given_name']]],
+                self::REPEATED,
+            ],
+            'every element and one element of an array' => [
+                [['path' => ['nationalities', null]], ['path' => ['nationalities', 0]]],
+                self::CONTRADICTORY,
+            ],
+            'one element and every element of an array' => [
+                [['path' => ['degrees', 1, 'type']], ['path' => ['degrees', null, 'university']]],
+                self::CONTRADICTORY,
+            ],
+            'an array and an object' => [
+                [['path' => ['address', 0]], ['path' => ['address', 'locality']]],
+                self::CONTRADICTORY,
+            ],
+            'every element of an array and an object' => [
+                [['path' => ['address', 'locality']], ['path' => ['address', null]]],
+                self::CONTRADICTORY,
+            ],
+            'a member named 0 and the index 0' => [
+                [['path' => ['address', '0']], ['path' => ['address', 0]]],
+                self::CONTRADICTORY,
+            ],
+            'a contradiction deeper down' => [
+                [['path' => ['degrees', 0, 'type', 'code']], ['path' => ['degrees', 0, 'type', null]]],
+                self::CONTRADICTORY,
+            ],
+        ];
     }
 
 
     /**
-     * The decoded value reaches the result bag as it arrived. The payload carries members the rule never
-     * inspects -- `credential_definition` and `locations`, both of them OpenID4VCI's rather than this
-     * module's -- and a second detail, so a rule which rebuilt the value out of the two members it does
-     * inspect, or which kept only the first detail, could not produce this array. Comparing with
-     * `assertSame` holds the ordering and the scalar types too.
-     *
-     * The key is asserted because it is what both grants fetch the result by.
-     *
      * @throws \Throwable
      */
-    /**
-     * In a Request Object, and so in a pushed request which used one, `authorization_details` is a claim
-     * holding the JSON array itself rather than its serialization (RFC 9396 section 3: the encoding depends
-     * on the context). Read as a string it would be "Array", and the details would be dropped unnoticed.
-     *
-     * @throws \Throwable
-     */
-    public function testYieldsTheAuthorizationDetailsARequestObjectCarriesDecoded(): void
+    #[DataProvider('faultyClaimsProvider')]
+    public function testRefusesFaultyClaims(mixed $claims, string $expectedHint): void
     {
-        $authorizationDetails = [$this->validDetail(), $this->validDetail('org.iso.18013.5.1.mDL')];
-
-        $result = $this->check($authorizationDetails);
-
-        $this->assertNotNull($result);
-        $this->assertSame($authorizationDetails, $result->getValue());
+        $this->assertRefusedWith($expectedHint, self::encode([[...self::validDetail(), 'claims' => $claims]]));
     }
 
 
     /**
-     * Decoded details are checked as the serialized ones are: an entry which is not an object is refused.
+     * Claims descriptions the rule accepts, Appendix C.3's examples among them: members of one object, a claim
+     * and a claim within it, one element and another of an array, members of every element, and keys of its own
+     * (Appendix B.1 allows other keys).
      *
-     * @throws \Throwable
+     * @return array<string, array{array<mixed>}>
      */
-    public function testRefusesADecodedDetailWhichIsNotAnObject(): void
+    public static function acceptedClaimsProvider(): array
     {
-        $this->assertRefusedWithHint('Malformed authorization_details parameter value.', ['openid_credential']);
+        return [
+            'one claim' => [[['path' => ['given_name']]]],
+            'mandatory either way' => [
+                [['path' => ['given_name'], 'mandatory' => true], ['path' => ['family_name'], 'mandatory' => false]],
+            ],
+            'members of one object' => [
+                [['path' => ['address', 'street_address']], ['path' => ['address', 'locality']]],
+            ],
+            'a claim and a claim within it' => [[['path' => ['address']], ['path' => ['address', 'locality']]]],
+            'elements of an array' => [[['path' => ['nationalities', 0]], ['path' => ['nationalities', 1]]]],
+            'members of every element' => [
+                [['path' => ['degrees', null, 'type']], ['path' => ['degrees', null, 'university']]],
+            ],
+            'members of one element' => [[['path' => ['degrees', 0, 'type']], ['path' => ['degrees', 0]]]],
+            'an empty member name' => [[['path' => ['']]]],
+            'keys of its own' => [[['path' => ['given_name'], 'display' => [['name' => 'Given name']]]]],
+        ];
     }
 
 
     /**
-     * A Request Object claim which is neither the serialized details nor an array of them is ignored, as a
-     * serialized value which decodes to something other than an array is.
+     * Accepted, and handed on as sent: the claims are not honoured, and the rule does not rewrite them.
      *
+     * @param array<mixed> $claims
      * @throws \Throwable
      */
-    public function testIgnoresADecodedValueWhichIsNotAnArray(): void
+    #[DataProvider('acceptedClaimsProvider')]
+    public function testAcceptsWellFormedClaims(array $claims): void
     {
-        $this->assertNull($this->check(true));
+        $authorizationDetails = [[...self::validDetail(), 'claims' => $claims]];
+
+        $this->assertSame($authorizationDetails, $this->check(self::encode($authorizationDetails))?->getValue());
     }
 
 
+    /**
+     * Appendix B.3 is about the claims array of one detail: two details may describe the same claim, each for
+     * its own credential.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsTheSameClaimInTwoDetails(): void
+    {
+        $claims = [['path' => ['given_name']]];
+        $authorizationDetails = [
+            [...self::validDetail(), 'claims' => $claims],
+            [...self::validDetail(self::OTHER_CONFIGURATION_ID), 'claims' => $claims],
+        ];
+
+        $this->assertSame($authorizationDetails, $this->check(self::encode($authorizationDetails))?->getValue());
+    }
+
+
+    /**
+     * The decoded value reaches the result bag as it arrived, members the rule does not use included (OpenID4VCI
+     * 1.0 section 5.1.1: an openid_credential detail is never invalid for an unknown member), keyed by the
+     * rule's class name, which is what the grants fetch it by.
+     *
+     * @throws \Throwable
+     */
     public function testYieldsTheDecodedAuthorizationDetailsVerbatim(): void
     {
         $authorizationDetails = [
-            $this->validDetail(),
+            self::validDetail(),
             [
                 'type' => self::VALID_TYPE,
-                'credential_configuration_id' => 'org.iso.18013.5.1.mDL',
+                'credential_configuration_id' => self::OTHER_CONFIGURATION_ID,
                 'credential_definition' => ['type' => ['VerifiableCredential', 'UniversityDegree']],
                 'locations' => ['https://op.example.org'],
             ],
         ];
 
-        $result = $this->check($this->encode($authorizationDetails));
+        $result = $this->check(self::encode($authorizationDetails));
 
         $this->assertNotNull($result);
         $this->assertSame(AuthorizationDetailsRule::class, $result->getKey());
         $this->assertSame($authorizationDetails, $result->getValue());
+    }
+
+
+    /**
+     * In a Request Object, and so in a pushed request which used one, authorization_details is a claim holding
+     * the JSON array itself rather than its serialization (RFC 9396 section 3).
+     *
+     * @throws \Throwable
+     */
+    public function testYieldsTheAuthorizationDetailsARequestObjectCarriesDecoded(): void
+    {
+        $authorizationDetails = [self::validDetail(), self::validDetail(self::OTHER_CONFIGURATION_ID)];
+
+        $this->assertSame($authorizationDetails, $this->check($authorizationDetails)?->getValue());
+    }
+
+
+    /**
+     * At the token endpoint (PreAuthCodeGrant) no rule has established a redirect URI or a state, and the refusal
+     * is answered directly; the rule reads both without requiring them.
+     *
+     * @throws \Throwable
+     */
+    public function testDoesNotRedirectWhereNoRedirectUriIsEstablished(): void
+    {
+        $this->resultBag = new ResultBag();
+
+        try {
+            $this->check(self::encode([self::validDetail('UnknownCredential')]));
+        } catch (OidcServerException $exception) {
+            $this->assertSame(self::UNKNOWN_CONFIGURATION_ID, $exception->getHint());
+            $this->assertSame('invalid_authorization_details', $exception->getErrorType());
+            $this->assertFalse($exception->hasRedirect());
+            $this->assertArrayNotHasKey('state', $exception->getPayload());
+
+            return;
+        }
+
+        $this->fail('Expected the rule to refuse the request, but it returned instead.');
     }
 }

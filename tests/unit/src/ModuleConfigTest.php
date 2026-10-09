@@ -3617,6 +3617,36 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * A configuration which states no scope is requested through authorization_details only (OpenID4VCI 1.0
+     * section 12.2.4), so its id is listed, for ScopeRule to refuse and discovery to leave out; one which states
+     * its id as its scope is not. One which is not an array states none either. An id PHP keeps as an integer key
+     * is listed as the string it was written as. While issuance is disabled no configuration is a scope, and none
+     * is listed.
+     *
+     * @throws \Exception
+     */
+    public function testListsTheCredentialConfigurationsWhichStateNoScope(): void
+    {
+        $configurations = $this->withCredentialConfigurations([
+            'TestCredential' => [ClaimsEnum::Scope->value => 'TestCredential'],
+            'OtherCredential' => [ClaimsEnum::Format->value => 'jwt_vc_json'],
+            'BrokenCredential' => 'not an array',
+            '123' => [],
+        ]);
+
+        $this->assertSame(
+            ['OtherCredential', 'BrokenCredential', '123'],
+            $this->sut(overrides: array_merge($configurations, [ModuleConfig::OPTION_VCI_ENABLED => true]))
+                ->getVciCredentialConfigurationIdsWithoutScope(),
+        );
+        $this->assertSame(
+            [],
+            $this->sut(overrides: $configurations)->getVciCredentialConfigurationIdsWithoutScope(),
+        );
+    }
+
+
+    /**
      * Like a protected name, a stated scope matters only while the configurations become scopes.
      *
      * @throws \Exception

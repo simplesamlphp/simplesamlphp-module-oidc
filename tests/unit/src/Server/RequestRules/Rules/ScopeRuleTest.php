@@ -14,6 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\Str;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -60,6 +61,8 @@ class ScopeRuleTest extends TestCase
 
     protected Stub $responseModeStub;
 
+    protected Stub $moduleConfigStub;
+
 
     /**
      * @throws \Exception
@@ -81,6 +84,10 @@ class ScopeRuleTest extends TestCase
         $this->strHelperMock = $this->createMock(Str::class);
         $this->helpersStub->method('str')->willReturn($this->strHelperMock);
         $this->responseModeStub = $this->createStub(ResponseModeInterface::class);
+        // A credential configuration whose metadata states no scope.
+        $this->moduleConfigStub = $this->createStub(ModuleConfig::class);
+        $this->moduleConfigStub->method('getVciCredentialConfigurationIdsWithoutScope')
+            ->willReturn(['AuthorizationDetailsOnly']);
     }
 
 
@@ -97,6 +104,7 @@ class ScopeRuleTest extends TestCase
             $requestParamsResolver,
             $helpers,
             $scopeRepository,
+            $this->moduleConfigStub,
         );
     }
 
@@ -200,6 +208,69 @@ class ScopeRuleTest extends TestCase
             $this->data,
             $this->responseModeStub,
         );
+    }
+
+
+    /**
+     * A credential configuration whose metadata states no scope is requested through authorization_details only
+     * (OpenID4VCI 1.0 section 12.2.4). Its id is a scope inside the module, so the repository knows it, but a
+     * client may not ask for it: refused as a scope the server does not offer, to the redirect URI.
+     *
+     * @throws \Throwable
+     */
+    public function testRefusesTheIdOfACredentialConfigurationWithoutAScope(): void
+    {
+        $resultBag = $this->prepareValidResultBag();
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('openid AuthorizationDetailsOnly');
+        $this->strHelperMock->method('convertScopesStringToArray')
+            ->willReturn(['openid', 'AuthorizationDetailsOnly']);
+        $this->scopeRepositoryStub->method('getScopeEntityByIdentifier')
+            ->willReturnCallback(fn(string $identifier): ScopeEntity => new ScopeEntity($identifier));
+
+        try {
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $resultBag,
+                $this->loggerServiceStub,
+                $this->data,
+                $this->responseModeStub,
+            );
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_scope', $exception->getErrorType());
+            $this->assertStringContainsString('AuthorizationDetailsOnly', (string)$exception->getHint());
+            $this->assertSame('https://some-uri.org', $exception->getRedirectUri());
+
+            return;
+        }
+
+        $this->fail('Expected the scope to be refused.');
+    }
+
+
+    /**
+     * A credential configuration which states its id as its scope is requested by it like any other scope.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsTheIdOfACredentialConfigurationWithAScope(): void
+    {
+        $resultBag = $this->prepareValidResultBag();
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
+            ->willReturn('ByScope');
+        $this->strHelperMock->method('convertScopesStringToArray')->willReturn(['ByScope']);
+        $scopeEntity = new ScopeEntity('ByScope');
+        $this->scopeRepositoryStub->method('getScopeEntityByIdentifier')->willReturn($scopeEntity);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->data,
+            $this->responseModeStub,
+        );
+
+        $this->assertSame([$scopeEntity], $result?->getValue());
     }
 
 

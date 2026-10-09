@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
@@ -69,7 +70,12 @@ class OpMetadataService
             $this->metadata[ClaimsEnum::RegistrationEndpoint->value] =
             $this->routes->getModuleUrl(RoutesEnum::Registration->value);
         }
-        $this->metadata[ClaimsEnum::ScopesSupported->value] = array_keys($this->moduleConfig->getScopes());
+        // A credential configuration whose metadata states no scope is requested through authorization_details
+        // only (OpenID4VCI 1.0 section 12.2.4), so its id is not advertised as a scope; ScopeRule refuses it.
+        $this->metadata[ClaimsEnum::ScopesSupported->value] = array_values(array_diff(
+            array_keys($this->moduleConfig->getScopes()),
+            $this->moduleConfig->getVciCredentialConfigurationIdsWithoutScope(),
+        ));
         $this->metadata[ClaimsEnum::ResponseTypesSupported->value] = $this->moduleConfig->getSupportedResponseTypes();
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
         $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
@@ -119,6 +125,14 @@ class OpMetadataService
             $grantTypesSupported[] = GrantTypesEnum::PreAuthorizedCode->value;
         }
         $this->metadata[ClaimsEnum::GrantTypesSupported->value] = $grantTypesSupported;
+
+        // RFC 9396 section 10. OpenID4VCI 1.0 section 12.2.4 requires it for a credential configuration without a
+        // scope, and authorization_details of this type are taken whether a configuration has one or not.
+        if ($this->moduleConfig->getVciEnabled()) {
+            $this->metadata['authorization_details_types_supported'] = [
+                AuthorizationDetailsRule::TYPE_OPENID_CREDENTIAL,
+            ];
+        }
 
         $this->metadata[ClaimsEnum::ClaimsParameterSupported->value] = true;
         if (!(empty($acrValuesSupported = $this->moduleConfig->getAcrValuesSupported()))) {

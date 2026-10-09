@@ -3097,6 +3097,32 @@ class ModuleConfig
 
 
     /**
+     * The credential configurations whose metadata states no `scope`. OpenID4VCI 1.0 section 12.2.4 leaves
+     * authorization_details the only way to request one, so its id, which stays the scope a grant of it is held
+     * under inside the module (getVciScopes()), is not a scope a client may ask for or this server advertises.
+     * Empty while issuance is disabled, as getVciScopes() is.
+     *
+     * @return string[]
+     */
+    public function getVciCredentialConfigurationIdsWithoutScope(): array
+    {
+        if (!$this->getVciEnabled()) {
+            return [];
+        }
+
+        $credentialConfigurationIds = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $configuration) {
+            if (!is_array($configuration) || !array_key_exists(ClaimsEnum::Scope->value, $configuration)) {
+                $credentialConfigurationIds[] = (string)$credentialConfigurationId;
+            }
+        }
+
+        return $credentialConfigurationIds;
+    }
+
+
+    /**
      * Extract and parse the claims path definition from the credential configuration supported.
      * Returns an array of valid paths for the claims.
      */

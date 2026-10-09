@@ -924,6 +924,11 @@ a scope shared by several configurations) is refused when the scopes are read,
 like an id outside that grammar, rather than advertised and then refused at
 authorization.
 
+A configuration which leaves its `scope` out is requested through
+`authorization_details` only (OpenID4VCI 1.0 section 12.2.4): its id is
+neither advertised in `scopes_supported` nor accepted as a requested scope,
+and stays the scope a grant of the credential is held under.
+
 ## Attribute translation
 
 Default SAML-to-OIDC claim mapping follows the

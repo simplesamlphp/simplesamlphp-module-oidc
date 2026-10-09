@@ -8,6 +8,7 @@ use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -27,6 +28,7 @@ class ScopeRule extends AbstractRule
         RequestParamsResolver $requestParamsResolver,
         Helpers $helpers,
         protected ScopeRepositoryInterface $scopeRepository,
+        protected ModuleConfig $moduleConfig,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
     }
@@ -68,12 +70,20 @@ class ScopeRule extends AbstractRule
         $loggerService->debug('ScopeRule: scopeParam: ' . $scopeParam);
         $scopes = $this->helpers->str()->convertScopesStringToArray($scopeParam, $scopeDelimiterString);
 
+        // A credential configuration whose metadata states no scope is requested through authorization_details
+        // only (OpenID4VCI 1.0 section 12.2.4). Its id is still the scope a grant of it is held under, inside the
+        // module (AuthCodeGrant adds it for an authorization detail), but not one a client may ask for.
+        $authorizationDetailsOnlyIds = $this->moduleConfig->getVciCredentialConfigurationIdsWithoutScope();
+
         $validScopes = [];
 
         foreach ($scopes as $scopeItem) {
             $scope = $this->scopeRepository->getScopeEntityByIdentifier($scopeItem);
 
-            if ($scope instanceof ScopeEntityInterface === false) {
+            if (
+                $scope instanceof ScopeEntityInterface === false ||
+                in_array($scopeItem, $authorizationDetailsOnlyIds, true)
+            ) {
                 $loggerService->error('ScopeRule: Invalid scope: ' . $scopeItem);
                 throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state, $responseMode);
             }

@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\SessionIdResponseType
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 
 use function array_merge;
 use function json_encode;
@@ -253,6 +254,10 @@ class TokenResponse extends BearerTokenResponse implements
                 if ($credentialConfigurationId !== null) {
                     $authorizationDetail['credential_identifiers'] = [$credentialConfigurationId];
                 }
+                // The claims a wallet described are checked (AuthorizationDetailsRule) but not honoured: the
+                // credential holds the claims of its configuration. Returned, they would read as a selection
+                // granted.
+                unset($authorizationDetail[ClaimsEnum::Claims->value]);
                 $normalizedAuthorizationDetails[] = $authorizationDetail;
             }
         }

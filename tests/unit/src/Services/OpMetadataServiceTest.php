@@ -48,6 +48,9 @@ class OpMetadataServiceTest extends TestCase
 
     protected MockObject $uiLocalesResolverMock;
 
+    /** @var array<string, mixed> */
+    protected array $scopes = ['openid' => 'openid'];
+
 
     /**
      * @throws \Exception
@@ -56,8 +59,9 @@ class OpMetadataServiceTest extends TestCase
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
 
+        // Read through a property so that a test can add scopes after setUp().
         $this->moduleConfigMock->expects($this->once())->method('getScopes')
-            ->willReturn(['openid' => 'openid']);
+            ->willReturnCallback(fn(): array => $this->scopes);
         $this->moduleConfigMock->expects($this->once())->method('getIssuer')
             ->willReturn('http://localhost');
         $this->routesMock = $this->createMock(Routes::class);
@@ -237,6 +241,59 @@ class OpMetadataServiceTest extends TestCase
         $this->assertArrayNotHasKey(
             ClaimsEnum::UiLocalesSupported->value,
             $this->sut(uiLocalesResolver: $uiLocalesResolverMock)->getMetadata(),
+        );
+    }
+
+
+    /**
+     * RFC 9396 section 10, which OpenID4VCI 1.0 section 12.2.4 relies on: authorization_details of type
+     * openid_credential are taken while credentials are issued, and only then.
+     *
+     * @throws \Exception
+     */
+    public function testAdvertisesTheOpenIdCredentialAuthorizationDetailsTypeWhileIssuing(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
+
+        $this->assertSame(
+            ['openid_credential'],
+            $this->sut()->getMetadata()['authorization_details_types_supported'] ?? null,
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDoesNotAdvertiseAuthorizationDetailsTypesWhenNotIssuing(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+
+        $this->assertArrayNotHasKey('authorization_details_types_supported', $this->sut()->getMetadata());
+    }
+
+
+    /**
+     * A credential configuration whose metadata states no scope is requested through authorization_details only
+     * (OpenID4VCI 1.0 section 12.2.4): its id is a scope inside the module, but not one advertised. The rest keep
+     * their order, as a list.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotAdvertiseTheIdOfACredentialConfigurationWithoutAScope(): void
+    {
+        $this->scopes = [
+            'openid' => [],
+            'AuthorizationDetailsOnly' => [],
+            'ByScope' => [],
+            'profile' => [],
+        ];
+        $this->moduleConfigMock->method('getVciCredentialConfigurationIdsWithoutScope')
+            ->willReturn(['AuthorizationDetailsOnly']);
+
+        $this->assertSame(
+            ['openid', 'ByScope', 'profile'],
+            $this->sut()->getMetadata()[ClaimsEnum::ScopesSupported->value],
         );
     }
 

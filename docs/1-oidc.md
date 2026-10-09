@@ -198,8 +198,17 @@ Currently implemented OpenID4VCI features:
   identified the wallet is what the `iss` claim of its key proof is checked
   against at the credential endpoint, and an anonymous wallet has to omit that
   claim.
-  - Authorization Details: Support for `openid_credential` type in authorization
-  and token requests.
+  - Authorization Details: `authorization_details` of type `openid_credential`
+  (RFC 9396) in authorization, pushed authorization and pre-authorized token
+  requests, advertised in `authorization_details_types_supported`. Each detail
+  has to name a credential configuration of this issuer, and a value which is
+  not a non-empty array of such details is refused with
+  `invalid_authorization_details` (sent to the redirect URI at the
+  authorization endpoint). `claims` in a detail are checked against
+  OpenID4VCI 1.0 Appendix B but not honoured: the credential carries the claims
+  of its configuration, and the token response leaves `claims` out of the
+  details it returns. A credential configuration whose metadata states no
+  `scope` can be requested through authorization details only.
 - Supported Credential Formats
   - JWT VC JSON (`jwt_vc_json`): W3C VCDM v1.1 Verifiable Credentials encoded as
   JWT.

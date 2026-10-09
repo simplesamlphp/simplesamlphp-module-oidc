@@ -69,10 +69,16 @@ class TokenResponseTest extends TestCase
      * Authorization details in the four shapes the normalization tells apart: an openid_credential entry with a
      * credential_configuration_id, one without, an entry of another type and one without a type at all.
      * AuthorizationDetailsRule, which both VCI grants run, admits the first shape only, so the other three
-     * exercise the method's own filtering rather than anything a grant stores today.
+     * exercise the method's own filtering rather than anything a grant stores today. The first describes claims
+     * and carries a member the module does not use.
      */
     private const array AUTHORIZATION_DETAILS = [
-        ['type' => 'openid_credential', 'credential_configuration_id' => 'UniversityDegreeCredential'],
+        [
+            'type' => 'openid_credential',
+            'credential_configuration_id' => 'UniversityDegreeCredential',
+            'claims' => [['path' => ['given_name'], 'mandatory' => true]],
+            'locations' => ['https://op.example.org'],
+        ],
         ['type' => 'openid_credential', 'format' => 'jwt_vc_json'],
         ['type' => 'payment_initiation', 'credential_configuration_id' => 'UniversityDegreeCredential'],
         ['format' => 'dc+sd-jwt'],
@@ -81,11 +87,14 @@ class TokenResponseTest extends TestCase
     /**
      * What the token response makes of AUTHORIZATION_DETAILS: only the openid_credential entries, the one with a
      * credential_configuration_id gaining credential_identifiers naming it, the other passed through as it was.
+     * The claims are left out, since they are checked but not honoured (the credential holds its configuration's
+     * claims); the member the module does not use is kept.
      */
     private const array NORMALIZED_AUTHORIZATION_DETAILS = [
         [
             'type' => 'openid_credential',
             'credential_configuration_id' => 'UniversityDegreeCredential',
+            'locations' => ['https://op.example.org'],
             'credential_identifiers' => ['UniversityDegreeCredential'],
         ],
         ['type' => 'openid_credential', 'format' => 'jwt_vc_json'],

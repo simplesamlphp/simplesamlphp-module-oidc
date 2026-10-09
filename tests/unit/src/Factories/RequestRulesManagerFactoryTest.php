@@ -79,7 +79,7 @@ class RequestRulesManagerFactoryTest extends TestCase
      * Constructor parameters across all of those rules, counted so that the wiring test cannot pass by
      * asserting nothing. Adding a dependency to any rule is expected to move this number.
      */
-    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 98;
+    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 99;
 
 
     private ModuleConfig&MockObject $moduleConfigMock;
