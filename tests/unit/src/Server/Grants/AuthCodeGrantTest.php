@@ -33,6 +33,7 @@ use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\IssuerStateEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
@@ -134,6 +135,9 @@ class AuthCodeGrantTest extends TestCase
 
     private const string ISSUER_STATE = 'issuer-state-of-a-credential-offer';
 
+    /** The credential configurations ModuleConfig names. */
+    private const array CREDENTIAL_CONFIGURATION_IDS = ['pid', 'diploma', 'mdl'];
+
 
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
 
@@ -195,6 +199,15 @@ class AuthCodeGrantTest extends TestCase
     /** Whether the code is still there to consume, or another request consumed it first. */
     private bool $authCodeIsConsumable = true;
 
+    /** @var mixed[]|null What AuthorizationDetailsRule answers for the token request. */
+    private ?array $requestedAuthorizationDetails = null;
+
+    /** @var string[] Scope identifiers finalizeScopes() drops, as for a client not registered for them. */
+    private array $scopesTheClientMayNotHave = [];
+
+    /** @var array<int,array{0:string,1:mixed}> Calls on the rules manager, in order, with what they were given. */
+    private array $rulesManagerCalls = [];
+
 
     protected function setUp(): void
     {
@@ -220,6 +233,8 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigMock->method('getVciAccessTokenDuration')
             ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
         $this->moduleConfigMock->method('getVciRequireDpop')->willReturnCallback(fn(): bool => $this->vciRequireDpop);
+        $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
+            ->willReturn(self::CREDENTIAL_CONFIGURATION_IDS);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
@@ -239,7 +254,11 @@ class AuthCodeGrantTest extends TestCase
                 true,
             ) ? null : new ScopeEntity($identifier));
         $this->scopeRepositoryMock->method('finalizeScopes')
-            ->willReturnCallback(static fn(array $scopes): array => $scopes);
+            ->willReturnCallback(fn(array $scopes): array => array_values(array_filter(
+                $scopes,
+                fn(ScopeEntityInterface $scope): bool =>
+                    !in_array($scope->getIdentifier(), $this->scopesTheClientMayNotHave, true),
+            )));
 
         $this->resolverReturnsTheRequestBody($this->requestParamsResolverMock);
 
@@ -625,27 +644,27 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
-     * A refresh token is issued after the access token, so a failure there comes once an access token was
-     * persisted. The offer is given back all the same, and the access token, which never reached the wallet,
-     * is revoked with it.
+     * A failure once the access token was persisted, here in handing it to the response, gives the offer back all
+     * the same, and the access token, which never reached the wallet, is revoked with it. (A code which followed
+     * an offer gets no refresh token, whose failure would come at this point too.)
      */
-    public function testGivesTheOfferBackWhenTheRefreshTokenCanNotBeIssued(): void
+    public function testGivesTheOfferBackWhenTheIssuedAccessTokenCanNotBeHandedOver(): void
     {
         $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
         $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
         $this->expectAccessTokenToBeIssued();
-        $this->offlineAccessGranted = true;
-        $failure = new RuntimeException('The refresh token could not be persisted.');
-        $this->refreshTokenIssuerMock->method('issue')->willThrowException($failure);
+        $failure = new RuntimeException('The response could not take the access token.');
+        $responseType = $this->responseType();
+        $responseType->method('setAccessToken')->willThrowException($failure);
         $calls = $this->recordRecoveryCalls();
 
         try {
             $this->sut()->respondToAccessTokenRequest(
                 $this->request(),
-                $this->responseType(),
+                $responseType,
                 new DateInterval('PT5M'),
             );
-            $this->fail('The failure to issue the refresh token must reach the caller.');
+            $this->fail('The failure to hand over the access token must reach the caller.');
         } catch (RuntimeException $exception) {
             $this->assertSame($failure, $exception);
         }
@@ -879,19 +898,19 @@ class AuthCodeGrantTest extends TestCase
      * The code is consumed last. A request whose issuance fails leaves it unconsumed, which is what lets the
      * wallet retry it once the offer it followed is given back.
      */
-    public function testLeavesTheCodeUnconsumedWhenTheRefreshTokenCanNotBeIssued(): void
+    public function testLeavesTheCodeUnconsumedWhenTheIssuedAccessTokenCanNotBeHandedOver(): void
     {
         $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
         $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
         $this->expectAccessTokenToBeIssued();
-        $this->offlineAccessGranted = true;
-        $this->refreshTokenIssuerMock->method('issue')
-            ->willThrowException(new RuntimeException('The refresh token could not be persisted.'));
+        $responseType = $this->responseType();
+        $responseType->method('setAccessToken')
+            ->willThrowException(new RuntimeException('The response could not take the access token.'));
         $this->authCodeRepositoryMock->expects($this->never())->method('consumeAuthCode');
 
         $this->expectException(RuntimeException::class);
 
-        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+        $this->sut()->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
     }
 
 
@@ -1056,6 +1075,382 @@ class AuthCodeGrantTest extends TestCase
         $responseType->expects($this->never())->method('setRefreshToken');
 
         $this->sut()->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
+    }
+
+
+    // Authorization details at the token endpoint, and refresh tokens in an issuance flow.
+
+    /**
+     * A token request may name a subset of the configurations the code grants (OpenID4VCI 1.0 section 6.1.1):
+     * the token is then for those only, and keeps its scopes which name no configuration.
+     */
+    public function testNarrowsTheTokenToTheConfigurationsTheTokenRequestNames(): void
+    {
+        $this->storedAuthCode(
+            flowType: FlowTypeEnum::VciAuthorizationCode,
+            authorizationDetails: [self::detail('pid'), self::detail('diploma')],
+        );
+        $this->expectAccessTokenToBeIssued();
+        $this->requestedAuthorizationDetails = [self::detail('diploma', ['locations' => [self::ISSUER]])];
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['openid', 'pid', 'diploma']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(['openid', 'diploma'], $this->tokenScopes());
+        $this->assertSame($this->requestedAuthorizationDetails, $this->accessTokenFactoryArguments[9]);
+    }
+
+
+    /**
+     * The token response carries authorization_details whenever the token request used them (section 6.2), so
+     * also for a code whose authorization request asked for its configuration by scope.
+     */
+    public function testTakesTheTokenRequestsAuthorizationDetailsForACodeAskedForByScope(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+        $this->requestedAuthorizationDetails = [self::detail('pid')];
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['pid']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(['pid'], $this->tokenScopes());
+        $this->assertSame([self::detail('pid')], $this->accessTokenFactoryArguments[9]);
+    }
+
+
+    /**
+     * @return array<string,array<int,mixed>>
+     */
+    public static function authorizationDetailsTheCodeDoesNotGrant(): array
+    {
+        return [
+            'a configuration the code does not grant' => [
+                ['openid', 'pid'],
+                [self::detail('pid'), self::detail('diploma')],
+                FlowTypeEnum::VciAuthorizationCode,
+            ],
+            'a configuration the client may not have' => [
+                ['pid', 'diploma'],
+                [self::detail('diploma')],
+                FlowTypeEnum::VciAuthorizationCode,
+                ['diploma'],
+            ],
+            'a code of no issuance flow' => [
+                ['openid'],
+                [self::detail('pid')],
+                FlowTypeEnum::OidcAuthorizationCode,
+            ],
+            'a scope of a code of no issuance flow named as a configuration' => [
+                ['openid', 'pid'],
+                [self::detail('pid')],
+                FlowTypeEnum::OidcAuthorizationCode,
+            ],
+        ];
+    }
+
+
+    /**
+     * Asking for more than the code grants is refused (RFC 9396 section 6) before anything is spent, so that the
+     * client can ask again with the code it still holds.
+     *
+     * @param string[] $scopes
+     * @param mixed[] $requestedAuthorizationDetails
+     * @param string[] $scopesTheClientMayNotHave
+     */
+    #[DataProvider('authorizationDetailsTheCodeDoesNotGrant')]
+    public function testRefusesAuthorizationDetailsForWhatTheCodeDoesNotGrant(
+        array $scopes,
+        array $requestedAuthorizationDetails,
+        FlowTypeEnum $flowType,
+        array $scopesTheClientMayNotHave = [],
+    ): void {
+        $this->storedAuthCode(
+            issuerState: $flowType === FlowTypeEnum::VciAuthorizationCode ? self::ISSUER_STATE : null,
+            flowType: $flowType,
+        );
+        $this->requestedAuthorizationDetails = $requestedAuthorizationDetails;
+        $this->scopesTheClientMayNotHave = $scopesTheClientMayNotHave;
+
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumeAuthCode');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->assertRejectsWithHint(
+            'invalid_authorization_details',
+            'The authorization code does not grant the credential configuration requested.',
+            $this->requestFor($this->payload(['scopes' => $scopes])),
+        );
+    }
+
+
+    /**
+     * @return array<string,array<int,mixed>>
+     */
+    public static function waysAnOfferCodeGetsItsConfigurations(): array
+    {
+        return [
+            'authorization details stored with the code' => [[self::detail('pid')], null, [self::detail('pid')]],
+            'scope alone' => [null, null, null],
+            'authorization details in the token request' => [null, [self::detail('pid')], [self::detail('pid')]],
+        ];
+    }
+
+
+    /**
+     * A code which followed a Credential Offer grants no configuration the offer did not offer, though one of its
+     * scopes be named as one, as when a configuration is added under the name of a scope the client had: the
+     * scope is dropped from the token, and no authorization detail names it.
+     *
+     * @param mixed[]|null $storedAuthorizationDetails
+     * @param mixed[]|null $requestedAuthorizationDetails
+     * @param mixed[]|null $expectedAuthorizationDetails
+     */
+    #[DataProvider('waysAnOfferCodeGetsItsConfigurations')]
+    public function testGrantsAnOfferCodeNoConfigurationTheOfferDidNotOffer(
+        ?array $storedAuthorizationDetails,
+        ?array $requestedAuthorizationDetails,
+        ?array $expectedAuthorizationDetails,
+    ): void {
+        $this->storedAuthCode(
+            issuerState: self::ISSUER_STATE,
+            flowType: FlowTypeEnum::VciAuthorizationCode,
+            authorizationDetails: $storedAuthorizationDetails,
+        );
+        $this->offerOffers('pid');
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->expectAccessTokenToBeIssued();
+        $this->requestedAuthorizationDetails = $requestedAuthorizationDetails;
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['openid', 'pid', 'diploma']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(['openid', 'pid'], $this->tokenScopes());
+        $this->assertSame($expectedAuthorizationDetails, $this->accessTokenFactoryArguments[9]);
+    }
+
+
+    public function testRefusesAuthorizationDetailsForAConfigurationTheOfferDidNotOffer(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->offerOffers('pid');
+        $this->requestedAuthorizationDetails = [self::detail('diploma')];
+
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+
+        $this->assertRejectsWithHint(
+            'invalid_authorization_details',
+            'The authorization code does not grant the credential configuration requested.',
+            $this->requestFor($this->payload(['scopes' => ['pid', 'diploma']])),
+        );
+    }
+
+
+    /**
+     * An offer no longer found restricts nothing when the token's configurations are worked out: spending it
+     * then refuses the request, as for any code whose offer is gone.
+     */
+    public function testLeavesAnOfferNoLongerFoundToBeRefusedWhenItIsSpent(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('find')->willReturn(null);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(false);
+        $this->requestedAuthorizationDetails = [self::detail('pid')];
+
+        $this->assertRejects('invalid_grant', $this->requestFor($this->payload(['scopes' => ['pid']])));
+    }
+
+
+    /**
+     * A credential identifier names one Credential Dataset, so a configuration gets one authorization detail, the
+     * first which names it, whether the token request named it twice or the authorization request did.
+     */
+    public function testKeepsOneAuthorizationDetailPerConfiguration(): void
+    {
+        $first = self::detail('pid', ['locations' => [self::ISSUER]]);
+        $this->storedAuthCode(
+            flowType: FlowTypeEnum::VciAuthorizationCode,
+            authorizationDetails: [self::detail('diploma'), self::detail('diploma', ['locations' => [self::ISSUER]])],
+        );
+        $this->expectAccessTokenToBeIssued();
+        $this->requestedAuthorizationDetails = [$first, self::detail('diploma'), self::detail('pid')];
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['pid', 'diploma']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame([$first, self::detail('diploma')], $this->accessTokenFactoryArguments[9]);
+    }
+
+
+    /**
+     * A code whose authorization request used authorization_details gets one for every configuration the token
+     * grants, so that a configuration asked for by scope next to them can be fetched by its credential
+     * identifier as well (section 5.1.2: the two are taken individually).
+     */
+    public function testGivesEveryConfigurationTheTokenGrantsAnAuthorizationDetail(): void
+    {
+        $stored = self::detail('pid', ['locations' => [self::ISSUER]]);
+        $this->storedAuthCode(
+            flowType: FlowTypeEnum::VciAuthorizationCode,
+            authorizationDetails: [$stored, self::detail('pid')],
+        );
+        $this->expectAccessTokenToBeIssued();
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['openid', 'pid', 'diploma']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(['openid', 'pid', 'diploma'], $this->tokenScopes());
+        $this->assertSame([$stored, self::detail('diploma')], $this->accessTokenFactoryArguments[9]);
+    }
+
+
+    /**
+     * @return array<string,array{0:string[],1:array<mixed>|null}>
+     */
+    public static function configurationsTheGrantDropped(): array
+    {
+        return [
+            'one of two' => [['diploma'], [self::detail('pid')]],
+            'every one' => [['pid', 'diploma'], null],
+        ];
+    }
+
+
+    /**
+     * An authorization detail for a configuration the grant dropped, which the client may not have, is left out
+     * (RFC 9396 section 7), and a token left with none carries none.
+     *
+     * @param string[] $scopesTheClientMayNotHave
+     * @param mixed[]|null $expectedAuthorizationDetails
+     */
+    #[DataProvider('configurationsTheGrantDropped')]
+    public function testLeavesOutTheAuthorizationDetailsOfConfigurationsTheGrantDropped(
+        array $scopesTheClientMayNotHave,
+        ?array $expectedAuthorizationDetails,
+    ): void {
+        $this->storedAuthCode(
+            flowType: FlowTypeEnum::VciAuthorizationCode,
+            authorizationDetails: [self::detail('pid'), self::detail('diploma')],
+        );
+        $this->expectAccessTokenToBeIssued();
+        $this->scopesTheClientMayNotHave = $scopesTheClientMayNotHave;
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['openid', 'pid', 'diploma']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame($expectedAuthorizationDetails, $this->accessTokenFactoryArguments[9]);
+    }
+
+
+    /**
+     * Section 6.2 makes authorization_details optional for a configuration asked for by scope, and none is added:
+     * the credential is then requested by its credential_configuration_id.
+     */
+    public function testGivesACodeAskedForByScopeAloneNoAuthorizationDetails(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['openid', 'pid']])),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(['openid', 'pid'], $this->tokenScopes());
+        $this->assertNull($this->accessTokenFactoryArguments[9]);
+    }
+
+
+    /**
+     * The token endpoint answers a refusal directly. AuthorizationDetailsRule sends one to the redirect URI it
+     * finds among the results it is given, so it is given results of its own, without the one ClientRedirectUriRule
+     * found for the token request.
+     */
+    public function testChecksTheAuthorizationDetailsWithResultsOfTheirOwn(): void
+    {
+        $this->storedAuthCode();
+        $this->expectAccessTokenToBeIssued();
+        $this->requestRulesManagerMock->method('predefineResultBag')->willReturnCallback(
+            function (ResultBag $resultBag): void {
+                $this->rulesManagerCalls[] = ['predefineResultBag', $resultBag->getAll()];
+            },
+        );
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        $position = array_search(['check', [AuthorizationDetailsRule::class]], $this->rulesManagerCalls, true);
+        $this->assertIsInt($position);
+        $this->assertGreaterThan(0, $position);
+        $this->assertSame(['predefineResultBag', []], $this->rulesManagerCalls[$position - 1]);
+    }
+
+
+    /**
+     * The access token a refresh yields does not keep the issuance flow, so the Credential Endpoint would refuse
+     * it: a code of a credential issuance flow gets no refresh token, as a pre-authorized code gets none.
+     */
+    public function testIssuesNoRefreshTokenForACodeOfACredentialIssuanceFlow(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+        $this->offlineAccessGranted = true;
+
+        $this->refreshTokenIssuerMock->expects($this->never())->method('issue');
+
+        $responseType = $this->responseType();
+        $responseType->expects($this->never())->method('setRefreshToken');
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payload(['scopes' => ['openid', 'offline_access', 'pid']])),
+            $responseType,
+            new DateInterval('PT5M'),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0:\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum|null}>
+     */
+    public static function flowsOfNoCredentialIssuance(): array
+    {
+        return [
+            'no flow stored' => [null],
+            'OpenID Connect' => [FlowTypeEnum::OidcAuthorizationCode],
+            'plain OAuth 2.0' => [FlowTypeEnum::OAuth2AuthorizationCode],
+        ];
+    }
+
+
+    #[DataProvider('flowsOfNoCredentialIssuance')]
+    public function testIssuesARefreshTokenForACodeOfAnyOtherFlow(?FlowTypeEnum $flowType): void
+    {
+        $this->storedAuthCode(flowType: $flowType);
+        $this->expectAccessTokenToBeIssued();
+        $this->offlineAccessGranted = true;
+
+        $this->refreshTokenIssuerMock->expects($this->once())->method('issue')
+            ->willReturn($this->createMock(RefreshTokenEntityInterface::class));
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
     }
 
 
@@ -2237,6 +2632,7 @@ class AuthCodeGrantTest extends TestCase
         ?FlowTypeEnum $flowType = null,
         ?string $dpopJkt = null,
         bool $dpopBoundAccessTokens = false,
+        ?array $authorizationDetails = null,
     ): AuthCodeEntity {
         $client = $this->createMock(ClientEntity::class);
         $client->method('getIdentifier')->willReturn(self::CLIENT_ID);
@@ -2255,6 +2651,7 @@ class AuthCodeGrantTest extends TestCase
             flowTypeEnum: $flowType,
             boundClientId: self::CLIENT_ID,
             boundRedirectUri: self::REDIRECT_URI,
+            authorizationDetails: $authorizationDetails,
             issuerState: $issuerState,
             dpopJkt: $dpopJkt,
         );
@@ -2324,7 +2721,70 @@ class AuthCodeGrantTest extends TestCase
         );
 
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
-        $this->requestRulesManagerMock->method('check')->willReturn($resultBag);
+        // AuthorizationDetailsRule is checked on its own, with results of its own, and answers what the test set.
+        $this->requestRulesManagerMock->method('check')->willReturnCallback(
+            function (ServerRequestInterface $request, array $ruleKeys) use ($resultBag): ResultBag {
+                $this->rulesManagerCalls[] = ['check', $ruleKeys];
+
+                if ($ruleKeys !== [AuthorizationDetailsRule::class]) {
+                    return $resultBag;
+                }
+
+                $authorizationDetailsResults = new ResultBag();
+                if ($this->requestedAuthorizationDetails !== null) {
+                    $authorizationDetailsResults->add(
+                        new Result(AuthorizationDetailsRule::class, $this->requestedAuthorizationDetails),
+                    );
+                }
+
+                return $authorizationDetailsResults;
+            },
+        );
+    }
+
+
+    /**
+     * An authorization detail of type openid_credential for a configuration, with any further members.
+     *
+     * @param array<string,mixed> $further
+     * @return array<string,mixed>
+     */
+    private static function detail(string $credentialConfigurationId, array $further = []): array
+    {
+        return [
+            'type' => 'openid_credential',
+            'credential_configuration_id' => $credentialConfigurationId,
+            ...$further,
+        ];
+    }
+
+
+    /**
+     * Make the issuer state of the code's Credential Offer offer the given configurations.
+     */
+    private function offerOffers(string ...$credentialConfigurationIds): void
+    {
+        $this->issuerStateRepositoryMock->method('find')->with(self::ISSUER_STATE)->willReturn(
+            new IssuerStateEntity(
+                self::ISSUER_STATE,
+                new DateTimeImmutable(),
+                new DateTimeImmutable('+5 minutes'),
+                false,
+                $credentialConfigurationIds,
+            ),
+        );
+    }
+
+
+    /**
+     * @return string[] The scopes the access token was last issued with.
+     */
+    private function tokenScopes(): array
+    {
+        /** @var \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes */
+        $scopes = $this->accessTokenFactoryArguments[2];
+
+        return array_map(static fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), $scopes);
     }
 
 

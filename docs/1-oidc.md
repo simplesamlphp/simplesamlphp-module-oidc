@@ -184,7 +184,9 @@ Currently implemented OpenID4VCI features:
   - JWT VC Issuer Metadata | `.well-known/jwt-vc-issuer` - Points an SD-JWT VC
   verifier at this issuer's key set.
 - Supported Flows & Grant Types
-  - Authorization Code Flow: Fully supported
+  - Authorization Code Flow: Fully supported. No refresh token is issued for
+  credential issuance, even when `offline_access` is granted, since the access
+  token a refresh yields could not be used at the credential endpoint.
   - Pre-Authorized Code Flow: Fully supported. Client authentication at the
   token endpoint is optional, as OpenID4VCI 1.0 (section 6.1) has it. A wallet
   may authenticate with any supported method (`private_key_jwt`,
@@ -199,12 +201,17 @@ Currently implemented OpenID4VCI features:
   against at the credential endpoint, and an anonymous wallet has to omit that
   claim.
   - Authorization Details: `authorization_details` of type `openid_credential`
-  (RFC 9396) in authorization, pushed authorization and pre-authorized token
-  requests, advertised in `authorization_details_types_supported`. Each detail
-  has to name a credential configuration of this issuer, and a value which is
-  not a non-empty array of such details is refused with
+  (RFC 9396) in authorization, pushed authorization and token requests,
+  advertised in `authorization_details_types_supported`. Each detail has to
+  name a credential configuration of this issuer, and a value which is not a
+  non-empty array of such details is refused with
   `invalid_authorization_details` (sent to the redirect URI at the
-  authorization endpoint). `claims` in a detail are checked against
+  authorization endpoint). In a token request they may name some of the
+  configurations the code grants, and the access token is then for those only;
+  naming any other is refused. Once an authorization or token request used
+  them, the token response carries one for every configuration the token
+  grants, those requested by `scope` included, each with its
+  `credential_identifiers`. `claims` in a detail are checked against
   OpenID4VCI 1.0 Appendix B but not honoured: the credential carries the claims
   of its configuration, and the token response leaves `claims` out of the
   details it returns. A credential configuration whose metadata states no

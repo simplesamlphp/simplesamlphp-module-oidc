@@ -48,6 +48,7 @@ use SimpleSAML\Module\oidc\Server\Grants\Traits\IssueAccessTokenTrait;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
+use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AcrValuesRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientAuthenticationRule;
@@ -86,6 +87,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
+use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -733,6 +735,28 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             }
         }
 
+        // authorization_details in the token request (OpenID4VCI 1.0 section 6.1.1, RFC 9396 section 6), read once
+        // the code and the client have passed every check, and before anything is spent, so that a client which
+        // asked for more than the code grants can ask again. AuthorizationDetailsRule takes a redirect URI and a
+        // state from the results it is given, to send a refusal at the authorization endpoint back to the client;
+        // the token endpoint answers directly, so the rule is given results of its own.
+        $this->requestRulesManager->predefineResultBag(new ResultBag());
+        /** @psalm-suppress MixedAssignment */
+        $requestedAuthorizationDetails = $this->requestRulesManager->check(
+            $request,
+            [AuthorizationDetailsRule::class],
+            new QueryResponseMode(),
+            $this->allowedTokenHttpMethods,
+        )->get(AuthorizationDetailsRule::class)?->getValue();
+
+        [$scopes, $authorizationDetails] = $this->authorizationDetailsForToken(
+            is_array($requestedAuthorizationDetails) ? $requestedAuthorizationDetails : null,
+            $storedAuthCodeEntity->getAuthorizationDetails(),
+            $scopes,
+            $storedAuthCodeEntity->getFlowTypeEnum(),
+            $storedAuthCodeEntity->getIssuerState(),
+        );
+
         /** @var array $claims */
         $claims = property_exists($authCodePayload, 'claims') ?
         json_decode(json_encode($authCodePayload->claims, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR)
@@ -788,7 +812,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $authCodePayload->auth_code_id,
                 $claims,
                 $storedAuthCodeEntity->getFlowTypeEnum(),
-                $storedAuthCodeEntity->getAuthorizationDetails(),
+                $authorizationDetails,
                 $storedAuthCodeEntity->getBoundClientId(),
                 $storedAuthCodeEntity->getBoundRedirectUri(),
                 $issuerState,
@@ -833,13 +857,23 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // Release refresh token if it is requested by using offline_access scope. With the refresh token grant
             // disabled the scope is not among the supported ones (ModuleConfig::getScopes()), so validateScopes()
             // above has already refused it: no refresh token is issued which the token endpoint would then refuse.
+            // Nor is one issued for a code of a credential issuance flow, as the pre-authorized code grant issues
+            // none: the access token a refresh yields does not keep the issuance flow, so the Credential Endpoint
+            // would refuse it.
             if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
-                // Issue and persist new refresh token if given
-                $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
+                if ($storedAuthCodeEntity->getFlowTypeEnum()?->isVciFlow() === true) {
+                    $this->loggerService->info(
+                        'No refresh token issued: offline_access was granted, but for a credential issuance flow.',
+                        ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+                    );
+                } else {
+                    // Issue and persist new refresh token if given
+                    $refreshToken = $this->issueRefreshToken($accessToken, $authCodePayload->auth_code_id);
 
-                if ($refreshToken !== null) {
-                    $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
-                    $responseType->setRefreshToken($refreshToken);
+                    if ($refreshToken !== null) {
+                        $this->getEmitter()->emit(new RequestEvent(RequestEvent::REFRESH_TOKEN_ISSUED, $request));
+                        $responseType->setRefreshToken($refreshToken);
+                    }
                 }
             }
 
@@ -896,6 +930,146 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
 
         return $responseType;
+    }
+
+
+    /**
+     * The scopes and the authorization_details of the access token.
+     *
+     * With authorization_details in the token request, each has to name a credential configuration the code
+     * grants, or the request is refused (RFC 9396 section 6). The token is then for those only (OpenID4VCI 1.0
+     * section 6.1.1 recommends taking a subset): a configuration the code grants and the request does not name
+     * is dropped from its scopes, which keep everything else. A code of no issuance flow grants no configuration,
+     * though one of its scopes be named as one: a configuration added after the code was issued, say. Nor does a
+     * code which followed a Credential Offer grant one the offer did not offer (OfferedCredentialsRule holds the
+     * authorization request to the offer): one of its scopes named as such a configuration is dropped from the
+     * token. An offer no longer found restricts nothing here: spending it refuses the request.
+     *
+     * Without them the token keeps what the authorization request asked for. A code whose authorization request
+     * used authorization_details gets one for every configuration the token grants (section 6.2), those asked for
+     * by scope included, since the Credential Endpoint then takes a credential_identifier only, and only for a
+     * configuration which one of them names. One for a configuration the grant dropped, which the client may not
+     * have, is left out (RFC 9396 section 7 lets the server omit values). A code asked for by scope alone gets
+     * none (section 6.2 makes them optional), and its credentials are requested by credential_configuration_id.
+     *
+     * A configuration gets one authorization detail, the first which names it, so that a credential identifier
+     * names one Credential Dataset.
+     *
+     * @param mixed[]|null $requestedAuthorizationDetails As AuthorizationDetailsRule validated them.
+     * @param mixed[]|null $storedAuthorizationDetails As the authorization request stored them with the code.
+     * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes What the code grants, finalized.
+     * @param \SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum|null $flowType The flow the code was issued for.
+     * @param string|null $issuerState The issuer state of the Credential Offer the code followed, if any.
+     * @return array{0: \League\OAuth2\Server\Entities\ScopeEntityInterface[], 1: mixed[]|null}
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function authorizationDetailsForToken(
+        ?array $requestedAuthorizationDetails,
+        ?array $storedAuthorizationDetails,
+        array $scopes,
+        ?FlowTypeEnum $flowType,
+        ?string $issuerState,
+    ): array {
+        $configurationIds = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
+        $offeredConfigurationIds = $issuerState !== null ?
+        $this->issuerStateRepository->find($issuerState)?->getCredentialConfigurationIds() :
+        null;
+        $grantedConfigurationIds = $flowType?->isVciFlow() === true ?
+        array_values(array_filter(
+            array_map(fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), $scopes),
+            fn(string $scope): bool => in_array($scope, $configurationIds, true) &&
+                ($offeredConfigurationIds === null || in_array($scope, $offeredConfigurationIds, true)),
+        )) :
+        [];
+
+        if ($flowType?->isVciFlow() === true) {
+            $scopes = array_values(array_filter(
+                $scopes,
+                fn(ScopeEntityInterface $scope): bool =>
+                    !in_array($scope->getIdentifier(), $configurationIds, true) ||
+                    in_array($scope->getIdentifier(), $grantedConfigurationIds, true),
+            ));
+        }
+
+        $authorizationDetails = [];
+
+        if ($requestedAuthorizationDetails !== null) {
+            /** @psalm-suppress MixedAssignment */
+            foreach ($requestedAuthorizationDetails as $authorizationDetail) {
+                $credentialConfigurationId = $this->credentialConfigurationIdOf($authorizationDetail);
+
+                if (
+                    $credentialConfigurationId === null ||
+                    !in_array($credentialConfigurationId, $grantedConfigurationIds, true)
+                ) {
+                    $this->loggerService->notice(
+                        'Token request rejected: `authorization_details` name a credential configuration the ' .
+                        'authorization code does not grant.',
+                    );
+                    throw OidcServerException::invalidAuthorizationDetails(
+                        'The authorization code does not grant the credential configuration requested.',
+                    );
+                }
+
+                $authorizationDetails[$credentialConfigurationId] ??= $authorizationDetail;
+            }
+
+            return [
+                array_values(array_filter(
+                    $scopes,
+                    fn(ScopeEntityInterface $scope): bool =>
+                        !in_array($scope->getIdentifier(), $configurationIds, true) ||
+                        array_key_exists($scope->getIdentifier(), $authorizationDetails),
+                )),
+                array_values($authorizationDetails),
+            ];
+        }
+
+        if ($storedAuthorizationDetails === null) {
+            return [$scopes, null];
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($storedAuthorizationDetails as $authorizationDetail) {
+            $credentialConfigurationId = $this->credentialConfigurationIdOf($authorizationDetail);
+
+            if (
+                $credentialConfigurationId !== null &&
+                in_array($credentialConfigurationId, $grantedConfigurationIds, true)
+            ) {
+                $authorizationDetails[$credentialConfigurationId] ??= $authorizationDetail;
+            }
+        }
+
+        foreach ($grantedConfigurationIds as $credentialConfigurationId) {
+            /** @psalm-suppress MixedAssignment */
+            $authorizationDetails[$credentialConfigurationId] ??= [
+                ClaimsEnum::Type->value => AuthorizationDetailsRule::TYPE_OPENID_CREDENTIAL,
+                ClaimsEnum::CredentialConfigurationId->value => $credentialConfigurationId,
+            ];
+        }
+
+        return [$scopes, $authorizationDetails === [] ? null : array_values($authorizationDetails)];
+    }
+
+
+    /**
+     * The credential configuration an authorization detail of type openid_credential names, and null for any
+     * other value.
+     */
+    protected function credentialConfigurationIdOf(mixed $authorizationDetail): ?string
+    {
+        if (
+            !is_array($authorizationDetail) ||
+            ($authorizationDetail[ClaimsEnum::Type->value] ?? null) !== AuthorizationDetailsRule::TYPE_OPENID_CREDENTIAL
+        ) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $credentialConfigurationId = $authorizationDetail[ClaimsEnum::CredentialConfigurationId->value] ?? null;
+
+        return is_string($credentialConfigurationId) ? $credentialConfigurationId : null;
     }
 
 
