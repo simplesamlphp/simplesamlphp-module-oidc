@@ -39,6 +39,7 @@ use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
@@ -79,7 +80,7 @@ class RequestRulesManagerFactoryTest extends TestCase
      * Constructor parameters across all of those rules, counted so that the wiring test cannot pass by
      * asserting nothing. Adding a dependency to any rule is expected to move this number.
      */
-    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 99;
+    private const int DEFAULT_RULE_COLLABORATOR_COUNT = 101;
 
 
     private ModuleConfig&MockObject $moduleConfigMock;
@@ -128,6 +129,8 @@ class RequestRulesManagerFactoryTest extends TestCase
 
     private IssuerStateRepository&MockObject $issuerStateRepositoryMock;
 
+    private ClaimsDescriptionValidator&MockObject $claimsDescriptionValidatorMock;
+
     private FederationCache&MockObject $federationCacheMock;
 
     private ProtocolCache&MockObject $protocolCacheMock;
@@ -160,6 +163,7 @@ class RequestRulesManagerFactoryTest extends TestCase
         $this->fragmentResponseModeMock = $this->createMock(FragmentResponseMode::class);
         $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
+        $this->claimsDescriptionValidatorMock = $this->createMock(ClaimsDescriptionValidator::class);
         $this->federationCacheMock = $this->createMock(FederationCache::class);
         $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
     }
@@ -196,6 +200,7 @@ class RequestRulesManagerFactoryTest extends TestCase
             $this->fragmentResponseModeMock,
             $this->formPostResponseModeMock,
             $this->issuerStateRepositoryMock,
+            $this->claimsDescriptionValidatorMock,
             $withFederationCache ? $this->federationCacheMock : null,
             $this->protocolCacheMock,
         );
@@ -218,6 +223,7 @@ class RequestRulesManagerFactoryTest extends TestCase
             AuthenticationService::class => $this->authenticationServiceMock,
             AuthSimpleFactory::class => $this->authSimpleFactoryMock,
             ClaimTranslatorExtractor::class => $this->claimTranslatorExtractorMock,
+            ClaimsDescriptionValidator::class => $this->claimsDescriptionValidatorMock,
             ClientEntityFactory::class => $this->clientEntityFactoryMock,
             ClientRepository::class => $this->clientRepositoryMock,
             CodeChallengeVerifiersRepository::class => $this->codeChallengeVerifiersRepositoryMock,

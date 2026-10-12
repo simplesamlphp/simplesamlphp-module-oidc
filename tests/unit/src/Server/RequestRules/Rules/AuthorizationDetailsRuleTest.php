@@ -22,6 +22,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
@@ -136,6 +137,7 @@ class AuthorizationDetailsRuleTest extends TestCase
             $requestParamsResolver ?? $this->requestParamsResolverStub,
             $this->helpers,
             $this->moduleConfigStub,
+            new ClaimsDescriptionValidator(),
         );
     }
 

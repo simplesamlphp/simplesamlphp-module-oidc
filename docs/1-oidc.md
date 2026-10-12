@@ -194,7 +194,10 @@ Currently implemented OpenID4VCI features:
   registered client, and credentials which do not verify are refused with
   `invalid_client`; it may identify itself with a bare `client_id`, which a
   non-registered wallet is taken at its word for; or it may send neither and
-  redeem the code anonymously. A registered wallet gets the access token issued
+  redeem the code anonymously, where `vci_allow_anonymous_pre_authorized_access`
+  allows it (the default; published as
+  `pre-authorized_grant_anonymous_access_supported`), and otherwise is refused
+  with `invalid_client`. A registered wallet gets the access token issued
   to itself (its `client_id` is the token's audience); a non-registered or
   anonymous wallet gets a token issued to the generic VCI client. Whatever
   identified the wallet is what the `iss` claim of its key proof is checked
@@ -222,7 +225,20 @@ Currently implemented OpenID4VCI features:
   - Selective Disclosure JWT (`vc+sd-jwt`): W3C VCDM 2.0 based Selective
   Disclosure JWT.
   - Digital Credentials SD-JWT (`dc+sd-jwt`): IETF Draft 14+ Selective
-  Disclosure JWT.
+  Disclosure JWT. A credential states the `vct` its configuration advertises;
+  one which is not a URI, the usual form of a collision-resistant name, is
+  warned about in the log and the configuration overview.
+  - While issuance is enabled, a credential configuration has to be issuable as
+  it stands: a format above with what it requires (`vct` for `dc+sd-jwt`,
+  `credential_definition.type` for the other two), and `credential_metadata`
+  with one display object for each language and claims descriptions as
+  OpenID4VCI 1.0 Appendix B has them (`claims` and `display` at the top level,
+  where the pre-final drafts had them, are refused). A configuration which is
+  not is refused, and with it discovery, registration, authorization, the
+  Credential Issuer metadata and issuance, until it is corrected. A claim
+  marked `mandatory` is always in the
+  credential, so a user without the attribute it is mapped from is refused
+  with `credential_request_denied`.
 - Proof of Possession & Binding
   - Proof Type: `jwt` (JSON Web Token proofs).
   - Cryptographic Binding Methods:

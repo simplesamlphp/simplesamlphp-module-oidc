@@ -154,9 +154,11 @@ class OpMetadataService
             $this->metadata[ClaimsEnum::UiLocalesSupported->value] = $uiLocalesSupported;
         }
 
-        // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-oauth-20-authorization-serv
-        // OPTIONAL
-        // pre-authorized_grant_anonymous_access_supported // TODO mivanci Make configurable
+        // OpenID4VCI 1.0 section 12.3. Stated either way while issuing, since a wallet reads its absence as false.
+        if ($this->moduleConfig->getVciEnabled()) {
+            $this->metadata[ClaimsEnum::PreAuthorizedGrantAnonymousAccessSupported->value] =
+            $this->moduleConfig->getVciAllowAnonymousPreAuthorizedAccess();
+        }
     }
 
 

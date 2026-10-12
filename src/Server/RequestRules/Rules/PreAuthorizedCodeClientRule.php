@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -41,7 +42,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  * - With a `client_id` naming no registered client: the self-declared identifier of a non-registered wallet.
  *   Nothing can authenticate it, and nothing depends on it beyond that `iss` check. The result carries the
  *   identifier alone.
- * - With neither: anonymous access, and no result.
+ * - With neither: anonymous access, and no result, where it is allowed
+ *   (ModuleConfig::getVciAllowAnonymousPreAuthorizedAccess()); where it is not, the request is refused with
+ *   `invalid_client` (OpenID4VCI 1.0 section 6.3).
  *
  * A registered client is not checked against its registered `grant_types`: the pre-authorized code grant is an
  * OP capability rather than a per-client registrable grant type (see OpMetadataService), so no registration
@@ -59,6 +62,7 @@ class PreAuthorizedCodeClientRule extends AbstractRule
         Helpers $helpers,
         protected readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         protected readonly ClientRepository $clientRepository,
+        protected readonly ModuleConfig $moduleConfig,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
     }
@@ -138,6 +142,14 @@ class PreAuthorizedCodeClientRule extends AbstractRule
             );
 
             return new Result($this->getKey(), PreAuthorizedCodeClient::selfDeclared($clientId));
+        }
+
+        if (!$this->moduleConfig->getVciAllowAnonymousPreAuthorizedAccess()) {
+            $loggerService->warning(
+                'Token request rejected: a pre-authorized code redeemed without a `client_id`, and anonymous ' .
+                'access is not allowed.',
+            );
+            throw OidcServerException::invalidClient($request);
         }
 
         $loggerService->debug('PreAuthorizedCodeClientRule: anonymous access, no client identified.');

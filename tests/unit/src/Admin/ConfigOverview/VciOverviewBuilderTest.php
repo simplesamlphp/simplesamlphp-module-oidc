@@ -60,6 +60,7 @@ class VciOverviewBuilderTest extends TestCase
         return [
             'ResearchAndScholarshipCredentialJwtVcJson' => [
                 'format' => 'jwt_vc_json',
+                'credential_definition' => ['type' => ['VerifiableCredential']],
                 'scope' => 'ResearchAndScholarshipCredentialJwtVcJson',
                 'credential_metadata' => [
                     'display' => [
@@ -72,6 +73,16 @@ class VciOverviewBuilderTest extends TestCase
                 ],
             ],
         ];
+    }
+
+
+    /**
+     * A credential configuration with what its format requires to be issued
+     * (ModuleConfig::findFaultInVciCredentialConfiguration()), so that a test is about what it sets.
+     */
+    protected static function issuable(array $configuration): array
+    {
+        return $configuration + ['credential_definition' => ['type' => ['VerifiableCredential']]];
     }
 
 
@@ -185,7 +196,10 @@ class VciOverviewBuilderTest extends TestCase
         $configuration = $configurations[0];
         $this->assertSame('ResearchAndScholarshipCredentialJwtVcJson', $configuration['id']);
         $this->assertSame('jwt_vc_json', $configuration['format']);
-        $this->assertTrue($configuration['isFormatSupported']);
+        $this->assertNull($configuration['fault']);
+        // A vct is shown for an SD-JWT VC only.
+        $this->assertNull($configuration['vct']);
+        $this->assertTrue($configuration['isVctAUri']);
         $this->assertSame('ResearchAndScholarshipCredentialJwtVcJson', $configuration['scope']);
         $this->assertSame(['Research and Scholarship'], $configuration['displayNames']);
         $this->assertSame(
@@ -353,7 +367,8 @@ class VciOverviewBuilderTest extends TestCase
 
     /**
      * CredentialIssuerCredentialController can only issue jwt_vc_json, dc+sd-jwt and vc+sd-jwt, and
-     * rejects a configuration whose format is missing, so an unsupported one must not look valid.
+     * ModuleConfig::getVciScopes() refuses a configuration of any other format or none, so the configuration
+     * is marked with the reason ModuleConfig gives, and the row says what the refusal stops.
      */
     public function testFlagsUnsupportedCredentialFormat(): void
     {
@@ -372,10 +387,19 @@ class VciOverviewBuilderTest extends TestCase
 
         $configurations = $row->getValue();
         $this->assertIsArray($configurations);
-        $this->assertFalse($configurations[0]['isFormatSupported']);
-        $this->assertFalse($configurations[1]['isFormatSupported']);
+        $this->assertSame(
+            'Verifiable Credential configuration [NoFormat] has no format this issuer issues (jwt_vc_json, ' .
+            'dc+sd-jwt, vc+sd-jwt).',
+            $configurations[0]['fault'],
+        );
+        $this->assertSame(
+            'Verifiable Credential configuration [BogusFormat] has no format this issuer issues (jwt_vc_json, ' .
+            'dc+sd-jwt, vc+sd-jwt).',
+            $configurations[1]['fault'],
+        );
 
-        $this->assertStringContainsString('unsupported format', (string)$row->getWarning());
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
+        $this->assertStringContainsString('discovery, registration, authorization', (string)$row->getWarning());
     }
 
 
@@ -389,8 +413,8 @@ class VciOverviewBuilderTest extends TestCase
             $this->buildVciOverviewBuilder([
                 ModuleConfig::OPTION_VCI_ENABLED => true,
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
-                    'offline_access' => ['format' => 'jwt_vc_json'],
-                    'Fine' => ['format' => 'jwt_vc_json'],
+                    'offline_access' => self::issuable(['format' => 'jwt_vc_json']),
+                    'Fine' => self::issuable(['format' => 'jwt_vc_json']),
                 ],
             ])->build(),
             ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
@@ -415,9 +439,9 @@ class VciOverviewBuilderTest extends TestCase
             $this->buildVciOverviewBuilder([
                 ModuleConfig::OPTION_VCI_ENABLED => true,
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
-                    'Fine' => ['format' => 'jwt_vc_json', 'scope' => 'Fine'],
-                    'NoScope' => ['format' => 'jwt_vc_json'],
-                    'Stated' => ['format' => 'jwt_vc_json', 'scope' => $scope],
+                    'Fine' => self::issuable(['format' => 'jwt_vc_json', 'scope' => 'Fine']),
+                    'NoScope' => self::issuable(['format' => 'jwt_vc_json']),
+                    'Stated' => self::issuable(['format' => 'jwt_vc_json', 'scope' => $scope]),
                 ],
             ])->build(),
             ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
@@ -457,8 +481,8 @@ class VciOverviewBuilderTest extends TestCase
             $this->buildVciOverviewBuilder([
                 ModuleConfig::OPTION_VCI_ENABLED => true,
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
-                    'Fine' => ['format' => 'jwt_vc_json', 'scope' => 'Fine'],
-                    'NoScope' => ['format' => 'jwt_vc_json'],
+                    'Fine' => self::issuable(['format' => 'jwt_vc_json', 'scope' => 'Fine']),
+                    'NoScope' => self::issuable(['format' => 'jwt_vc_json']),
                 ],
             ])->build(),
             ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
@@ -481,6 +505,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'JwtVcJsonCredential' => [
                         'format' => 'jwt_vc_json',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             // Declared with the non-string segment already absent, which is what
                             // issuance compares the filtered mapping path against.
@@ -524,6 +549,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'JwtVcJsonCredential' => [
                         'format' => 'jwt_vc_json',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             'claims' => [['path' => ['credentialSubject', 'mail']]],
                         ],
@@ -562,6 +588,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'JwtVcJsonCredential' => [
                         'format' => 'jwt_vc_json',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             'claims' => [['path' => ['credentialSubject', 0, 'mail']]],
                         ],
@@ -592,6 +619,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'JwtVcJsonCredential' => [
                         'format' => 'jwt_vc_json',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             'claims' => [
                                 ['path' => ['credentialSubject', 'mail']],
@@ -638,6 +666,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'SdJwtCredential' => [
                         'format' => 'dc+sd-jwt',
+                        'vct' => 'urn:example:SdJwtCredential',
                         'credential_metadata' => [
                             'claims' => [['path' => ['mail']]],
                         ],
@@ -673,6 +702,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'VcSdJwtCredential' => [
                         'format' => 'vc+sd-jwt',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             'claims' => [
                                 ['path' => ['mail']],
@@ -943,6 +973,98 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame('5 minutes (PT5M)', $row->getValue());
         $this->assertStringContainsString('falls back to 5 minutes', (string)$row->getNote());
+    }
+
+
+    /**
+     * Whether a pre-authorized code may be redeemed by a wallet naming no client: on unless set, and the note says
+     * what each setting means.
+     */
+    public function testShowsWhetherAPreAuthorizedCodeMayBeRedeemedAnonymously(): void
+    {
+        $defaultRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS,
+        );
+        $this->assertNotNull($defaultRow);
+        $this->assertSame('Yes', $defaultRow->getValue());
+        $this->assertStringContainsString('without naming itself', (string)$defaultRow->getNote());
+
+        $refusedRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => false,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS,
+        );
+        $this->assertNotNull($refusedRow);
+        $this->assertSame('No', $refusedRow->getValue());
+        $this->assertStringContainsString('refused with invalid_client', (string)$refusedRow->getNote());
+    }
+
+
+    /**
+     * An SD-JWT VC configuration shows the vct its credentials state, and one which is not a URI is marked, with a
+     * row warning, since it may not be the collision-resistant name SD-JWT VC asks for; its credentials are still
+     * issued, so it is no fault.
+     */
+    public function testShowsTheVctOfAnSdJwtVcAndMarksOneWhichIsNotAUri(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'UriType' => ['format' => 'dc+sd-jwt', 'vct' => 'urn:example:UriType'],
+                    'PlainType' => ['format' => 'dc+sd-jwt', 'vct' => 'PlainType'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertSame('urn:example:UriType', $configurations[0]['vct']);
+        $this->assertTrue($configurations[0]['isVctAUri']);
+        $this->assertSame('PlainType', $configurations[1]['vct']);
+        $this->assertFalse($configurations[1]['isVctAUri']);
+        $this->assertNull($configurations[1]['fault']);
+        $this->assertStringContainsString('has a vct which is not a URI', (string)$row->getWarning());
+
+        $uriRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'UriType' => ['format' => 'dc+sd-jwt', 'vct' => 'urn:example:UriType'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+        $this->assertNotNull($uriRow);
+        $this->assertNull($uriRow->getWarning());
+    }
+
+
+    /**
+     * A refusal outranks the vct warning, since the configuration is not issued at all.
+     */
+    public function testReportsAFaultBeforeAVctWhichIsNotAUri(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'PlainType' => ['format' => 'dc+sd-jwt', 'vct' => 'PlainType'],
+                    'NoVct' => ['format' => 'dc+sd-jwt'],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertNull($configurations[1]['vct']);
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
     }
 
 
@@ -2618,8 +2740,9 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
-     * The display block carries one entry per locale, and a malformed entry among them must cost
-     * only its own name.
+     * The display block carries one entry per locale, and a malformed entry among them costs only its
+     * own name in the list; the configuration is refused for it all the same (ModuleConfig::
+     * findFaultInVciCredentialConfiguration()), and marked with the reason.
      */
     public function testSkipsDisplayEntriesWhichAreNotArrays(): void
     {
@@ -2629,6 +2752,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'PartlyMalformed' => [
                         'format' => 'jwt_vc_json',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             'display' => [
                                 'not-an-array',
@@ -2648,15 +2772,20 @@ class VciOverviewBuilderTest extends TestCase
         $configurations = $row->getValue();
         $this->assertIsArray($configurations);
         $this->assertSame(['Readable Name'], $configurations[0]['displayNames']);
-        // Dropped quietly: nothing about the surviving configuration is wrong.
-        $this->assertNull($row->getWarning());
+        $this->assertSame(
+            'A display object of Verifiable Credential configuration [PartlyMalformed] is not a non-empty JSON ' .
+            'object.',
+            $configurations[0]['fault'],
+        );
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
     }
 
 
     /**
      * ModuleConfig keeps any truthy 'path' a claim declares, including one written as a dotted
      * string. Issuance matches a mapping against these verbatim, so a path which is not an array
-     * matches nothing and is not a claim path this configuration has.
+     * matches nothing and is not a claim path this configuration has. It is not a claims path pointer
+     * either, so the configuration is refused, and marked with the reason.
      */
     public function testSkipsDeclaredClaimPathsWhichAreNotArrays(): void
     {
@@ -2666,6 +2795,7 @@ class VciOverviewBuilderTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
                     'PartlyMalformed' => [
                         'format' => 'jwt_vc_json',
+                        'credential_definition' => ['type' => ['VerifiableCredential']],
                         'credential_metadata' => [
                             'claims' => [
                                 ['path' => 'written.as.a.string'],
@@ -2683,8 +2813,12 @@ class VciOverviewBuilderTest extends TestCase
         $configurations = $row->getValue();
         $this->assertIsArray($configurations);
         $this->assertSame(['credentialSubject.mail'], $configurations[0]['claimPaths']);
-        // Dropped quietly, as above.
-        $this->assertNull($row->getWarning());
+        $this->assertStringStartsWith(
+            'A claims description of Verifiable Credential configuration [PartlyMalformed] has no path which ' .
+            'is a claims path pointer',
+            (string)$configurations[0]['fault'],
+        );
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
     }
 
 

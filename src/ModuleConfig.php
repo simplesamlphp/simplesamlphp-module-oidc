@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
+use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -30,6 +31,7 @@ use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
@@ -158,6 +160,24 @@ class ModuleConfig
      * it at configuration time, where the fault can be reported, rather than at the token endpoint.
      */
     final public const string SCOPE_TOKEN_PATTERN = '/^[\x21\x23-\x5B\x5D-\x7E]+\z/';
+
+    /**
+     * The credential formats CredentialIssuerCredentialController issues. A credential configuration of any other
+     * format is refused (findFaultInVciCredentialConfiguration()), since it would be advertised and then fail at
+     * issuance.
+     */
+    final public const array VCI_ISSUABLE_CREDENTIAL_FORMATS = [
+        CredentialFormatIdentifiersEnum::JwtVcJson->value,
+        CredentialFormatIdentifiersEnum::DcSdJwt->value,
+        CredentialFormatIdentifiersEnum::VcSdJwt->value,
+    ];
+
+    /**
+     * A URI as far as its form tells: a scheme, a colon and no whitespace (RFC 3986 section 3). It tells the
+     * `vct` of an SD-JWT VC written as a URI, the usual form of the collision-resistant name SD-JWT VC asks for,
+     * from a plain string, which may collide with another issuer's.
+     */
+    final public const string URI_PATTERN = '/^[A-Za-z][A-Za-z0-9+.\-]*:\S+\z/';
 
     /**
      * Custom scope config keys, mirroring ClaimTranslatorExtractorFactory.
@@ -360,6 +380,9 @@ class ModuleConfig
 
     final public const string OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS = 'vci_allow_non_registered_clients';
 
+    final public const string OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS =
+    'vci_allow_anonymous_pre_authorized_access';
+
     final public const string OPTION_VCI_ALLOWED_REDIRECT_URI_PREFIXES_FOR_NON_REGISTERED_CLIENTS =
     'vci_allowed_redirect_uri_prefixes_for_non_registered_clients';
 
@@ -507,6 +530,7 @@ class ModuleConfig
         protected readonly SspBridge $sspBridge = new SspBridge(),
         protected readonly ValueAbstracts $valueAbstracts = new ValueAbstracts(),
         protected readonly OpenIdHelpers $openIdHelpers = new OpenIdHelpers(),
+        protected readonly ClaimsDescriptionValidator $claimsDescriptionValidator = new ClaimsDescriptionValidator(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
@@ -3092,7 +3116,218 @@ class ModuleConfig
             }
             $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
         }
+
+        // What is advertised has to be issuable too, so a malformed configuration fails here as well, after the
+        // checks of its name and scope above.
+        $this->validateVciCredentialConfigurations();
+
         return $vciScopes;
+    }
+
+
+    /**
+     * Refuse the credential configurations if any of them can not be published and issued as it stands
+     * (findFaultInVciCredentialConfiguration()). Called where the configurations become scopes (getVciScopes()),
+     * so that discovery, registration and authorization fail on a malformed one, and before the Credential Issuer
+     * metadata publishes them.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function validateVciCredentialConfigurations(): void
+    {
+        /** @psalm-suppress MixedAssignment */
+        foreach ($this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $configuration) {
+            $fault = $this->findFaultInVciCredentialConfiguration((string)$credentialConfigurationId, $configuration);
+
+            if ($fault !== null) {
+                throw new ConfigurationError($fault, self::DEFAULT_FILE_NAME);
+            }
+        }
+    }
+
+
+    /**
+     * Why a credential configuration can not be published and issued as it stands, or null when it can: its format
+     * is one this issuer issues, with what that format requires (OpenID4VCI 1.0 Appendix A: a `vct` for
+     * `dc+sd-jwt`, a `credential_definition.type` for `jwt_vc_json`, and the same for `vc+sd-jwt`, which issues
+     * it as the W3C data model's `type`), and its `credential_metadata`, if it has one, is a non-empty object
+     * whose `display` has one object with a name for each language (section 12.2.4) and whose `claims` are claims
+     * descriptions with display objects of their own one for each language (Appendix B.2, B.3). An empty object
+     * is refused where one is required, since it would be published as an empty JSON array. `claims` and `display`
+     * at the top level, where the pre-final drafts had them, are refused: OpenID4VCI 1.0 has them in
+     * `credential_metadata`, and a wallet ignores them anywhere else.
+     *
+     * Whether a `vct` is a collision-resistant name is not judged here: a URI (URI_PATTERN) is the usual form of
+     * one, not the only one, so the configuration overview and the Credential Endpoint's log only warn about a
+     * `vct` which is not.
+     */
+    public function findFaultInVciCredentialConfiguration(
+        string $credentialConfigurationId,
+        mixed $configuration,
+    ): ?string {
+        $of = 'Verifiable Credential configuration [' . $credentialConfigurationId . ']';
+
+        if (! $this->claimsDescriptionValidator->isJsonObject($configuration)) {
+            return $of . ' is not an object of credential configuration parameters.';
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $format = $configuration[ClaimsEnum::Format->value] ?? null;
+
+        if (! is_string($format) || ! in_array($format, self::VCI_ISSUABLE_CREDENTIAL_FORMATS, true)) {
+            return $of . ' has no format this issuer issues (' . implode(', ', self::VCI_ISSUABLE_CREDENTIAL_FORMATS) .
+            ').';
+        }
+
+        if ($format === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
+            /** @psalm-suppress MixedAssignment */
+            $vct = $configuration[ClaimsEnum::Vct->value] ?? null;
+
+            if (! is_string($vct) || $vct === '') {
+                return $of . ' has no vct, which its format requires: a non-empty string naming the type of its ' .
+                'credentials.';
+            }
+        } else {
+            /** @psalm-suppress MixedAssignment */
+            $credentialDefinition = $configuration[ClaimsEnum::CredentialDefinition->value] ?? null;
+            /** @psalm-suppress MixedAssignment */
+            $types = is_array($credentialDefinition) ? ($credentialDefinition[ClaimsEnum::Type->value] ?? null) : null;
+
+            if (! $this->isNonEmptyListOfNonEmptyStrings($types)) {
+                return $of . ' has no credential_definition.type, which its format requires: a non-empty array of ' .
+                'non-empty strings naming the types of its credentials.';
+            }
+        }
+
+        foreach ([ClaimsEnum::Claims->value, ClaimsEnum::Display->value] as $member) {
+            if (array_key_exists($member, $configuration)) {
+                return $of . ' has ' . $member . ' at its top level, where the pre-final drafts had it; OpenID4VCI ' .
+                '1.0 has it in credential_metadata.';
+            }
+        }
+
+        if (! array_key_exists(ClaimsEnum::CredentialMetadata->value, $configuration)) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $credentialMetadata = $configuration[ClaimsEnum::CredentialMetadata->value];
+
+        if (! $this->claimsDescriptionValidator->isJsonObject($credentialMetadata) || $credentialMetadata === []) {
+            return 'The credential_metadata of ' . $of . ' is not a non-empty object.';
+        }
+
+        if (array_key_exists(ClaimsEnum::Display->value, $credentialMetadata)) {
+            $fault = $this->findFaultInVciDisplayObjects($credentialMetadata[ClaimsEnum::Display->value], $of, true);
+
+            if ($fault !== null) {
+                return $fault;
+            }
+        }
+
+        if (! array_key_exists(ClaimsEnum::Claims->value, $credentialMetadata)) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $claimsDescriptions = $credentialMetadata[ClaimsEnum::Claims->value];
+        $fault = $this->claimsDescriptionValidator->findFaultInClaimsDescriptions($claimsDescriptions, $of);
+
+        if ($fault !== null || ! is_array($claimsDescriptions)) {
+            return $fault;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($claimsDescriptions as $claimsDescription) {
+            if (is_array($claimsDescription) && array_key_exists(ClaimsEnum::Display->value, $claimsDescription)) {
+                $fault = $this->findFaultInVciDisplayObjects(
+                    $claimsDescription[ClaimsEnum::Display->value],
+                    'a claims description of ' . $of,
+                    false,
+                );
+
+                if ($fault !== null) {
+                    return $fault;
+                }
+            }
+        }
+
+        return null;
+    }
+
+
+    /**
+     * Why the display objects of a credential configuration (OpenID4VCI 1.0 section 12.2.4) or of one of its claims
+     * descriptions (Appendix B.2) can not be published, or null when they can: a non-empty array of non-empty
+     * objects, each with a name which is a non-empty string (required of a credential's, optional for a claim's)
+     * and a locale, if it has one, which is a non-empty string; and only one object for each language. Language
+     * tags are compared without regard to case (RFC 5646 section 2.1.1), and an object without a locale counts as
+     * one more language, since two of them leave a wallet nothing to choose by.
+     */
+    protected function findFaultInVciDisplayObjects(mixed $displayObjects, string $of, bool $isNameRequired): ?string
+    {
+        if (! $this->claimsDescriptionValidator->isNonEmptyJsonArray($displayObjects)) {
+            return 'The display of ' . $of . ' is not a non-empty array of display objects.';
+        }
+
+        $languages = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($displayObjects as $displayObject) {
+            if (! $this->claimsDescriptionValidator->isJsonObject($displayObject) || $displayObject === []) {
+                return 'A display object of ' . $of . ' is not a non-empty JSON object.';
+            }
+
+            if ($isNameRequired || array_key_exists(ClaimsEnum::Name->value, $displayObject)) {
+                /** @psalm-suppress MixedAssignment */
+                $name = $displayObject[ClaimsEnum::Name->value] ?? null;
+
+                if (! is_string($name) || $name === '') {
+                    return 'A display object of ' . $of . ' has no name which is a non-empty string.';
+                }
+            }
+
+            $language = '';
+
+            if (array_key_exists(ClaimsEnum::Locale->value, $displayObject)) {
+                /** @psalm-suppress MixedAssignment */
+                $locale = $displayObject[ClaimsEnum::Locale->value];
+
+                if (! is_string($locale) || $locale === '') {
+                    return 'A display object of ' . $of . ' has a locale which is not a non-empty string.';
+                }
+
+                $language = strtolower($locale);
+            }
+
+            if (isset($languages[$language])) {
+                return 'Two display objects of ' . $of . ' are for the same language; there has to be only one ' .
+                'for each.';
+            }
+            $languages[$language] = true;
+        }
+
+        return null;
+    }
+
+
+    /**
+     * @psalm-assert-if-true non-empty-list<non-empty-string> $value
+     */
+    protected function isNonEmptyListOfNonEmptyStrings(mixed $value): bool
+    {
+        if (! $this->claimsDescriptionValidator->isNonEmptyJsonArray($value)) {
+            return false;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($value as $element) {
+            if (! is_string($element) || $element === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 
@@ -3154,6 +3389,49 @@ class ModuleConfig
         }
 
         return array_filter($validPaths);
+    }
+
+
+    /**
+     * The claim paths a credential configuration advertises as mandatory, ones the issuer always includes in its
+     * credentials (OpenID4VCI 1.0 Appendix B.2), read from where getVciValidCredentialClaimPathsFor() reads them.
+     *
+     * @return list<list<mixed>>
+     */
+    public function getVciMandatoryCredentialClaimPathsFor(string $credentialConfigurationId): array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $credentialConfiguration = $this->getVciCredentialConfigurationsSupported()[$credentialConfigurationId] ?? [];
+
+        if (!is_array($credentialConfiguration)) {
+            return [];
+        }
+
+        /** @psalm-suppress MixedArrayAccess, MixedAssignment */
+        $claimsConfig = $credentialConfiguration[ClaimsEnum::CredentialMetadata->value][ClaimsEnum::Claims->value] ??
+        $credentialConfiguration[ClaimsEnum::Claims->value] ?? [];
+
+        if (!is_array($claimsConfig)) {
+            return [];
+        }
+
+        $mandatoryPaths = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($claimsConfig as $claim) {
+            if (!is_array($claim) || ($claim[ClaimsEnum::Mandatory->value] ?? false) !== true) {
+                continue;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $path = $claim[ClaimsEnum::Path->value] ?? null;
+
+            if (is_array($path)) {
+                $mandatoryPaths[] = array_values($path);
+            }
+        }
+
+        return $mandatoryPaths;
     }
 
 
@@ -3277,6 +3555,19 @@ class ModuleConfig
     public function getVciAllowNonRegisteredClients(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS, false);
+    }
+
+
+    /**
+     * Whether a token request redeeming a pre-authorized code may come without a `client_id` and without client
+     * authentication (OpenID4VCI 1.0 section 6.1), published as `pre-authorized_grant_anonymous_access_supported`.
+     * On unless set, as it always was: only the Transaction Code, where an offer has one, then stands between
+     * whoever holds the code and the credential. Off, such a request is refused with `invalid_client` (section
+     * 6.3); a wallet naming itself by `client_id` is still accepted, registered or not.
+     */
+    public function getVciAllowAnonymousPreAuthorizedAccess(): bool
+    {
+        return $this->config()->getOptionalBoolean(self::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS, true);
     }
 
 

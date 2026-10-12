@@ -45,16 +45,6 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
     /** Declared, but discarded during serialization for this credential format. */
     protected const string REASON_DROPPED_FOR_FORMAT = 'droppedForFormat';
 
-    /**
-     * Credential formats CredentialIssuerCredentialController can actually issue. A configuration
-     * with any other format, or none, is rejected at issuance time.
-     */
-    protected const array SUPPORTED_FORMATS = [
-        CredentialFormatIdentifiersEnum::JwtVcJson->value,
-        CredentialFormatIdentifiersEnum::DcSdJwt->value,
-        CredentialFormatIdentifiersEnum::VcSdJwt->value,
-    ];
-
 
     /**
      * The repositories are read only here, and the Configuration screens already resolve a database
@@ -885,10 +875,11 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'discovery, registration and authorization fail until the scope is left out or made ' .
                     'equal to the id.',
                 ),
-                $this->hasUnsupportedFormat($credentialConfigurations) => Translate::noop(
-                    'At least one credential configuration has a missing or unsupported format, so ' .
-                    'it cannot issue credentials at all. Supported formats are jwt_vc_json, ' .
-                    'dc+sd-jwt and vc+sd-jwt.',
+                $this->hasFault($credentialConfigurations) => Translate::noop(
+                    'At least one credential configuration can not be issued as it stands, for the reason ' .
+                    'marked above. Such a configuration is refused, and with it the whole scope list and ' .
+                    'the Credential Issuer metadata, so discovery, registration, authorization and ' .
+                    'issuance fail until it is corrected.',
                 ),
                 $hasIneffectiveMapping && $hasIgnoredPairs => Translate::noop(
                     'At least one attribute mapping never reaches the credential, and at least one ' .
@@ -903,6 +894,11 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'At least one attribute map entry holds more than one attribute. Issuance reads ' .
                     'only the first pair of an entry, so the rest are ignored. Give each attribute ' .
                     'its own entry.',
+                ),
+                $this->hasVctWhichIsNotAUri($credentialConfigurations) => Translate::noop(
+                    'At least one credential configuration has a vct which is not a URI, so it may not be ' .
+                    'the collision-resistant name SD-JWT VC asks for: another issuer could use the same ' .
+                    'one. Its credentials are issued; the configurations are marked above.',
                 ),
                 default => null,
             };
@@ -1576,6 +1572,40 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 $emailMapWarning,
             ),
             $this->buildTxCodeMaxAttemptsRow(),
+            $this->buildAnonymousPreAuthorizedAccessRow(),
+        );
+    }
+
+
+    /**
+     * Whether a pre-authorized code may be redeemed by a wallet which names no client, which the
+     * authorization server metadata states as pre-authorized_grant_anonymous_access_supported.
+     */
+    protected function buildAnonymousPreAuthorizedAccessRow(): Row
+    {
+        return $this->guardRow(
+            Translate::noop('Anonymous Pre-Authorized Access'),
+            ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS,
+            function (): Row {
+                $isAllowed = $this->moduleConfig->getVciAllowAnonymousPreAuthorizedAccess();
+
+                return new Row(
+                    Translate::noop('Anonymous Pre-Authorized Access'),
+                    $this->yesNo($isAllowed),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS,
+                    $isAllowed ?
+                    Translate::noop(
+                        'A wallet may redeem a pre-authorized code without naming itself, so whoever holds the ' .
+                        'code, and its Transaction Code where the offer has one, gets the credential. Published ' .
+                        'as pre-authorized_grant_anonymous_access_supported.',
+                    ) :
+                    Translate::noop(
+                        'A wallet has to send its client_id, or authenticate, to redeem a pre-authorized code; ' .
+                        'one which sends neither is refused with invalid_client.',
+                    ),
+                );
+            },
         );
     }
 
@@ -1636,7 +1666,9 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
      * @return array<array{
      *     id: string,
      *     format: ?string,
-     *     isFormatSupported: bool,
+     *     fault: ?string,
+     *     vct: ?string,
+     *     isVctAUri: bool,
      *     scope: ?string,
      *     isScopeItsId: bool,
      *     displayNames: string[],
@@ -1669,10 +1701,21 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
             $format = is_string($format) ? $format : null;
 
+            // Only an SD-JWT VC states a vct, and for one without it the fault says so.
+            /** @var mixed $vct */
+            $vct = $configuration[ClaimsEnum::Vct->value] ?? null;
+            $vct = $format === CredentialFormatIdentifiersEnum::DcSdJwt->value && is_string($vct) && $vct !== '' ?
+            $vct :
+            null;
+
             $configurations[] = [
                 'id' => $id,
                 'format' => $format,
-                'isFormatSupported' => in_array($format, self::SUPPORTED_FORMATS, true),
+                // What ModuleConfig::getVciScopes() refuses the configuration for, so the overview does not
+                // mirror the checks.
+                'fault' => $this->moduleConfig->findFaultInVciCredentialConfiguration($id, $configuration),
+                'vct' => $vct,
+                'isVctAUri' => $vct === null || preg_match(ModuleConfig::URI_PATTERN, $vct) === 1,
                 'scope' => is_string($scope) ? $scope : null,
                 // Mirrors ModuleConfig::getVciScopes(), which refuses a stated scope other than the id.
                 'isScopeItsId' => !array_key_exists(ClaimsEnum::Scope->value, $configuration) || $scope === $id,
@@ -1799,13 +1842,30 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
 
     /**
-     * Whether any credential configuration declares a format which cannot be issued.
+     * Whether any credential configuration can not be issued as it stands, which ModuleConfig::getVciScopes()
+     * refuses.
      */
-    protected function hasUnsupportedFormat(array $credentialConfigurations): bool
+    protected function hasFault(array $credentialConfigurations): bool
     {
         /** @var mixed $configuration */
         foreach ($credentialConfigurations as $configuration) {
-            if (is_array($configuration) && ($configuration['isFormatSupported'] ?? true) === false) {
+            if (is_array($configuration) && ($configuration['fault'] ?? null) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
+     * Whether any SD-JWT VC configuration has a vct which is not a URI, which issuance warns about.
+     */
+    protected function hasVctWhichIsNotAUri(array $credentialConfigurations): bool
+    {
+        /** @var mixed $configuration */
+        foreach ($credentialConfigurations as $configuration) {
+            if (is_array($configuration) && ($configuration['isVctAUri'] ?? true) === false) {
                 return true;
             }
         }

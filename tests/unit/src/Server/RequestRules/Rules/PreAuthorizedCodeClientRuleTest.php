@@ -14,6 +14,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
@@ -41,6 +42,7 @@ use Stringable;
  * presented, or a `client_id` which contradicts the credentials, each `invalid_client`). What separates the
  * second from the third is a registry lookup by the identifier presented, and what keeps a disabled or expired
  * registration from being taken on trust is that only an active one is handed to the resolver as pre-fetched.
+ * Anonymous access is on unless the configuration turns it off, and then it is refused as `invalid_client` too.
  */
 #[CoversClass(PreAuthorizedCodeClientRule::class)]
 #[UsesClass(PreAuthorizedCodeClient::class)]
@@ -66,6 +68,10 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
 
     private ClientEntityInterface&MockObject $clientMock;
 
+    private ModuleConfig&MockObject $moduleConfigMock;
+
+    private bool $isAnonymousAccessAllowed = true;
+
     /** @var array<int, array{level: string, message: string, context: array}> */
     private array $logRecords = [];
 
@@ -79,6 +85,9 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
         $this->requestMock = $this->createMock(ServerRequestInterface::class);
         $this->clientMock = $this->createMock(ClientEntityInterface::class);
         $this->clientMock->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getVciAllowAnonymousPreAuthorizedAccess')
+            ->willReturnCallback(fn(): bool => $this->isAnonymousAccessAllowed);
 
         foreach (['debug', 'warning'] as $level) {
             $this->loggerServiceMock->method($level)->willReturnCallback(
@@ -101,6 +110,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
             new Helpers(),
             $this->authenticatedOAuth2ClientResolverMock,
             $this->clientRepositoryMock,
+            $this->moduleConfigMock,
         );
     }
 
@@ -135,6 +145,66 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
         $this->clientRepositoryMock->expects($this->never())->method('findById');
 
         $this->assertNull($this->check());
+    }
+
+
+    /**
+     * Where the configuration does not allow anonymous access, a request naming no client is refused as
+     * `invalid_client` (OpenID4VCI 1.0 section 6.3), an empty `client_id` being none, rather than issued a token
+     * for nobody.
+     */
+    #[DataProvider('noClientIdProvider')]
+    public function testRefusesAnAnonymousRequestWhereAnonymousAccessIsNotAllowed(?string $clientId): void
+    {
+        $this->isAnonymousAccessAllowed = false;
+        $this->withClientId($clientId);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(false);
+        $this->authenticatedOAuth2ClientResolverMock->expects($this->never())->method('forAnySupportedMethod');
+        $this->clientRepositoryMock->expects($this->never())->method('findById');
+
+        $this->assertRefused();
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: a pre-authorized code redeemed without a `client_id`, and anonymous access is ' .
+            'not allowed.',
+            [],
+        );
+    }
+
+
+    public static function noClientIdProvider(): array
+    {
+        return [
+            'no client_id' => [null],
+            'an empty client_id' => [''],
+        ];
+    }
+
+
+    /**
+     * Turning anonymous access off leaves the wallets which name themselves alone: a self-declared identifier is
+     * still taken at its word, and credentials still authenticate the client they name.
+     */
+    public function testAcceptsAWalletNamingItselfWhereAnonymousAccessIsNotAllowed(): void
+    {
+        $this->isAnonymousAccessAllowed = false;
+        $this->withClientId(self::CLIENT_ID);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(false);
+        $this->clientRepositoryMock->method('findById')->with(self::CLIENT_ID)->willReturn(null);
+
+        $this->assertResolvedToSelfDeclared(self::CLIENT_ID, $this->check());
+    }
+
+
+    public function testAuthenticatesCredentialsWhereAnonymousAccessIsNotAllowed(): void
+    {
+        $this->isAnonymousAccessAllowed = false;
+        $this->withClientId(null);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(true);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::ClientSecretBasic));
+
+        $this->assertResolvedToTheRegisteredClient($this->check());
     }
 
 

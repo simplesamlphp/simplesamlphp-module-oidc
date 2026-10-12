@@ -2857,3 +2857,37 @@ msgid ""
 "vci_allowed_redirect_uri_prefixes_for_non_registered_clients and "
 "vci_require_dpop."
 msgstr ""
+
+msgid "Anonymous Pre-Authorized Access"
+msgstr ""
+
+msgid ""
+"A wallet may redeem a pre-authorized code without naming itself, so whoever "
+"holds the code, and its Transaction Code where the offer has one, gets the "
+"credential. Published as pre-authorized_grant_anonymous_access_supported."
+msgstr ""
+
+msgid ""
+"A wallet has to send its client_id, or authenticate, to redeem a "
+"pre-authorized code; one which sends neither is refused with invalid_client."
+msgstr ""
+
+msgid ""
+"At least one credential configuration can not be issued as it stands, for "
+"the reason marked above. Such a configuration is refused, and with it the "
+"whole scope list and the Credential Issuer metadata, so discovery, "
+"registration, authorization and issuance fail until it is corrected."
+msgstr ""
+
+msgid ""
+"At least one credential configuration has a vct which is not a URI, so it "
+"may not be the collision-resistant name SD-JWT VC asks for: another issuer "
+"could use the same one. Its credentials are issued; the configurations are "
+"marked above."
+msgstr ""
+
+msgid "Credential type (vct)"
+msgstr ""
+
+msgid "not a URI, so possibly not a collision-resistant name"
+msgstr ""

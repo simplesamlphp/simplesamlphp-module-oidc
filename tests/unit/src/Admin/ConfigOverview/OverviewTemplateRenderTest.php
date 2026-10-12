@@ -353,6 +353,32 @@ class OverviewTemplateRenderTest extends TestCase
 
 
     /**
+     * The reason a configuration is refused, and the vct of an SD-JWT VC with its mark when it is not a URI, are
+     * on the page.
+     *
+     * @throws \Exception
+     */
+    public function testRendersTheFaultAndTheVctOfACredentialConfiguration(): void
+    {
+        $html = $this->renderVci([
+            ModuleConfig::OPTION_VCI_ENABLED => true,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                'PlainType' => ['format' => 'dc+sd-jwt', 'vct' => 'PlainTypeVct'],
+                'NoVct' => ['format' => 'dc+sd-jwt'],
+            ],
+        ]);
+
+        $this->assertStringContainsString('Credential type (vct)', $html);
+        $this->assertStringContainsString('<code>PlainTypeVct</code>', $html);
+        $this->assertStringContainsString('not a URI, so possibly not a collision-resistant name', $html);
+        $this->assertStringContainsString(
+            'Verifiable Credential configuration [NoVct] has no vct, which its format requires',
+            $html,
+        );
+    }
+
+
+    /**
      * The two ineffective mapping markers are matched on a string the builder produces, so a renamed
      * reason constant would silently stop rendering. Both branches are pinned here.
      *

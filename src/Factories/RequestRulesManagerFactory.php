@@ -56,6 +56,7 @@ use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Jwks;
@@ -86,6 +87,7 @@ class RequestRulesManagerFactory
         private readonly FragmentResponseMode $fragmentResponseMode,
         private readonly FormPostResponseMode $formPostResponseMode,
         private readonly IssuerStateRepository $issuerStateRepository,
+        private readonly ClaimsDescriptionValidator $claimsDescriptionValidator,
         private readonly ?FederationCache $federationCache = null,
         private readonly ?ProtocolCache $protocolCache = null,
     ) {
@@ -194,7 +196,12 @@ class RequestRulesManagerFactory
                 $this->authenticatedOAuth2ClientResolver,
             ),
             new CodeVerifierRule($this->requestParamsResolver, $this->helpers),
-            new AuthorizationDetailsRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
+            new AuthorizationDetailsRule(
+                $this->requestParamsResolver,
+                $this->helpers,
+                $this->moduleConfig,
+                $this->claimsDescriptionValidator,
+            ),
             new OfferedCredentialsRule(
                 $this->requestParamsResolver,
                 $this->helpers,
@@ -206,6 +213,7 @@ class RequestRulesManagerFactory
                 $this->helpers,
                 $this->authenticatedOAuth2ClientResolver,
                 $this->clientRepository,
+                $this->moduleConfig,
             ),
             new ClientIdRule($this->requestParamsResolver, $this->helpers),
         ];

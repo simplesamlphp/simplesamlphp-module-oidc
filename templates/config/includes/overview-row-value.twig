@@ -145,10 +145,19 @@
                 {% if credentialConfiguration.format is not null %}
                     <em>({{ credentialConfiguration.format }})</em>
                 {% endif %}
-                {% if not credentialConfiguration.isFormatSupported %}
-                    <small class="red-text">
-                        ({{ 'missing or unsupported format, cannot issue credentials'|trans }})
-                    </small>
+                {% if credentialConfiguration.fault is not null %}
+                    <br>
+                    <small class="red-text">{{ credentialConfiguration.fault }}</small>
+                {% endif %}
+
+                {% if credentialConfiguration.vct is not null %}
+                    <br>
+                    <small>{{ 'Credential type (vct)'|trans }}: <code>{{ credentialConfiguration.vct }}</code></small>
+                    {% if not credentialConfiguration.isVctAUri %}
+                        <small class="red-text">
+                            ({{ 'not a URI, so possibly not a collision-resistant name'|trans }})
+                        </small>
+                    {% endif %}
                 {% endif %}
 
                 {% if credentialConfiguration.displayNames is not empty %}

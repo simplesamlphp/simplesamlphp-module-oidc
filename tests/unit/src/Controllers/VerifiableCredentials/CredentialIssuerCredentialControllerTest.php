@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 
+use ArrayObject;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -79,6 +80,12 @@ use Throwable;
 class CredentialIssuerCredentialControllerTest extends TestCase
 {
     protected const string CONFIGURATION_ID = 'test_id';
+
+    /**
+     * The type an SD-JWT VC configuration advertises, other than its id, so that a test can tell which one a
+     * credential states.
+     */
+    protected const string VCT = 'urn:example:TestCredentialType';
 
     protected const string ISSUER = 'https://issuer.com';
 
@@ -194,6 +201,11 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var array<array-key,mixed> */
     protected array $attributeToClaimPathMap = [];
 
+    /** @var list<list<mixed>> */
+    protected array $mandatoryClaimPaths = [];
+
+    protected ?string $configurationFault = null;
+
     /** @var array<array{error: string, description: string, httpCode: int}> Refusals the endpoint answered with. */
     protected array $errorResponses = [];
 
@@ -271,6 +283,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->userClaims = [];
         $this->validClaimPaths = [];
         $this->attributeToClaimPathMap = [];
+        $this->mandatoryClaimPaths = [];
+        $this->configurationFault = null;
 
         // VCI must be enabled in constructor
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
@@ -284,6 +298,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ->willReturnCallback(fn(): array => $this->validClaimPaths);
         $this->moduleConfigMock->method('getVciUserAttributeToCredentialClaimPathMapFor')
             ->willReturnCallback(fn(): array => $this->attributeToClaimPathMap);
+        $this->moduleConfigMock->method('getVciMandatoryCredentialClaimPathsFor')
+            ->willReturnCallback(fn(): array => $this->mandatoryClaimPaths);
+        // What ModuleConfig would say of the configuration is its own subject (ModuleConfigTest); here it is the
+        // scenario's.
+        $this->moduleConfigMock->method('findFaultInVciCredentialConfiguration')
+            ->willReturnCallback(fn(): ?string => $this->configurationFault);
         $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
             ->willReturnCallback(fn(): VciCredentialBindingPolicyEnum => $this->bindingPolicy);
@@ -523,7 +543,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         array $proofJwts = ['jwt1'],
         ?array $inlineKey = null,
     ): Response {
-        $this->credentialConfiguration = [ClaimsEnum::Format->value => $format];
+        // An SD-JWT VC configuration advertises the type its credentials state, which is not its id.
+        $this->credentialConfiguration = [ClaimsEnum::Format->value => $format] +
+        ($format === CredentialFormatIdentifiersEnum::DcSdJwt->value ? [ClaimsEnum::Vct->value => self::VCT] : []);
 
         $this->requestData = [
             ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
@@ -863,6 +885,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->timeClaimGranularity = new DateInterval('P1D');
         $this->credentialConfiguration = [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            ClaimsEnum::Vct->value => self::VCT,
         ];
         $this->requestData = [
             ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
@@ -1027,6 +1050,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->credentialConfiguration = [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            ClaimsEnum::Vct->value => self::VCT,
         ];
         // A configuration which advertises no proof type resolves no proof, and issues once anyway.
         $this->validatedProofs = [null];
@@ -2012,17 +2036,75 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * The configuration id is the issued `vct` of an SD-JWT VC.
+     * An SD-JWT VC states the `vct` its configuration advertises (OpenID4VCI 1.0 Appendix A.3.2), not the
+     * configuration id, and a `vct` written as a URI is issued without a word in the log.
      */
-    public function testAnSdJwtVcStatesTheConfigurationIdAsItsVct(): void
+    public function testAnSdJwtVcStatesTheVctItsConfigurationAdvertises(): void
     {
+        $logged = $this->captureLog();
+
         $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
 
         $this->assertSame([], $this->errorResponses);
+        $this->assertSame(self::VCT, $this->signedPayloads[0][ClaimsEnum::Vct->value] ?? null);
+        $this->assertSame([], $this->logLinesOfLevel($logged, 'warning'));
+    }
+
+
+    /**
+     * A `vct` which is not a URI may still be a collision-resistant name, so the credential is issued with it,
+     * and the log says it may not be one (decision D25).
+     */
+    public function testIssuesAVctWhichIsNotAUriAndWarnsThatItMayCollide(): void
+    {
+        $logged = $this->captureLog();
+        $this->credentialConfiguration = [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            ClaimsEnum::Vct->value => 'TestCredentialType',
+        ];
+        $this->validatedProofs = [$this->validatedProof()];
+
+        $this->dispatch();
+
+        $this->assertSame('TestCredentialType', $this->signedPayloads[0][ClaimsEnum::Vct->value] ?? null);
         $this->assertSame(
-            self::CONFIGURATION_ID,
-            $this->signedPayloads[0][ClaimsEnum::Vct->value] ?? null,
+            [[
+                'The vct of a credential configuration is not a URI, so it may not be a collision-resistant ' .
+                'name: a verifier could take another issuer\'s credentials of the same vct for this type.',
+                ['credentialConfigurationId' => self::CONFIGURATION_ID, 'vct' => 'TestCredentialType'],
+            ]],
+            $this->logLinesOfLevel($logged, 'warning'),
         );
+    }
+
+
+    /**
+     * The `vct` is what a verifier reads the type of an SD-JWT VC by, so a configuration without one is this
+     * issuer's own misconfiguration, answered as such before anything is allocated or signed.
+     */
+    #[DataProvider('missingVctProvider')]
+    public function testFailsWhenTheResolvedSdJwtVcConfigurationStatesNoVct(array $vct): void
+    {
+        $this->credentialConfiguration = [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+        ] + $vct;
+        $this->validatedProofs = [$this->validatedProof()];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    public static function missingVctProvider(): array
+    {
+        return [
+            'no vct' => [[]],
+            'an empty vct' => [[ClaimsEnum::Vct->value => '']],
+            'a vct which is not a string' => [[ClaimsEnum::Vct->value => ['urn:example:Test']]],
+        ];
     }
 
 
@@ -2238,6 +2320,347 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->issue();
 
         $this->assertArrayNotHasKey('given_name', $this->credentialSubjectOfFirstCredential());
+    }
+
+
+    /**
+     * A claim the configuration advertises as mandatory is one the issuer always includes (OpenID4VCI 1.0
+     * Appendix B.2), so a user without the attribute it is mapped from is refused with `credential_request_denied`
+     * (section 8.3.1.2) rather than issued a credential a wallet would reject; refused for the whole request,
+     * before anything is allocated or signed for any of its credentials. The log names the claim, not the user's
+     * attributes.
+     */
+    #[DataProvider('mandatoryClaimFormatProvider')]
+    public function testRefusesAUserWithoutTheAttributeOfAMandatoryClaim(string $format, array $claimPath): void
+    {
+        $logged = $this->captureLog();
+        $this->validClaimPaths = [$claimPath, ['family_name']];
+        $this->mandatoryClaimPaths = [$claimPath];
+        $this->attributeToClaimPathMap = [['givenName' => $claimPath], ['sn' => ['family_name']]];
+        $this->userClaims = ['sn' => ['Doe']];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->issue($format, ['jwt1', 'jwt2']);
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+        $this->assertSame([], $this->signedPayloads);
+        $this->assertContains(
+            [
+                'Credential request denied: the user lacks the attribute of a claim the credential configuration ' .
+                'marks as mandatory.',
+                ['credentialConfigurationId' => self::CONFIGURATION_ID, 'claimPaths' => [$claimPath]],
+            ],
+            $this->logLinesOfLevel($logged, 'warning'),
+        );
+    }
+
+
+    public static function mandatoryClaimFormatProvider(): array
+    {
+        $inCredentialSubject = [ClaimsEnum::Credential_Subject->value, 'given_name'];
+
+        return [
+            'jwt_vc_json' => [CredentialFormatIdentifiersEnum::JwtVcJson->value, $inCredentialSubject],
+            'dc+sd-jwt' => [CredentialFormatIdentifiersEnum::DcSdJwt->value, ['given_name']],
+            'vc+sd-jwt' => [CredentialFormatIdentifiersEnum::VcSdJwt->value, $inCredentialSubject],
+        ];
+    }
+
+
+    public function testIssuesToAUserWithTheAttributeOfEveryMandatoryClaim(): void
+    {
+        $claimPath = [ClaimsEnum::Credential_Subject->value, 'given_name'];
+        $this->validClaimPaths = [$claimPath];
+        $this->mandatoryClaimPaths = [$claimPath];
+        $this->attributeToClaimPathMap = [['givenName' => $claimPath]];
+        $this->userClaims = ['givenName' => ['John']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame('John', $this->credentialSubjectOfFirstCredential()['given_name'] ?? null);
+    }
+
+
+    /**
+     * A claim may be mapped from more than one attribute, and is in the credential when any of them is.
+     */
+    public function testIssuesAMandatoryClaimFromWhicheverAttributeTheUserHas(): void
+    {
+        $claimPath = [ClaimsEnum::Credential_Subject->value, 'name'];
+        $this->validClaimPaths = [$claimPath];
+        $this->mandatoryClaimPaths = [$claimPath];
+        $this->attributeToClaimPathMap = [['displayName' => $claimPath], ['cn' => $claimPath]];
+        $this->userClaims = ['cn' => ['John Doe']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame('John Doe', $this->credentialSubjectOfFirstCredential()['name'] ?? null);
+    }
+
+
+    /**
+     * A mandatory claim no attribute is mapped to is not the user's to lack: what the issuer writes itself, as
+     * `credentialSubject.id`, is in the credential whatever the user has.
+     */
+    public function testDoesNotJudgeAMandatoryClaimNoAttributeIsMappedTo(): void
+    {
+        $this->mandatoryClaimPaths = [[ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value]];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    /**
+     * A claim the configuration does not mark as mandatory is left out when the user lacks its attribute, as
+     * before (testSkipsAnAttributeTheUserDoesNotHave), whatever else is mandatory.
+     */
+    public function testLeavesOutAClaimWhichIsNotMandatoryWhenTheUserLacksItsAttribute(): void
+    {
+        $givenName = [ClaimsEnum::Credential_Subject->value, 'given_name'];
+        $familyName = [ClaimsEnum::Credential_Subject->value, 'family_name'];
+        $this->validClaimPaths = [$givenName, $familyName];
+        $this->mandatoryClaimPaths = [$givenName];
+        $this->attributeToClaimPathMap = [['givenName' => $givenName], ['sn' => $familyName]];
+        $this->userClaims = ['givenName' => ['John']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertArrayNotHasKey('family_name', $this->credentialSubjectOfFirstCredential());
+    }
+
+
+    /**
+     * A configuration which could not be published as it stands is not issued under, though a token issued before
+     * it changed may still name it: the Credential Endpoint asks ModuleConfig for its fault too, and answers one as
+     * this issuer's own misconfiguration, before anything is allocated or signed.
+     */
+    public function testRefusesToIssueUnderAConfigurationWhichCanNotBeIssuedAsItStands(): void
+    {
+        $logged = $this->captureLog();
+        $this->configurationFault = 'Verifiable Credential configuration [test_id] has no credential_definition.type.';
+        $this->validatedProofs = [$this->validatedProof()];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame([], $this->signedPayloads);
+        $this->assertSame(
+            [[
+                'CredentialIssuerCredentialController::credential: The credential configuration can not be issued ' .
+                'as it stands.',
+                ['credentialConfigurationId' => self::CONFIGURATION_ID, 'fault' => $this->configurationFault],
+            ]],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
+    }
+
+
+    /**
+     * The data model 2.0 SD-JWT roots a claim whose parent path does not name credentialSubject there, so a mandatory
+     * claim is compared with where a mapping puts its attribute in the credential, not with the path as written:
+     * a mapping to ['name'] gives ['credentialSubject', 'name'], and the other way round. (Found by review.)
+     */
+    #[DataProvider('vcSdJwtRootedClaimProvider')]
+    public function testComparesAMandatoryClaimWithWhereTheFormatPutsTheMappedAttribute(
+        array $mandatoryClaimPath,
+        array $mappedClaimPath,
+    ): void {
+        $this->validClaimPaths = [['name'], [ClaimsEnum::Credential_Subject->value, 'name']];
+        $this->mandatoryClaimPaths = [$mandatoryClaimPath];
+        $this->attributeToClaimPathMap = [['displayName' => $mappedClaimPath]];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->issue(CredentialFormatIdentifiersEnum::VcSdJwt->value);
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    public static function vcSdJwtRootedClaimProvider(): array
+    {
+        $rooted = [ClaimsEnum::Credential_Subject->value, 'name'];
+
+        return [
+            'mandatory under credentialSubject, mapped without it' => [$rooted, ['name']],
+            'mandatory without credentialSubject, mapped under it' => [['name'], $rooted],
+        ];
+    }
+
+
+    /**
+     * A jwt_vc_json body keeps only the credentialSubject member of what the mapping wrote, so a mandatory claim
+     * outside it is one no attribute can give, and is not judged (the configuration overview marks the mapping).
+     */
+    public function testDoesNotJudgeAMandatoryClaimTheFormatCanNotCarry(): void
+    {
+        $this->validClaimPaths = [['name']];
+        $this->mandatoryClaimPaths = [['name']];
+        $this->attributeToClaimPathMap = [['displayName' => ['name']]];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    /**
+     * A value written inside a mandatory claim brings it into being: the mapping of a locality writes the address
+     * object it sits in, so a user without the address attribute is issued a credential which has the address all
+     * the same, rather than refused for lacking it. (Found by review.)
+     */
+    public function testCountsAMandatoryClaimAValueWrittenInsideItBringsIntoBeing(): void
+    {
+        $address = [ClaimsEnum::Credential_Subject->value, 'address'];
+        $locality = [ClaimsEnum::Credential_Subject->value, 'address', 'locality'];
+        $this->validClaimPaths = [$address, $locality];
+        $this->mandatoryClaimPaths = [$address];
+        $this->attributeToClaimPathMap = [['postalAddress' => $address], ['l' => $locality]];
+        $this->userClaims = ['l' => ['Zagreb']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame(
+            ['locality' => 'Zagreb'],
+            $this->credentialSubjectOfFirstCredential()['address'] ?? null,
+        );
+    }
+
+
+    /**
+     * The inverse: a mandatory claim held by an object another mapping gives is in the credential, so a user who
+     * lacks the attribute mapped to the claim itself is not refused for it. (Found by review.)
+     */
+    public function testCountsAMandatoryClaimAnObjectWrittenAroundItHolds(): void
+    {
+        $address = [ClaimsEnum::Credential_Subject->value, 'address'];
+        $locality = [ClaimsEnum::Credential_Subject->value, 'address', 'locality'];
+        $this->validClaimPaths = [$address, $locality];
+        $this->mandatoryClaimPaths = [$locality];
+        $this->attributeToClaimPathMap = [['postalAddress' => $address], ['l' => $locality]];
+        $this->userClaims = ['postalAddress' => ['locality' => 'Zagreb', 'country' => 'HR']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame(
+            ['locality' => 'Zagreb', 'country' => 'HR'],
+            $this->credentialSubjectOfFirstCredential()['address'] ?? null,
+        );
+    }
+
+
+    /**
+     * The claims a mandatory pointer addresses have to be in what was written, element by element: an object
+     * without the claim, or a list none of whose elements has it, leaves it missing.
+     */
+    #[DataProvider('writtenWithoutTheMandatoryClaimProvider')]
+    public function testRefusesWhenWhatWasWrittenDoesNotHoldTheMandatoryClaim(array $mandatoryPath, mixed $value): void
+    {
+        $holder = [ClaimsEnum::Credential_Subject->value, 'address'];
+        $this->validClaimPaths = [$holder, [ClaimsEnum::Credential_Subject->value, 'address', 'locality']];
+        $this->mandatoryClaimPaths = [$mandatoryPath];
+        $this->attributeToClaimPathMap = [
+            ['postalAddress' => $holder],
+            ['l' => [ClaimsEnum::Credential_Subject->value, 'address', 'locality']],
+        ];
+        $this->userClaims = ['postalAddress' => $value];
+
+        $this->issue();
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+    }
+
+
+    /**
+     * What a mapping wrote is recorded where the format puts it, as the mandatory claim is: for the data model 2.0
+     * SD-JWT a value mapped to ['name'] lands at ['credentialSubject', 'name'], and so gives a mandatory claim there
+     * which another, absent attribute was mapped to.
+     */
+    public function testCountsAMandatoryClaimAnotherMappingGivesWhereTheFormatPutsIt(): void
+    {
+        $rooted = [ClaimsEnum::Credential_Subject->value, 'name'];
+        $this->validClaimPaths = [['name'], $rooted];
+        $this->mandatoryClaimPaths = [$rooted];
+        $this->attributeToClaimPathMap = [['displayName' => $rooted], ['cn' => ['name']]];
+        $this->userClaims = ['cn' => ['John Doe']];
+
+        $this->issue(CredentialFormatIdentifiersEnum::VcSdJwt->value);
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    /**
+     * A string component selects an object member, never an array element (OpenID4VCI 1.0 Appendix C.1.1), so a
+     * mandatory claim named '0' is not given by a list another mapping wrote in its parent's place, though PHP would
+     * find the list's first element under that key. (Found by review.)
+     */
+    public function testDoesNotTakeAListElementForAMandatoryMemberNamedLikeAnIndex(): void
+    {
+        $address = [ClaimsEnum::Credential_Subject->value, 'address'];
+        $first = [ClaimsEnum::Credential_Subject->value, 'address', '0'];
+        $this->validClaimPaths = [$address, $first];
+        $this->mandatoryClaimPaths = [$first];
+        $this->attributeToClaimPathMap = [['postalAddress' => $address], ['l' => $first]];
+        $this->userClaims = ['postalAddress' => ['Zagreb', 'HR']];
+
+        $this->issue();
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+    }
+
+
+    public static function writtenWithoutTheMandatoryClaimProvider(): array
+    {
+        $locality = [ClaimsEnum::Credential_Subject->value, 'address', 'locality'];
+
+        return [
+            'a string where an object is needed' => [$locality, 'Zagreb'],
+            'an object without the claim' => [$locality, ['country' => 'HR', 'region' => 'Grad Zagreb']],
+        ];
+    }
+
+
+    /**
+     * Records what the endpoint logs at every level, as [message, context] lines keyed by level.
+     *
+     * @return \ArrayObject<string,list<array{0: string, 1: array}>>
+     */
+    protected function captureLog(): ArrayObject
+    {
+        $logged = new ArrayObject();
+        foreach (['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'] as $level) {
+            $this->loggerServiceMock->method($level)->willReturnCallback(
+                function (string|Stringable $message, array $context = []) use ($logged, $level): void {
+                    $lines = $logged[$level] ?? [];
+                    $lines[] = [(string)$message, $context];
+                    $logged[$level] = $lines;
+                },
+            );
+        }
+
+        return $logged;
+    }
+
+
+    /**
+     * @param \ArrayObject<string,list<array{0: string, 1: array}>> $logged
+     * @return list<array{0: string, 1: array}>
+     */
+    protected function logLinesOfLevel(ArrayObject $logged, string $level): array
+    {
+        return $logged[$level] ?? [];
     }
 
 

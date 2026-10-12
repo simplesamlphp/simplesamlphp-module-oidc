@@ -1359,6 +1359,25 @@ $config = [
      * which leaves it out is requested through `authorization_details` only
      * (OpenID4VCI 1.0 section 12.2.4), and its id is not a scope a client may
      * request.
+     *
+     * While issuance is enabled, every configuration is also checked to be
+     * issuable as it stands: its `format` is one this issuer issues
+     * ('jwt_vc_json', 'dc+sd-jwt', 'vc+sd-jwt'), with what the format requires
+     * (a `vct` for 'dc+sd-jwt', a `credential_definition` with a `type` for
+     * the other two), and its `credential_metadata`, if it has one, holds one
+     * `display` object with a `name` for each language, and `claims`
+     * descriptions as OpenID4VCI 1.0 Appendix B has them (each `path` a claims
+     * path pointer, no claim described twice). `claims` and `display` belong in
+     * `credential_metadata`, not at the top level of the configuration. A
+     * configuration which is not issuable is refused, and with it the whole
+     * scope list and the Credential Issuer metadata, so discovery,
+     * registration, authorization and issuance fail until it is corrected; the
+     * configuration overview names the fault.
+     *
+     * A claim marked `mandatory` is one the issuer always includes, so a user
+     * without the attribute it is mapped from (see
+     * OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP) is refused the
+     * credential (`credential_request_denied`).
      */
     ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
         // Sample for 'jwt_vc_json' format with notes about required and
@@ -1610,8 +1629,12 @@ $config = [
                 ],
             ],
 
-            // REQUIRED
-            ClaimsEnum::Vct->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+            // REQUIRED: the type its credentials state, a collision-resistant
+            // name (SD-JWT VC), usually a URI under a namespace the issuer
+            // controls. `urn:example:` is reserved for examples (RFC 6963), so
+            // replace it. One which is not a URI is issued, but warned about in
+            // the log and the configuration overview.
+            ClaimsEnum::Vct->value => 'urn:example:ResearchAndScholarshipCredential',
         ],
 
         'ResearchAndScholarshipCredentialVcSdJwt' => [
@@ -1892,6 +1915,18 @@ $config = [
      * it is set.
      */
 //    ModuleConfig::OPTION_VCI_TX_CODE_MAX_ATTEMPTS => 5,
+
+    /**
+     * (optional) Whether a wallet may redeem a pre-authorized code without
+     * naming itself: with no `client_id` and no client authentication, which
+     * OpenID4VCI 1.0 (section 6.1) allows. Defaults to true. Whoever holds the
+     * code, and its Transaction Code where the offer has one, then gets the
+     * credential. Published in the authorization server metadata as
+     * `pre-authorized_grant_anonymous_access_supported`. When false, such a
+     * token request is refused with invalid_client; a wallet which sends its
+     * `client_id`, registered or not, or authenticates, is still accepted.
+     */
+//    ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => true,
 
     /**
      * (optional) How long an issued credential stays valid, per credential

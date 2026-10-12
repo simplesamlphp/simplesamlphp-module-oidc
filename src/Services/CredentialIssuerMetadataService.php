@@ -88,6 +88,10 @@ class CredentialIssuerMetadataService
     {
         $signatureKeyPair = $this->moduleConfig->getActiveVciSignatureKeyPair();
 
+        // Nothing is advertised which could not be issued as it stands, so a malformed configuration fails the
+        // whole document, as it fails discovery (ModuleConfig::getVciScopes()).
+        $this->moduleConfig->validateVciCredentialConfigurations();
+
         $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 
         $isAnyConfigurationProofBound = false;

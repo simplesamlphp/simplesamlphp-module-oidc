@@ -436,6 +436,21 @@ class CredentialIssuerCredentialController
             );
         }
 
+        // A configuration which could not be published as it stands is not issued under either. Discovery and the
+        // Credential Issuer metadata already refuse it, but a token issued before it changed may still name it.
+        $configurationFault = $this->moduleConfig->findFaultInVciCredentialConfiguration(
+            $resolvedCredentialIdentifier,
+            $resolvedCredentialConfiguration,
+        );
+        if ($configurationFault !== null) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: The credential configuration can not be issued ' .
+                'as it stands.',
+                ['credentialConfigurationId' => $resolvedCredentialIdentifier, 'fault' => $configurationFault],
+            );
+            throw OidcServerException::serverError('The credential configuration can not be issued as it stands.');
+        }
+
         $credentialFormatId = $resolvedCredentialConfiguration[ClaimsEnum::Format->value] ?? null;
         if (!is_string($credentialFormatId)) {
             $this->loggerService->error(
@@ -446,6 +461,34 @@ class CredentialIssuerCredentialController
             throw OidcServerException::serverError(
                 'Credential format ID missing in resolved credential configuration (format is mandatory).',
             );
+        }
+
+        // The type an SD-JWT VC states is the one its configuration advertises (OpenID4VCI 1.0 Appendix A.3.2),
+        // which ModuleConfig::findFaultInVciCredentialConfiguration() requires of the configuration.
+        $vct = null;
+        if ($credentialFormatId === CredentialFormatIdentifiersEnum::DcSdJwt->value) {
+            /** @psalm-suppress MixedAssignment */
+            $vct = $resolvedCredentialConfiguration[ClaimsEnum::Vct->value] ?? null;
+            if (!is_string($vct) || $vct === '') {
+                $this->loggerService->error(
+                    'CredentialIssuerCredentialController::credential: Credential type (vct) missing in resolved ' .
+                    'credential configuration.',
+                    ['credentialConfigurationId' => $resolvedCredentialIdentifier],
+                );
+                throw OidcServerException::serverError(
+                    'Credential type (vct) missing in resolved credential configuration (vct is mandatory).',
+                );
+            }
+
+            // SD-JWT VC asks for a collision-resistant name, of which a URI is the usual form but not the only
+            // one, so the credential is issued; whoever reads the log can tell whether the name is one.
+            if (preg_match(ModuleConfig::URI_PATTERN, $vct) !== 1) {
+                $this->loggerService->warning(
+                    'The vct of a credential configuration is not a URI, so it may not be a collision-resistant ' .
+                    'name: a verifier could take another issuer\'s credentials of the same vct for this type.',
+                    ['credentialConfigurationId' => $resolvedCredentialIdentifier, 'vct' => $vct],
+                );
+            }
         }
 
         $this->loggerService->info('Issuing credential for user.', ['userId' => $userId]);
@@ -503,6 +546,13 @@ class CredentialIssuerCredentialController
         $this->helpers->dateTime()->ceilTo($now->add($credentialTtl), $timeClaimGranularity) :
         null;
 
+        // Where each mandatory claim sits in a credential of this format, to be compared with where the mapped
+        // attributes land; one the format can not carry is left out, as no attribute could give it.
+        $mandatoryClaimPaths = array_values(array_filter(array_map(
+            fn(array $claimPath): ?array => $this->claimPathInCredential($credentialFormatId, $claimPath),
+            $this->moduleConfig->getVciMandatoryCredentialClaimPathsFor($resolvedCredentialIdentifier),
+        )));
+
         foreach ($validatedProofs as $validatedProof) {
             // A configuration which issues credentials that are not bound to a holder key has no wallet
             // key to name here, so the subject is one this issuer derives from the authenticated user.
@@ -527,6 +577,10 @@ class CredentialIssuerCredentialController
             $this->loggerService->debug('Using attribute to claim path map.', [
                 'map' => $attributeToCredentialClaimPathMap,
             ]);
+            // What the map gives the credential, each value where it is in a credential of this format, and where
+            // the map targets a claim with an attribute the user lacks (claimPathInCredential()).
+            $writtenClaims = [];
+            $unwrittenClaimPaths = [];
             /** @psalm-suppress MixedAssignment */
             foreach ($attributeToCredentialClaimPathMap as $mapEntry) {
                 if (!is_array($mapEntry)) {
@@ -587,6 +641,7 @@ class CredentialIssuerCredentialController
                         'Attribute "%s" does not exist in user attributes.',
                         $mapEntry,
                     );
+                    $unwrittenClaimPaths[] = $this->claimPathInCredential($credentialFormatId, $credentialClaimPath);
                     continue;
                 }
 
@@ -596,6 +651,11 @@ class CredentialIssuerCredentialController
                 count($userAttributes[$userAttributeName]) === 1 ?
                 reset($userAttributes[$userAttributeName]) :
                 $userAttributes[$userAttributeName];
+
+                $claimPathInCredential = $this->claimPathInCredential($credentialFormatId, $credentialClaimPath);
+                if ($claimPathInCredential !== null) {
+                    $writtenClaims = $this->withClaimAt($writtenClaims, $claimPathInCredential, $attributeValue);
+                }
 
                 if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
                     $this->loggerService->debug(
@@ -652,6 +712,35 @@ class CredentialIssuerCredentialController
 
                     $disclosureBag->add($disclosure);
                 }
+            }
+
+            // A claim the configuration advertises as mandatory is always in the credential (OpenID4VCI 1.0
+            // Appendix B.2), so a user without the attribute it is mapped from is refused rather than issued a
+            // credential a wallet would reject. The attributes are the same for every credential of the request,
+            // so this refuses at the first, before anything is allocated for it. A mandatory claim no attribute is
+            // mapped to is not judged: its value, if any, is not the user's to lack. One which another mapping
+            // gives, by a value written inside it or by an object holding it, is in the credential all the same
+            // (isInCredential()).
+            $missingClaimPaths = array_values(array_filter(
+                $mandatoryClaimPaths,
+                fn(array $claimPath): bool => in_array($claimPath, $unwrittenClaimPaths, true) &&
+                    !$this->isInCredential($claimPath, $writtenClaims),
+            ));
+            if ($missingClaimPaths !== []) {
+                $this->loggerService->warning(
+                    'Credential request denied: the user lacks the attribute of a claim the credential ' .
+                    'configuration marks as mandatory.',
+                    [
+                        'credentialConfigurationId' => $resolvedCredentialIdentifier,
+                        'claimPaths' => $missingClaimPaths,
+                    ],
+                );
+
+                return $this->routes->newJsonErrorResponse(
+                    'credential_request_denied',
+                    'The credential can not be issued: a claim it always includes has no value for this user.',
+                    400,
+                );
             }
 
             // Make sure that the subject identifier is in credentialSubject claim.
@@ -816,7 +905,7 @@ class CredentialIssuerCredentialController
                     $confirmation === null ? [ClaimsEnum::Sub->value => $sub] : [],
                     [
                     ClaimsEnum::Jti->value => $vcId,
-                    ClaimsEnum::Vct->value => $resolvedCredentialIdentifier,
+                    ClaimsEnum::Vct->value => $vct,
                     ],
                     $commonClaims,
                 );
@@ -961,6 +1050,103 @@ class CredentialIssuerCredentialController
         }
 
         return false;
+    }
+
+
+    /**
+     * Where a claim path of the configuration puts its claim in a credential of the format, as the mapping below
+     * writes it: as it is for `dc+sd-jwt`; for `vc+sd-jwt` rooted under `credentialSubject` when its parent path
+     * does not name it (the disclosures do the same); for `jwt_vc_json` nowhere unless it is under
+     * `credentialSubject`, the only member of the subject claims its body keeps. Null where it is nowhere.
+     *
+     * @return list<mixed>|null
+     */
+    protected function claimPathInCredential(string $credentialFormatId, array $claimPath): ?array
+    {
+        $claimPath = array_values($claimPath);
+
+        if ($credentialFormatId === CredentialFormatIdentifiersEnum::JwtVcJson->value) {
+            return ($claimPath[0] ?? null) === ClaimsEnum::Credential_Subject->value ? $claimPath : null;
+        }
+
+        if ($credentialFormatId === CredentialFormatIdentifiersEnum::VcSdJwt->value) {
+            /** @psalm-suppress MixedAssignment */
+            $claimName = array_pop($claimPath);
+
+            if (!in_array(ClaimsEnum::Credential_Subject->value, $claimPath, true)) {
+                array_unshift($claimPath, ClaimsEnum::Credential_Subject->value);
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $claimPath[] = $claimName;
+        }
+
+        return $claimPath;
+    }
+
+
+    /**
+     * The claims written so far with a value the mapping gives the credential put at its claim path: the record
+     * isInCredential() resolves claim paths against. A member which is not an object is replaced, since a later
+     * value under it takes its place. The paths are those a mapping writes at, which name members alone.
+     *
+     * @param list<mixed> $claimPath
+     */
+    protected function withClaimAt(array $claims, array $claimPath, mixed $value): array
+    {
+        /** @psalm-suppress MixedAssignment */
+        $member = array_shift($claimPath);
+
+        if (!is_string($member)) {
+            return $claims;
+        }
+
+        if ($claimPath === []) {
+            /** @psalm-suppress MixedAssignment */
+            $claims[$member] = $value;
+
+            return $claims;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $inner = $claims[$member] ?? [];
+        $claims[$member] = $this->withClaimAt(is_array($inner) ? $inner : [], $claimPath, $value);
+
+        return $claims;
+    }
+
+
+    /**
+     * Whether the claim at a path is in what the mapping wrote: every member it names along the way is there, in
+     * an object (a string component selects an object member, never an array element: OpenID4VCI 1.0 Appendix
+     * C.1.1, so a '0' does not find the first element of a list). So a
+     * claim is in it whether a value was written at it, inside it (a value at ['address', 'locality'] brings the
+     * 'address' object into being) or around it (an 'address' object holding a locality). It is asked only of the
+     * paths a mapping targets, which name members alone (the mapping keeps the string components of a path), so
+     * no index or null component reaches it; one which did would find nothing.
+     *
+     * @param list<mixed> $claimPath
+     */
+    protected function isInCredential(array $claimPath, array $claims): bool
+    {
+        $node = $claims;
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($claimPath as $component) {
+            if (
+                !is_array($node) ||
+                array_is_list($node) ||
+                !is_string($component) ||
+                !array_key_exists($component, $node)
+            ) {
+                return false;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $node = $node[$component];
+        }
+
+        return true;
     }
 
 

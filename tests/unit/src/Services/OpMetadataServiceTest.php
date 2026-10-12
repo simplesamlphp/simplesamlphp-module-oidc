@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
@@ -270,6 +271,44 @@ class OpMetadataServiceTest extends TestCase
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
 
         $this->assertArrayNotHasKey('authorization_details_types_supported', $this->sut()->getMetadata());
+    }
+
+
+    /**
+     * Whether a pre-authorized code may be redeemed anonymously (OpenID4VCI 1.0 section 12.3) is stated either way
+     * while issuing, since a wallet reads its absence as false, and not at all otherwise.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('anonymousPreAuthorizedAccessProvider')]
+    public function testStatesWhetherAPreAuthorizedCodeMayBeRedeemedAnonymouslyWhileIssuing(
+        bool $isIssuing,
+        bool $isAllowed,
+        ?bool $expected,
+    ): void {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn($isIssuing);
+        $this->moduleConfigMock->method('getVciAllowAnonymousPreAuthorizedAccess')->willReturn($isAllowed);
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertSame(
+            $expected,
+            $metadata['pre-authorized_grant_anonymous_access_supported'] ?? null,
+        );
+        $this->assertSame(
+            $expected !== null,
+            array_key_exists('pre-authorized_grant_anonymous_access_supported', $metadata),
+        );
+    }
+
+
+    public static function anonymousPreAuthorizedAccessProvider(): array
+    {
+        return [
+            'issuing, allowed' => [true, true, true],
+            'issuing, not allowed' => [true, false, false],
+            'not issuing' => [false, true, null],
+        ];
     }
 
 

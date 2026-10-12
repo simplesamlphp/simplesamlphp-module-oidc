@@ -3591,9 +3591,9 @@ class ModuleConfigTest extends TestCase
 
 
     /**
-     * A configuration which states its id as its scope, or no scope at all, is a scope like any other; one
-     * which is not an array has no scope to compare, and is refused where its content is read. An id PHP keeps
-     * as an integer key is compared as the string it was written as.
+     * A configuration which states its id as its scope, or no scope at all, is a scope like any other. An id PHP
+     * keeps as an integer key is compared as the string it was written as. (One which is not an array has no scope
+     * to compare, and is refused for that: testRefusesACredentialConfigurationWhichCanNotBeIssuedAsItStands.)
      *
      * @throws \Exception
      */
@@ -3601,16 +3601,17 @@ class ModuleConfigTest extends TestCase
     {
         $sut = $this->sut(overrides: array_merge(
             $this->withCredentialConfigurations([
-                'TestCredential' => [ClaimsEnum::Scope->value => 'TestCredential'],
-                'OtherCredential' => [ClaimsEnum::Format->value => 'jwt_vc_json'],
-                'BrokenCredential' => 'not an array',
-                '123' => [ClaimsEnum::Scope->value => '123'],
+                'TestCredential' => $this->issuableCredentialConfiguration([
+                    ClaimsEnum::Scope->value => 'TestCredential',
+                ]),
+                'OtherCredential' => $this->issuableCredentialConfiguration(),
+                '123' => $this->issuableCredentialConfiguration([ClaimsEnum::Scope->value => '123']),
             ]),
             [ModuleConfig::OPTION_VCI_ENABLED => true],
         ));
 
         $this->assertSame(
-            ['TestCredential', 'OtherCredential', 'BrokenCredential', '123'],
+            ['TestCredential', 'OtherCredential', '123'],
             array_map('strval', array_keys($sut->getVciScopes())),
         );
     }
@@ -3660,6 +3661,331 @@ class ModuleConfigTest extends TestCase
 
         $this->assertSame([], $sut->getVciScopes());
         $this->assertArrayNotHasKey('TestCredential', $sut->getScopes());
+    }
+
+
+    /**
+     * What is advertised has to be issuable as it stands (OpenID4VCI 1.0 section 12.2.4, Appendix A, B.2, B.3),
+     * so a malformed configuration is refused where the configurations become scopes, after valid ones and after
+     * the checks of the names and scopes, and the refusal names it.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('malformedCredentialConfigurationProvider')]
+    public function testRefusesACredentialConfigurationWhichCanNotBeIssuedAsItStands(
+        mixed $configuration,
+        string $reason,
+    ): void {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([
+                'FineCredential' => $this->issuableCredentialConfiguration(),
+                'TestCredential' => $configuration,
+            ]),
+            [ModuleConfig::OPTION_VCI_ENABLED => true],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($reason);
+
+        $sut->getScopes();
+    }
+
+
+    /**
+     * @return array<string, array{0: mixed, 1: string}>
+     */
+    public static function malformedCredentialConfigurationProvider(): array
+    {
+        $of = 'Verifiable Credential configuration [TestCredential]';
+        $notAnObject = $of . ' is not an object of credential configuration parameters.';
+        $noFormat = $of . ' has no format this issuer issues (jwt_vc_json, dc+sd-jwt, vc+sd-jwt).';
+        $noVct = $of . ' has no vct, which its format requires';
+        $noType = $of . ' has no credential_definition.type, which its format requires';
+        $sdJwtVc = [ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => 'urn:example:Test'];
+        $withMetadata = static fn(mixed $credentialMetadata): array =>
+        $sdJwtVc + [ClaimsEnum::CredentialMetadata->value => $credentialMetadata];
+        $withDisplay = static fn(mixed $display): array => $withMetadata([ClaimsEnum::Display->value => $display]);
+        $withClaims = static fn(mixed $claims): array => $withMetadata([ClaimsEnum::Claims->value => $claims]);
+        $withClaimDisplay = static fn(mixed $display): array => $withClaims([
+            [ClaimsEnum::Path->value => ['given_name'], ClaimsEnum::Display->value => $display],
+        ]);
+        $withType = static fn(string $format, mixed $credentialDefinition): array => [
+            ClaimsEnum::Format->value => $format,
+            ClaimsEnum::CredentialDefinition->value => $credentialDefinition,
+        ];
+
+        return [
+            'not an array' => ['dc+sd-jwt', $notAnObject],
+            'a list' => [[[ClaimsEnum::Format->value => 'dc+sd-jwt']], $notAnObject],
+            'no format' => [[], $noFormat],
+            'a format this issuer does not issue' => [[ClaimsEnum::Format->value => 'mso_mdoc'], $noFormat],
+            'a format in a list' => [[ClaimsEnum::Format->value => ['dc+sd-jwt']], $noFormat],
+            'a format of another letter case' => [[ClaimsEnum::Format->value => 'DC+SD-JWT'], $noFormat],
+            'dc+sd-jwt without a vct' => [[ClaimsEnum::Format->value => 'dc+sd-jwt'], $noVct],
+            'dc+sd-jwt with an empty vct' => [
+                [ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => ''],
+                $noVct,
+            ],
+            'dc+sd-jwt with a vct which is not a string' => [
+                [ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => ['urn:example:Test']],
+                $noVct,
+            ],
+            'jwt_vc_json without a credential definition' => [[ClaimsEnum::Format->value => 'jwt_vc_json'], $noType],
+            'jwt_vc_json without a type' => [$withType('jwt_vc_json', []), $noType],
+            'jwt_vc_json with a definition which is not an array' => [$withType('jwt_vc_json', 'x'), $noType],
+            'jwt_vc_json with no types' => [$withType('jwt_vc_json', [ClaimsEnum::Type->value => []]), $noType],
+            'jwt_vc_json with a type which is a string' => [
+                $withType('jwt_vc_json', [ClaimsEnum::Type->value => 'VerifiableCredential']),
+                $noType,
+            ],
+            'jwt_vc_json with an empty type' => [
+                $withType('jwt_vc_json', [ClaimsEnum::Type->value => ['VerifiableCredential', '']]),
+                $noType,
+            ],
+            'jwt_vc_json with types which are an object' => [
+                $withType('jwt_vc_json', [ClaimsEnum::Type->value => ['a' => 'VerifiableCredential']]),
+                $noType,
+            ],
+            'vc+sd-jwt without a credential definition' => [[ClaimsEnum::Format->value => 'vc+sd-jwt'], $noType],
+            'vc+sd-jwt with a type which is not a string' => [
+                $withType('vc+sd-jwt', [ClaimsEnum::Type->value => ['VerifiableCredential', 7]]),
+                $noType,
+            ],
+            'credential metadata which is not an object' => [
+                $withMetadata('Test'),
+                'The credential_metadata of ' . $of . ' is not a non-empty object.',
+            ],
+            'credential metadata which is a list' => [
+                $withMetadata([[ClaimsEnum::Display->value => []]]),
+                'The credential_metadata of ' . $of . ' is not a non-empty object.',
+            ],
+            // Published as an empty JSON array where an object is required.
+            'empty credential metadata' => [
+                $withMetadata([]),
+                'The credential_metadata of ' . $of . ' is not a non-empty object.',
+            ],
+            'claims at the top level, as the pre-final drafts had them' => [
+                $sdJwtVc + [ClaimsEnum::Claims->value => [[ClaimsEnum::Path->value => ['given_name']]]],
+                $of . ' has claims at its top level, where the pre-final drafts had it; OpenID4VCI 1.0 has it in ' .
+                'credential_metadata.',
+            ],
+            'display at the top level, as the pre-final drafts had it' => [
+                $sdJwtVc + [ClaimsEnum::Display->value => [[ClaimsEnum::Name->value => 'Test']]],
+                $of . ' has display at its top level, where the pre-final drafts had it; OpenID4VCI 1.0 has it in ' .
+                'credential_metadata.',
+            ],
+            'an empty display' => [
+                $withDisplay([]),
+                'The display of ' . $of . ' is not a non-empty array of display objects.',
+            ],
+            'a display which is an object' => [
+                $withDisplay([ClaimsEnum::Name->value => 'Test']),
+                'The display of ' . $of . ' is not a non-empty array of display objects.',
+            ],
+            'a display object which is not an object' => [
+                $withDisplay(['Test']),
+                'A display object of ' . $of . ' is not a non-empty JSON object.',
+            ],
+            'an empty display object' => [
+                $withDisplay([[]]),
+                'A display object of ' . $of . ' is not a non-empty JSON object.',
+            ],
+            'a display object without a name' => [
+                $withDisplay([[ClaimsEnum::Locale->value => 'en-US']]),
+                'A display object of ' . $of . ' has no name which is a non-empty string.',
+            ],
+            'a display object with an empty name' => [
+                $withDisplay([[ClaimsEnum::Name->value => '']]),
+                'A display object of ' . $of . ' has no name which is a non-empty string.',
+            ],
+            'a display object with a locale which is not a string' => [
+                $withDisplay([[ClaimsEnum::Name->value => 'Test', ClaimsEnum::Locale->value => null]]),
+                'A display object of ' . $of . ' has a locale which is not a non-empty string.',
+            ],
+            'two display objects for one language' => [
+                $withDisplay([
+                    [ClaimsEnum::Name->value => 'Test', ClaimsEnum::Locale->value => 'en-US'],
+                    [ClaimsEnum::Name->value => 'Test', ClaimsEnum::Locale->value => 'hr-HR'],
+                    [ClaimsEnum::Name->value => 'Test', ClaimsEnum::Locale->value => 'en-us'],
+                ]),
+                'Two display objects of ' . $of . ' are for the same language',
+            ],
+            'two display objects without a locale' => [
+                $withDisplay([[ClaimsEnum::Name->value => 'Test'], [ClaimsEnum::Name->value => 'Test']]),
+                'Two display objects of ' . $of . ' are for the same language',
+            ],
+            'claims which are not a list' => [
+                $withClaims([ClaimsEnum::Path->value => ['given_name']]),
+                'The claims of ' . $of . ' are not a non-empty array of claims descriptions.',
+            ],
+            'a claim with an empty path' => [
+                $withClaims([[ClaimsEnum::Path->value => []]]),
+                'A claims description of ' . $of . ' has no path which is a claims path pointer',
+            ],
+            'a claim with a mandatory member which is not a boolean' => [
+                $withClaims([[ClaimsEnum::Path->value => ['given_name'], ClaimsEnum::Mandatory->value => 'true']]),
+                'The mandatory member of a claims description of ' . $of . ' is not a boolean.',
+            ],
+            'two claims describing one claim' => [
+                $withClaims([[ClaimsEnum::Path->value => ['given_name']], [ClaimsEnum::Path->value => ['given_name']]]),
+                'Two claims descriptions of ' . $of . ' address the same claim.',
+            ],
+            'two claims contradicting each other' => [
+                $withClaims([[ClaimsEnum::Path->value => ['a', 'b']], [ClaimsEnum::Path->value => ['a', 0]]]),
+                'Two claims descriptions of ' . $of . ' contradict each other',
+            ],
+            'an empty display object of a claim, whose name is optional' => [
+                $withClaimDisplay([[]]),
+                'A display object of a claims description of ' . $of . ' is not a non-empty JSON object.',
+            ],
+            'an empty display of a claim' => [
+                $withClaimDisplay([]),
+                'The display of a claims description of ' . $of . ' is not a non-empty array of display objects.',
+            ],
+            'a display object of a claim with a name which is not a string' => [
+                $withClaimDisplay([[ClaimsEnum::Name->value => 7]]),
+                'A display object of a claims description of ' . $of . ' has no name which is a non-empty string.',
+            ],
+            'two display objects of a claim for one language' => [
+                $withClaimDisplay([[ClaimsEnum::Locale->value => 'en'], [ClaimsEnum::Locale->value => 'EN']]),
+                'Two display objects of a claims description of ' . $of . ' are for the same language',
+            ],
+        ];
+    }
+
+
+    /**
+     * Each format with what it requires, and the credential metadata as section 12.2.4 and Appendix B.2 have it: a
+     * display object without a locale besides those with one, a claim display object without a name, which only a
+     * credential's must have, and a `vct` which is not a URI, which is warned about and not refused.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('issuableCredentialConfigurationProvider')]
+    public function testAcceptsACredentialConfigurationWhichCanBeIssuedAsItStands(array $configuration): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations(['TestCredential' => $configuration]),
+            [ModuleConfig::OPTION_VCI_ENABLED => true],
+        ));
+
+        $this->assertArrayHasKey('TestCredential', $sut->getScopes());
+        $this->assertNull($sut->findFaultInVciCredentialConfiguration('TestCredential', $configuration));
+    }
+
+
+    /**
+     * @return array<string, array{0: array}>
+     */
+    public static function issuableCredentialConfigurationProvider(): array
+    {
+        $types = [ClaimsEnum::Type->value => ['VerifiableCredential', 'TestCredential']];
+
+        return [
+            'dc+sd-jwt' => [[ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => 'urn:example:Test']],
+            'dc+sd-jwt with a vct which is not a URI' => [
+                [ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => 'TestCredential'],
+            ],
+            'jwt_vc_json' => [
+                [ClaimsEnum::Format->value => 'jwt_vc_json', ClaimsEnum::CredentialDefinition->value => $types],
+            ],
+            'vc+sd-jwt' => [
+                [ClaimsEnum::Format->value => 'vc+sd-jwt', ClaimsEnum::CredentialDefinition->value => $types],
+            ],
+            'with credential metadata' => [[
+                ClaimsEnum::Format->value => 'dc+sd-jwt',
+                ClaimsEnum::Vct->value => 'urn:example:Test',
+                ClaimsEnum::CredentialMetadata->value => [
+                    ClaimsEnum::Display->value => [
+                        [ClaimsEnum::Name->value => 'Test', ClaimsEnum::Locale->value => 'en-US'],
+                        [ClaimsEnum::Name->value => 'Test', ClaimsEnum::Locale->value => 'en'],
+                        [ClaimsEnum::Name->value => 'Test'],
+                    ],
+                    ClaimsEnum::Claims->value => [
+                        [
+                            ClaimsEnum::Path->value => ['given_name'],
+                            ClaimsEnum::Mandatory->value => true,
+                            ClaimsEnum::Display->value => [
+                                [ClaimsEnum::Name->value => 'Given name', ClaimsEnum::Locale->value => 'en-US'],
+                                [ClaimsEnum::Locale->value => 'hr-HR'],
+                            ],
+                        ],
+                        [ClaimsEnum::Path->value => ['address', 'locality']],
+                        [ClaimsEnum::Path->value => ['nationalities', null]],
+                    ],
+                ],
+            ]],
+        ];
+    }
+
+
+    /**
+     * The configurations are checked where they become scopes, so while issuance is disabled a malformed one stands
+     * in the way of nothing, as a protected name does not (testToleratesAProtectedCredentialConfigurationNameWhile
+     * IssuanceIsDisabled).
+     *
+     * @throws \Exception
+     */
+    public function testToleratesAMalformedCredentialConfigurationWhileIssuanceIsDisabled(): void
+    {
+        $sut = $this->sut(overrides: $this->withCredentialConfigurations(['TestCredential' => []]));
+
+        $this->assertSame([], $sut->getVciScopes());
+        $this->assertArrayNotHasKey('TestCredential', $sut->getScopes());
+    }
+
+
+    /**
+     * The same check can be asked for on its own, as the Credential Issuer metadata does before publishing.
+     *
+     * @throws \Exception
+     */
+    public function testValidatesTheCredentialConfigurationsOnRequest(): void
+    {
+        $this->sut(overrides: $this->withCredentialConfigurations([
+            'TestCredential' => $this->issuableCredentialConfiguration(),
+        ]))->validateVciCredentialConfigurations();
+
+        $sut = $this->sut(overrides: $this->withCredentialConfigurations([
+            'TestCredential' => $this->issuableCredentialConfiguration(),
+            'OtherCredential' => [ClaimsEnum::Format->value => 'dc+sd-jwt'],
+        ]));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Verifiable Credential configuration [OtherCredential] has no vct');
+
+        $sut->validateVciCredentialConfigurations();
+    }
+
+
+    /**
+     * URI_PATTERN tells a `vct` written as a URI, the usual form of a collision-resistant name, from a plain
+     * string: a scheme, a colon and something after it, with no whitespace.
+     */
+    #[DataProvider('uriPatternProvider')]
+    public function testTheUriPatternTellsAUriFromAPlainString(string $value, bool $isUri): void
+    {
+        $this->assertSame($isUri, preg_match(ModuleConfig::URI_PATTERN, $value) === 1);
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: bool}>
+     */
+    public static function uriPatternProvider(): array
+    {
+        return [
+            'a URN' => ['urn:example:ResearchAndScholarshipCredential', true],
+            'an https URL' => ['https://credentials.example.org/identity_credential', true],
+            'a DID' => ['did:web:issuer.example.org', true],
+            'a scheme with digits and signs' => ['x-a1.b+c:value', true],
+            'a plain string' => ['ResearchAndScholarshipCredentialDcSdJwt', false],
+            'a scheme and nothing after it' => ['urn:', false],
+            'no scheme' => [':value', false],
+            'a scheme starting with a digit' => ['1urn:value', false],
+            'whitespace' => ['urn:example: value', false],
+            'a trailing newline' => ["urn:example:value\n", false],
+        ];
     }
 
 
@@ -4108,8 +4434,8 @@ class ModuleConfigTest extends TestCase
     public function testCredentialConfigurationsBecomeScopesOnlyWhileIssuanceIsEnabled(): void
     {
         $configurations = $this->withCredentialConfigurations([
-            'TestCredential' => [],
-            'OtherCredential' => [],
+            'TestCredential' => $this->issuableCredentialConfiguration(),
+            'OtherCredential' => $this->issuableCredentialConfiguration(),
         ]);
 
         $this->assertSame([], $this->sut(overrides: $configurations)->getVciScopes());
@@ -4265,6 +4591,90 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * The claim paths advertised as mandatory are those whose claims description says so with a boolean true, read
+     * wherever the claim paths are (testReadsTheValidClaimPathsWhereverTheClaimsAreDeclared), each as a list.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('mandatoryClaimsLocationDataProvider')]
+    public function testReadsTheMandatoryClaimPathsWhereverTheClaimsAreDeclared(array $credentialConfiguration): void
+    {
+        $this->assertSame(
+            [['address', 'locality']],
+            $this->sut(overrides: $this->withCredentialConfigurations([
+                'TestCredential' => $credentialConfiguration,
+            ]))->getVciMandatoryCredentialClaimPathsFor('TestCredential'),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{array<string,mixed>}>
+     */
+    public static function mandatoryClaimsLocationDataProvider(): array
+    {
+        $claims = [
+            [ClaimsEnum::Path->value => ['given_name']],
+            [ClaimsEnum::Path->value => ['address', 'locality'], ClaimsEnum::Mandatory->value => true],
+        ];
+
+        return [
+            'under credential metadata' => [[ClaimsEnum::CredentialMetadata->value => [
+                ClaimsEnum::Claims->value => $claims,
+            ]]],
+            'directly under claims' => [[ClaimsEnum::Claims->value => $claims]],
+        ];
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testReadsOnlyTheClaimPathsMarkedMandatoryWithTrue(): void
+    {
+        $this->assertSame(
+            [['given_name'], ['address', 'locality']],
+            $this->sut(overrides: $this->withCredentialConfigurations([
+                'TestCredential' => [
+                    ClaimsEnum::CredentialMetadata->value => [
+                        ClaimsEnum::Claims->value => [
+                            [ClaimsEnum::Path->value => ['given_name'], ClaimsEnum::Mandatory->value => true],
+                            [ClaimsEnum::Path->value => ['family_name'], ClaimsEnum::Mandatory->value => false],
+                            [ClaimsEnum::Path->value => ['email'], ClaimsEnum::Mandatory->value => 'true'],
+                            [ClaimsEnum::Path->value => ['phone_number']],
+                            [ClaimsEnum::Mandatory->value => true],
+                            [ClaimsEnum::Path->value => 'birthdate', ClaimsEnum::Mandatory->value => true],
+                            'not a claim at all',
+                            [
+                                ClaimsEnum::Path->value => [3 => 'address', 5 => 'locality'],
+                                ClaimsEnum::Mandatory->value => true,
+                            ],
+                        ],
+                    ],
+                ],
+            ]))->getVciMandatoryCredentialClaimPathsFor('TestCredential'),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('claimlessCredentialConfigurationDataProvider')]
+    public function testReadsNoMandatoryClaimPathsFromACredentialConfigurationWhichDeclaresNoUsableClaims(
+        mixed $credentialConfiguration,
+    ): void {
+        $this->assertSame(
+            [],
+            $this->sut(overrides: $this->withCredentialConfigurations([
+                'TestCredential' => $credentialConfiguration,
+            ]))->getVciMandatoryCredentialClaimPathsFor('TestCredential'),
+        );
+        $this->assertSame([], $this->sut()->getVciMandatoryCredentialClaimPathsFor('UndeclaredCredential'));
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testReadsTheAttributeToClaimPathMapForACredentialConfiguration(): void
@@ -4311,6 +4721,15 @@ class ModuleConfigTest extends TestCase
             ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
             $credentialConfigurations,
         );
+    }
+
+
+    /**
+     * The least a credential configuration needs to be issued (ModuleConfig::findFaultInVciCredentialConfiguration()).
+     */
+    protected function issuableCredentialConfiguration(array $parameters = []): array
+    {
+        return $parameters + [ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => 'urn:example:Test'];
     }
 
 
@@ -4374,6 +4793,21 @@ class ModuleConfigTest extends TestCase
         $this->assertFalse($this->sut()->getVciRequireDpop());
         $this->assertTrue(
             $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_REQUIRE_DPOP, true))->getVciRequireDpop(),
+        );
+    }
+
+
+    /**
+     * vci_allow_anonymous_pre_authorized_access is on unless turned off, as anonymous access always was.
+     */
+    public function testAllowsAnonymousPreAuthorizedAccessUnlessTurnedOff(): void
+    {
+        $this->assertTrue($this->sut()->getVciAllowAnonymousPreAuthorizedAccess());
+        $this->assertFalse(
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS,
+                false,
+            ))->getVciAllowAnonymousPreAuthorizedAccess(),
         );
     }
 

@@ -249,7 +249,8 @@ $config = [
                     ],
                 ],
             ],
-            ClaimsEnum::Vct->value => 'ResearchAndScholarshipCredentialDcSdJwt',
+            // A URN rather than an https URL, which the conformance suite would try to fetch type metadata from.
+            ClaimsEnum::Vct->value => 'urn:example:ResearchAndScholarshipCredential',
         ],
     ],
     // Token Status Lists, so that the plan's status checks run: without them a credential carries no `status`

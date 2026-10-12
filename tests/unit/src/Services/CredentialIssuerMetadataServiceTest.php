@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -754,5 +755,22 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $sut = $this->sut();
 
         $this->assertSame($sut->getMetadata(), $sut->getMetadata());
+    }
+
+
+    /**
+     * Nothing is advertised which could not be issued as it stands: the configurations are checked before the
+     * document is built, and a malformed one fails the whole document rather than going out as written.
+     */
+    public function testPublishesNothingWhileACredentialConfigurationCanNotBeIssued(): void
+    {
+        $this->moduleConfigMock->expects($this->once())->method('validateVciCredentialConfigurations')
+            ->willThrowException(new ConfigurationError('Verifiable Credential configuration [x] has no vct.'));
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Verifiable Credential configuration [x] has no vct.');
+
+        $this->sut()->getMetadata();
     }
 }
