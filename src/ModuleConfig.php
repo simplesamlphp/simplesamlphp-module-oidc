@@ -3128,8 +3128,8 @@ class ModuleConfig
     /**
      * Refuse the credential configurations if any of them can not be published and issued as it stands
      * (findFaultInVciCredentialConfiguration()). Called where the configurations become scopes (getVciScopes()),
-     * so that discovery, registration and authorization fail on a malformed one, and before the Credential Issuer
-     * metadata publishes them.
+     * so that discovery, registration and authorization fail on a malformed one, before the Credential Issuer
+     * metadata publishes them, and before an offer is made (CredentialOfferUriFactory).
      *
      * @throws \SimpleSAML\Error\ConfigurationError
      */

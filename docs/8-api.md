@@ -147,8 +147,8 @@ its default value. Errors are answered as JSON objects with `error` and `error_d
 * `400` `invalid_request`: a parameter is missing or not supported, or `use_tx_code` is set and the user attributes
 hold no email address to send the transaction code to.
 * `401` `unauthorized`: the bearer token is missing or carries none of the scopes this endpoint accepts.
-* `500` `server_error`: the offer could not be built, for example because the transaction code could not be mailed.
-The cause is in the log.
+* `500` `server_error`: the offer could not be built, for example because the transaction code could not be mailed,
+or a credential configuration is malformed. The cause is in the log.
 
 When the wallet redeems a pre-authorized code at the token endpoint, a wrong transaction code is answered with
 `invalid_grant`, and one sent for an offer which has none with `invalid_request`, as OpenID4VCI 1.0 section 6.3 has
@@ -216,7 +216,7 @@ Response:
 
 ```json
 {
-    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A4%2C%22description%22%3A%22Please%20provide%20the%20one-time%20code%20that%20was%20sent%20to%20e-mail%20testuser%40example.com%22%7D%7D%7D%7D"
+    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A4%2C%22description%22%3A%22Please%20provide%20the%20one-time%20code%20that%20was%20sent%20to%20your%20e-mail%20address.%22%7D%7D%7D%7D"
 }
 ```
 

@@ -32,6 +32,18 @@ use Throwable;
 
 class CredentialOfferUriFactory
 {
+    /**
+     * Shown by the wallet next to the Transaction Code field (OpenID4VCI 1.0 section 4.1.1). It names the channel
+     * the code went out on, not the user's address, which the offer would otherwise carry wherever it is shown.
+     */
+    public const string TX_CODE_DESCRIPTION = 'Please provide the one-time code that was sent to your e-mail address.';
+
+    /**
+     * The longest Transaction Code description section 4.1.1 allows, in characters.
+     */
+    public const int TX_CODE_DESCRIPTION_MAX_LENGTH = 300;
+
+
     public function __construct(
         protected readonly VerifiableCredentials $verifiableCredentials,
         protected readonly ModuleConfig $moduleConfig,
@@ -58,16 +70,19 @@ class CredentialOfferUriFactory
      * @param string[] $credentialConfigurationIds
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \JsonException
+     * @throws \RuntimeException When the configurations named can not be offered.
+     * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed.
      */
     public function buildForAuthorization(
         array $credentialConfigurationIds,
     ): string {
+        $credentialConfigurationIds = $this->offerableCredentialConfigurationIds($credentialConfigurationIds);
 
         $issuerStateGenerationAttempts = 3;
         while ($issuerStateGenerationAttempts-- > 0) {
             try {
                 $issuerState = $this->issuerStateEntityFactory->buildNew(
-                    credentialConfigurationIds: array_values($credentialConfigurationIds),
+                    credentialConfigurationIds: $credentialConfigurationIds,
                 );
                 $this->issuerStateRepository->persist($issuerState);
                 break;
@@ -88,9 +103,7 @@ class CredentialOfferUriFactory
         $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
             parameters: [
                 ClaimsEnum::CredentialIssuer->value => $this->moduleConfig->getIssuer(),
-                ClaimsEnum::CredentialConfigurationIds->value => [
-                    ...$credentialConfigurationIds,
-                ],
+                ClaimsEnum::CredentialConfigurationIds->value => $credentialConfigurationIds,
                 ClaimsEnum::Grants->value => [
                     GrantTypesEnum::AuthorizationCode->value => [
                         ClaimsEnum::IssuerState->value => $issuerState->getValue(),
@@ -107,6 +120,8 @@ class CredentialOfferUriFactory
      * @param string[] $credentialConfigurationIds
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \JsonException
+     * @throws \RuntimeException When the configurations named can not be offered.
+     * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed.
      */
     public function buildPreAuthorized(
         array $credentialConfigurationIds,
@@ -114,19 +129,7 @@ class CredentialOfferUriFactory
         bool $useTxCode = false,
         string $userEmailAttributeName = null,
     ): string {
-        if (empty($credentialConfigurationIds)) {
-            throw new RuntimeException('No credential configuration IDs provided.');
-        }
-
-        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
-
-        if (empty($credentialConfigurationIdsSupported)) {
-            throw new RuntimeException('No credential configuration IDs configured.');
-        }
-
-        if (array_diff($credentialConfigurationIds, $credentialConfigurationIdsSupported)) {
-            throw new RuntimeException('Unsupported credential configuration IDs provided.');
-        }
+        $credentialConfigurationIds = $this->offerableCredentialConfigurationIds($credentialConfigurationIds);
 
         // TODO mivanci Wallet (client) credential_offer_endpoint metadata
         // https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#client-metadata
@@ -178,8 +181,7 @@ class CredentialOfferUriFactory
         $userEmailAttributeName ??= $this->moduleConfig->getDefaultUsersEmailAttributeName();
         if ($useTxCode) {
             $userEmail = $this->getUserEmail($userEmailAttributeName, $userAttributes);
-            $txCodeDescription = 'Please provide the one-time code that was sent to e-mail ' . $userEmail;
-            $txCode = $this->buildTxCode($txCodeDescription);
+            $txCode = $this->buildTxCode(self::TX_CODE_DESCRIPTION);
             $this->loggerService->debug('Generated transaction code for delivery by email.');
 
             // Delivered before the code is stored, so that a delivery which fails leaves behind no code
@@ -224,9 +226,7 @@ class CredentialOfferUriFactory
         $credentialOffer = $this->verifiableCredentials->credentialOfferFactory()->from(
             parameters: [
                 ClaimsEnum::CredentialIssuer->value => $this->moduleConfig->getIssuer(),
-                ClaimsEnum::CredentialConfigurationIds->value => [
-                    ...$credentialConfigurationIds,
-                ],
+                ClaimsEnum::CredentialConfigurationIds->value => $credentialConfigurationIds,
                 ClaimsEnum::Grants->value => [
                     GrantTypesEnum::PreAuthorizedCode->value => [
                         ClaimsEnum::PreAuthorizedCode->value => $authCode->getIdentifier(),
@@ -243,6 +243,53 @@ class CredentialOfferUriFactory
         );
 
         return $this->buildUri($credentialOffer->jsonSerialize());
+    }
+
+
+    /**
+     * The configurations an offer may name, checked before anything is stored or mailed for it: at least one,
+     * none twice, each one this issuer has (OpenID4VCI 1.0 section 4.1.1, "A non-empty array of unique strings
+     * that each identify one of the keys" of `credential_configurations_supported`), and no configuration
+     * malformed. That last check covers every configuration, not only the ones offered, since the Credential
+     * Issuer metadata a wallet reads to redeem the offer is not built while any of them is
+     * (CredentialIssuerMetadataService::buildMetadata()).
+     *
+     * @param mixed[] $credentialConfigurationIds
+     * @return list<string>
+     * @throws \RuntimeException When the configurations named can not be offered.
+     * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed.
+     */
+    protected function offerableCredentialConfigurationIds(array $credentialConfigurationIds): array
+    {
+        if ($credentialConfigurationIds === []) {
+            throw new RuntimeException('No credential configuration IDs provided.');
+        }
+
+        $credentialConfigurationIdsSupported = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
+
+        if ($credentialConfigurationIdsSupported === []) {
+            throw new RuntimeException('No credential configuration IDs configured.');
+        }
+
+        $offerableCredentialConfigurationIds = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($credentialConfigurationIds as $credentialConfigurationId) {
+            // Compared strictly, so neither a number (7) nor another spelling of a number ('7.0') is taken for an
+            // id such as '7'.
+            if (!in_array($credentialConfigurationId, $credentialConfigurationIdsSupported, true)) {
+                throw new RuntimeException('Unsupported credential configuration IDs provided.');
+            }
+
+            if (in_array($credentialConfigurationId, $offerableCredentialConfigurationIds, true)) {
+                throw new RuntimeException('Repeated credential configuration IDs provided.');
+            }
+
+            $offerableCredentialConfigurationIds[] = $credentialConfigurationId;
+        }
+
+        $this->moduleConfig->validateVciCredentialConfigurations();
+
+        return $offerableCredentialConfigurationIds;
     }
 
 
@@ -298,10 +345,20 @@ class CredentialOfferUriFactory
     }
 
 
+    /**
+     * @throws \RuntimeException When the description is longer than OpenID4VCI 1.0 section 4.1.1 allows.
+     */
     public function buildTxCode(
         string $description,
         int|string $txCode = null,
     ): TxCode {
+        if (mb_strlen($description) > self::TX_CODE_DESCRIPTION_MAX_LENGTH) {
+            throw new RuntimeException(sprintf(
+                'Transaction Code description is longer than %d characters.',
+                self::TX_CODE_DESCRIPTION_MAX_LENGTH,
+            ));
+        }
+
         $txCode ??= random_int(1000, 9999);
 
         return $this->verifiableCredentials->txCodeFactory()->build(

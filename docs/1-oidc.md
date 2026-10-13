@@ -235,7 +235,8 @@ Currently implemented OpenID4VCI features:
   OpenID4VCI 1.0 Appendix B has them (`claims` and `display` at the top level,
   where the pre-final drafts had them, are refused). A configuration which is
   not is refused, and with it discovery, registration, authorization, the
-  Credential Issuer metadata and issuance, until it is corrected. A claim
+  Credential Issuer metadata, credential offers and issuance, until it is
+  corrected. A claim
   marked `mandatory` is always in the
   credential, so a user without the attribute it is mapped from is refused
   with `credential_request_denied`.

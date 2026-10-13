@@ -18,6 +18,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
@@ -107,8 +108,9 @@ class CredentialOfferUriFactoryTest extends TestCase
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        // '7' is kept by PHP as an integer key in the configuration, and given back by the getter as a string.
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
-            ->willReturn(['credential-configuration', 'other-configuration']);
+            ->willReturn(['credential-configuration', 'other-configuration', '7']);
         $this->moduleConfigMock->method('getUserIdentifierAttributes')->willReturn(['uid']);
         $this->moduleConfigMock->method('getDefaultUsersEmailAttributeName')->willReturn('mail');
         $this->moduleConfigMock->method('getAuthCodeDuration')->willReturn(new DateInterval('PT10M'));
@@ -194,6 +196,8 @@ class CredentialOfferUriFactoryTest extends TestCase
         $issuer = 'https://issuer.example.org/vci?tenant=a&region=b#frag';
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn($issuer);
+        $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
+            ->willReturn(['credential-configuration']);
 
         $offer = $this->decodeOffer($this->sut()->buildForAuthorization(['credential-configuration']));
 
@@ -235,6 +239,27 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->assertSame('Enter the code.', $numeric->getDescription());
         $this->assertSame('A1B2', $text->getCode());
         $this->assertSame('Enter the letters.', $text->getDescription());
+    }
+
+
+    /**
+     * OpenID4VCI 1.0 section 4.1.1 caps the description at 300 characters. Counted as characters, not bytes:
+     * 300 two-byte characters are within it.
+     */
+    public function testBuildTxCodeTakesADescriptionOfUpTo300Characters(): void
+    {
+        $description = str_repeat('é', 300);
+
+        $this->assertSame($description, $this->sut()->buildTxCode($description)->getDescription());
+    }
+
+
+    public function testBuildTxCodeRefusesADescriptionOfMoreThan300Characters(): void
+    {
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Transaction Code description is longer than 300 characters.');
+
+        $this->sut()->buildTxCode(str_repeat('a', 301));
     }
 
 
@@ -350,8 +375,14 @@ class CredentialOfferUriFactoryTest extends TestCase
     }
 
 
+    /**
+     * OpenID4VCI 1.0 section 4.1.1: `credential_configuration_ids` is "A non-empty array of unique strings that
+     * each identify one of the keys" of `credential_configurations_supported`. Refused before anything is stored
+     * or mailed, in both flows.
+     */
     #[DataProvider('unofferableCredentialConfigurationProvider')]
-    public function testRefusesAPreAuthorizedOfferForCredentialConfigurationsItCannotOffer(
+    public function testRefusesAnOfferForCredentialConfigurationsItCannotOffer(
+        string $grant,
         array $requested,
         string $message,
     ): void {
@@ -360,13 +391,13 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage($message);
 
-        $this->sut()->buildPreAuthorized($requested, ['uid' => ['user-1']]);
+        $this->buildOffer($grant, $requested);
     }
 
 
     public static function unofferableCredentialConfigurationProvider(): array
     {
-        return [
+        $cases = [
             'none named' => [[], 'No credential configuration IDs provided.'],
             'one it does not support' => [
                 ['unknown-configuration'],
@@ -376,11 +407,27 @@ class CredentialOfferUriFactoryTest extends TestCase
                 ['credential-configuration', 'unknown-configuration'],
                 'Unsupported credential configuration IDs provided.',
             ],
+            'a number standing for an id' => [[7], 'Unsupported credential configuration IDs provided.'],
+            'another spelling of an id' => [['7.0'], 'Unsupported credential configuration IDs provided.'],
+            'one named twice' => [
+                ['credential-configuration', 'other-configuration', 'credential-configuration'],
+                'Repeated credential configuration IDs provided.',
+            ],
         ];
+
+        $provided = [];
+        foreach (self::grants() as $flow => $grant) {
+            foreach ($cases as $case => [$requested, $message]) {
+                $provided[$flow . ', ' . $case] = [$grant, $requested, $message];
+            }
+        }
+
+        return $provided;
     }
 
 
-    public function testRefusesAnyPreAuthorizedOfferWhenNoCredentialConfigurationIsConfigured(): void
+    #[DataProvider('grantProvider')]
+    public function testRefusesAnyOfferWhenNoCredentialConfigurationIsConfigured(string $grant): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')->willReturn([]);
@@ -389,7 +436,35 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('No credential configuration IDs configured.');
 
-        $this->sut()->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1']]);
+        $this->buildOffer($grant, ['credential-configuration']);
+    }
+
+
+    /**
+     * A wallet reads the Credential Issuer metadata to redeem an offer, and the metadata is not built while any
+     * configuration is malformed, so no offer is made then, for any configuration.
+     */
+    #[DataProvider('grantProvider')]
+    public function testRefusesAnyOfferWhileACredentialConfigurationIsMalformed(string $grant): void
+    {
+        $fault = new ConfigurationError('Verifiable Credential configuration [other-configuration] has no vct.');
+        $this->moduleConfigMock->method('validateVciCredentialConfigurations')->willThrowException($fault);
+        $this->expectNothingWritten();
+
+        try {
+            $this->buildOffer($grant, ['credential-configuration']);
+        } catch (ConfigurationError $e) {
+            $this->assertSame($fault, $e);
+            return;
+        }
+
+        $this->fail('A ConfigurationError was expected.');
+    }
+
+
+    public static function grantProvider(): array
+    {
+        return array_map(fn (string $grant): array => [$grant], self::grants());
     }
 
 
@@ -596,13 +671,16 @@ class CredentialOfferUriFactoryTest extends TestCase
                     'tx_code' => [
                         'input_mode' => 'numeric',
                         'length' => 4,
-                        'description' => 'Please provide the one-time code that was sent to e-mail user@example.org',
+                        'description' => 'Please provide the one-time code that was sent to your e-mail address.',
                     ],
                 ],
             ],
         ], $this->decodeOffer($credentialOfferUri));
         // Digits are never percent-encoded, so the raw URI is the only shape the code could take.
         $this->assertStringNotContainsString($code, $credentialOfferUri);
+        // Nor does the offer name the address the code went to: the decoded offer above holds nothing else, and
+        // the URI holds it neither raw nor percent-encoded.
+        $this->assertStringNotContainsString('user@example.org', rawurldecode($credentialOfferUri));
         $this->assertSame(['Generated transaction code for delivery by email.'], $this->logged('debug'));
         $this->assertSame([], $this->logged('warning'));
         $this->assertSame([], $this->logged('error'));
@@ -686,16 +764,11 @@ class CredentialOfferUriFactoryTest extends TestCase
             ->with('Your one-time code', null, 'told@example.org', 'mailtxt.twig', 'mailhtml.twig')
             ->willReturn($this->emailMock);
 
-        $offer = $this->decodeOffer($this->sut()->buildPreAuthorized(
+        $this->sut()->buildPreAuthorized(
             ['credential-configuration'],
             $userAttributes,
             useTxCode: true,
             userEmailAttributeName: 'emailAddress',
-        ));
-
-        $this->assertSame(
-            'Please provide the one-time code that was sent to e-mail told@example.org',
-            $offer['grants'][self::PRE_AUTHORIZED_GRANT]['tx_code']['description'],
         );
     }
 
@@ -878,6 +951,33 @@ class CredentialOfferUriFactoryTest extends TestCase
             $this->userIdentifierResolverMock,
             $this->txCodeAttemptLimiterMock,
         );
+    }
+
+
+    /**
+     * The two flows an offer is made for, by the grant it offers.
+     *
+     * @return array<string, string>
+     */
+    protected static function grants(): array
+    {
+        return [
+            'authorization code' => 'authorization_code',
+            'pre-authorized code' => self::PRE_AUTHORIZED_GRANT,
+        ];
+    }
+
+
+    /**
+     * An offer of the configurations named, for the grant given; a pre-authorized one for a user with no email.
+     */
+    protected function buildOffer(string $grant, array $credentialConfigurationIds): string
+    {
+        if ($grant === self::PRE_AUTHORIZED_GRANT) {
+            return $this->sut()->buildPreAuthorized($credentialConfigurationIds, ['uid' => ['user-1']]);
+        }
+
+        return $this->sut()->buildForAuthorization($credentialConfigurationIds);
     }
 
 

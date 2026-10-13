@@ -7,9 +7,11 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 use chillerlan\QRCode\QRCode;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Auth;
@@ -536,6 +538,87 @@ class VerifiableCredentailsTestControllerTest extends TestCase
 
         $this->assertArrayHasKey('credentialOfferUri', $this->templateData);
         $this->assertNull($this->templateData['credentialOfferUri']);
+    }
+
+
+    /**
+     * Only a configuration this issuer has can be offered. One remembered from before the configuration changed,
+     * or named by a request, is no selection: the form comes back, not an error page.
+     *
+     * @param array<string,mixed> $requestParams
+     * @param array<string,mixed> $sessionData
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     */
+    #[DataProvider('credentialConfigurationItDoesNotHaveProvider')]
+    public function testTakesACredentialConfigurationItDoesNotHaveForNoSelection(
+        array $requestParams,
+        array $sessionData,
+    ): void {
+        $this->requestParams = $requestParams;
+        $this->sessionData = $sessionData;
+
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildForAuthorization');
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildPreAuthorized');
+
+        $this->sut()->verifiableCredentialIssuance($this->request());
+
+        $this->assertSame([], $this->templateData['setupErrors'] ?? null);
+        $this->assertArrayHasKey('selectedCredentialConfigurationId', $this->templateData);
+        $this->assertNull($this->templateData['selectedCredentialConfigurationId']);
+        $this->assertNull($this->templateData['credentialOfferUri'] ?? null);
+    }
+
+
+    public static function credentialConfigurationItDoesNotHaveProvider(): array
+    {
+        return [
+            'named by the request' => [
+                [
+                    'credentialConfigurationId' => 'retired_degree',
+                    'grantType' => GrantTypesEnum::AuthorizationCode->value,
+                ],
+                [],
+            ],
+            'remembered by the session' => [
+                ['grantType' => GrantTypesEnum::PreAuthorizedCode->value],
+                [
+                    'auth_source_id' => self::AUTH_SOURCE_ID,
+                    'credential_configuration_id' => 'retired_degree',
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * No offer is made while a configuration is malformed, so the page says what is wrong rather than rendering a
+     * form whose every offer would fail.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     */
+    public function testReportsAMalformedCredentialConfiguration(): void
+    {
+        $this->moduleConfigMock->method('validateVciCredentialConfigurations')->willThrowException(
+            new ConfigurationError('Verifiable Credential configuration [university_degree] has no vct.'),
+        );
+        $this->requestParams = [
+            'credentialConfigurationId' => self::CONFIGURATION_ID,
+            'grantType' => GrantTypesEnum::AuthorizationCode->value,
+        ];
+
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildForAuthorization');
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildPreAuthorized');
+
+        $this->sut()->verifiableCredentialIssuance($this->request());
+
+        $this->assertSame(
+            ['The configuration is invalid: Verifiable Credential configuration [university_degree] has no vct.'],
+            $this->templateData['setupErrors'] ?? null,
+        );
     }
 
 

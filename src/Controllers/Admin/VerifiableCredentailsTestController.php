@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Controllers\Admin;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QRCodeException;
 use SimpleSAML\Auth\Simple;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
@@ -65,6 +66,18 @@ class VerifiableCredentailsTestController
             );
         }
 
+        // No offer is made while a configuration is malformed (CredentialOfferUriFactory), so the fault is shown
+        // here rather than as an error page once an offer is asked for.
+        try {
+            $this->moduleConfig->validateVciCredentialConfigurations();
+        } catch (ConfigurationError $configurationError) {
+            return $this->templateFactory->build(
+                'oidc:tests/verifiable-credential-issuance.twig',
+                ['setupErrors' => [$configurationError->getMessage()]],
+                RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
+            );
+        }
+
         $session = $this->sessionService->getCurrentSession();
         $allowedMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
 
@@ -95,6 +108,12 @@ class VerifiableCredentailsTestController
             $request,
             $allowedMethods,
         ) ?? $session->getData('vci', 'credential_configuration_id');
+
+        // Only a configuration this issuer has can be offered (CredentialOfferUriFactory). One remembered from
+        // before the configuration changed, or named by a request, is no selection.
+        if (!in_array($credentialConfigurationId, $credentialConfigurationIdsSupported, true)) {
+            $credentialConfigurationId = null;
+        }
 
         $grantType = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
             'grantType',
