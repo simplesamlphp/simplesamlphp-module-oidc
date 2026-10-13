@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Stringable;
 
 /**
@@ -36,7 +37,9 @@ use Stringable;
  * It runs after IssuerStateRule, ScopeRule and AuthorizationDetailsRule, and reads their results: the issuer state
  * of the offer, the scopes requested (only those which are configuration IDs are the offer's to decide), and the
  * authorization details of type openid_credential. A configuration the offer did not offer is refused back to the
- * redirect URI, with `invalid_scope` or `invalid_authorization_details` after the parameter which named it.
+ * redirect URI, with `invalid_scope` or `invalid_authorization_details` after the parameter which named it. And
+ * a credential request, with or without an offer, which names no configuration at all is refused with
+ * `invalid_scope`.
  */
 #[CoversClass(OfferedCredentialsRule::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -65,6 +68,12 @@ class OfferedCredentialsRuleTest extends TestCase
 
     protected MockObject $clientMock;
 
+    /**
+     * Whether RequestParamsResolver takes the request for a credential request. The requests here follow an
+     * offer, or name a credential, so they are, unless a test says otherwise.
+     */
+    protected bool $isVciRequest = true;
+
     /** @var array<int,array{level:string,message:string,context:array}> */
     protected array $logRecords = [];
 
@@ -91,10 +100,15 @@ class OfferedCredentialsRuleTest extends TestCase
     }
 
 
-    protected function sut(): OfferedCredentialsRule
+    protected function sut(?RequestParamsResolver $requestParamsResolver = null): OfferedCredentialsRule
     {
+        if ($requestParamsResolver === null) {
+            $requestParamsResolver = $this->createStub(RequestParamsResolver::class);
+            $requestParamsResolver->method('isVciAuthorizationCodeRequest')->willReturn($this->isVciRequest);
+        }
+
         return new OfferedCredentialsRule(
-            $this->createStub(RequestParamsResolver::class),
+            $requestParamsResolver,
             new Helpers(),
             $this->issuerStateRepositoryMock,
             $this->moduleConfigMock,
@@ -202,7 +216,10 @@ class OfferedCredentialsRuleTest extends TestCase
                 ['openid'],
                 [['type' => 'openid_credential', 'credential_configuration_id' => self::OFFERED]],
             ],
-            'scopes which are not configurations' => [['openid', 'profile', 'offline_access'], null],
+            'scopes which are not configurations, beside the offered one' => [
+                ['openid', 'profile', 'offline_access', self::OFFERED],
+                null,
+            ],
             'the offered configuration both ways' => [
                 ['openid', self::OFFERED],
                 [['type' => 'openid_credential', 'credential_configuration_id' => self::OFFERED]],
@@ -377,6 +394,127 @@ class OfferedCredentialsRuleTest extends TestCase
             $this->refusal($this->resultBag(authorizationDetails: [$this->authorizationDetail(self::OFFERED)]))
                 ->getErrorType(),
         );
+    }
+
+
+    /**
+     * A credential request has to name a credential configuration, by scope or by authorization details, once
+     * ScopeRule has ignored the scope values the server does not support; one which names none, following an
+     * offer or not, would get a code granting nothing to issue.
+     *
+     * @return array<string,array{?string, string[], ?array}>
+     */
+    public static function credentialRequestsWhichNameNoCredentialProvider(): array
+    {
+        return [
+            'an offer followed with scopes which are not configurations' => [
+                self::ISSUER_STATE,
+                ['openid', 'profile'],
+                null,
+            ],
+            'an offer followed with no scope' => [self::ISSUER_STATE, [], null],
+            'nothing left of the scope' => [null, [], null],
+            'authorization details which name nothing' => [null, ['openid'], []],
+        ];
+    }
+
+
+    /**
+     * Refused before the End-User logs in, back to the redirect URI with the state, and logged with the client.
+     *
+     * @param string[] $scopes
+     * @param mixed[]|null $authorizationDetails
+     * @throws \Throwable
+     */
+    #[DataProvider('credentialRequestsWhichNameNoCredentialProvider')]
+    public function testRefusesACredentialRequestWhichNamesNoCredential(
+        ?string $issuerState,
+        array $scopes,
+        ?array $authorizationDetails,
+    ): void {
+        $this->theOfferOffered([self::OFFERED]);
+
+        $exception = $this->refusal($this->resultBag($issuerState, $scopes, $authorizationDetails));
+
+        $this->assertSame('invalid_scope', $exception->getErrorType());
+        $this->assertSame(self::REDIRECT_URI, $exception->getRedirectUri());
+        $this->assertSame(self::STATE, $exception->getPayload()['state'] ?? null);
+        $this->assertSame(
+            'The request names no credential configuration, by scope or by authorization_details.',
+            $exception->getHint(),
+        );
+        $this->assertSame(
+            [['level' => 'notice', 'context' => ['client_id' => self::CLIENT_ID]]],
+            array_map(
+                fn(array $record): array => ['level' => $record['level'], 'context' => $record['context']],
+                $this->logRecords,
+            ),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{string[], ?array}>
+     */
+    public static function credentialRequestsWithoutAnOfferProvider(): array
+    {
+        return [
+            'a configuration as a scope' => [['openid', self::NOT_OFFERED], null],
+            'a configuration as an authorization detail' => [
+                ['openid'],
+                [['type' => 'openid_credential', 'credential_configuration_id' => self::NOT_OFFERED]],
+            ],
+        ];
+    }
+
+
+    /**
+     * Without an offer, any configuration may be named, either way.
+     *
+     * @param string[] $scopes
+     * @param mixed[]|null $authorizationDetails
+     * @throws \Throwable
+     */
+    #[DataProvider('credentialRequestsWithoutAnOfferProvider')]
+    public function testAcceptsACredentialRequestWithoutAnOfferWhichNamesACredential(
+        array $scopes,
+        ?array $authorizationDetails,
+    ): void {
+        $result = $this->sut()->checkRule(
+            $this->requestMock,
+            $this->resultBag(issuerState: null, scopes: $scopes, authorizationDetails: $authorizationDetails),
+            $this->loggerServiceMock,
+        );
+
+        $this->assertInstanceOf(Result::class, $result);
+        $this->assertNull($result->getValue());
+    }
+
+
+    /**
+     * An OpenID Connect or plain OAuth 2.0 request names no credential, and need not: the request is asked of
+     * RequestParamsResolver, as it was sent.
+     *
+     * @throws \Throwable
+     */
+    public function testAsksNoCredentialOfARequestWhichIsNotACredentialRequest(): void
+    {
+        $allowedMethods = [HttpMethodsEnum::GET, HttpMethodsEnum::POST];
+        $requestParamsResolver = $this->createMock(RequestParamsResolver::class);
+        $requestParamsResolver->expects($this->once())->method('isVciAuthorizationCodeRequest')
+            ->with($this->identicalTo($this->requestMock), $allowedMethods)
+            ->willReturn(false);
+
+        $result = $this->sut($requestParamsResolver)->checkRule(
+            $this->requestMock,
+            $this->resultBag(issuerState: null, scopes: ['openid']),
+            $this->loggerServiceMock,
+            allowedServerRequestMethods: $allowedMethods,
+        );
+
+        $this->assertInstanceOf(Result::class, $result);
+        $this->assertNull($result->getValue());
+        $this->assertSame([], $this->logRecords);
     }
 
 

@@ -181,13 +181,16 @@ class PushedAuthorizationControllerTest extends TestCase
     }
 
 
+    /**
+     * A client which fails to authenticate is refused as at the token endpoint, as `invalid_client` (RFC 9126
+     * section 2.3, RFC 6749 section 5.2).
+     */
     public function testClientAuthenticationFailureThrows(): void
     {
         $this->serverRequestMock->method('getMethod')->willReturn('POST');
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn(null);
 
-        $this->expectException(OidcServerException::class);
-        $this->sut()->__invoke($this->serverRequestMock);
+        $this->assertRefusedAsInvalidClient();
     }
 
 
@@ -197,8 +200,22 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->clientMock->method('isConfidential')->willReturn(true);
         $this->prepareAuthenticatedClient(ClientAuthenticationMethodsEnum::None);
 
-        $this->expectException(OidcServerException::class);
-        $this->sut()->__invoke($this->serverRequestMock);
+        $this->assertRefusedAsInvalidClient();
+    }
+
+
+    private function assertRefusedAsInvalidClient(): void
+    {
+        try {
+            $this->sut()->__invoke($this->serverRequestMock);
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_client', $exception->getErrorType());
+            $this->assertSame(401, $exception->getHttpStatusCode());
+
+            return;
+        }
+
+        $this->fail('The client was not refused.');
     }
 
 

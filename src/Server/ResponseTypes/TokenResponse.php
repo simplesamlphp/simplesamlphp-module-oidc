@@ -6,12 +6,14 @@ namespace SimpleSAML\Module\oidc\Server\ResponseTypes;
 
 use League\OAuth2\Server\CryptKeyInterface;
 use League\OAuth2\Server\Entities\AccessTokenEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\ResponseTypes\BearerTokenResponse;
 use LogicException;
 use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\IdentityProviderInterface;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
@@ -67,6 +69,7 @@ class TokenResponse extends BearerTokenResponse implements
         protected IdTokenBuilder $idTokenBuilder,
         CryptKeyInterface $privateKey,
         protected LoggerService $loggerService,
+        protected ModuleConfig $moduleConfig,
     ) {
         $this->privateKey = $privateKey;
     }
@@ -167,7 +170,7 @@ class TokenResponse extends BearerTokenResponse implements
             throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
         }
 
-        $extraParams = [];
+        $extraParams = $this->prepareScopeExtraParam($accessToken);
 
         if ($this->isOpenIDRequest($accessToken->getScopes())) {
             $extraParams = [
@@ -188,7 +191,34 @@ class TokenResponse extends BearerTokenResponse implements
             ];
         }
 
-        return array_filter($extraParams);
+        // An empty value is left out, and only an empty one: a scope named '0' is stated like any other.
+        return array_filter($extraParams, static fn(mixed $value): bool => $value !== '' && $value !== []);
+    }
+
+
+    /**
+     * The scopes the access token grants, as `scope` (RFC 6749 section 5.1). Stated in every response, whether
+     * or not they are the ones the client asked for, since the section requires the parameter whenever they
+     * differ, and they can: fewer (a scope value this server does not support is ignored, ScopeRule; one the
+     * client is not registered for is not granted, ScopeRepository; the authorization_details of a token request
+     * narrow a credential grant, AuthCodeGrant), or ones the client did not ask for (the configurations a
+     * pre-authorized code was offered for). The id of a credential configuration which can be requested through
+     * authorization_details only is left out: inside this server it is the scope the grant is held under, but it
+     * is not a scope this server supports (ScopeRule), so no client asked for it as one. A token which grants
+     * none states none: getExtraParams() leaves an empty value out.
+     *
+     * @return array{scope: string}
+     */
+    protected function prepareScopeExtraParam(AccessTokenEntity $accessToken): array
+    {
+        $notSupportedAsScopes = $this->moduleConfig->getVciCredentialConfigurationIdsWithoutScope();
+
+        $scopes = array_filter(
+            array_map(fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(), $accessToken->getScopes()),
+            fn(string $scope): bool => !in_array($scope, $notSupportedAsScopes, true),
+        );
+
+        return ['scope' => implode(' ', $scopes)];
     }
 
 

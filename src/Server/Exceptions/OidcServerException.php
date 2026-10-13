@@ -119,6 +119,7 @@ class OidcServerException extends OAuthServerException
      * @param string|null $redirectUri An HTTP URI to redirect the user back to
      * @param string|null $state
      * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     * @param string|null $hint What is wrong, in place of the hint derived from the scope
      * @return static
      * @psalm-suppress LessSpecificImplementedReturnType
      */
@@ -127,15 +128,11 @@ class OidcServerException extends OAuthServerException
         ?string $redirectUri = null,
         ?string $state = null,
         ?ResponseModeInterface $responseMode = null,
+        ?string $hint = null,
     ): static {
-        if (empty($scope)) {
-            $hint = 'Specify a scope in the request or set a default scope';
-        } else {
-            $hint = sprintf(
-                'Check the `%s` scope',
-                htmlspecialchars($scope, ENT_QUOTES, 'UTF-8', false),
-            );
-        }
+        $hint ??= empty($scope) ?
+        'Specify a scope in the request or set a default scope' :
+        sprintf('Check the `%s` scope', htmlspecialchars($scope, ENT_QUOTES, 'UTF-8', false));
 
         $e = self::create(
             'The requested scope is invalid, unknown, or malformed',

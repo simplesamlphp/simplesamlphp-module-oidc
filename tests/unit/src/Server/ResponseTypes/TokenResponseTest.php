@@ -180,6 +180,9 @@ class TokenResponseTest extends TestCase
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        // A credential configuration whose metadata states no scope.
+        $this->moduleConfigMock->method('getVciCredentialConfigurationIdsWithoutScope')
+            ->willReturn(['AuthorizationDetailsOnly']);
         $this->sspConfigurationMock = $this->createMock(Configuration::class);
         $this->moduleConfigMock->method('config')
             ->willReturn($this->sspConfigurationMock);
@@ -250,6 +253,7 @@ class TokenResponseTest extends TestCase
             $idTokenBuilder ?? $this->idTokenBuilder,
             $this->privateKey,
             $this->loggerMock,
+            $this->moduleConfigMock,
         );
 
         $tokenResponse->setNonce(null);
@@ -273,6 +277,7 @@ class TokenResponseTest extends TestCase
             $this->idTokenBuilder,
             $this->privateKey,
             $this->loggerMock,
+            $this->moduleConfigMock,
         ) extends TokenResponse {
             public function exposedGetExtraParams(OAuth2AccessTokenEntityInterface $accessToken): array
             {
@@ -424,6 +429,71 @@ class TokenResponseTest extends TestCase
         $idTokenResponse = $this->prepareMockedInstance($idTokenBuilderMock);
         $idTokenResponse->setAccessToken($this->accessTokenEntityMock);
         $idTokenResponse->generateHttpResponse(new Response());
+    }
+
+
+    /**
+     * The response states the scopes the access token grants (RFC 6749 section 5.1), without the id of a
+     * configuration which can be requested through authorization details only: no client asked for that one as
+     * a scope.
+     *
+     * @param string[] $scopes
+     */
+    #[DataProvider('grantedScopesProvider')]
+    public function testStatesTheScopesTheAccessTokenGrants(array $scopes, string $expectedScope): void
+    {
+        $this->accessTokenEntityMock->method('getScopes')->willReturn(
+            array_map(fn(string $scope): ScopeEntity => new ScopeEntity($scope), $scopes),
+        );
+
+        $this->assertSame($expectedScope, $this->generateResponse()['scope']);
+    }
+
+
+    /**
+     * @return array<string, array{0: string[], 1: string}>
+     */
+    public static function grantedScopesProvider(): array
+    {
+        return [
+            'scopes' => [['profile', 'email'], 'profile email'],
+            "a scope named '0', which is not empty" => [['0'], '0'],
+            'with a configuration requested through authorization details only' => [
+                ['UniversityDegreeCredential', 'AuthorizationDetailsOnly', 'profile'],
+                'UniversityDegreeCredential profile',
+            ],
+        ];
+    }
+
+
+    /**
+     * A token which grants no scope a client could have asked for states none, rather than an empty one.
+     *
+     * @param string[] $scopes
+     */
+    #[DataProvider('noStatedScopeProvider')]
+    public function testStatesNoScopeWhenTheAccessTokenGrantsNone(array $scopes): void
+    {
+        $this->accessTokenEntityMock->method('getScopes')->willReturn(
+            array_map(fn(string $scope): ScopeEntity => new ScopeEntity($scope), $scopes),
+        );
+
+        $result = $this->generateResponse();
+
+        $this->assertArrayNotHasKey('scope', $result);
+        $this->assertSame('AccessToken123', $result['access_token']);
+    }
+
+
+    /**
+     * @return array<string, array{0: string[]}>
+     */
+    public static function noStatedScopeProvider(): array
+    {
+        return [
+            'no scope' => [[]],
+            'a configuration requested through authorization details only' => [['AuthorizationDetailsOnly']],
+        ];
     }
 
 

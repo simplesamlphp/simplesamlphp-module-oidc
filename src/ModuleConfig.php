@@ -1218,10 +1218,10 @@ class ModuleConfig
      *
      * OpenID Connect Core 1.0 section 11 defines 'offline_access' as a request for a refresh token, so without
      * the refresh token grant (see OPTION_ENABLED_GRANT_TYPES) the scope has nothing to grant and is left out: it
-     * is not advertised, a client can not be registered with it, and a request carrying it is refused as
-     * 'invalid_scope' like any other unsupported scope. The name is taken out of the merged set, and a private
-     * scope (validate()) or Verifiable Credential configuration (getVciScopes()) named after a standard scope is
-     * refused, so nothing merged later can put it back.
+     * is not advertised, a client can not be registered with it, and a request carrying it is served without
+     * it, the value being ignored like any other unsupported one (ScopeRule). The name is taken out of the merged
+     * set, and a private scope (validate()) or Verifiable Credential configuration (getVciScopes()) named after a
+     * standard scope is refused, so nothing merged later can put it back.
      *
      * @throws \Exception
      */

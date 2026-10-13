@@ -71,7 +71,7 @@ class OpMetadataService
             $this->routes->getModuleUrl(RoutesEnum::Registration->value);
         }
         // A credential configuration whose metadata states no scope is requested through authorization_details
-        // only (OpenID4VCI 1.0 section 12.2.4), so its id is not advertised as a scope; ScopeRule refuses it.
+        // only (OpenID4VCI 1.0 section 12.2.4), so its id is not advertised as a scope; ScopeRule ignores it as one.
         $this->metadata[ClaimsEnum::ScopesSupported->value] = array_values(array_diff(
             array_keys($this->moduleConfig->getScopes()),
             $this->moduleConfig->getVciCredentialConfigurationIdsWithoutScope(),

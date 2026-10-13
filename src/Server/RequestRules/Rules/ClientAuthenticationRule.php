@@ -19,6 +19,10 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 
 /**
+ * A client which does not authenticate, or authenticates as `none` while it is confidential, is refused with
+ * `invalid_client` (RFC 6749 section 5.2): HTTP 401, with a `WWW-Authenticate` challenge when the request used
+ * the Authorization header.
+ *
  * @extends \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule<\SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod>
  */
 class ClientAuthenticationRule extends AbstractRule
@@ -79,7 +83,7 @@ class ClientAuthenticationRule extends AbstractRule
             $loggerService->warning(
                 'Client authentication failed: no supported client authentication method was presented.',
             );
-            throw OidcServerException::accessDenied('Not a single client authentication method presented.');
+            throw OidcServerException::invalidClient($request);
         }
 
         // Ensure we that the method is not 'None' if client is confidential.
@@ -91,9 +95,7 @@ class ClientAuthenticationRule extends AbstractRule
                 'Client authentication failed: confidential client used the "none" authentication method.',
                 ['client_id' => $resolvedClientAuthenticationMethod->getClient()->getIdentifier()],
             );
-            throw OidcServerException::accessDenied(
-                'Confidential client must use an authentication method other than "none".',
-            );
+            throw OidcServerException::invalidClient($request);
         }
 
         return new Result($this->getKey(), $resolvedClientAuthenticationMethod);

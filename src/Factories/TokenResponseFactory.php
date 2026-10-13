@@ -30,6 +30,7 @@ class TokenResponseFactory
             $this->idTokenBuilder,
             $this->privateKey,
             $this->loggerService,
+            $this->moduleConfig,
         );
         $tokenResponse->setEncryptionKey($this->moduleConfig->getEncryptionKey());
 

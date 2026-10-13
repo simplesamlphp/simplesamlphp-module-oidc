@@ -5,21 +5,21 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
-use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\Builder\InvocationStubber;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\Str;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
@@ -116,48 +116,15 @@ class ScopeRuleTest extends TestCase
 
 
     /**
-     * @throws \Throwable
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    public function testCheckRuleRedirectUriDependency(): void
-    {
-        $resultBag = new ResultBag();
-        $this->expectException(LogicException::class);
-        $this->sut()->checkRule(
-            $this->requestStub,
-            $resultBag,
-            $this->loggerServiceStub,
-            $this->data,
-            $this->responseModeStub,
-        );
-    }
-
-
-    /**
-     * @throws \Throwable
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    public function testCheckRuleStateDependency(): void
-    {
-        $resultBag = new ResultBag();
-        $resultBag->add($this->redirectUriResult);
-        $this->expectException(LogicException::class);
-        $this->sut()->checkRule(
-            $this->requestStub,
-            $resultBag,
-            $this->loggerServiceStub,
-            $this->data,
-            $this->responseModeStub,
-        );
-    }
-
-
-    /**
+     * Every scope value supported: nothing is ignored, so nothing is logged as ignored.
+     *
      * @throws \Throwable
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testValidScopes(): void
     {
+        $this->loggerServiceStub = $this->createMock(LoggerService::class);
+        $this->loggerServiceStub->expects($this->never())->method('notice');
         $resultBag = $this->prepareValidResultBag();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
             ->willReturn('openid profile');
@@ -186,39 +153,73 @@ class ScopeRuleTest extends TestCase
 
 
     /**
+     * A scope value the server does not support is ignored, not refused (OpenID4VCI 1.0 section 5.1.2, OpenID
+     * Connect Core 1.0 section 3.1.2.1), wherever it stands among the others, and the log says which were
+     * ignored, for which client.
+     *
      * @throws \Throwable
      */
-    public function testInvalidScopeThrows(): void
+    public function testIgnoresTheScopeValuesItDoesNotSupport(): void
     {
         $resultBag = $this->prepareValidResultBag();
+        $resultBag->add(new Result(ClientRule::class, $this->clientNamed('client-id')));
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
-            ->willReturn('openid');
-        $this->strHelperMock->expects($this->once())->method('convertScopesStringToArray')
-            ->with('openid')
-            ->willReturn(['openid']);
-        $this->scopeRepositoryStub
-            ->method('getScopeEntityByIdentifier')
-            ->willReturn(null);
+            ->willReturn('unknown openid other-unknown profile');
+        $this->strHelperMock->method('convertScopesStringToArray')
+            ->willReturn(['unknown', 'openid', 'other-unknown', 'profile']);
+        $this->scopeRepositoryStub->method('getScopeEntityByIdentifier')
+            ->willReturnCallback(fn(string $identifier): ?ScopeEntity => $this->scopeEntities[$identifier] ?? null);
+        $this->loggerServiceStub = $this->createMock(LoggerService::class);
+        $this->loggerServiceStub->expects($this->once())->method('notice')->with(
+            $this->stringContains('ignored'),
+            ['client_id' => 'client-id', 'ignored_scopes' => ['unknown', 'other-unknown']],
+        );
 
-        $this->expectException(OidcServerException::class);
-        $this->sut()->checkRule(
+        $result = $this->sut()->checkRule(
             $this->requestStub,
             $resultBag,
             $this->loggerServiceStub,
             $this->data,
             $this->responseModeStub,
         );
+
+        $this->assertSame([$this->scopeEntities['openid'], $this->scopeEntities['profile']], $result?->getValue());
+    }
+
+
+    /**
+     * A request whose every scope value is ignored is left with none; whether that is enough is for the rules
+     * which look at what is left (RequiredOpenIdScopeRule, OfferedCredentialsRule).
+     *
+     * @throws \Throwable
+     */
+    public function testIgnoresEveryScopeValueItDoesNotSupportLeavingNone(): void
+    {
+        $resultBag = $this->prepareValidResultBag();
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('unknown');
+        $this->strHelperMock->method('convertScopesStringToArray')->willReturn(['unknown']);
+        $this->scopeRepositoryStub->method('getScopeEntityByIdentifier')->willReturn(null);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->data,
+            $this->responseModeStub,
+        );
+
+        $this->assertSame([], $result?->getValue());
     }
 
 
     /**
      * A credential configuration whose metadata states no scope is requested through authorization_details only
-     * (OpenID4VCI 1.0 section 12.2.4). Its id is a scope inside the module, so the repository knows it, but a
-     * client may not ask for it: refused as a scope the server does not offer, to the redirect URI.
+     * (OpenID4VCI 1.0 section 12.2.4). Its id is a scope inside the module, so the repository knows it, but it
+     * is not one the server supports as a scope: ignored like any other such value.
      *
      * @throws \Throwable
      */
-    public function testRefusesTheIdOfACredentialConfigurationWithoutAScope(): void
+    public function testIgnoresTheIdOfACredentialConfigurationWithoutAScope(): void
     {
         $resultBag = $this->prepareValidResultBag();
         $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')
@@ -227,24 +228,26 @@ class ScopeRuleTest extends TestCase
             ->willReturn(['openid', 'AuthorizationDetailsOnly']);
         $this->scopeRepositoryStub->method('getScopeEntityByIdentifier')
             ->willReturnCallback(fn(string $identifier): ScopeEntity => new ScopeEntity($identifier));
+        $this->loggerServiceStub = $this->createMock(LoggerService::class);
+        $this->loggerServiceStub->expects($this->once())->method('notice')->with(
+            $this->stringContains('ignored'),
+            ['client_id' => null, 'ignored_scopes' => ['AuthorizationDetailsOnly']],
+        );
 
-        try {
-            $this->sut()->checkRule(
-                $this->requestStub,
-                $resultBag,
-                $this->loggerServiceStub,
-                $this->data,
-                $this->responseModeStub,
-            );
-        } catch (OidcServerException $exception) {
-            $this->assertSame('invalid_scope', $exception->getErrorType());
-            $this->assertStringContainsString('AuthorizationDetailsOnly', (string)$exception->getHint());
-            $this->assertSame('https://some-uri.org', $exception->getRedirectUri());
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $resultBag,
+            $this->loggerServiceStub,
+            $this->data,
+            $this->responseModeStub,
+        );
 
-            return;
-        }
-
-        $this->fail('Expected the scope to be refused.');
+        $scopes = $result?->getValue();
+        $this->assertIsArray($scopes);
+        $this->assertSame(
+            ['openid'],
+            array_map(fn(ScopeEntity $scope): string => $scope->getIdentifier(), $scopes),
+        );
     }
 
 
@@ -271,6 +274,15 @@ class ScopeRuleTest extends TestCase
         );
 
         $this->assertSame([$scopeEntity], $result?->getValue());
+    }
+
+
+    protected function clientNamed(string $clientId): ClientEntityInterface
+    {
+        $client = $this->createStub(ClientEntityInterface::class);
+        $client->method('getIdentifier')->willReturn($clientId);
+
+        return $client;
     }
 
 

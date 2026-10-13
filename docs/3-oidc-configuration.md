@@ -589,9 +589,10 @@ OpenID Connect Discovery 1.0 section 3 has list the standard scopes "if
 supported"), from the scopes a client can be registered with (Dynamic Client
 Registration filters it out, the client form does not offer it, and the default
 set for a scope-less dynamic registration no longer contains it), and an
-authorization request carrying it is refused as `invalid_scope`, the way the
-module answers any scope it does not support. A client which relies on refresh
-tokens should therefore not be registered with such an OP.
+authorization request carrying it is served without it, the way the module
+treats any scope value it does not support (it ignores the value and logs it).
+A client which relies on refresh tokens should therefore not be registered with
+such an OP.
 
 Why disable the implicit grant: OAuth 2.0 Security Best Current Practice
 (RFC 9700, section 2.1.2) has clients avoid the implicit grant and every

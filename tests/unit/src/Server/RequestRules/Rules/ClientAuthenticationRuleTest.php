@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -195,7 +196,8 @@ class ClientAuthenticationRuleTest extends TestCase
 
 
     /**
-     * If the resolver can not authenticate the client by any supported method, the request is denied.
+     * If the resolver can not authenticate the client by any supported method, the request is refused as
+     * `invalid_client` (RFC 6749 section 5.2), with no challenge when it did not use the Authorization header.
      *
      * @throws \Throwable
      */
@@ -207,15 +209,32 @@ class ClientAuthenticationRuleTest extends TestCase
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willReturn(null);
 
-        $this->expectException(OidcServerException::class);
+        $exception = $this->refusal($this->requestStub);
 
-        $this->sut()->checkRule(
-            $this->requestStub,
-            $this->resultBag,
-            $this->loggerServiceStub,
-            [],
-            $this->responseModeStub,
-        );
+        $this->assertSame('invalid_client', $exception->getErrorType());
+        $this->assertSame(401, $exception->getHttpStatusCode());
+        $this->assertArrayNotHasKey('WWW-Authenticate', $exception->getHttpHeaders());
+    }
+
+
+    /**
+     * A client which failed to authenticate through the Authorization header gets the challenge of its scheme
+     * (RFC 6749 section 5.2).
+     *
+     * @throws \Throwable
+     */
+    public function testChallengesAClientWhichFailedToAuthenticateThroughTheAuthorizationHeader(): void
+    {
+        $request = (new Psr17Factory())->createServerRequest('POST', 'https://op.example.org/token')
+            ->withHeader('Authorization', 'Basic ' . base64_encode('client-id:wrong-secret'));
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn(null);
+
+        $exception = $this->refusal($request);
+
+        $this->assertSame('invalid_client', $exception->getErrorType());
+        $this->assertSame(401, $exception->getHttpStatusCode());
+        $this->assertSame('Basic realm="OAuth"', $exception->getHttpHeaders()['WWW-Authenticate'] ?? null);
     }
 
 
@@ -264,14 +283,30 @@ class ClientAuthenticationRuleTest extends TestCase
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willReturn($resolved);
 
-        $this->expectException(OidcServerException::class);
+        $exception = $this->refusal($this->requestStub);
 
-        $this->sut()->checkRule(
-            $this->requestStub,
-            $this->resultBag,
-            $this->loggerServiceStub,
-            [],
-            $this->responseModeStub,
-        );
+        $this->assertSame('invalid_client', $exception->getErrorType());
+        $this->assertSame(401, $exception->getHttpStatusCode());
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    private function refusal(ServerRequestInterface $request): OidcServerException
+    {
+        try {
+            $this->sut()->checkRule(
+                $request,
+                $this->resultBag,
+                $this->loggerServiceStub,
+                [],
+                $this->responseModeStub,
+            );
+        } catch (OidcServerException $exception) {
+            return $exception;
+        }
+
+        $this->fail('The client was not refused.');
     }
 }

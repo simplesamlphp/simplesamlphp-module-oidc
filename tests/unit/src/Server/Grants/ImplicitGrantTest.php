@@ -748,7 +748,8 @@ class ImplicitGrantTest extends TestCase
 
     /**
      * `id_token token` asks for the access token in the authorization response itself, so it rides in the
-     * fragment beside the ID Token, with its type and its remaining lifetime.
+     * fragment beside the ID Token, with its type, its remaining lifetime and the scopes it grants (RFC 6749
+     * section 4.2.2).
      */
     public function testTheAccessTokenIsReturnedInTheResponseForTheIdTokenTokenResponseType(): void
     {
@@ -756,7 +757,8 @@ class ImplicitGrantTest extends TestCase
         // Deliberately not the grant's own one hour TTL: expires_in has to be the remaining life of this
         // token, and taking it from the configured lifetime instead would agree with any token that happens
         // to have been issued for the same span.
-        $this->accessTokenIsIssued('the-access-token', 900);
+        $accessToken = $this->accessTokenIsIssued('the-access-token', 900);
+        $accessToken->method('getScopes')->willReturn([new ScopeEntity('openid'), new ScopeEntity('profile')]);
         $this->idTokenIsBuilt('the-id-token');
 
         $params = $this->paramsIn(
@@ -767,8 +769,29 @@ class ImplicitGrantTest extends TestCase
         $this->assertSame('the-access-token', $params['access_token']);
         $this->assertSame('Bearer', $params['token_type']);
         $this->assertEqualsWithDelta(900, (int)$params['expires_in'], 5);
+        $this->assertSame('openid profile', $params['scope']);
         $this->assertSame('the-id-token', $params['id_token']);
         $this->assertSame(self::STATE, $params['state']);
+    }
+
+
+    /**
+     * An access token which grants no scope (the client was registered for none of those requested) states
+     * none, rather than an empty one.
+     */
+    public function testAnAccessTokenWhichGrantsNoScopeStatesNone(): void
+    {
+        $this->scopesAreFinalizedAs();
+        $this->accessTokenIsIssued('the-access-token');
+        $this->idTokenIsBuilt('the-id-token');
+
+        $params = $this->paramsIn(
+            $this->locationOf($this->completed($this->authorizationRequest(responseType: 'id_token token'))),
+            PHP_URL_FRAGMENT,
+        );
+
+        $this->assertSame('the-access-token', $params['access_token']);
+        $this->assertArrayNotHasKey('scope', $params);
     }
 
 
@@ -781,6 +804,7 @@ class ImplicitGrantTest extends TestCase
     {
         $this->scopesAreFinalizedAs(new ScopeEntity('openid'));
         $accessToken = $this->accessTokenIsIssued('the-access-token');
+        $accessToken->method('getScopes')->willReturn([new ScopeEntity('openid')]);
         $this->idTokenIsBuilt('the-id-token');
 
         // The token is still issued and stored, which is what the docblock above rests on.
@@ -796,6 +820,7 @@ class ImplicitGrantTest extends TestCase
         $this->assertArrayNotHasKey('access_token', $params);
         $this->assertArrayNotHasKey('token_type', $params);
         $this->assertArrayNotHasKey('expires_in', $params);
+        $this->assertArrayNotHasKey('scope', $params);
         $this->assertSame('the-id-token', $params['id_token']);
         $this->assertSame(self::STATE, $params['state']);
     }

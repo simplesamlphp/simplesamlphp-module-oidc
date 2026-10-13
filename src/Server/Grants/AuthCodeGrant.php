@@ -449,12 +449,14 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 'Token request rejected: could not decrypt the authorization code.',
                 ['exception' => $e->getMessage()],
             );
-            throw OAuthServerException::invalidRequest('code', 'Cannot decrypt the authorization code', $e);
+            // A code this server can not read is not one it issued: invalid_grant (RFC 6749 section 5.2), as is
+            // every other code which can not be redeemed. A missing `code` parameter is invalid_request.
+            throw OAuthServerException::invalidGrant('Cannot decrypt the authorization code');
         }
 
         if (!property_exists($authCodePayload, 'auth_code_id')) {
             $this->loggerService->notice('Token request rejected: authorization code is malformed (no auth_code_id).');
-            throw OAuthServerException::invalidRequest('code', 'Authorization code malformed');
+            throw OAuthServerException::invalidGrant('Authorization code malformed');
         }
 
         if (! is_a($this->authCodeRepository, AuthCodeRepository::class)) {
@@ -478,25 +480,42 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::serverError('Unexpected Client Entity instance.');
         }
 
-        $rulesToExecute = [
-            CodeVerifierRule::class,
-        ];
+        $resolvedClientAuthenticationMethod = null;
 
         if (! $authorizationClientEntity->isGeneric()) {
             $this->loggerService->debug('Executing standard rules for non-generic clients.');
-            // The client is already authoritatively known from the stored authorization code, so predefine it as the
-            // ClientRule result instead of re-resolving it from the request. This avoids mandating the client_id
-            // request parameter at the token endpoint, which is optional for some client authentication methods (e.g.
-            // private_key_jwt and client_secret_basic, where the client identity is conveyed by the assertion or the
-            // Authorization header respectively). ClientAuthenticationRule still authenticates the caller against this
-            // client, and the resolver cross-checks that the authenticated identity matches it, so the binding between
-            // the caller and the client the code was issued to is preserved (and strengthened).
-            $this->requestRulesManager->predefineResult(new Result(ClientRule::class, $authorizationClientEntity));
-            $rulesToExecute = [
-                ClientRedirectUriRule::class,
-                ClientAuthenticationRule::class,
-                ...$rulesToExecute,
-            ];
+            // The caller is authenticated as whichever client its credentials name, from the request alone, and that
+            // client is then compared with the one the code was issued to: a client which authenticates and presents
+            // another client's code is told the code is not its own (invalid_grant), and only one which fails to
+            // authenticate is answered invalid_client (RFC 6749 section 5.2). No ClientRule result is predefined
+            // for this, since ClientAuthenticationRule would authenticate the caller against it. The client_id
+            // parameter stays optional where the method conveys the identity (the assertion of private_key_jwt, the
+            // Authorization header of client_secret_basic), and the resolver refuses a client which is no longer
+            // active, which the client of the stored code is not checked for. The results start empty, so that
+            // nothing an earlier check left behind is taken for the client.
+            $this->requestRulesManager->predefineResultBag(new ResultBag());
+            $resolvedClientAuthenticationMethod = $this->requestRulesManager->check(
+                $request,
+                [ClientAuthenticationRule::class],
+                // Response mode is not relevant for token request, as there is
+                // no redirection, but we need to provide something to execute rules.
+                new QueryResponseMode(),
+                $this->allowedTokenHttpMethods,
+            )->getOrFail(ClientAuthenticationRule::class)->getValue();
+
+            $authenticatedClientId = $resolvedClientAuthenticationMethod->getClient()->getIdentifier();
+            if ($authenticatedClientId !== $authorizationClientEntity->getIdentifier()) {
+                $this->loggerService->warning(
+                    'Token request rejected: the authenticated client is not the one the authorization code was ' .
+                    'issued to.',
+                    [
+                        'client_id' => $authenticatedClientId,
+                        'auth_code_client_id' => $authorizationClientEntity->getIdentifier(),
+                        'auth_code_id' => $authCodePayload->auth_code_id,
+                    ],
+                );
+                throw OAuthServerException::invalidGrant('Authorization code was not issued to this client');
+            }
         } else {
             $this->loggerService->debug('Generic client encountered. Checking for authorization bound params.');
             // We used generic client in the flow, so check for bound client_id and redirect_uri.
@@ -560,21 +579,22 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 );
                 throw OAuthServerException::invalidGrant('Authorization code not intended for this redirect_uri.');
             }
-
-            $this->requestRulesManager->predefineResult(new Result(ClientRule::class, $authorizationClientEntity));
         }
 
+        // The client the authorization code was issued to is authoritative in both branches, a non-generic one
+        // having authenticated as it above, and CodeVerifierRule reads it as the ClientRule result. The redirect_uri
+        // is compared with the one of the authorization request (validateAuthorizationCode(), RFC 6749 section
+        // 4.1.3), which the authorization endpoint held to the client's registration; it is not held to the
+        // registration again (ClientRedirectUriRule), which would refuse a mismatch as a malformed request rather
+        // than as the invalid grant it is.
+        $this->requestRulesManager->predefineResult(new Result(ClientRule::class, $authorizationClientEntity));
         $resultBag = $this->requestRulesManager->check(
             $request,
-            $rulesToExecute,
-            // Response mode is not relevant for token request, as there is
-            // no redirection, but we need to provide something to execute rules.
+            [CodeVerifierRule::class],
             new QueryResponseMode(),
             $this->allowedTokenHttpMethods,
         );
 
-        // The client the authorization code was issued to is authoritative in both branches: for non-generic clients
-        // it is predefined as the ClientRule result and authenticated against by ClientAuthenticationRule above.
         $client = $authorizationClientEntity;
 
         // Per-client grant_types enforcement: if the client explicitly registered a non-empty grant_types list, it
@@ -601,10 +621,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             );
         }
 
-        $resolvedClientAuthenticationMethod = $authorizationClientEntity->isGeneric() ?
-        null :
-        $resultBag->getOrFail(ClientAuthenticationRule::class)->getValue();
-
         $codeVerifier = $resultBag->getOrFail(CodeVerifierRule::class)->getValue();
 
         $utilizedClientAuthenticationParams = [];
@@ -621,13 +637,20 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $utilizedClientAuthenticationParams[] = ParamsEnum::CodeVerifier->value;
         }
 
+        // A client which neither authenticated nor sent a code_verifier: a backstop, since CodeVerifierRule refuses
+        // a client which is not confidential without a code_verifier, and ClientAuthenticationRule a confidential
+        // one which presents no authentication. For a code with a code_challenge, which every code of a client
+        // which does not authenticate has (CodeChallengeRule), that is the missing code_verifier, as below;
+        // without one, nothing in the request authenticates the client (RFC 6749 section 5.2).
         if (empty($utilizedClientAuthenticationParams)) {
             $this->loggerService->warning(
                 'Token request rejected: client authentication not performed (no client authentication ' .
                 'method and no PKCE code_verifier presented).',
                 ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
             );
-            throw OidcServerException::accessDenied('Client authentication not performed.');
+            throw empty($authCodePayload->code_challenge) ?
+            OidcServerException::invalidClient($request) :
+            OAuthServerException::invalidRequest('code_verifier');
         }
 
         $verifiedDpopProof = $this->getVerifiedDpopProof($request);
@@ -855,8 +878,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             }
 
             // Release refresh token if it is requested by using offline_access scope. With the refresh token grant
-            // disabled the scope is not among the supported ones (ModuleConfig::getScopes()), so validateScopes()
-            // above has already refused it: no refresh token is issued which the token endpoint would then refuse.
+            // disabled the scope is not among the supported ones (ModuleConfig::getScopes()), so ScopeRule ignored
+            // it at authorization, and validateScopes() above refuses a code which carries it all the same: no
+            // refresh token is issued which the token endpoint would then refuse.
             // Nor is one issued for a code of a credential issuance flow, as the pre-authorized code grant issues
             // none: the access token a refresh yields does not keep the issuance flow, so the Credential Endpoint
             // would refuse it.
@@ -1238,11 +1262,28 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     'auth_code_id' => $authCodePayload->auth_code_id,
                 ],
             );
-            throw OAuthServerException::invalidRequest('code', 'Authorization code was not issued to this client');
+            throw OAuthServerException::invalidGrant('Authorization code was not issued to this client');
         }
 
-        // The redirect URI is required in this request
-        $redirectUri = $this->getRequestParameter('redirect_uri', $request);
+        // The redirect URI is required in this request, and has to be identical to the authorization request's
+        // (RFC 6749 section 4.1.3), so it is read as sent: League's getRequestParameter() would trim it. An empty
+        // one is none, as there; one which is not a string is malformed.
+        /** @psalm-suppress MixedAssignment */
+        $redirectUri = $this->requestParamsResolver->getBasedOnAllowedMethods(
+            ParamsEnum::RedirectUri->value,
+            $request,
+            $this->allowedTokenHttpMethods,
+        );
+        if ($redirectUri === '') {
+            $redirectUri = null;
+        }
+        if ($redirectUri !== null && !is_string($redirectUri)) {
+            $this->loggerService->notice(
+                'Token request rejected: `redirect_uri` parameter is not a string.',
+                ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+            );
+            throw OAuthServerException::invalidRequest('redirect_uri');
+        }
         if (empty($authCodePayload->redirect_uri) === false && $redirectUri === null) {
             $this->loggerService->notice(
                 'Token request rejected: `redirect_uri` parameter is required but was not provided.',
@@ -1261,8 +1302,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     'authorization_redirect_uri' => $authCodePayload->redirect_uri,
                 ],
             );
-            throw OAuthServerException::invalidRequest(
-                'redirect_uri',
+            throw OAuthServerException::invalidGrant(
                 'Invalid redirect URI or not the same as in authorization request',
             );
         }
@@ -1307,11 +1347,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             RequestObjectRule::class,
             // IssuerStateRule must run before PromptRule and MaxAgeRule, which may send the End-User to log in
             // (prompt=login, an expired max_age): a request naming an offer which can not be redeemed is refused
-            // before that. And before ScopeRule, whose refusal goes to the redirect URI: a non-registered wallet's
+            // before that. And before the rules whose refusals go to the redirect URI: a non-registered wallet's
             // redirect URI was accepted only for the issuer_state, so one refuted is not redirected to.
             IssuerStateRule::class,
-            // OfferedCredentialsRule refuses a credential configuration the offer did not offer, from the scopes
-            // and authorization_details, also before the End-User is sent to log in.
+            // OfferedCredentialsRule refuses a credential configuration the offer did not offer, and a credential
+            // request which names none, from the scopes ScopeRule kept and the authorization_details, also before
+            // the End-User is sent to log in.
             ScopeRule::class,
             AuthorizationDetailsRule::class,
             OfferedCredentialsRule::class,

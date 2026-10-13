@@ -14,6 +14,16 @@ use Throwable;
 
 class ErrorResponder
 {
+    /**
+     * What an `error_description` may not hold. RFC 6749 allows %x20-21 / %x23-5B / %x5D-7E in one (sections
+     * 4.1.2.1, 4.2.2.1 and 5.2): printable ASCII without the double quote and the backslash. OpenID4VCI 1.0
+     * section 8.3.1.2 has the same rule for Credential Request errors. Many descriptions carry an exception message
+     * or a value from the request, so they are not kept to it where they are written; the characters outside it
+     * are dropped rather than escaped, since no escape is allowed either.
+     */
+    public const string ERROR_DESCRIPTION_DISALLOWED_CHARACTERS = '/[^\x20\x21\x23-\x5B\x5D-\x7E]/';
+
+
     public function __construct(
         private readonly PsrHttpBridge $psrHttpBridge,
         private readonly LoggerService $loggerService,
@@ -34,6 +44,7 @@ class ErrorResponder
 
         if (is_a($exception, OAuthServerException::class)) {
             $this->logOAuthServerException($exception);
+            $this->keepTheDescriptionToItsCharacters($exception);
 
             return $this->psrHttpBridge->getHttpFoundationFactory()->createResponse(
                 $exception->generateHttpResponse($this->psrHttpBridge->getResponseFactory()->createResponse()),
@@ -61,7 +72,9 @@ class ErrorResponder
      * the Pushed Authorization Request endpoint.
      *
      * A protected resource's refusal of an access token carries its challenge (RFC 6750 section 3), and a refusal
-     * for want of one carries nothing else: no body, and so no error code (RFC 6750 section 3.1).
+     * for want of one carries nothing else: no body, and so no error code (RFC 6750 section 3.1). A client which
+     * failed to authenticate through the Authorization header gets the challenge of its scheme (`invalid_client`,
+     * RFC 6749 section 5.2), which League adds.
      */
     public function forExceptionJson(OAuthServerException $exception): Response
     {
@@ -69,19 +82,21 @@ class ErrorResponder
 
         $headers = ['Cache-Control' => 'no-cache, no-store'];
 
-        if ($exception instanceof OidcServerException) {
-            if (($challenge = $exception->getWwwAuthenticate()) !== null) {
-                $headers['WWW-Authenticate'] = $challenge;
-            }
+        if (($challenge = $exception->getHttpHeaders()['WWW-Authenticate'] ?? null) !== null) {
+            $headers['WWW-Authenticate'] = $challenge;
+        }
 
-            if (!$exception->hasBody()) {
-                return new Response('', $exception->getHttpStatusCode(), $headers);
-            }
+        if ($exception instanceof OidcServerException && !$exception->hasBody()) {
+            return new Response('', $exception->getHttpStatusCode(), $headers);
         }
 
         $body = [
             'error' => $exception->getErrorType(),
-            'error_description' => $exception->getMessage(),
+            'error_description' => (string)preg_replace(
+                self::ERROR_DESCRIPTION_DISALLOWED_CHARACTERS,
+                '',
+                $exception->getMessage(),
+            ),
         ];
 
         if (($hint = $exception->getHint()) !== null) {
@@ -93,6 +108,25 @@ class ErrorResponder
             $exception->getHttpStatusCode(),
             $headers,
         );
+    }
+
+
+    /**
+     * The payload League renders, in a JSON body or in the redirect URI, with the description kept to the
+     * characters it may hold (ERROR_DESCRIPTION_DISALLOWED_CHARACTERS).
+     */
+    private function keepTheDescriptionToItsCharacters(OAuthServerException $exception): void
+    {
+        $payload = $exception->getPayload();
+
+        if (isset($payload['error_description'])) {
+            $payload['error_description'] = (string)preg_replace(
+                self::ERROR_DESCRIPTION_DISALLOWED_CHARACTERS,
+                '',
+                $payload['error_description'],
+            );
+            $exception->setPayload($payload);
+        }
     }
 
 

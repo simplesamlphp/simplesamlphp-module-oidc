@@ -130,7 +130,8 @@ deployment behaves as before; a grant type taken off the list is neither
 advertised, nor registrable, nor served, even for a client registered with it
 earlier. Without `refresh_token` the `offline_access` scope is not supported
 either: it leaves `scopes_supported` and the registrable scopes, and a request
-for it is refused as `invalid_scope`. (Related tightening: a Verifiable
+for it is served without it (see the item on unsupported scope values below).
+(Related tightening: a Verifiable
 Credential configuration id equal to a standard OpenID Connect scope name —
 `openid`, `offline_access`, `profile`, `email`, `address`, `phone` — is now
 refused while issuance is enabled, since such an id becomes a scope which would
@@ -734,6 +735,47 @@ answers any unexpected failure while processing a request in the token error
 format (`{"error": "server_error", ...}`, HTTP 500, with the cause in the OP
 log rather than in the response) instead of with SimpleSAMLphp's HTML error
 page.
+- The token endpoint now refuses requests with the error codes of RFC 6749
+section 5.2. An authorization code which can not be decrypted or is malformed,
+one issued to another client, and a `redirect_uri` which differs from the
+authorization request's get `invalid_grant` (HTTP 400). They got
+`invalid_request`, or `access_denied` (HTTP 401) where a client which
+authenticated as itself presented another client's code. The `redirect_uri`
+is now compared with the authorization request's alone, as RFC 6749 section
+4.1.3 has it, and no longer with the client's registration as well. A client
+which presents no client
+authentication it can be authenticated by, or a confidential client which
+presents none (the `none` method), gets `invalid_client` (HTTP 401, with a
+`WWW-Authenticate: Basic realm="OAuth"` challenge when it sent an
+`Authorization` header), where it got `access_denied` (HTTP 401); the PAR
+endpoint now refuses such a client the same way (RFC 9126 section 2.3). The
+client is authenticated from its own credentials, rather than taken from the
+code it presents, so a client which has been disabled, or has expired, since
+its code was issued can no longer redeem it. A client which compares the
+`error` member with the old values needs the new ones.
+- Scope values the OP does not support are now ignored at the authorization and
+PAR endpoints, rather than refused: the request goes on with the scopes it
+asked for which the OP supports, and the OP log names the ones it ignored
+(`notice` level). Previously any one of them failed the request with
+`invalid_scope`. OpenID Connect Core 1.0 (section 3.1.2.1) has an OpenID
+Provider ignore scope values it does not understand, and RFC 6749 (section
+3.3) lets an authorization server grant fewer scopes than were requested. A
+request left without `openid` is still refused (`invalid_request`), unless it
+is a plain OAuth 2.0 request the deployment allows. A client with a mistyped
+scope therefore now gets a token without that scope instead of an error, and
+the token response says which scopes it got (next item). The `scope` of a
+refresh token request is checked as before (RFC 6749 section 6).
+- Token responses now carry `scope`, the scopes the access token grants, and so
+does an implicit response which returns an access token (`id_token token`).
+RFC 6749 (sections 5.1 and 4.2.2) requires it whenever the scopes granted
+differ from those requested, as they do when a scope value was ignored or the
+client is not registered for a scope it asked for; the OP states it every
+time. A client which does not read the member is unaffected.
+- The `error_description` of every OAuth error response, in a JSON body or sent
+back to the redirect URI, now keeps only the characters RFC 6749 allows in it
+(sections 4.1.2.1, 4.2.2.1 and 5.2: printable ASCII except the double quote and
+the backslash); any other is dropped. Previously a description could carry
+them, a double quote quoting a value, for instance.
 - The reuse checks of `private_key_jwt` client assertions (in the protocol
 cache) and of OpenID Federation Request Objects (in the federation cache) now
 fail the request with `server_error` when the cache does not store the record

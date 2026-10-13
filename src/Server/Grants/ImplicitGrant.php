@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Grant\ImplicitGrant as OAuth2ImplicitGrant;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2AuthorizationRequestInterface;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
@@ -341,6 +342,16 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             $responseParams['access_token'] = $accessToken->toString();
             $responseParams['token_type'] = 'Bearer';
             $responseParams['expires_in'] = $accessToken->getExpiryDateTime()->getTimestamp() - time();
+            // The scopes granted, stated as by the token endpoint (TokenResponse::prepareScopeExtraParam(), RFC
+            // 6749 section 4.2.2): ScopeRule ignores those this server does not support, and the client gets only
+            // those it is registered for.
+            $grantedScopes = array_map(
+                fn(ScopeEntityInterface $scope): string => $scope->getIdentifier(),
+                $accessToken->getScopes(),
+            );
+            if ($grantedScopes !== []) {
+                $responseParams['scope'] = implode(' ', $grantedScopes);
+            }
         }
 
         // Whether to release the user's claims in the ID Token is decided by AddClaimsToIdTokenRule (based on the

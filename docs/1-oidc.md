@@ -24,6 +24,11 @@ is refused unless `plain_oauth2_authorization_code_enabled` turns such requests
 on; it then gets no ID token. See
 [Configuration](3-oidc-configuration.md#plain-oauth-20-authorization-code-requests).
 
+Scope values the OP does not support are ignored rather than refused (OpenID
+Connect Core 1.0 section 3.1.2.1), and the OP log names them. The token
+response states the scopes the access token grants in `scope` (RFC 6749 section
+5.1), so a client learns which of those it asked for it got.
+
 Authorization request parameters can be sent as plain parameters, by value as a
 Request Object (`request`, OpenID Connect Core / JAR), or by reference
 (`request_uri`) — either via Pushed Authorization Requests (PAR, RFC 9126) or a
@@ -219,6 +224,10 @@ Currently implemented OpenID4VCI features:
   of its configuration, and the token response leaves `claims` out of the
   details it returns. A credential configuration whose metadata states no
   `scope` can be requested through authorization details only.
+  - Scopes: a scope value the issuer does not support is ignored (OpenID4VCI
+  1.0 section 5.1.2), and a credential request which is then left naming no
+  credential configuration, by `scope` or by authorization details, is refused
+  with `invalid_scope`.
 - Supported Credential Formats
   - JWT VC JSON (`jwt_vc_json`): W3C VCDM v1.1 Verifiable Credentials encoded as
   JWT.

@@ -8,6 +8,7 @@ use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\ParametersEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -68,10 +69,8 @@ class Routes
     /**
      * An error response of the OAuth 2.0 shape, `error` and `error_description`.
      *
-     * The description keeps only the characters RFC 6749 section 5.2 allows in one, %x20-21 / %x23-5B / %x5D-7E:
-     * printable ASCII without the double quote and the backslash. OpenID4VCI 1.0 section 8.3.1.2 has the same
-     * rule for Credential Request errors. Several callers pass an exception message, so what arrives here is not
-     * fixed where it is written, and the rest are dropped rather than escaped, since no escape is allowed either.
+     * The description keeps only the characters RFC 6749 section 5.2 allows in one
+     * (ErrorResponder::ERROR_DESCRIPTION_DISALLOWED_CHARACTERS), as the OAuth errors of every endpoint do.
      */
     public function newJsonErrorResponse(
         string $error,
@@ -82,7 +81,11 @@ class Routes
         return $this->newJsonResponse(
             [
                 'error' => $error,
-                'error_description' => (string)preg_replace('/[^\x20\x21\x23-\x5B\x5D-\x7E]/', '', $description),
+                'error_description' => (string)preg_replace(
+                    ErrorResponder::ERROR_DESCRIPTION_DISALLOWED_CHARACTERS,
+                    '',
+                    $description,
+                ),
             ],
             $httpCode,
             $headers,

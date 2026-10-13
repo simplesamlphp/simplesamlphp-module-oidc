@@ -7,9 +7,9 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
-use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
@@ -52,8 +52,6 @@ class ScopeRule extends AbstractRule
     ): ?Result {
         $loggerService->debug('ScopeRule::checkRule.');
 
-        $redirectUri = $currentResultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
-        $state = $currentResultBag->getOrFail(StateRule::class)->getValue();
         /** @var string $defaultScope */
         $defaultScope = $data['default_scope'] ?? '';
         /** @var non-empty-string $scopeDelimiterString */
@@ -76,7 +74,14 @@ class ScopeRule extends AbstractRule
         $authorizationDetailsOnlyIds = $this->moduleConfig->getVciCredentialConfigurationIdsWithoutScope();
 
         $validScopes = [];
+        $ignoredScopes = [];
 
+        // A scope value this server does not support is ignored rather than refused: OpenID4VCI 1.0 section 5.1.2
+        // has a Credential Issuer ignore unknown scope values, OpenID Connect Core 1.0 section 3.1.2.1 has an
+        // OpenID Provider ignore those it does not understand, and RFC 6749 section 3.3 lets an authorization
+        // server grant less than was asked for. What is left decides the request: an OpenID Connect request
+        // without 'openid' is refused by RequiredOpenIdScopeRule, a credential request which names no credential
+        // by OfferedCredentialsRule, and the token response states the scopes granted.
         foreach ($scopes as $scopeItem) {
             $scope = $this->scopeRepository->getScopeEntityByIdentifier($scopeItem);
 
@@ -84,11 +89,22 @@ class ScopeRule extends AbstractRule
                 $scope instanceof ScopeEntityInterface === false ||
                 in_array($scopeItem, $authorizationDetailsOnlyIds, true)
             ) {
-                $loggerService->error('ScopeRule: Invalid scope: ' . $scopeItem);
-                throw OidcServerException::invalidScope($scopeItem, $redirectUri, $state, $responseMode);
+                $ignoredScopes[] = $scopeItem;
+                continue;
             }
             $loggerService->debug('ScopeRule: Valid scope: ' . $scopeItem);
             $validScopes[] = $scope;
+        }
+
+        if ($ignoredScopes !== []) {
+            $client = $currentResultBag->get(ClientRule::class)?->getValue();
+            $loggerService->notice(
+                'Authorization request: scope values this server does not support were ignored.',
+                [
+                    'client_id' => $client instanceof ClientEntityInterface ? $client->getIdentifier() : null,
+                    'ignored_scopes' => $ignoredScopes,
+                ],
+            );
         }
 
         return new Result($this->getKey(), $validScopes);

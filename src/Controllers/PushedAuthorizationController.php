@@ -77,16 +77,21 @@ class PushedAuthorizationController
                 ->withHeader('Allow', HttpMethodsEnum::POST->value);
         }
 
-        // Authenticate the client in the same way as at the token endpoint.
+        // Authenticate the client in the same way as at the token endpoint, and refuse it the same way:
+        // `invalid_client` (RFC 9126 section 2.3, RFC 6749 section 5.2).
         $resolvedAuth = $this->authenticatedOAuth2ClientResolver->forAnySupportedMethod($request);
         if (is_null($resolvedAuth)) {
-            throw OidcServerException::accessDenied('Client authentication failed.');
+            throw OidcServerException::invalidClient($request);
         }
 
         $client = $resolvedAuth->getClient();
 
         if ($resolvedAuth->getClientAuthenticationMethod()->isNone() && $client->isConfidential()) {
-            throw OidcServerException::accessDenied('Confidential client must authenticate.');
+            $this->logger->warning(
+                'Pushed authorization request rejected: confidential client used the "none" authentication method.',
+                ['client_id' => $client->getIdentifier()],
+            );
+            throw OidcServerException::invalidClient($request);
         }
 
         $bodyParams = $request->getParsedBody();

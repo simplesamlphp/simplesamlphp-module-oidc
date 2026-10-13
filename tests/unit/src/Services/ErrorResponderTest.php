@@ -22,6 +22,19 @@ use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 #[AllowMockObjectsWithoutExpectations]
 class ErrorResponderTest extends TestCase
 {
+    /**
+     * A description with the characters on either side of each bound RFC 6749 sets for one (%x20-21 / %x23-5B /
+     * %x5D-7E): the space, '!', '#', '[', ']' and '~' allowed, the double quote, the backslash, DEL, a control
+     * character, a tab, a line feed and two non-ASCII characters not.
+     */
+    private const string DESCRIPTION = "a !#[]~ \"\\\x7F\x1F\t\n\u{E9}\u{2713}z";
+
+    /**
+     * DESCRIPTION with only the characters it may hold.
+     */
+    private const string DESCRIPTION_KEPT = 'a !#[]~ z';
+
+
     protected MockObject $psrHttpBridgeMock;
 
     protected MockObject $loggerServiceMock;
@@ -121,7 +134,88 @@ class ErrorResponderTest extends TestCase
             'a request error' => [OidcServerException::invalidRequest('client_id')],
             'a denial' => [OidcServerException::accessDenied('nope')],
             "League's own" => [OAuthServerException::serverError('boom')],
+            'a client which did not authenticate through the Authorization header' => [
+                OidcServerException::invalidClient(
+                    (new Psr17Factory())->createServerRequest('POST', 'https://op.example.org/par'),
+                ),
+            ],
         ];
+    }
+
+
+    /**
+     * A client which failed to authenticate through the Authorization header gets the challenge of its scheme
+     * (RFC 6749 section 5.2) at the PAR endpoint too, which answers in this format (RFC 9126 section 2.3).
+     */
+    public function testForExceptionJsonCarriesTheChallengeOfAClientWhichFailedToAuthenticate(): void
+    {
+        $request = (new Psr17Factory())->createServerRequest('POST', 'https://op.example.org/par')
+            ->withHeader('Authorization', 'Basic ' . base64_encode('client-id:wrong-secret'));
+
+        $response = $this->sut()->forExceptionJson(OidcServerException::invalidClient($request));
+
+        $this->assertSame(401, $response->getStatusCode());
+        $this->assertSame('Basic realm="OAuth"', $response->headers->get('WWW-Authenticate'));
+        $body = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        $this->assertSame('invalid_client', $body['error']);
+    }
+
+
+    /**
+     * The description keeps to the characters RFC 6749 allows in one, whatever the message held.
+     */
+    public function testForExceptionJsonKeepsTheDescriptionToTheCharactersItMayHold(): void
+    {
+        $response = $this->sut()->forExceptionJson(new OAuthServerException(self::DESCRIPTION, 0, 'invalid_request'));
+
+        $body = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        $this->assertSame(self::DESCRIPTION_KEPT, $body['error_description']);
+    }
+
+
+    /**
+     * The same in League's rendering, of League's exception and of this module's, which writes the hint into
+     * the description.
+     */
+    public function testForExceptionKeepsTheDescriptionToTheCharactersItMayHold(): void
+    {
+        $sut = $this->sutWithARealBridge();
+
+        $leagues = $sut->forException(new OAuthServerException(self::DESCRIPTION, 0, 'invalid_grant'));
+        $modules = $sut->forException(OidcServerException::invalidRequest('code', self::DESCRIPTION));
+
+        $leaguesBody = json_decode((string)$leagues->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($leaguesBody);
+        $this->assertSame(self::DESCRIPTION_KEPT, $leaguesBody['error_description']);
+        $modulesBody = json_decode((string)$modules->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($modulesBody);
+        $this->assertStringEndsWith('(' . self::DESCRIPTION_KEPT . ')', $modulesBody['error_description']);
+    }
+
+
+    /**
+     * And in an error sent back to the redirect URI, the authorization endpoint's (RFC 6749 section 4.1.2.1).
+     */
+    public function testForExceptionKeepsTheDescriptionOfARedirectedErrorToTheCharactersItMayHold(): void
+    {
+        $response = $this->sutWithARealBridge()->forException(OidcServerException::invalidRequest(
+            'scope',
+            self::DESCRIPTION,
+            null,
+            'https://client.example.org/callback',
+            'state-of-the-client',
+        ));
+
+        $this->assertSame(302, $response->getStatusCode());
+        $location = (string)$response->headers->get('Location');
+        $this->assertStringStartsWith('https://client.example.org/callback?', $location);
+        parse_str((string)parse_url($location, PHP_URL_QUERY), $query);
+        $this->assertSame('invalid_request', $query['error'] ?? null);
+        $this->assertSame('state-of-the-client', $query['state'] ?? null);
+        $this->assertIsString($query['error_description'] ?? null);
+        $this->assertStringEndsWith('(' . self::DESCRIPTION_KEPT . ')', $query['error_description']);
     }
 
 
@@ -165,6 +259,17 @@ class ErrorResponderTest extends TestCase
         $this->assertSame('Bearer', $missing->headers->get('WWW-Authenticate'));
         $this->assertSame('', $missing->getContent());
         $this->assertFalse($missing->headers->has('Content-Type'));
+    }
+
+
+    protected function sutWithARealBridge(): ErrorResponder
+    {
+        $psr17Factory = new Psr17Factory();
+
+        return new ErrorResponder(
+            new PsrHttpBridge(new HttpFoundationFactory(), $psr17Factory, $psr17Factory, $psr17Factory, $psr17Factory),
+            $this->loggerServiceMock,
+        );
     }
 
 

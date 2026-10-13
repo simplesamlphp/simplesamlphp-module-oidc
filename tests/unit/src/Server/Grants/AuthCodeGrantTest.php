@@ -283,11 +283,12 @@ class AuthCodeGrantTest extends TestCase
     public function testRejectsAuthorizationCodeItCannotDecrypt(): void
     {
         // A code encrypted under a different key stands in for any tampered or forged code. The grant must
-        // answer with a protocol error rather than letting the decryption failure escape as a 500.
+        // answer with a protocol error rather than letting the decryption failure escape as a 500: the one for a
+        // code which can not be redeemed (RFC 6749 section 5.2).
         $foreignKey = Key::createNewRandomKey();
 
         $this->assertRejects(
-            'invalid_request',
+            'invalid_grant',
             $this->request(['code' => $this->encryptPayload($this->payload(), $foreignKey)]),
         );
     }
@@ -298,7 +299,7 @@ class AuthCodeGrantTest extends TestCase
         $this->authCodeRepositoryMock->expects($this->never())->method('findById');
 
         $this->assertRejects(
-            'invalid_request',
+            'invalid_grant',
             $this->request(['code' => $this->encryptPayload(['client_id' => self::CLIENT_ID])]),
         );
     }
@@ -385,11 +386,25 @@ class AuthCodeGrantTest extends TestCase
 
     public function testRejectsTokenRequestWithNeitherClientAuthenticationNorPkce(): void
     {
-        // Nothing proves the caller is the client the code was issued to, so the code must not be redeemable.
+        // Nothing proves the caller is the client the code was issued to, so the code must not be redeemable:
+        // the client did not authenticate (RFC 6749 section 5.2).
         $this->storedAuthCode();
         $this->rulesReturn(codeVerifier: null, authenticationMethod: ClientAuthenticationMethodsEnum::None);
 
-        $this->assertRejects('access_denied', $this->request());
+        $this->assertRejects('invalid_client', $this->request());
+    }
+
+
+    /**
+     * A client which does not authenticate has a code with a code_challenge, and the request lacks the
+     * code_verifier, as it would for a client which does authenticate.
+     */
+    public function testRequiresTheCodeVerifierOfAClientWhichDoesNotAuthenticate(): void
+    {
+        $this->storedAuthCode();
+        $this->rulesReturn(codeVerifier: null, authenticationMethod: ClientAuthenticationMethodsEnum::None);
+
+        $this->assertRejects('invalid_request', $this->requestFor($this->payloadWithChallenge()));
     }
 
     // PKCE.
@@ -491,8 +506,58 @@ class AuthCodeGrantTest extends TestCase
         $this->storedAuthCode();
 
         $this->assertRejects(
-            'invalid_request',
+            'invalid_grant',
             $this->requestFor($this->payload(['client_id' => 'another-client'])),
+        );
+    }
+
+
+    /**
+     * A client which authenticates, as itself, and presents a code issued to another client is told the code is
+     * not its own (invalid_grant, RFC 6749 section 5.2), not that it failed to authenticate.
+     */
+    public function testRefusesACodeIssuedToAnotherClientWhichAuthenticated(): void
+    {
+        $this->storedAuthCode();
+        $this->rulesReturn(authenticatedClientId: 'another-client');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+
+        $this->assertRejects('invalid_grant', $this->request());
+    }
+
+
+    /**
+     * The caller is authenticated from the request alone, with no results from before, ahead of the client of the
+     * code being given to the rules, so that it is not authenticated against that client; only the code verifier
+     * is checked with it. The redirect URI is not held to the client's registration again (ClientRedirectUriRule),
+     * which would answer a mismatch with invalid_request before validateAuthorizationCode() answers it with
+     * invalid_grant.
+     */
+    public function testAuthenticatesTheCallerBeforeTheClientOfTheCodeIsGivenToTheRules(): void
+    {
+        $authCode = $this->storedAuthCode();
+        $this->requestRulesManagerMock->method('predefineResultBag')->willReturnCallback(
+            function (ResultBag $resultBag): void {
+                $this->rulesManagerCalls[] = ['predefineResultBag', $resultBag->getAll()];
+            },
+        );
+        $this->requestRulesManagerMock->method('predefineResult')->willReturnCallback(
+            function (Result $result): void {
+                $this->rulesManagerCalls[] = ['predefineResult', $result->getKey(), $result->getValue()];
+            },
+        );
+        $this->expectAccessTokenToBeIssued();
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        $this->assertSame(
+            [
+                ['predefineResultBag', []],
+                ['check', [ClientAuthenticationRule::class]],
+                ['predefineResult', ClientRule::class, $authCode->getClient()],
+                ['check', [CodeVerifierRule::class]],
+            ],
+            array_slice($this->rulesManagerCalls, 0, 4),
         );
     }
 
@@ -509,12 +574,56 @@ class AuthCodeGrantTest extends TestCase
     }
 
 
-    public function testRejectsRedirectUriThatDiffersFromTheAuthorizationRequest(): void
+    /**
+     * An empty redirect_uri is none, and one which is not a string is malformed: invalid_request, both.
+     *
+     * @return array<string,array{mixed}>
+     */
+    public static function redirectUrisWhichAreNotOneProvider(): array
+    {
+        return [
+            'an empty one' => [''],
+            'an array' => [[self::REDIRECT_URI]],
+        ];
+    }
+
+
+    #[DataProvider('redirectUrisWhichAreNotOneProvider')]
+    public function testRefusesARedirectUriWhichIsNotOneAsAMalformedRequest(mixed $redirectUri): void
     {
         $this->storedAuthCode();
 
         $this->assertRejects(
             'invalid_request',
+            $this->request(['code' => $this->encryptPayload($this->payload()), 'redirect_uri' => $redirectUri]),
+        );
+    }
+
+
+    /**
+     * The redirect_uri has to be identical to the authorization request's (RFC 6749 section 4.1.3), so one which
+     * matches it only once trimmed is another one.
+     */
+    public function testRejectsARedirectUriWhichMatchesTheAuthorizationRequestsOnlyOnceTrimmed(): void
+    {
+        $this->storedAuthCode();
+
+        $this->assertRejects(
+            'invalid_grant',
+            $this->request([
+                'code' => $this->encryptPayload($this->payload()),
+                'redirect_uri' => ' ' . self::REDIRECT_URI . "\n",
+            ]),
+        );
+    }
+
+
+    public function testRejectsRedirectUriThatDiffersFromTheAuthorizationRequest(): void
+    {
+        $this->storedAuthCode();
+
+        $this->assertRejects(
+            'invalid_grant',
             $this->request([
                 'code' => $this->encryptPayload($this->payload()),
                 'redirect_uri' => 'https://attacker.example.org/callback',
@@ -955,8 +1064,8 @@ class AuthCodeGrantTest extends TestCase
     public function testTakesTheClientFromTheStoredCodeRatherThanFromTheRequest(): void
     {
         // The client is authoritatively known from the stored code, so it is predefined as the ClientRule
-        // result instead of being resolved again from request parameters. That is what lets client_id stay
-        // optional here for authentication methods which convey the identity some other way.
+        // result instead of being resolved again from request parameters, once the caller has authenticated
+        // as it.
         $authCode = $this->storedAuthCode();
 
         $this->requestRulesManagerMock->expects($this->once())
@@ -1382,8 +1491,8 @@ class AuthCodeGrantTest extends TestCase
 
     /**
      * The token endpoint answers a refusal directly. AuthorizationDetailsRule sends one to the redirect URI it
-     * finds among the results it is given, so it is given results of its own, without the one ClientRedirectUriRule
-     * found for the token request.
+     * finds among the results it is given, so it is given results of its own, without those the token request's
+     * other rules found.
      */
     public function testChecksTheAuthorizationDetailsWithResultsOfTheirOwn(): void
     {
@@ -2190,7 +2299,7 @@ class AuthCodeGrantTest extends TestCase
         $this->storedAuthCode(dpopJkt: 'thumbprint-of-the-proof-key');
         $this->rulesReturn(authenticationMethod: ClientAuthenticationMethodsEnum::None);
 
-        $this->assertRejects('access_denied', $this->request());
+        $this->assertRejects('invalid_client', $this->request());
     }
 
 
@@ -2701,32 +2810,45 @@ class AuthCodeGrantTest extends TestCase
             ->willReturnCallback(
                 static fn(ServerRequestInterface $request): array => (array)$request->getParsedBody(),
             );
+        $resolver->method('getBasedOnAllowedMethods')
+            ->willReturnCallback(
+                static fn(string $parameter, ServerRequestInterface $request): mixed =>
+                    ((array)$request->getParsedBody())[$parameter] ?? null,
+            );
     }
 
 
     private function rulesReturn(
         ?string $codeVerifier = null,
         ClientAuthenticationMethodsEnum $authenticationMethod = ClientAuthenticationMethodsEnum::ClientSecretBasic,
+        string $authenticatedClientId = self::CLIENT_ID,
     ): void {
-        $resultBag = new ResultBag();
-        $resultBag->add(new Result(CodeVerifierRule::class, $codeVerifier));
-        $resultBag->add(
-            new Result(
+        $authenticatedClient = $this->createMock(ClientEntity::class);
+        $authenticatedClient->method('getIdentifier')->willReturn($authenticatedClientId);
+
+        $results = [
+            CodeVerifierRule::class => new Result(CodeVerifierRule::class, $codeVerifier),
+            ClientAuthenticationRule::class => new Result(
                 ClientAuthenticationRule::class,
-                new ResolvedClientAuthenticationMethod(
-                    $this->createMock(ClientEntity::class),
-                    $authenticationMethod,
-                ),
+                new ResolvedClientAuthenticationMethod($authenticatedClient, $authenticationMethod),
             ),
-        );
+        ];
 
         $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
-        // AuthorizationDetailsRule is checked on its own, with results of its own, and answers what the test set.
+        // Each check answers the results of the rules it was asked to run, and no others. AuthorizationDetailsRule
+        // is checked on its own, with results of its own, and answers what the test set.
         $this->requestRulesManagerMock->method('check')->willReturnCallback(
-            function (ServerRequestInterface $request, array $ruleKeys) use ($resultBag): ResultBag {
+            function (ServerRequestInterface $request, array $ruleKeys) use ($results): ResultBag {
                 $this->rulesManagerCalls[] = ['check', $ruleKeys];
 
                 if ($ruleKeys !== [AuthorizationDetailsRule::class]) {
+                    $resultBag = new ResultBag();
+                    foreach ($ruleKeys as $ruleKey) {
+                        if (isset($results[$ruleKey])) {
+                            $resultBag->add($results[$ruleKey]);
+                        }
+                    }
+
                     return $resultBag;
                 }
 

@@ -175,8 +175,8 @@ $config = [
      * either: OpenID Connect Core section 11 defines it as a request for a
      * refresh token, so there is nothing to grant. It is then left out of
      * 'scopes_supported', a client can not be registered with it, and a
-     * request carrying it is refused as 'invalid_scope' like any other
-     * unsupported scope.
+     * request carrying it is served without it, the scope value being ignored
+     * like any other unsupported one.
      *
      * If not set, every grant type is enabled.
      */
