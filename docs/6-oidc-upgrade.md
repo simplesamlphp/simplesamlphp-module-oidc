@@ -53,12 +53,11 @@ empty, each is generated as before. Resetting a client's secret likewise takes
 a new secret from an administrator. The client ID of an existing client still
 can not be changed. See
 [Relying Party (RP) administration](3-oidc-configuration.md#relying-party-rp-administration).
-- Initial support for OpenID for Verifiable Credential Issuance
-(OpenID4VCI). Note that the implementation is experimental. You should not use
-it in production. It has not been reviewed against the final OpenID4VCI 1.0
-specification as a whole, so no specification version is claimed and no
-interoperability is promised; a future release may change the wire format
-incompatibly. See the [OpenID4VCI note](1-oidc.md#note-on-openid-for-verifiable-credential-issuance-openid4vci-support).
+- Support for OpenID for Verifiable Credential Issuance 1.0 (OpenID4VCI): the
+module is a Credential Issuer, with the OP as its Authorization Server. The
+HAIP 1.0 profile is not supported. See the
+[OpenID4VCI note](1-oidc.md#note-on-openid-for-verifiable-credential-issuance-openid4vci-support)
+for what is.
 - Support for Pushed Authorization Requests (PAR) as per RFC 9126. A new PAR
 endpoint (`pushed_authorization_request_endpoint`, served at
 `<basepath>/module.php/oidc/par`) lets clients push authorization request
@@ -547,7 +546,7 @@ a legitimately large federation.
 - `ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED` - optional,
 serve plain OAuth 2.0 authorization code requests, ones without the `openid`
 scope (default `false`).
-- Several new options regarding experimental support for OpenID4VCI.
+- Several new options for OpenID4VCI support.
 
 Major impact changes:
 

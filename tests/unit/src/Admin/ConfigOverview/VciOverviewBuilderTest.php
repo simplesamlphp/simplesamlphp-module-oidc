@@ -135,7 +135,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($disabledRow);
         $this->assertSame('No', $disabledRow->getValue());
         $this->assertStringContainsString('inert', (string)$disabledRow->getNote());
-        // Nothing is being issued, so there is nothing to warn about yet.
+        // Nothing is being issued, so there is nothing to warn about.
         $this->assertNull($disabledRow->getWarning());
 
         $enabledRow = $this->findRowForOption(
@@ -144,17 +144,16 @@ class VciOverviewBuilderTest extends TestCase
         );
         $this->assertNotNull($enabledRow);
         $this->assertSame('Yes', $enabledRow->getValue());
-        $this->assertNull($enabledRow->getNote());
+        $this->assertStringNotContainsString('inert', (string)$enabledRow->getNote());
     }
 
 
     /**
-     * The experimental status is stated in the documentation and in the distributed configuration, but
-     * neither is necessarily where the person who switched this on is looking. Once credentials are
-     * being put into wallets, a later release may be unable to keep them verifiable, so the screen has
-     * to say so itself.
+     * What issuance covers is stated in the documentation and in the distributed configuration, but
+     * neither is necessarily where the person who switched it on is looking, so the screen states it
+     * too. It is a statement of scope, not a warning.
      */
-    public function testWarnsThatIssuanceIsExperimentalOnceItIsEnabled(): void
+    public function testStatesTheSupportedScopeOnceIssuanceIsEnabled(): void
     {
         $enabledRow = $this->findRowForOption(
             $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_ENABLED => true])->build(),
@@ -162,11 +161,10 @@ class VciOverviewBuilderTest extends TestCase
         );
 
         $this->assertNotNull($enabledRow);
-        $warning = (string)$enabledRow->getWarning();
-        $this->assertStringContainsString('experimental', $warning);
-        $this->assertStringContainsString('production', $warning);
-        // No specification version is claimed anywhere any more, so none may reappear here either.
-        $this->assertStringNotContainsString('draft', strtolower($warning));
+        $note = (string)$enabledRow->getNote();
+        $this->assertStringContainsString('OpenID4VCI 1.0', $note);
+        $this->assertStringContainsString('The HAIP 1.0 profile is not supported.', $note);
+        $this->assertNull($enabledRow->getWarning());
     }
 
 

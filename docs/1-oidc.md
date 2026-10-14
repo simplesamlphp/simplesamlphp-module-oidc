@@ -92,11 +92,17 @@ OAuth 2.0:
   — client register / read / update / delete at the `registration_endpoint`;
   disabled by default. See the [DCR note](#note-on-dynamic-client-registration-dcr) below
 
+OpenID for Verifiable Credentials:
+
+- [OpenID for Verifiable Credential Issuance 1.0, OpenID4VCI](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html)
+  — the Credential Issuer, with the OP as its Authorization Server; the HAIP
+  1.0 profile is not supported. See the
+  [OpenID4VCI note](#note-on-openid-for-verifiable-credential-issuance-openid4vci-support)
+  below
+
 Drafts / experimental (see the notes below for scope and caveats):
 
 - OpenID Federation — automatic client registration and related features
-- OpenID for Verifiable Credential Issuance, OpenID4VCI (experimental,
-  not for production)
 - [Token Status List](https://datatracker.ietf.org/doc/draft-ietf-oauth-status-list/)
   — what makes an issued credential revocable and suspendable; off by default.
   See [Configuration](3-oidc-configuration.md#token-status-lists-credential-revocation)
@@ -152,16 +158,52 @@ OIDFed is implemented using the
 
 ## Note on OpenID for Verifiable Credential Issuance (OpenID4VCI) support
 
-OpenID4VCI support is experimental. You should NOT use it in production
-environments.
+The module is a Credential Issuer of
+[OpenID for Verifiable Credential Issuance 1.0](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html),
+with the OP as its Authorization Server. What that covers:
 
-The implementation follows OpenID4VCI, but it has not been reviewed against the
-final 1.0 specification as a whole: parts of it were written against earlier
-drafts and have since been corrected towards 1.0, one piece at a time. No
-specific specification version is claimed here, and no interoperability with 1.0
-wallets is promised. A full review against 1.0 is planned; it may change the wire
-format incompatibly, so credentials and Status List Tokens issued by this version
-may stop verifying, and a future release may require re-issuing them.
+- **OpenID4VCI 1.0.** The implementation has been reviewed against the final
+  specification requirement by requirement. Every requirement which binds the
+  Credential Issuer or its Authorization Server is mapped, in
+  `conformance-tests/openid4vci-1_0-compliance.md`, to the code that meets it
+  and the unit tests that pin it, or marked as depending on configuration or
+  as not implemented. Where the module falls short, that document says so: it
+  shows no consent screen of its own describing what a credential will contain
+  and why (section 15.1, a SHOULD, left to SimpleSAMLphp authentication
+  processing filters), it does not evaluate key attestations (a key proof's
+  `key_attestation` and `trust_chain` headers are checked for their signing
+  algorithm only), and it meets the FAPI 2.0 provisions only in part (see HAIP
+  below).
+- **Configuration matters.** Some requirements are met only with the right
+  settings, DPoP for issuance (`vci_require_dpop`), the transaction code
+  attempt limit (a protocol cache) and mandatory claims (an attribute mapped
+  to each) among them. The same document marks those Config, and names each
+  option.
+- **Optional features not implemented**, none of them advertised: Credential
+  Offers by reference, and offers sent to a wallet's
+  `credential_offer_endpoint`; deferred issuance; the Notification Endpoint;
+  encrypted Credential Requests and Responses; DPoP nonces; signed Credential
+  Issuer Metadata, and language negotiation of the metadata; the `mso_mdoc`,
+  `ldp_vc` and `jwt_vc_json-ld` formats; the `di_vp` and `attestation` proof
+  types, and the `x5c` header of `jwt` proofs (a key proof naming its key by a
+  certificate is refused); key attestations and Wallet Attestations.
+- **The OpenID4VC High Assurance Interoperability Profile (HAIP 1.0) is not
+  supported.** Among what it requires of an issuer and the module lacks:
+  client authentication of every wallet at the PAR and token endpoints (public
+  clients, non-registered wallets and anonymous pre-authorized code requests
+  are served without it); X.509 (`x5c`) keys for credentials and Status List
+  Tokens; the holder's key in `cnf.jwk` whatever the proof named it by; and
+  several FAPI 2.0 provisions. Nor does the module implement the Wallet
+  Attestations HAIP recommends to ecosystems as that client authentication, or
+  evaluate the key attestations it leaves to ecosystems to require. The same
+  document lists all of these as gaps H-G1 to H-G11. The OpenID Foundation
+  certifies OpenID4VCI issuers through its HAIP issuer test plan, so the module
+  can not be certified as it stands; CI runs the foundation's base 1.0 issuer
+  plan instead (see [Conformance testing](#conformance-testing)).
+- **Drafts underneath.** `dc+sd-jwt` credentials follow the IETF SD-JWT VC
+  draft, as OpenID4VCI 1.0 Appendix A.3 does, and credential status follows
+  the IETF Token Status List draft; `vc+sd-jwt` is an extension rather than a
+  format 1.0 defines. Those drafts can still change.
 
 Currently implemented OpenID4VCI features:
 
@@ -245,10 +287,12 @@ Currently implemented OpenID4VCI features:
   where the pre-final drafts had them, are refused). A configuration which is
   not is refused, and with it discovery, registration, authorization, the
   Credential Issuer metadata, credential offers and issuance, until it is
-  corrected. A claim
-  marked `mandatory` is always in the
-  credential, so a user without the attribute it is mapped from is refused
-  with `credential_request_denied`.
+  corrected. A claim marked `mandatory` has to be in every credential, so a
+  user without the attribute it is mapped from is refused with
+  `credential_request_denied`. That rests on an attribute being mapped to it
+  (`vci_user_attribute_to_credential_claim_path_map`), unless the
+  issuer writes the claim itself, as it does `credentialSubject.id`: a
+  mandatory claim no attribute is mapped to is not checked.
 - Proof of Possession & Binding
   - Proof Type: `jwt` (JSON Web Token proofs).
   - Cryptographic Binding Methods:
@@ -457,10 +501,11 @@ plans against the module (using the OpenID conformance suite). See
 
 CI also runs the OpenID Foundation's OpenID4VCI 1.0 issuer test plan
 (`oid4vci-1_0-issuer-test-plan`), which the suite labels alpha and outside its
-certification programme, for the wallet-initiated authorization code flow and the
-`dc+sd-jwt` credential. See
+certification programme, over three flows: the wallet-initiated authorization
+code flow, the authorization code flow started by a Credential Offer, and the
+pre-authorized code flow, each issuing the `dc+sd-jwt` credential. See
 [OpenID4VCI issuer plan](5-oidc-conformance.md#openid4vci-issuer-plan) for the
-variants and what the run leaves out.
+variants and what the runs leave out.
 
 Some specifications are not covered by these OpenID Connect certification
 profiles. In particular, PAR (RFC 9126) and the `request` / `request_uri`

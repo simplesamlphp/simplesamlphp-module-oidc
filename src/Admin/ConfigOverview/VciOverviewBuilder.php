@@ -459,22 +459,18 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         $this->yesNo($isEnabled),
                         ConfigOverviewValueTypeEnum::Text,
                         ModuleConfig::OPTION_VCI_ENABLED,
-                        $isEnabled ? null : Translate::noop(
+                        // What issuance covers is stated here as well as in the documentation and the
+                        // distributed configuration, since neither is necessarily where the person who
+                        // switched it on is looking.
+                        $isEnabled ? Translate::noop(
+                            'Credentials are issued as OpenID4VCI 1.0 has it, with this OP as the ' .
+                            'Authorization Server. The HAIP 1.0 profile is not supported. The module ' .
+                            'documentation describes what is supported.',
+                        ) : Translate::noop(
                             'All Verifiable Credential capabilities are off, and the credential ' .
                             'issuer endpoints are not served. The settings below are inert until ' .
                             'this is enabled.',
                         ),
-                        // Shown only once issuance is actually on, since that is when a deployment
-                        // starts putting credentials into wallets which a later release may not be
-                        // able to keep verifiable.
-                        $isEnabled ? Translate::noop(
-                            'Verifiable Credential Issuance is experimental and must not be used in ' .
-                            'production. It has not been reviewed against the final OpenID4VCI 1.0 ' .
-                            'specification as a whole, so no specification version is claimed and no ' .
-                            'interoperability is promised. A future release may change the wire ' .
-                            'format incompatibly, which can stop already issued credentials from ' .
-                            'verifying.',
-                        ) : null,
                     );
                 },
             ),
