@@ -8,14 +8,17 @@ use ArrayObject;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use Jose\Component\KeyManagement\JWKFactory;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use ReflectionClass;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
@@ -29,6 +32,7 @@ use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -36,7 +40,9 @@ use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
+use SimpleSAML\Module\oidc\StatusList\CredentialStatusService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
@@ -45,8 +51,10 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
+use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\TermsOfUseTypesEnum;
@@ -54,9 +62,12 @@ use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\Helpers as VcHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
+use SimpleSAML\OpenID\Jws;
+use SimpleSAML\OpenID\SdJwt\Disclosure;
 use SimpleSAML\OpenID\SdJwt\DisclosureBag;
 use SimpleSAML\OpenID\SdJwt\Factories\DisclosureBagFactory;
 use SimpleSAML\OpenID\SdJwt\Factories\DisclosureFactory;
+use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\TokenStatusList\StatusClaim;
 use SimpleSAML\OpenID\TokenStatusList\StatusReference;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
@@ -69,6 +80,7 @@ use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel\Factories\JwtVcJsonFacto
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel\JwtVcJson;
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\Factories\VcSdJwtFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\VcSdJwt;
+use stdClass;
 use Stringable;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -136,12 +148,21 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var array<array<string,mixed>> Payloads handed to whichever credential factory was used. */
     protected array $signedPayloads = [];
 
-    /** @var array<array{key: mixed, algorithm: mixed}> What each of those payloads was signed with. */
+    /**
+     * @var array<array{key: mixed, algorithm: mixed, format: string}> What each of those payloads was signed with,
+     * by the factory of which format.
+     */
     protected array $signedWith = [];
 
     protected MockObject $vciSignatureKeyPairMock;
 
     protected MockObject $vciPrivateKeyMock;
+
+    /** A real key for the active signing key pair to hand out, for a test which signs for real. */
+    protected ?JwkDecorator $signingKey = null;
+
+    /** The library's own facade in place of the double, for a test which builds credentials for real. */
+    protected ?VerifiableCredentialsService $verifiableCredentials = null;
 
     protected VciCredentialBindingPolicyEnum $bindingPolicy;
 
@@ -218,6 +239,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var \SimpleSAML\OpenID\SdJwt\DisclosureBag[] One per credential built in an SD-JWT format. */
     protected array $disclosureBags = [];
 
+    /**
+     * @var array<?\SimpleSAML\OpenID\SdJwt\DisclosureBag> The bag each credential was signed with, in the order
+     * of $signedPayloads; null for a format which has none.
+     */
+    protected array $signedDisclosureBags = [];
+
     /** The scheme the resource server says the access token was presented under. */
     protected string $presentedScheme = 'Bearer';
 
@@ -253,10 +280,13 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->errorResponderResponse = null;
         $this->signedPayloads = [];
         $this->signedWith = [];
+        $this->signingKey = null;
+        $this->verifiableCredentials = null;
         $this->errorResponses = [];
         $this->oauthErrors = [];
         $this->jsonResponses = [];
         $this->disclosureBags = [];
+        $this->signedDisclosureBags = [];
         $this->presentedScheme = 'Bearer';
         $this->resourceUrls = [];
         $this->routesMock->method('urlCredentialIssuerCredential')->willReturn(self::CREDENTIAL_ENDPOINT);
@@ -389,11 +419,19 @@ class CredentialIssuerCredentialControllerTest extends TestCase
      */
     protected function prepareResponses(): void
     {
+        // The real Routes answers, so that a test can read the status, the content type and the body a client
+        // gets; the double records what it was handed.
+        $routes = new Routes($this->createStub(ModuleConfig::class), $this->createStub(SspBridge::class));
         $this->routesMock->method('newJsonResponse')->willReturnCallback(
-            function (?array $data = null): JsonResponse {
+            function (
+                ?array $data = null,
+                int $status = 200,
+                array $headers = [],
+                bool $json = false,
+            ) use ($routes): JsonResponse {
                 $this->jsonResponses[] = $data ?? [];
 
-                return $this->createMock(JsonResponse::class);
+                return $routes->newJsonResponse($data, $status, $headers, $json);
             },
         );
 
@@ -447,7 +485,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     {
         $this->vciPrivateKeyMock = $this->createMock(JwkDecorator::class);
         $keyPairMock = $this->createMock(KeyPair::class);
-        $keyPairMock->method('getPrivateKey')->willReturn($this->vciPrivateKeyMock);
+        $keyPairMock->method('getPrivateKey')->willReturnCallback(
+            fn(): object => $this->signingKey ?? $this->vciPrivateKeyMock,
+        );
         $keyPairMock->method('getKeyId')->willReturn('vci-01');
         $publicKey = (new JwkDecoratorFactory())->fromData(['kty' => 'EC']);
         $keyPairMock->method('getPublicKey')->willReturn($publicKey);
@@ -478,7 +518,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $jwtVcJsonFactoryMock->method('fromData')->willReturnCallback(
             function (mixed $key, mixed $algorithm, array $payload) use ($jwtVcJsonMock): JwtVcJson {
                 $this->signedPayloads[] = $payload;
-                $this->signedWith[] = ['key' => $key, 'algorithm' => $algorithm];
+                $this->signedDisclosureBags[] = null;
+                $this->signedWith[] = [
+                    'key' => $key,
+                    'algorithm' => $algorithm,
+                    'format' => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                ];
 
                 return $jwtVcJsonMock;
             },
@@ -489,9 +534,20 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $sdJwtVcMock->method('getToken')->willReturn('sd_jwt_token');
         $sdJwtVcFactoryMock = $this->createMock(SdJwtVcFactory::class);
         $sdJwtVcFactoryMock->method('fromData')->willReturnCallback(
-            function (mixed $key, mixed $algorithm, array $payload) use ($sdJwtVcMock): SdJwtVc {
+            function (
+                mixed $key,
+                mixed $algorithm,
+                array $payload,
+                array $header = [],
+                ?DisclosureBag $disclosureBag = null,
+            ) use ($sdJwtVcMock): SdJwtVc {
                 $this->signedPayloads[] = $payload;
-                $this->signedWith[] = ['key' => $key, 'algorithm' => $algorithm];
+                $this->signedDisclosureBags[] = $disclosureBag;
+                $this->signedWith[] = [
+                    'key' => $key,
+                    'algorithm' => $algorithm,
+                    'format' => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                ];
 
                 return $sdJwtVcMock;
             },
@@ -502,9 +558,20 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $vcSdJwtMock->method('getToken')->willReturn('vc_sd_jwt_token');
         $vcSdJwtFactoryMock = $this->createMock(VcSdJwtFactory::class);
         $vcSdJwtFactoryMock->method('fromData')->willReturnCallback(
-            function (mixed $key, mixed $algorithm, array $payload) use ($vcSdJwtMock): VcSdJwt {
+            function (
+                mixed $key,
+                mixed $algorithm,
+                array $payload,
+                array $header = [],
+                ?DisclosureBag $disclosureBag = null,
+            ) use ($vcSdJwtMock): VcSdJwt {
                 $this->signedPayloads[] = $payload;
-                $this->signedWith[] = ['key' => $key, 'algorithm' => $algorithm];
+                $this->signedDisclosureBags[] = $disclosureBag;
+                $this->signedWith[] = [
+                    'key' => $key,
+                    'algorithm' => $algorithm,
+                    'format' => CredentialFormatIdentifiersEnum::VcSdJwt->value,
+                ];
 
                 return $vcSdJwtMock;
             },
@@ -584,13 +651,14 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * @param ?array<string,mixed> $requestData Defaults to the scenario's own request parameters.
+     * @param ?array<string,mixed> $requestData Defaults to the scenario's own request parameters. Given, they
+     * become the scenario's, since those are what the request parameters resolver hands the endpoint.
      */
     protected function dispatch(?array $requestData = null): Response
     {
-        $requestData ??= $this->requestData;
+        $this->requestData = $requestData ?? $this->requestData;
 
-        $request = new Request([], [], [], [], [], [], json_encode($requestData));
+        $request = new Request([], [], [], [], [], [], json_encode($this->requestData));
         $request->setMethod('POST');
 
         return $this->sut()->credential($request);
@@ -684,7 +752,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->moduleConfigMock,
             $this->routesMock,
             $this->psrHttpBridgeMock,
-            $this->verifiableCredentialsMock,
+            $this->verifiableCredentials ?? $this->verifiableCredentialsMock,
             $this->loggerServiceMock,
             $this->requestParamsResolverMock,
             $this->userRepositoryMock,
@@ -875,18 +943,32 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * The credentials of one batch share their Credential Dataset (OpenID4VCI 1.0 section 3.3.2) and their
-     * rounded times (RFC 9901 section 10.1). What sets them apart is what identifies each of them: the
-     * credential identifier and the key it is bound to.
+     * The credentials of one batch share their format and Credential Dataset (OpenID4VCI 1.0 section 3.3.2), and
+     * their rounded times (RFC 9901 section 10.1): the claims about the user are the same in each, in the body or
+     * in the disclosures, as the format carries them. What sets them apart is what identifies each of them: the
+     * credential identifier, and the key it is bound to, which the W3C formats also name as their subject (the
+     * DID of that key).
+     *
+     * @param list<list<string>> $identifyingPaths
      */
-    public function testTheCredentialsOfABatchDifferOnlyInWhatIdentifiesEach(): void
-    {
+    #[DataProvider('batchFormatProvider')]
+    public function testTheCredentialsOfABatchDifferOnlyInWhatIdentifiesEach(
+        CredentialFormatIdentifiersEnum $format,
+        array $identifyingPaths,
+    ): void {
         $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval('P30D'));
         $this->timeClaimGranularity = new DateInterval('P1D');
-        $this->credentialConfiguration = [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            ClaimsEnum::Vct->value => self::VCT,
+        $this->credentialConfiguration = [ClaimsEnum::Format->value => $format->value] +
+        ($format === CredentialFormatIdentifiersEnum::DcSdJwt ? [ClaimsEnum::Vct->value => self::VCT] : []);
+        $this->validClaimPaths = [
+            [ClaimsEnum::Credential_Subject->value, 'given_name'],
+            [ClaimsEnum::Credential_Subject->value, 'family_name'],
         ];
+        $this->attributeToClaimPathMap = [
+            ['givenName' => [ClaimsEnum::Credential_Subject->value, 'given_name']],
+            ['sn' => [ClaimsEnum::Credential_Subject->value, 'family_name']],
+        ];
+        $this->userClaims = ['givenName' => ['John'], 'sn' => ['Doe']];
         $this->requestData = [
             ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
             'proofs' => ['jwt' => ['jwt1', 'jwt2']],
@@ -899,15 +981,151 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->dispatch();
 
         $this->assertCount(2, $this->signedPayloads);
+        $this->assertSame([$format->value, $format->value], array_column($this->signedWith, 'format'));
         [$first, $second] = $this->signedPayloads;
 
-        $this->assertNotSame($first[ClaimsEnum::Jti->value] ?? null, $second[ClaimsEnum::Jti->value] ?? null);
-        $this->assertNotSame($first[ClaimsEnum::Cnf->value] ?? null, $second[ClaimsEnum::Cnf->value] ?? null);
+        foreach ($identifyingPaths as $path) {
+            $this->assertNotNull(self::claimAt($first, $path), implode('.', $path));
+            $this->assertNotSame(self::claimAt($first, $path), self::claimAt($second, $path), implode('.', $path));
+        }
 
-        $identifying = [ClaimsEnum::Jti->value => null, ClaimsEnum::Cnf->value => null];
-        $this->assertSame(array_diff_key($first, $identifying), array_diff_key($second, $identifying));
+        $this->assertSame(
+            self::withoutClaims($first, $identifyingPaths),
+            self::withoutClaims($second, $identifyingPaths),
+        );
+        $this->assertSame($this->disclosuresOfCredential(0), $this->disclosuresOfCredential(1));
+        $this->assertSame(['John', 'Doe'], $this->userClaimValuesOfCredential(0));
         $this->assertArrayHasKey(ClaimsEnum::Iat->value, $first);
         $this->assertArrayHasKey(ClaimsEnum::Exp->value, $first);
+    }
+
+
+    /**
+     * @return array<string,list<mixed>>
+     */
+    public static function batchFormatProvider(): array
+    {
+        $jti = [ClaimsEnum::Jti->value];
+        $cnf = [ClaimsEnum::Cnf->value];
+        $sub = [ClaimsEnum::Sub->value];
+
+        return [
+            'dc+sd-jwt' => [CredentialFormatIdentifiersEnum::DcSdJwt, [$jti, $cnf]],
+            'jwt_vc_json' => [
+                CredentialFormatIdentifiersEnum::JwtVcJson,
+                [
+                    $jti,
+                    $cnf,
+                    $sub,
+                    [ClaimsEnum::Vc->value, ClaimsEnum::Id->value],
+                    [ClaimsEnum::Vc->value, ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
+                ],
+            ],
+            'vc+sd-jwt' => [
+                CredentialFormatIdentifiersEnum::VcSdJwt,
+                [
+                    $jti,
+                    $cnf,
+                    $sub,
+                    [ClaimsEnum::Id->value],
+                    [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value],
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * @param list<string> $path
+     */
+    protected static function claimAt(array $claims, array $path): mixed
+    {
+        $claim = $claims;
+
+        foreach ($path as $member) {
+            if (!is_array($claim) || !array_key_exists($member, $claim)) {
+                return null;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $claim = $claim[$member];
+        }
+
+        return $claim;
+    }
+
+
+    /**
+     * @param list<list<string>> $paths
+     */
+    protected static function withoutClaims(array $claims, array $paths): array
+    {
+        foreach ($paths as $path) {
+            $claims = self::withoutClaim($claims, $path);
+        }
+
+        return $claims;
+    }
+
+
+    /**
+     * @param list<string> $path
+     */
+    protected static function withoutClaim(array $claims, array $path): array
+    {
+        $member = array_shift($path);
+
+        if ($member === null || !array_key_exists($member, $claims)) {
+            return $claims;
+        }
+
+        if ($path === []) {
+            unset($claims[$member]);
+        } elseif (is_array($claims[$member])) {
+            $claims[$member] = self::withoutClaim($claims[$member], $path);
+        }
+
+        return $claims;
+    }
+
+
+    /**
+     * What the disclosures the credential at that position was signed with disclose, where and under which name,
+     * without their salts: the bag handed to the credential factory, not one merely built on the way.
+     *
+     * @return list<array{0: array<array-key,mixed>, 1: ?string, 2: mixed}>
+     */
+    protected function disclosuresOfCredential(int $position): array
+    {
+        return array_map(
+            static fn(Disclosure $disclosure): array => [
+                $disclosure->getPath(),
+                $disclosure->getName(),
+                $disclosure->getValue(),
+            ],
+            array_values($this->signedDisclosureBags[$position]?->all() ?? []),
+        );
+    }
+
+
+    /**
+     * The values of the claims about the user in the credential built at that position, in the credential subject
+     * of its body or in its disclosures, whichever the format puts them in; the subject identifier left out.
+     *
+     * @return list<mixed>
+     */
+    protected function userClaimValuesOfCredential(int $position): array
+    {
+        $payload = $this->signedPayloads[$position];
+        /** @psalm-suppress MixedAssignment */
+        $inTheBody = self::claimAt($payload, [ClaimsEnum::Vc->value, ClaimsEnum::Credential_Subject->value]);
+        $credentialSubject = (array)($inTheBody ?? self::claimAt($payload, [ClaimsEnum::Credential_Subject->value]));
+        unset($credentialSubject[ClaimsEnum::Id->value]);
+
+        return [
+            ...array_values($credentialSubject),
+            ...array_column($this->disclosuresOfCredential($position), 2),
+        ];
     }
 
 
@@ -1119,6 +1337,245 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ->willReturn($this->createMock(JsonResponse::class));
 
         $this->issue(proofJwts: ['jwt1', 'jwt2']);
+    }
+
+
+    /**
+     * Immediate issuance answers 200 and `application/json` (OpenID4VCI 1.0 section 8.3), with `credentials`, an
+     * array of objects each holding one `credential` and nothing else. A credential is the string its format is
+     * serialized to, not re-encoded (Appendices A.1.1.4 and A.3.4): a JWT in compact serialization for
+     * `jwt_vc_json` (A.1.1), and for the SD-JWT formats the issuer-signed JWT followed by each disclosure, each of
+     * them ended by a tilde (the compact serialization of RFC 9901 section 4, which HAIP 1.0 section 6.1 asks
+     * for). Each JWT verifies with the active signing key, and each disclosure is sent as the string the JWT
+     * signed the digest of. The credentials are those of the batch, in order: each bound to its own proof's key,
+     * each with its own identifier. The library builds them here, so these are the strings it serialized. Only
+     * `vc+sd-jwt` has its `@context` resolved: nothing of a `jwt_vc_json` configuration is read as JSON-LD
+     * (Appendix A.1.1.1), nor of a `dc+sd-jwt` one.
+     *
+     * @param list<array{0: string, 1: mixed}> $disclosed The name and value of each disclosure.
+     */
+    #[DataProvider('serializedFormatProvider')]
+    public function testAnswersEachCredentialAsTheStringItWasSerializedTo(
+        CredentialFormatIdentifiersEnum $format,
+        string $serialization,
+        array $disclosed,
+        int $contextResolutions,
+    ): void {
+        $signingKey = JWKFactory::createECKey('P-256');
+        $supportedAlgorithms = new SupportedAlgorithms(new SignatureAlgorithmBag(SignatureAlgorithmEnum::ES256));
+        $this->signingKey = new JwkDecorator($signingKey);
+        $this->verifiableCredentials = new VerifiableCredentialsService(supportedAlgorithms: $supportedAlgorithms);
+        $this->vciContextResolverMock->expects($this->exactly($contextResolutions))->method('resolve')
+            ->willReturn([AtContextsEnum::W3OrgNsCredentialsV2->value]);
+        $this->validClaimPaths = [[ClaimsEnum::Credential_Subject->value, 'given_name']];
+        $this->attributeToClaimPathMap = [['givenName' => [ClaimsEnum::Credential_Subject->value, 'given_name']]];
+        $this->userClaims = ['givenName' => ['John']];
+        $this->credentialConfiguration = [ClaimsEnum::Format->value => $format->value] +
+        ($format === CredentialFormatIdentifiersEnum::DcSdJwt ? [ClaimsEnum::Vct->value => self::VCT] : []);
+        $this->requestData = [
+            ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
+            'proofs' => ['jwt' => ['jwt1', 'jwt2']],
+        ];
+        $this->validatedProofs = [
+            $this->validatedProof(holderDid: 'did:jwk:first'),
+            $this->validatedProof(holderDid: 'did:jwk:second'),
+        ];
+
+        $response = $this->dispatch();
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame('application/json', $response->headers->get('Content-Type'));
+        // Decoded as objects first, where a JSON object and a JSON array stay apart: `credentials` is an array of
+        // objects, not an object whose members happen to be numbered.
+        $envelope = json_decode((string)$response->getContent(), false, 512, JSON_THROW_ON_ERROR);
+        $this->assertInstanceOf(stdClass::class, $envelope);
+        $this->assertIsArray($envelope->credentials ?? null);
+        /** @psalm-suppress MixedAssignment */
+        foreach ($envelope->credentials as $issued) {
+            $this->assertInstanceOf(stdClass::class, $issued);
+        }
+
+        $body = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        $this->assertSame(['credentials'], array_keys($body));
+        $this->assertIsArray($body['credentials']);
+        $this->assertSame([0, 1], array_keys($body['credentials']));
+
+        $parsedJwsFactory = (new Jws($supportedAlgorithms))->parsedJwsFactory();
+        $base64Url = (new VcHelpers())->base64Url();
+        $payloads = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($body['credentials'] as $issued) {
+            $this->assertIsArray($issued);
+            $this->assertSame(['credential'], array_keys($issued));
+            $credential = $issued['credential'];
+            $this->assertIsString($credential);
+            $this->assertMatchesRegularExpression($serialization, $credential);
+
+            $segments = explode('~', $credential);
+            $jwt = $parsedJwsFactory->fromToken($segments[0]);
+            $jwt->verifyWithKey($signingKey->toPublic()->all());
+            $payloads[] = $jwt->getPayload();
+            $disclosures = array_slice($segments, 1, -1);
+            $this->assertSame(
+                $disclosed,
+                array_map(
+                    static fn(string $disclosure): array => array_slice(
+                        (array)json_decode($base64Url->decode($disclosure), true, 512, JSON_THROW_ON_ERROR),
+                        1,
+                    ),
+                    $disclosures,
+                ),
+            );
+
+            foreach ($disclosures as $disclosure) {
+                $this->assertContains(
+                    $base64Url->encode(hash('sha256', $disclosure, true)),
+                    self::disclosureDigestsIn($jwt->getPayload()),
+                );
+            }
+        }
+
+        $this->assertSame(
+            [['kid' => 'did:jwk:first#0'], ['kid' => 'did:jwk:second#0']],
+            array_column($payloads, ClaimsEnum::Cnf->value),
+        );
+        $this->assertCount(2, array_unique(array_column($payloads, ClaimsEnum::Jti->value)));
+    }
+
+
+    /**
+     * Every digest the `_sd` arrays of an SD-JWT payload list, at any depth.
+     *
+     * @return list<mixed>
+     */
+    protected static function disclosureDigestsIn(array $claims): array
+    {
+        $digests = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($claims as $name => $value) {
+            if ($name === '_sd' && is_array($value)) {
+                $digests = [...$digests, ...array_values($value)];
+            } elseif (is_array($value)) {
+                $digests = [...$digests, ...self::disclosureDigestsIn($value)];
+            }
+        }
+
+        return $digests;
+    }
+
+
+    /**
+     * @return array<string,list<mixed>>
+     */
+    public static function serializedFormatProvider(): array
+    {
+        $jwt = '[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+';
+        // To the very end (\z): `$` would let a final line break through, after the tilde which ends the string.
+        $sdJwt = '/^' . $jwt . '~([A-Za-z0-9_-]+~)+\z/';
+
+        return [
+            'jwt_vc_json' => [CredentialFormatIdentifiersEnum::JwtVcJson, '/^' . $jwt . '\z/', [], 0],
+            'dc+sd-jwt' => [CredentialFormatIdentifiersEnum::DcSdJwt, $sdJwt, [['given_name', 'John']], 0],
+            'vc+sd-jwt' => [CredentialFormatIdentifiersEnum::VcSdJwt, $sdJwt, [['given_name', 'John']], 2],
+        ];
+    }
+
+
+    /**
+     * The Credential Issuer ignores the parameters of a request it does not recognize (OpenID4VCI 1.0 section 8.2):
+     * one no specification defines, and those which named a credential before OpenID4VCI 1.0 (a `format` with a
+     * `vct` or a `credential_definition`), sent beside the `credential_configuration_id` which names one now. The
+     * credential issued is the one the configuration describes, as for the request without them.
+     */
+    public function testIgnoresTheParametersOfARequestItDoesNotRecognize(): void
+    {
+        $this->credentialConfiguration = [
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            ClaimsEnum::Vct->value => self::VCT,
+        ];
+        $this->validatedProofs = [$this->validatedProof()];
+        $request = [
+            ClaimsEnum::CredentialConfigurationId->value => self::CONFIGURATION_ID,
+            'proofs' => ['jwt' => ['jwt1']],
+        ];
+
+        $withoutThem = $this->dispatch($request);
+        $withThem = $this->dispatch($request + [
+            'x_unrecognized_parameter' => 'a value',
+            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+            ClaimsEnum::Vct->value => 'urn:example:TypeTheWalletNamed',
+            ClaimsEnum::CredentialDefinition->value => [
+                ClaimsEnum::Type->value => ['VerifiableCredential', 'TypeTheWalletNamed'],
+            ],
+        ]);
+
+        $this->assertSame([], $this->errorResponses);
+        // Answered as the request without them is: issued, with the credential the factory built.
+        foreach ([$withoutThem, $withThem] as $response) {
+            $this->assertSame(200, $response->getStatusCode());
+            $this->assertSame(
+                ['credentials' => [['credential' => 'sd_jwt_token']]],
+                json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR),
+            );
+        }
+        $this->assertCount(2, $this->signedPayloads);
+        $this->assertSame(
+            [CredentialFormatIdentifiersEnum::DcSdJwt->value, CredentialFormatIdentifiersEnum::DcSdJwt->value],
+            array_column($this->signedWith, 'format'),
+        );
+        $this->assertSame(self::VCT, $this->signedPayloads[1][ClaimsEnum::Vct->value] ?? null);
+
+        // What identifies a credential, and the moment it was issued, which may have moved on between the two.
+        $ofTheRequest = [
+            ClaimsEnum::Jti->value => null,
+            ClaimsEnum::Iat->value => null,
+            ClaimsEnum::Nbf->value => null,
+        ];
+        $this->assertSame(
+            array_diff_key($this->signedPayloads[0], $ofTheRequest),
+            array_diff_key($this->signedPayloads[1], $ofTheRequest),
+        );
+    }
+
+
+    /**
+     * A later request does not revoke what an earlier one issued (OpenID4VCI 1.0 section 14.3, SHOULD NOT): the
+     * endpoint, and the status issuer it allocates a Status List entry through for each credential, are given
+     * nothing which can change the status of a credential. That is the admin page's and the status API's, through
+     * CredentialStatusService, a status updater and the entries' repository. The allocator the status issuer claims
+     * an entry through holds that repository, and that claiming one leaves every other as it was is
+     * DbStatusIndexAllocatorTest::testLeavesTheEntryOfAnEarlierCredentialOfTheSameSubjectAsItWas'. That a later
+     * request is served at all is testIssuesAgainstATokenWhichFollowedAnOfferForEveryRequestItMakes'.
+     */
+    public function testIsGivenNothingWhichCanChangeTheStatusOfACredential(): void
+    {
+        $statusChangers = [
+            CredentialStatusService::class,
+            StatusUpdaterInterface::class,
+            StatusListEntryRepository::class,
+        ];
+
+        foreach ([CredentialIssuerCredentialController::class, CredentialStatusIssuer::class] as $class) {
+            $parameters = (new ReflectionClass($class))->getConstructor()?->getParameters() ?? [];
+            $this->assertNotSame([], $parameters, $class);
+
+            foreach ($parameters as $parameter) {
+                // Every class a nullable, union or intersection type names.
+                $types = preg_split('/[?|&()]/', (string)$parameter->getType(), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $this->assertNotEmpty($types, $parameter->getName());
+
+                foreach ($types as $type) {
+                    foreach ($statusChangers as $statusChanger) {
+                        $this->assertFalse(
+                            is_a($type, $statusChanger, true),
+                            sprintf('%s is given %s $%s.', $class, $type, $parameter->getName()),
+                        );
+                    }
+                }
+            }
+        }
     }
 
 

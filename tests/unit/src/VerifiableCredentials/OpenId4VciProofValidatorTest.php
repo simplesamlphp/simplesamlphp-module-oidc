@@ -1272,6 +1272,56 @@ class OpenId4VciProofValidatorTest extends TestCase
 
 
     /**
+     * The signature verifies with the key the header identifies (Appendix F.4), and not merely with some key: a
+     * proof signed with another key than the one its `kid` resolves to is refused.
+     */
+    public function testRefusesAProofSignedWithAnotherKeyThanTheVerificationMethodItNames(): void
+    {
+        $proof = $this->realProof();
+        $this->resolvedKeys[self::HOLDER_DID_URL] = JWKFactory::createECKey('P-256')->toPublic()->all();
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$proof]),
+            expectedMessageFragment: 'signature could not be verified',
+        );
+    }
+
+
+    /**
+     * A key sent inline is the one the proof is verified with: the proof signed with it is accepted, under the
+     * thumbprint of that key, and one signed with another key is refused (Appendix F.4).
+     *
+     * @throws \Throwable
+     */
+    public function testVerifiesAProofWithTheKeyItCarriesInline(): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $inline = ['jwk' => $key->toPublic()->all()];
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithRealProofs([$this->realProof($inline, without: ['kid'], key: $key)]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+        $this->assertNull($validatedProofs[0]?->getKeyId());
+        $this->assertSame(
+            (new JWK($key->toPublic()->all()))->thumbprint('sha256'),
+            $validatedProofs[0]?->getKeyThumbprint(),
+        );
+
+        $this->setUp();
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof($inline, without: ['kid'])]),
+            expectedMessageFragment: 'signature could not be verified',
+        );
+    }
+
+
+    /**
      * Appendix F.1 has a key proof typed `openid4vci-proof+jwt`. A JWT of any other type, or of none, is not one,
      * even signed with the holder's key: it was made for some other use (RFC 8725 section 3.11).
      *

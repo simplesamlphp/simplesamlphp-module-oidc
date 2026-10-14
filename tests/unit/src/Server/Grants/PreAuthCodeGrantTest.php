@@ -1056,6 +1056,80 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
+     * The authorization server ignores the parameters of a token request it does not recognize (OpenID4VCI 1.0
+     * section 6.1, RFC 6749 section 3.2): one no specification defines, and those of the authorization code
+     * grant, which this grant does not read. The code is redeemed for the token it is without them: the same
+     * client, scopes, holder and bindings, all but the identifier and the expiry, which are each token's own.
+     */
+    public function testRedeemsACodeAsIfTheParametersItDoesNotRecognizeWereNotSent(): void
+    {
+        $issued = [];
+        $lifetimes = [];
+
+        foreach (
+            [
+                [],
+                [
+                    'x_unrecognized_parameter' => 'a value',
+                    'code' => 'an-authorization-code',
+                    'redirect_uri' => 'https://wallet.example.org/callback',
+                    'code_verifier' => str_repeat('v', 43),
+                ],
+            ] as $otherParameters
+        ) {
+            $this->setUp();
+            $this->configureRequestParameters(null, otherParameters: $otherParameters);
+            $this->withNoAuthorizationDetails();
+            $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+            $this->authCodeRepositoryMock->expects($this->once())->method('consumePreAuthorizedCode')
+                ->with(self::PRE_AUTHORIZED_CODE)->willReturn(true);
+            $this->accessTokenEntityFactoryMock->expects($this->once())->method('fromData')->willReturnCallback(
+                function (mixed ...$arguments) use (&$issued, &$lifetimes): AccessTokenEntity {
+                    $issued[] = $this->withoutWhatIsTheTokensOwn($arguments);
+                    $this->assertInstanceOf(DateTimeImmutable::class, $arguments[3]);
+                    $lifetimes[] = $arguments[3]->getTimestamp() - time();
+
+                    return $this->createMock(AccessTokenEntity::class);
+                },
+            );
+
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestMock,
+                $this->createMock(ResponseTypeInterface::class),
+                new DateInterval('PT5M'),
+            );
+        }
+
+        $this->assertCount(2, $issued);
+        // The expiry is each token's own, but not how long the token lives: within the second the two took.
+        $this->assertGreaterThan(0, $lifetimes[0]);
+        $this->assertEqualsWithDelta($lifetimes[0], $lifetimes[1], 1);
+        $this->assertSame($issued[0], $issued[1]);
+        $this->assertSame([self::OFFERED], $issued[1][2]);
+        $this->assertSame(self::USER_ID, $issued[1][4]);
+    }
+
+
+    /**
+     * The arguments an access token was built from, but for its identifier and its expiry, which are each token's
+     * own; the client and the scopes by their identifiers.
+     *
+     * @param array<array-key,mixed> $arguments
+     * @return array<array-key,mixed>
+     */
+    private function withoutWhatIsTheTokensOwn(array $arguments): array
+    {
+        unset($arguments[0], $arguments[3]);
+        $this->assertInstanceOf(OAuth2ClientEntityInterface::class, $arguments[1]);
+        $arguments[1] = $arguments[1]->getIdentifier();
+        $this->assertIsArray($arguments[2]);
+        $arguments[2] = $this->scopeIdentifiers($arguments[2]);
+
+        return $arguments;
+    }
+
+
+    /**
      * A wallet which names, with authorization_details, one of the configurations the offer offered gets a
      * token for that one only, its scopes included, as it asked (OpenID4VCI 1.0 section 6.1.1).
      */
@@ -1521,12 +1595,24 @@ class PreAuthCodeGrantTest extends TestCase
 
     /**
      * Every parameter is read from the request given, over the token endpoint's method only; the parameters
-     * asked for are kept for the tests which pin that one was not.
+     * asked for are kept for the tests which pin that one was not. Asked for all at once, the request answers
+     * with every parameter it carries.
+     *
+     * @param array<string,string> $otherParameters Further parameters the request carries.
      */
     private function configureRequestParameters(
         ?string $transactionCode,
         ?string $preAuthorizedCode = self::PRE_AUTHORIZED_CODE,
+        array $otherParameters = [],
     ): void {
+        $parameters = array_filter(
+            [
+                ParamsEnum::PreAuthorizedCode->value => $preAuthorizedCode,
+                ParamsEnum::TxCode->value => $transactionCode,
+            ],
+            static fn(?string $value): bool => $value !== null,
+        ) + $otherParameters;
+
         $this->requestParamsResolverMock->expects($this->never())->method('getAllFromRequest');
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
             ->willReturnCallback(
@@ -1534,21 +1620,23 @@ class PreAuthCodeGrantTest extends TestCase
                     string $parameter,
                     ServerRequestInterface $request,
                     array $allowedMethods,
-                ) use (
-                    $transactionCode,
-                    $preAuthorizedCode,
-                ): ?string {
+                ) use ($parameters): ?string {
                     $this->assertSame($this->requestMock, $request);
                     $this->assertSame([HttpMethodsEnum::POST], $allowedMethods);
                     $this->askedParameters[] = $parameter;
 
-                    return match ($parameter) {
-                        ParamsEnum::PreAuthorizedCode->value => $preAuthorizedCode,
-                        ParamsEnum::TxCode->value => $transactionCode,
-                        default => null,
-                    };
+                    return $parameters[$parameter] ?? null;
                 },
             );
+        foreach (['get', 'getBasedOnAllowedMethods', 'getFromRequestBasedOnAllowedMethods'] as $method) {
+            $this->requestParamsResolverMock->method($method)
+                ->willReturnCallback(static fn(string $parameter): ?string => $parameters[$parameter] ?? null);
+        }
+        foreach (['getAll', 'getAllBasedOnAllowedMethods', 'getAllFromRequestBasedOnAllowedMethods'] as $method) {
+            $this->requestParamsResolverMock->method($method)->willReturn($parameters);
+        }
+        // What League's own parameter reads take the body from.
+        $this->requestMock->method('getParsedBody')->willReturn($parameters);
     }
 
 

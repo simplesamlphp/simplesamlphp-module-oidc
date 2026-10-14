@@ -961,6 +961,54 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
+     * The authorization server ignores the parameters of a token request it does not recognize (OpenID4VCI 1.0
+     * section 6.1, RFC 6749 section 3.2): one no specification defines, and those of the pre-authorized code
+     * grant, which this grant does not read. The code is redeemed for the token it is without them: the same
+     * client, scopes, holder and bindings, all but the identifier and the expiry, which are each token's own.
+     */
+    public function testRedeemsACodeAsIfTheParametersItDoesNotRecognizeWereNotSent(): void
+    {
+        $issued = [];
+        $lifetimes = [];
+
+        foreach (
+            [
+                [],
+                [
+                    'x_unrecognized_parameter' => 'a value',
+                    'pre-authorized_code' => 'a-pre-authorized-code',
+                    'tx_code' => '1234',
+                ],
+            ] as $otherParameters
+        ) {
+            $this->setUp();
+            $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+            $this->expectAccessTokenToBeIssued();
+            $this->authCodeRepositoryMock->expects($this->once())->method('consumeAuthCode')
+                ->with(self::AUTH_CODE_ID);
+
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestFor($this->payload(['scopes' => ['openid', 'pid']]), $otherParameters),
+                $this->responseType(),
+                new DateInterval('PT5M'),
+            );
+
+            $issued[] = $this->tokenArgumentsWithoutWhatIsItsOwn();
+            $this->assertInstanceOf(DateTimeImmutable::class, $this->accessTokenFactoryArguments[3]);
+            $lifetimes[] = $this->accessTokenFactoryArguments[3]->getTimestamp() - time();
+        }
+
+        // The expiry is each token's own, but not how long the token lives: within the second the two took.
+        $this->assertGreaterThan(0, $lifetimes[0]);
+        $this->assertEqualsWithDelta($lifetimes[0], $lifetimes[1], 1);
+        $this->assertSame($issued[0], $issued[1]);
+        $this->assertSame(['openid', 'pid'], $issued[1][2]);
+        $this->assertSame(self::USER_ID, $issued[1][4]);
+        $this->assertSame(FlowTypeEnum::VciAuthorizationCode, $issued[1][8]);
+    }
+
+
+    /**
      * Of several requests presenting the same code at once, each finds it unrevoked when it looks it up, and only
      * the one which consumes it first is answered with tokens. Any other is refused as a replay, and revokes
      * everything issued for the code, those tokens included, per RFC 6749 section 4.1.2. The code is consumed only
@@ -1650,6 +1698,38 @@ class AuthCodeGrantTest extends TestCase
 
         $this->assertInstanceOf(AuthorizationRequest::class, $request);
         $this->assertSame(FlowTypeEnum::OidcAuthorizationCode, $request->getFlowType());
+    }
+
+
+    /**
+     * The authorization server ignores the parameters of an authorization request it does not recognize
+     * (OpenID4VCI 1.0 section 5.1.3, RFC 6749 section 3.1): one no specification defines, and those of the token
+     * endpoint, which an authorization request has no use for. The request is validated as it is without them.
+     * The rules are doubled here, each reading the parameters it knows (their own tests); end to end, the
+     * conformance suite's oidcc-ensure-request-with-unknown-parameter-succeeds sends one through all of them.
+     */
+    public function testValidatesAnAuthorizationRequestAsIfTheParametersItDoesNotRecognizeWereNotSent(): void
+    {
+        $client = $this->clientMock();
+        $scopes = [new ScopeEntity('openid')];
+        $parameters = [
+            'response_type' => 'code',
+            'client_id' => self::CLIENT_ID,
+            'redirect_uri' => self::REDIRECT_URI,
+            'scope' => 'openid',
+            'state' => self::STATE,
+        ];
+
+        $withoutThem = $this->validatedAuthorizationRequest($scopes, $client, parsedBody: $parameters);
+        $withThem = $this->validatedAuthorizationRequest($scopes, $client, parsedBody: $parameters + [
+            'x_unrecognized_parameter' => 'a value',
+            'pre-authorized_code' => 'a-pre-authorized-code',
+            'tx_code' => '1234',
+            'code_verifier' => str_repeat('v', 43),
+        ]);
+
+        $this->assertEquals($withoutThem, $withThem);
+        $this->assertSame(FlowTypeEnum::OidcAuthorizationCode, $withThem->getFlowType());
     }
 
 
@@ -2785,35 +2865,57 @@ class AuthCodeGrantTest extends TestCase
         ?string $redirectUri = self::REDIRECT_URI,
     ): void {
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
-        $this->resolverReturnsTheRequestBody($this->requestParamsResolverMock);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
-            ->willReturnCallback(
-                static fn(string $parameter): ?string => match ($parameter) {
-                    ParamsEnum::ClientId->value => $clientId,
-                    ParamsEnum::RedirectUri->value => $redirectUri,
-                    default => null,
-                },
-            );
+        $this->resolverReturnsTheRequestBody(
+            $this->requestParamsResolverMock,
+            [ParamsEnum::ClientId->value => $clientId, ParamsEnum::RedirectUri->value => $redirectUri],
+        );
     }
 
 
     /**
-     * Make the resolver hand back the request body, the way the real one does.
+     * Make the resolver hand back the request body, the way the real one does, through every accessor it has, so
+     * that no parameter a request carries is hidden from the grant whichever way it reads them.
      *
      * A resolver stubbed to return an empty array would silently strip the credentials out of everything
      * the grant logs, which makes the secrecy assertions below pass no matter what the grant does with
      * them. That is exactly how the debug dump of the whole token request body went unnoticed.
+     *
+     * @param array<string,?string> $stringOverrides What a string read of a parameter gets instead of the body's.
      */
-    private function resolverReturnsTheRequestBody(RequestParamsResolver&MockObject $resolver): void
-    {
-        $resolver->method('getAllBasedOnAllowedMethods')
-            ->willReturnCallback(
+    private function resolverReturnsTheRequestBody(
+        RequestParamsResolver&MockObject $resolver,
+        array $stringOverrides = [],
+    ): void {
+        $allParameterAccessors = [
+            'getAllFromRequest',
+            'getAllFromRequestBasedOnAllowedMethods',
+            'getAll',
+            'getAllBasedOnAllowedMethods',
+        ];
+        foreach ($allParameterAccessors as $method) {
+            $resolver->method($method)->willReturnCallback(
                 static fn(ServerRequestInterface $request): array => (array)$request->getParsedBody(),
             );
-        $resolver->method('getBasedOnAllowedMethods')
-            ->willReturnCallback(
+        }
+
+        foreach (['get', 'getBasedOnAllowedMethods', 'getFromRequestBasedOnAllowedMethods'] as $method) {
+            $resolver->method($method)->willReturnCallback(
                 static fn(string $parameter, ServerRequestInterface $request): mixed =>
                     ((array)$request->getParsedBody())[$parameter] ?? null,
+            );
+        }
+        $resolver->method('getAsStringBasedOnAllowedMethods')
+            ->willReturnCallback(
+                static function (string $parameter, ServerRequestInterface $request) use ($stringOverrides): ?string {
+                    if (array_key_exists($parameter, $stringOverrides)) {
+                        return $stringOverrides[$parameter];
+                    }
+
+                    /** @psalm-suppress MixedAssignment */
+                    $value = ((array)$request->getParsedBody())[$parameter] ?? null;
+
+                    return is_scalar($value) ? (string)$value : null;
+                },
             );
     }
 
@@ -2899,6 +3001,24 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
+     * The arguments the access token was last built from, but for its identifier and its expiry, which are each
+     * token's own; the client and the scopes by their identifiers.
+     *
+     * @return array<array-key,mixed>
+     */
+    private function tokenArgumentsWithoutWhatIsItsOwn(): array
+    {
+        $arguments = $this->accessTokenFactoryArguments;
+        unset($arguments[0], $arguments[3]);
+        $this->assertInstanceOf(ClientEntity::class, $arguments[1]);
+        $arguments[1] = $arguments[1]->getIdentifier();
+        $arguments[2] = $this->tokenScopes();
+
+        return $arguments;
+    }
+
+
+    /**
      * @return string[] The scopes the access token was last issued with.
      */
     private function tokenScopes(): array
@@ -2919,6 +3039,7 @@ class AuthCodeGrantTest extends TestCase
      *
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[]|null $scopes
      * @param array<class-string,mixed> $ruleResults
+     * @param array<string,mixed> $parsedBody The parameters the request carries.
      */
     private function validatedAuthorizationRequest(
         ?array $scopes = null,
@@ -2926,6 +3047,7 @@ class AuthCodeGrantTest extends TestCase
         bool $isVciRequest = false,
         ?string $nonce = null,
         array $ruleResults = [],
+        array $parsedBody = [],
     ): OAuth2AuthorizationRequest {
         $client ??= $this->clientMock();
         $scopes ??= [new ScopeEntity('openid')];
@@ -2966,12 +3088,8 @@ class AuthCodeGrantTest extends TestCase
         );
 
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
-        $this->resolverReturnsTheRequestBody($this->requestParamsResolverMock);
+        $this->resolverReturnsTheRequestBody($this->requestParamsResolverMock, [ParamsEnum::Nonce->value => $nonce]);
         $this->requestParamsResolverMock->method('isVciAuthorizationCodeRequest')->willReturn($isVciRequest);
-        $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')
-            ->willReturnCallback(
-                static fn(string $parameter): ?string => $parameter === ParamsEnum::Nonce->value ? $nonce : null,
-            );
 
         // What the caller has already resolved before these rules run.
         $incoming = new ResultBag();
@@ -2980,7 +3098,7 @@ class AuthCodeGrantTest extends TestCase
         $incoming->add(new Result(ClientRule::class, $client));
         $incoming->add(new Result(ResponseModeRule::class, new QueryResponseMode()));
 
-        return $this->sut()->validateAuthorizationRequestWithRequestRules($this->request([]), $incoming);
+        return $this->sut()->validateAuthorizationRequestWithRequestRules($this->request($parsedBody), $incoming);
     }
 
 

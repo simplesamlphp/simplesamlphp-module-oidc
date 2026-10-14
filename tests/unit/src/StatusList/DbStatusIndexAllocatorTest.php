@@ -424,6 +424,31 @@ class DbStatusIndexAllocatorTest extends TestCase
 
 
     /**
+     * A later credential leaves the entries of earlier ones as they were, one of the same subject and configuration
+     * included: allocating claims a free index and changes no other entry (OpenID4VCI 1.0 section 14.3 has a later
+     * Credential Request revoke nothing issued before it).
+     *
+     * @throws \Exception
+     */
+    public function testLeavesTheEntryOfAnEarlierCredentialOfTheSameSubjectAsItWas(): void
+    {
+        $first = $this->allocate('https://op.example.org/vc/first');
+        $before = $this->statusListEntryRepository->findByListAndIdx($first->getStatusListId(), $first->getIdx());
+
+        $second = $this->allocate('https://op.example.org/vc/second');
+
+        $this->assertNotNull($before);
+        $this->assertSame($first->getStatusListId(), $second->getStatusListId());
+        $this->assertNotSame($first->getIdx(), $second->getIdx());
+        $this->assertEquals(
+            $before,
+            $this->statusListEntryRepository->findByListAndIdx($first->getStatusListId(), $first->getIdx()),
+        );
+        $this->assertSame([], $this->statusListEntryRepository->findNonValidStatuses($first->getStatusListId()));
+    }
+
+
+    /**
      * A claim on an index someone else already took simply affects no rows. Nothing has to classify a
      * database error to discover that, which matters because this module can not do so reliably.
      *
