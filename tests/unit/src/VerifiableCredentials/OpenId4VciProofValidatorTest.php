@@ -531,13 +531,22 @@ class OpenId4VciProofValidatorTest extends TestCase
      */
     protected function requestWithRealProofs(array $proofJwts): array
     {
+        $this->parsesRealProofs();
+
+        return ['proofs' => ['jwt' => $proofJwts]];
+    }
+
+
+    /**
+     * Has the library's own proof factory parse every proof the validator reads.
+     */
+    protected function parsesRealProofs(): void
+    {
         $this->proofFactoryMock->method('fromToken')->willReturnCallback(
             static fn(string $token): OpenId4VciProof => self::realVerifiableCredentials()
                 ->openId4VciProofFactory()
                 ->fromToken($token),
         );
-
-        return ['proofs' => ['jwt' => $proofJwts]];
     }
 
 
@@ -613,12 +622,63 @@ class OpenId4VciProofValidatorTest extends TestCase
 
 
     /**
-     * The pre-final singular parameter is not the shape a configuration advertising the final
-     * `proof_types_supported` describes.
+     * The pre-final singular parameter is not an OpenID4VCI 1.0 one, and section 8.2 has an issuer ignore the
+     * parameters it does not recognize, so a request carrying it beside `proofs` is served by `proofs` alone. The
+     * singular proof here would be refused if it were read, in place of `proofs` or beside them: it names the same
+     * verification method as the proof which is served, but is signed with another key.
+     *
+     * @throws \Throwable
      */
-    public function testRefusesTheSingularProofParameter(): void
+    public function testIgnoresTheSingularProofParameter(): void
     {
-        $this->assertRefusedWith('invalid_proof', ['proof' => ['proof_type' => 'jwt', 'jwt' => 'proof-jwt']]);
+        $unreadProof = $this->realProof();
+        $servedKey = JWKFactory::createECKey('P-256');
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWithRealProofs([$this->realProof(key: $servedKey)]) +
+            ['proof' => ['proof_type' => 'jwt', 'jwt' => $unreadProof]],
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertCount(1, $validatedProofs);
+        $this->assertSame($servedKey->thumbprint('sha256'), $validatedProofs[0]?->getKeyThumbprint());
+
+        // What it would have met, had it been read.
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['jwt' => [$unreadProof]]],
+            expectedMessageFragment: 'signature could not be verified',
+        );
+    }
+
+
+    /**
+     * Ignored, the singular parameter leaves the request without the `proofs` this configuration requires. The
+     * proof in it is a sound one, so what refuses the request is the missing `proofs`, not the parameter.
+     *
+     * @throws \Throwable
+     */
+    public function testRefusesARequestCarryingOnlyTheSingularProofParameter(): void
+    {
+        $proof = $this->realProof();
+        $this->parsesRealProofs();
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proof' => ['proof_type' => 'jwt', 'jwt' => $proof]],
+            expectedMessageFragment: 'The proofs parameter is required',
+        );
+
+        // The same proof, sent where 1.0 has it.
+        $this->assertCount(
+            1,
+            $this->sut()->validateRequest(
+                ['proofs' => ['jwt' => [$proof]]],
+                VciCredentialBindingPolicyEnum::ProofBound,
+                $this->accessTokenMock,
+            ),
+        );
     }
 
 
@@ -651,11 +711,25 @@ class OpenId4VciProofValidatorTest extends TestCase
             ['proofs' => ['jwt' => ['proof-jwt']]],
             VciCredentialBindingPolicyEnum::Proofless,
         );
+    }
 
-        $this->assertRefusedWith(
-            'invalid_credential_request',
-            ['proof' => ['proof_type' => 'jwt', 'jwt' => 'proof-jwt']],
-            VciCredentialBindingPolicyEnum::Proofless,
+
+    /**
+     * Not a supplied proof in OpenID4VCI 1.0 terms: the pre-final singular parameter is one this issuer does not
+     * recognize, so the request is issued as without it (section 8.2), one credential bound to nothing, which is
+     * what the metadata of this configuration says it issues.
+     *
+     * @throws \Throwable
+     */
+    public function testAProoflessConfigurationIgnoresTheSingularProofParameter(): void
+    {
+        $this->assertSame(
+            [null],
+            $this->sut()->validateRequest(
+                ['proof' => ['proof_type' => 'jwt', 'jwt' => 'proof-jwt']],
+                VciCredentialBindingPolicyEnum::Proofless,
+                $this->accessTokenMock,
+            ),
         );
     }
 

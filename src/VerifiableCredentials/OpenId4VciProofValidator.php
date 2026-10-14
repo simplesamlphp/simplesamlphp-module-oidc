@@ -254,15 +254,17 @@ class OpenId4VciProofValidator
      * Silently ignoring one would be worse than refusing it: the wallet built a proof, sent it, and got
      * back a credential bound to something else, with nothing on it to say its key went unused.
      *
+     * That is about `proofs`, the parameter OpenID4VCI 1.0 defines. The pre-final singular `proof` is not
+     * one of its parameters, and section 8.2 has an issuer ignore the parameters it does not recognize, so
+     * a request carrying it is issued as one without it: the metadata this configuration publishes, with
+     * no binding methods and no proof types, already told the wallet that what it issues is bound to no key.
+     *
      * @param array<array-key,mixed> $requestData
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
      */
     protected function refuseSuppliedProofs(array $requestData): void
     {
-        if (
-            array_key_exists(ClaimsEnum::Proof->value, $requestData) ||
-            array_key_exists(ClaimsEnum::Proofs->value, $requestData)
-        ) {
+        if (array_key_exists(ClaimsEnum::Proofs->value, $requestData)) {
             throw new CredentialRequestException(
                 'invalid_credential_request',
                 'This credential configuration issues credentials which are not bound to a holder key, ' .
@@ -279,15 +281,9 @@ class OpenId4VciProofValidator
      */
     protected function extractProofJwts(array $requestData): array
     {
-        // The singular parameter is the pre-final shape of this request. Accepting it would mean
-        // accepting a request the metadata this configuration publishes does not describe.
-        if (array_key_exists(ClaimsEnum::Proof->value, $requestData)) {
-            throw new CredentialRequestException(
-                'invalid_proof',
-                'The proof parameter is not supported. Send the key proof in the proofs parameter.',
-            );
-        }
-
+        // Only `proofs` is read. The pre-final singular `proof` is not an OpenID4VCI 1.0 parameter, and
+        // section 8.2 has an issuer ignore the parameters it does not recognize: a request carrying both is
+        // served by its `proofs`, and one carrying `proof` alone is refused below for lacking `proofs`.
         /** @psalm-suppress MixedAssignment */
         $proofs = $requestData[ClaimsEnum::Proofs->value] ?? null;
 
