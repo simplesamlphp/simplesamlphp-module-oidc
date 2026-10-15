@@ -10,11 +10,5 @@
         "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature*",
         "configuration-filename": "*conformance-vci-issuer.json",
         "variant": "*"
-    },
-    {
-        "comment": "Optional feature not supported: credential response encryption. The plan runs with vci_credential_encryption=plain, so the suite skips this test.",
-        "test-name": "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm*",
-        "configuration-filename": "*conformance-vci-issuer.json",
-        "variant": "*"
     }
 ]

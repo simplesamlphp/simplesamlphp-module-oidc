@@ -17,7 +17,7 @@ Clone, build, and run the conformance test suite:
 ```bash
 git clone https://gitlab.com/openid/conformance-suite.git
 cd conformance-suite
-git checkout release-v5.3.1
+git checkout release-v5.3.3
 MAVEN_CACHE=./m2 docker compose -f builder-compose.yml run builder
 docker compose up
 ```
@@ -219,7 +219,7 @@ flow, but the plan is no substitute for the checklist.
 ## OpenID4VCI issuer plan
 
 CI also runs the OpenID Foundation's OpenID4VCI 1.0 issuer test plan,
-`oid4vci-1_0-issuer-test-plan`. At the suite release CI uses (`release-v5.3.1`)
+`oid4vci-1_0-issuer-test-plan`. At the suite release CI uses (`release-v5.3.3`)
 the suite labels this plan alpha and outside its certification programme:
 certification goes through the HAIP issuer plan, which needs client
 attestation, and this module does not support client attestation. A passing run
@@ -267,9 +267,8 @@ All three runs share these variants:
   (`vci_require_dpop`), so every token request the plan makes has to carry one.
   The plan's one DPoP refusal check, in the multiple-clients test, presents the
   second client's access token with a proof by the first client's key and
-  expects a 4xx answer (the module answers 401 `invalid_token`); in the offer
-  run the test stops before reaching it, as described below. The plan sends no
-  `dpop_jkt`, so code binding and the module's other DPoP refusals rest on its
+  expects a 4xx answer (the module answers 401 `invalid_token`). The plan sends
+  no `dpop_jkt`, so code binding and the module's other DPoP refusals rest on its
   own unit tests.
 - `fapi_profile=vci` (not `vci_haip`) and `vci_credential_encryption=plain`.
   The `openid` and `fapi_response_mode` variants do not apply to this profile.
@@ -289,30 +288,24 @@ Status List Token only against a `jwk` embedded in its header or the server's
 JWKS, and it fetches that key set only for OpenID Connect or JARM, so here it
 has no key to verify with.
 
-Two more apply to the offer run only, and are recorded apart from the others, in
+One more applies to the offer run only, and is recorded apart from the others, in
 `conformance-tests/vci-issuer-offer-warnings.json`, since the runner fails on an
-expected failure which no test of its run produced:
+expected failure which no test of its run produced: the unknown credential
+configuration test, under `authorization_request_type=rar`. With
+`authorization_details` the token response returns `credential_identifiers`, and
+OpenID4VCI 1.0 section 8.2 then requires `credential_identifier` and does not
+allow `credential_configuration_id`. The test sends an unknown
+`credential_configuration_id` alone and expects
+`unknown_credential_configuration`; the module answers
+`invalid_credential_request`, the code section 8.3.1.2 gives a request missing a
+required parameter or carrying one it may not.
 
-- The multiple-clients test. At `release-v5.3.1` the suite sends the second
-  client to PAR with the issuer state of the first client's offer. The module
-  redeems an offer once, when its code is exchanged for an access token, so the
-  second client's request is refused. The suite's `master` has the second client
-  wait for an offer of its own; the entry goes once a release CI uses carries
-  that.
-- The unknown credential configuration test, under
-  `authorization_request_type=rar`. With `authorization_details` the token
-  response returns `credential_identifiers`, and OpenID4VCI 1.0 section 8.2 then
-  requires `credential_identifier` and does not allow
-  `credential_configuration_id`. The test sends an unknown
-  `credential_configuration_id` alone and expects
-  `unknown_credential_configuration`; the module answers
-  `invalid_credential_request`, the code section 8.3.1.2 gives a request missing
-  a required parameter or carrying one it may not.
-
-The suite skips three tests, each for an optional feature the module does not
+The suite skips two tests, each for an optional feature the module does not
 offer, and `conformance-tests/vci-issuer-skips.json` lists them: signed
-credential issuer metadata, key attestations, and credential response
-encryption. The GitHub Actions step is a blocking gate.
+credential issuer metadata and key attestations. The plan leaves out its test of
+credential response encryption, a third optional feature the module does not
+offer, under `vci_credential_encryption=plain`. The GitHub Actions steps are
+blocking gates.
 
 The plan's additional-requests test also checks the OP's TLS configuration. The
 conformance image restricts TLS 1.2 to the four cipher suites RFC 9325 (BCP 195)

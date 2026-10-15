@@ -223,7 +223,7 @@ jobs:
         ssp-composer-version: ["v2.5.3.1"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-      VERSION: release-v5.3.1
+      VERSION: release-v5.3.3
     steps:
       - uses: actions/checkout@v6
         with:
@@ -243,9 +243,6 @@ jobs:
         run: |
           sed -i -e 's/localhost/localhost.emobix.co.uk/g' src/main/resources/application.properties
           sed -i -e 's/-B clean/-B -DskipTests=true/g' builder-compose.yml
-          # Workaround for intermittent NPE when document.readyState is null:
-          # https://gitlab.com/openid/conformance-suite/-/work_items/1998
-          python3 -c "import pathlib; p = pathlib.Path('src/main/java/net/openid/conformance/frontchannel/BrowserControl.java'); p.write_text(p.read_text().replace('((JavascriptExecutor) webDriver).executeScript(\"return document.readyState\").equals(\"complete\")', '\"complete\".equals(((JavascriptExecutor) webDriver).executeScript(\"return document.readyState\"))'))"
           docker compose -f builder-compose.yml run builder
       - name: Run Conformance Suite
         working-directory: ./conformance-suite
@@ -298,7 +295,7 @@ jobs:
       - name: Run VCI issuer conformance tests
         # The OpenID4VCI 1.0 issuer plan: the wallet-initiated authorization code flow for the dc+sd-jwt
         # credential. Every test which runs passes but for one check the suite can not perform, the Status
-        # List Token's signature, recorded in conformance-tests/vci-issuer-warnings.json; the three tests the
+        # List Token's signature, recorded in conformance-tests/vci-issuer-warnings.json; the two tests the
         # suite skips for optional features the module does not offer are listed in
         # conformance-tests/vci-issuer-skips.json. So this step is a blocking gate. See
         # docs/5-oidc-conformance.md for the variants and what they leave out.
@@ -308,10 +305,9 @@ jobs:
         # The same plan with the flow started by a Credential Offer, the credential asked for through
         # authorization_details, and the authorization request sent as a signed Request Object. Each test
         # waits for an offer, which run-test-plan.py never sends, so conformance-tests/vci-offer-driver.py
-        # runs beside it, getting one from the OP's credential offer API and handing it to the test. Two more
-        # expected failures apply to these variants, in conformance-tests/vci-issuer-offer-warnings.json (a
-        # file of their own, since the runner fails on an entry no test matched): the suite sending the second
-        # client on with the first client's offer, fixed on its master, and the unknown-configuration test
+        # runs beside it, getting one from the OP's credential offer API and handing it to the test. One more
+        # expected failure applies to these variants, in conformance-tests/vci-issuer-offer-warnings.json (a
+        # file of its own, since the runner fails on an entry no test matched): the unknown-configuration test
         # sending what OpenID4VCI 1.0 section 8.2 does not allow once authorization_details was used. A driver
         # which failed would leave every test waiting out the runner's own limit, hence the timeout.
         timeout-minutes: 15
