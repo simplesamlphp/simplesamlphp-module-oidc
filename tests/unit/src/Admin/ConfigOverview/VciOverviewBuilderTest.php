@@ -53,7 +53,8 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
-     * A minimal but realistic credential configuration, shaped like the one in the config template.
+     * A minimal but realistic credential configuration, shaped like the one in the config template. No claim is
+     * mandatory, so that a test maps what it likes; a mandatory claim is testMarksAMandatoryClaimNothingWrites's.
      */
     protected static function credentialConfiguration(): array
     {
@@ -67,7 +68,7 @@ class VciOverviewBuilderTest extends TestCase
                         ['name' => 'Research and Scholarship', 'locale' => 'en-US'],
                     ],
                     'claims' => [
-                        ['path' => ['credentialSubject', 'eduPersonPrincipalName'], 'mandatory' => true],
+                        ['path' => ['credentialSubject', 'eduPersonPrincipalName']],
                         ['path' => ['credentialSubject', 'mail']],
                     ],
                 ],
@@ -398,6 +399,84 @@ class VciOverviewBuilderTest extends TestCase
 
         $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
         $this->assertStringContainsString('discovery, registration, authorization', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A configuration with a mandatory claim nothing writes is refused, as is one whose attribute map can not be
+     * read to tell (ModuleConfig::findFaultInVciCredentialConfiguration()), so the overview marks it with the
+     * claim and keeps listing it.
+     */
+    #[DataProvider('unwrittenMandatoryClaimMapProvider')]
+    public function testMarksAMandatoryClaimNothingWrites(mixed $attributeMap, string $fault): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::withMandatoryName(),
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => $attributeMap,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertCount(1, $configurations);
+        $this->assertStringStartsWith(
+            'The claim ["credentialSubject","name"] of Verifiable Credential configuration [Mandatory] is ' .
+            'marked mandatory, but ' . $fault,
+            (string)$configurations[0]['fault'],
+        );
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
+    }
+
+
+    public static function unwrittenMandatoryClaimMapProvider(): array
+    {
+        return [
+            'not mapped' => [[], 'neither the issuer nor an attribute mapping writes it'],
+            'a map which can not be read' => ['not-an-array', 'whether an attribute mapping writes it can not be told'],
+        ];
+    }
+
+
+    public function testDoesNotMarkAMandatoryClaimAnAttributeIsMappedTo(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::withMandatoryName(),
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                    'Mandatory' => [['displayName' => ['credentialSubject', 'name']]],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+        );
+
+        $this->assertNotNull($row);
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertNull($configurations[0]['fault']);
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * One jwt_vc_json configuration whose subject's name is mandatory.
+     */
+    protected static function withMandatoryName(): array
+    {
+        return [
+            'Mandatory' => self::issuable([
+                'format' => 'jwt_vc_json',
+                'credential_metadata' => [
+                    'claims' => [['path' => ['credentialSubject', 'name'], 'mandatory' => true]],
+                ],
+            ]),
+        ];
     }
 
 

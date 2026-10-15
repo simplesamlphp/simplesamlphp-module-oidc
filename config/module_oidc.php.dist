@@ -1371,10 +1371,13 @@ $config = [
      * registration, authorization, credential offers and issuance fail until
      * it is corrected; the configuration overview names the fault.
      *
-     * A claim marked `mandatory` is one the issuer always includes, so a user
-     * without the attribute it is mapped from (see
-     * OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP) is refused the
-     * credential (`credential_request_denied`).
+     * A claim marked `mandatory` is one the issuer always includes. So a
+     * configuration with one that nothing writes, neither the issuer itself
+     * (as it does `credentialSubject.id`) nor an attribute mapped to it or to
+     * a claim around or inside it (see
+     * OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP), is not issuable,
+     * and a user whose attributes leave one out is refused the credential
+     * (`credential_request_denied`).
      */
     ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
         // Sample for 'jwt_vc_json' format with notes about required and

@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -531,6 +532,7 @@ class ModuleConfig
         protected readonly ValueAbstracts $valueAbstracts = new ValueAbstracts(),
         protected readonly OpenIdHelpers $openIdHelpers = new OpenIdHelpers(),
         protected readonly ClaimsDescriptionValidator $claimsDescriptionValidator = new ClaimsDescriptionValidator(),
+        protected readonly CredentialClaimLocator $credentialClaimLocator = new CredentialClaimLocator(),
     ) {
         $this->moduleConfig = Configuration::loadFromArray(
             array_merge(Configuration::getConfig($fileName)->toArray(), $overrides),
@@ -3155,7 +3157,8 @@ class ModuleConfig
      * descriptions with display objects of their own one for each language (Appendix B.2, B.3). An empty object
      * is refused where one is required, since it would be published as an empty JSON array. `claims` and `display`
      * at the top level, where the pre-final drafts had them, are refused: OpenID4VCI 1.0 has them in
-     * `credential_metadata`, and a wallet ignores them anywhere else.
+     * `credential_metadata`, and a wallet ignores them anywhere else. A claim marked `mandatory` has to be one the
+     * issuer or an attribute mapping writes (findUnwrittenVciMandatoryClaim()).
      *
      * Whether a `vct` is a collision-resistant name is not judged here: a URI (URI_PATTERN) is the usual form of
      * one, not the only one, so the configuration overview and the Credential Endpoint's log only warn about a
@@ -3252,7 +3255,119 @@ class ModuleConfig
             }
         }
 
+        return $this->findUnwrittenVciMandatoryClaim($credentialConfigurationId, $format, $claimsDescriptions, $of);
+    }
+
+
+    /**
+     * Why a claim a credential configuration marks as mandatory would be in none of its credentials, or null when
+     * every such claim is written: by the issuer itself (CredentialClaimLocator::ISSUER_WRITTEN_CLAIM_PATHS), or by
+     * an attribute mapping of the configuration (OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP) at it,
+     * around it or inside it, as the Credential Endpoint applies the mapping. OpenID4VCI 1.0 Appendix B.2 has the
+     * issuer always include a mandatory claim, so one nothing writes would be advertised and never issued. Whether
+     * the attributes of a user give a mandatory claim is the Credential Endpoint's to judge, at issuance.
+     *
+     * The mapping is read only when a mandatory claim is not the issuer's own. One which can not be read is this
+     * configuration's fault too, rather than an error escaping the check: whether the claim is written can not be
+     * told, and the callers which show a fault (the configuration overview, the issuance test page) keep showing it.
+     *
+     * @param array $claimsDescriptions Claims descriptions findFaultInClaimsDescriptions() found no fault in.
+     */
+    protected function findUnwrittenVciMandatoryClaim(
+        string $credentialConfigurationId,
+        string $format,
+        array $claimsDescriptions,
+        string $of,
+    ): ?string {
+        $claimPaths = [];
+        $mandatoryClaimPaths = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($claimsDescriptions as $claimsDescription) {
+            if (! is_array($claimsDescription)) {
+                continue;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $claimPath = $claimsDescription[ClaimsEnum::Path->value] ?? null;
+            if (! is_array($claimPath)) {
+                continue;
+            }
+            $claimPaths[] = $claimPath;
+
+            if (
+                ($claimsDescription[ClaimsEnum::Mandatory->value] ?? false) === true &&
+                ! $this->credentialClaimLocator->isWrittenByIssuer(
+                    $format,
+                    $this->credentialClaimLocator->locate($format, $claimPath),
+                )
+            ) {
+                $mandatoryClaimPaths[] = $claimPath;
+            }
+        }
+
+        if ($mandatoryClaimPaths === []) {
+            return null;
+        }
+
+        try {
+            $attributeMap = $this->getVciUserAttributeToCredentialClaimPathMapFor($credentialConfigurationId);
+        } catch (Throwable $throwable) {
+            return 'The claim ' . $this->describeClaimPath($mandatoryClaimPaths[0]) . ' of ' . $of . ' is marked ' .
+            'mandatory, but whether an attribute mapping writes it can not be told: ' .
+            self::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP . ' can not be read (' .
+            $throwable->getMessage() . ').';
+        }
+
+        // Where the mapping writes, read as the Credential Endpoint reads an entry: its first pair, an attribute name
+        // and a path whose string members name a claim the configuration describes (compared loosely, as there).
+        $mappedLocations = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($attributeMap as $mapEntry) {
+            /** @psalm-suppress MixedAssignment */
+            $mappedClaimPath = is_array($mapEntry) && is_string(key($mapEntry)) ? current($mapEntry) : null;
+            if (! is_array($mappedClaimPath)) {
+                continue;
+            }
+
+            $mappedClaimPath = array_filter($mappedClaimPath, 'is_string');
+            if (! in_array($mappedClaimPath, $claimPaths)) {
+                continue;
+            }
+
+            $mappedLocation = $this->credentialClaimLocator->claimPathInCredential($format, $mappedClaimPath);
+            if ($mappedLocation !== null) {
+                $mappedLocations[] = $mappedLocation;
+            }
+        }
+
+        foreach ($mandatoryClaimPaths as $claimPath) {
+            if (
+                ! $this->credentialClaimLocator->isWrittenBy(
+                    $this->credentialClaimLocator->locate($format, $claimPath),
+                    $mappedLocations,
+                )
+            ) {
+                return 'The claim ' . $this->describeClaimPath($claimPath) . ' of ' . $of . ' is marked mandatory, ' .
+                'but neither the issuer nor an attribute mapping writes it, so no credential would include it: map ' .
+                'an attribute to it or to a claim around or inside it (' .
+                self::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP . '), or do not mark it mandatory.';
+            }
+        }
+
         return null;
+    }
+
+
+    /**
+     * A claims path pointer as a fault names it: as JSON, the way it is published.
+     */
+    protected function describeClaimPath(array $claimPath): string
+    {
+        return (string)json_encode(
+            array_values($claimPath),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE,
+        );
     }
 
 

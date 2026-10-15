@@ -46,6 +46,7 @@ use SimpleSAML\Module\oidc\StatusList\CredentialStatusService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
@@ -763,6 +764,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->credentialStatusIssuerMock,
             $this->helpers,
             $this->errorResponderMock,
+            // The real one: where a claim lands is what the mandatory claim tests are about.
+            new CredentialClaimLocator(),
         );
     }
 
@@ -2858,17 +2861,107 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
 
     /**
-     * A mandatory claim no attribute is mapped to is not the user's to lack: what the issuer writes itself, as
-     * `credentialSubject.id`, is in the credential whatever the user has.
+     * A mandatory claim the issuer writes itself is not the user's to lack: it is in the credential whatever the
+     * user has, as is one inside a claim the issuer writes, or one holding it.
      */
-    public function testDoesNotJudgeAMandatoryClaimNoAttributeIsMappedTo(): void
+    #[DataProvider('issuerWrittenMandatoryClaimProvider')]
+    public function testDoesNotJudgeAMandatoryClaimTheIssuerWrites(string $format, array $claimPath): void
     {
-        $this->mandatoryClaimPaths = [[ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value]];
+        $this->mandatoryClaimPaths = [$claimPath];
 
-        $this->issue();
+        $this->issue($format);
 
         $this->assertSame([], $this->errorResponses);
         $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    public static function issuerWrittenMandatoryClaimProvider(): array
+    {
+        $subjectId = [ClaimsEnum::Credential_Subject->value, ClaimsEnum::Id->value];
+
+        return [
+            'jwt_vc_json subject id' => [CredentialFormatIdentifiersEnum::JwtVcJson->value, $subjectId],
+            'jwt_vc_json subject' => [
+                CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                [ClaimsEnum::Credential_Subject->value],
+            ],
+            'jwt_vc_json issuer' => [CredentialFormatIdentifiersEnum::JwtVcJson->value, [ClaimsEnum::Issuer->value]],
+            'dc+sd-jwt vct' => [CredentialFormatIdentifiersEnum::DcSdJwt->value, [ClaimsEnum::Vct->value]],
+            'dc+sd-jwt key in cnf' => [
+                CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                [ClaimsEnum::Cnf->value, ClaimsEnum::Jwk->value],
+            ],
+            'vc+sd-jwt subject id' => [CredentialFormatIdentifiersEnum::VcSdJwt->value, $subjectId],
+        ];
+    }
+
+
+    /**
+     * CredentialClaimLocator::ISSUER_WRITTEN_CLAIM_PATHS is what no mandatory claim is held against, at issuance and
+     * in ModuleConfig, so a claim the issuer writes and the list misses would make a configuration marking it
+     * mandatory refused, and discovery with it. Every member each format's credential has is listed, with every
+     * claim the issuer may add (a lifetime, a Status List entry, OpenID Federation, a holder key or none), and the
+     * members of `credentialSubject`, where nothing is mapped, the issuer wrote.
+     */
+    #[DataProvider('everyIssuerClaimProvider')]
+    public function testTheIssuerWrittenClaimPathsListEveryClaimTheIssuerWrites(string $format, bool $isBound): void
+    {
+        $this->moduleConfigMock->method('getFederationEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getVciCredentialTtlFor')->willReturn(new DateInterval('P30D'));
+        $this->credentialStatusIssuerMock->method('issueFor')->willReturn($this->statusClaim());
+
+        if ($isBound) {
+            $this->issue($format);
+        } else {
+            $this->bindingPolicy = VciCredentialBindingPolicyEnum::Proofless;
+            $this->credentialConfiguration = [ClaimsEnum::Format->value => $format] +
+            ($format === CredentialFormatIdentifiersEnum::DcSdJwt->value ? [ClaimsEnum::Vct->value => self::VCT] : []);
+            $this->validatedProofs = [null];
+            $this->dispatch();
+        }
+
+        $payload = $this->signedPayloads[0] ?? [];
+        /** @psalm-suppress MixedAssignment */
+        $credential = $format === CredentialFormatIdentifiersEnum::JwtVcJson->value ?
+        $payload[ClaimsEnum::Vc->value] ?? [] :
+        $payload;
+        $this->assertIsArray($credential);
+        $this->assertArrayHasKey(ClaimsEnum::Iss->value, $payload, 'the credential was issued');
+
+        $writtenClaimPaths = [];
+        /** @psalm-suppress MixedAssignment */
+        foreach ($credential as $member => $value) {
+            if ($member !== ClaimsEnum::Credential_Subject->value) {
+                $writtenClaimPaths[] = [$member];
+                continue;
+            }
+
+            $this->assertIsArray($value);
+            foreach (array_keys($value) as $subjectMember) {
+                $writtenClaimPaths[] = [$member, $subjectMember];
+            }
+        }
+
+        foreach ($writtenClaimPaths as $claimPath) {
+            $this->assertContains(
+                $claimPath,
+                CredentialClaimLocator::ISSUER_WRITTEN_CLAIM_PATHS[$format] ?? [],
+                $format . ' ' . json_encode($claimPath),
+            );
+        }
+    }
+
+
+    public static function everyIssuerClaimProvider(): array
+    {
+        $cases = [];
+        foreach (ModuleConfig::VCI_ISSUABLE_CREDENTIAL_FORMATS as $format) {
+            $cases[$format . ', bound'] = [$format, true];
+            $cases[$format . ', unbound'] = [$format, false];
+        }
+
+        return $cases;
     }
 
 
@@ -2922,7 +3015,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /**
      * The data model 2.0 SD-JWT roots a claim whose parent path does not name credentialSubject there, so a mandatory
      * claim is compared with where a mapping puts its attribute in the credential, not with the path as written:
-     * a mapping to ['name'] gives ['credentialSubject', 'name'], and the other way round. (Found by review.)
+     * a mapping to ['name'] gives ['credentialSubject', 'name'], and the other way round, so the user with the
+     * attribute is issued the credential. (Found by review.)
      */
     #[DataProvider('vcSdJwtRootedClaimProvider')]
     public function testComparesAMandatoryClaimWithWhereTheFormatPutsTheMappedAttribute(
@@ -2932,12 +3026,12 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->validClaimPaths = [['name'], [ClaimsEnum::Credential_Subject->value, 'name']];
         $this->mandatoryClaimPaths = [$mandatoryClaimPath];
         $this->attributeToClaimPathMap = [['displayName' => $mappedClaimPath]];
-        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+        $this->userClaims = ['displayName' => ['John Doe']];
 
         $this->issue(CredentialFormatIdentifiersEnum::VcSdJwt->value);
 
-        $this->assertRefusedWith('credential_request_denied', 400);
-        $this->assertSame([], $this->signedPayloads);
+        $this->assertSame([], $this->errorResponses);
+        $this->assertCount(1, $this->signedPayloads);
     }
 
 
@@ -2954,18 +3048,111 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     /**
      * A jwt_vc_json body keeps only the credentialSubject member of what the mapping wrote, so a mandatory claim
-     * outside it is one no attribute can give, and is not judged (the configuration overview marks the mapping).
+     * outside it which the issuer does not write is in no credential. ModuleConfig refuses such a configuration
+     * (asked above, stood in for here); were it issued under all the same, every user would be refused, not issued
+     * a credential without the claim.
      */
-    public function testDoesNotJudgeAMandatoryClaimTheFormatCanNotCarry(): void
+    public function testRefusesAMandatoryClaimTheFormatCanNotCarry(): void
     {
         $this->validClaimPaths = [['name']];
         $this->mandatoryClaimPaths = [['name']];
         $this->attributeToClaimPathMap = [['displayName' => ['name']]];
+        $this->userClaims = ['displayName' => ['John Doe']];
 
         $this->issue();
 
+        $this->assertRefusedWith('credential_request_denied', 400);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * A mandatory claim is judged by what the mapping wrote whichever mappings could give it, not only one mapped to
+     * it: when every attribute that would write inside it, or an object around it, leaves it out, it is missing, and
+     * the user is refused.
+     */
+    #[DataProvider('mandatoryClaimOnlyOtherMappingsGiveProvider')]
+    public function testRefusesAMandatoryClaimWhichTheMappingsAroundOrInsideItLeaveOut(
+        array $mandatoryClaimPath,
+        array $attributeToClaimPathMap,
+        array $userClaims,
+    ): void {
+        $address = [ClaimsEnum::Credential_Subject->value, 'address'];
+        $this->validClaimPaths = [$address, [ClaimsEnum::Credential_Subject->value, 'address', 'locality']];
+        $this->mandatoryClaimPaths = [$mandatoryClaimPath];
+        $this->attributeToClaimPathMap = $attributeToClaimPathMap;
+        $this->userClaims = $userClaims;
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->issue();
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    public static function mandatoryClaimOnlyOtherMappingsGiveProvider(): array
+    {
+        $address = [ClaimsEnum::Credential_Subject->value, 'address'];
+        $locality = [ClaimsEnum::Credential_Subject->value, 'address', 'locality'];
+
+        return [
+            'mapped only inside it, the user without that attribute' => [
+                $address,
+                [['l' => $locality]],
+                ['mail' => ['jdoe@example.org']],
+            ],
+            'mapped only around it, the user without that attribute' => [
+                $locality,
+                [['postalAddress' => $address]],
+                ['mail' => ['jdoe@example.org']],
+            ],
+            // Two members, since a single-valued attribute is written as its one value.
+            'mapped only around it, the user with an object which does not hold it' => [
+                $locality,
+                [['postalAddress' => $address]],
+                ['postalAddress' => ['country' => 'HR', 'region' => 'Grad Zagreb']],
+            ],
+        ];
+    }
+
+
+    /**
+     * A mapping writes at member names, so a mandatory pointer which selects every element of an array, or one of
+     * them, is judged by the members before it: the user without the attribute written there is refused, and one
+     * with it is issued the credential.
+     */
+    #[DataProvider('mandatoryArrayElementPointerProvider')]
+    public function testJudgesAMandatoryPointerToArrayElementsByTheMembersBeforeIt(array $mandatoryClaimPath): void
+    {
+        $nationalities = [ClaimsEnum::Credential_Subject->value, 'nationalities'];
+        $this->validClaimPaths = [$nationalities, $mandatoryClaimPath];
+        $this->mandatoryClaimPaths = [$mandatoryClaimPath];
+        $this->attributeToClaimPathMap = [['nationality' => $nationalities]];
+
+        $this->userClaims = ['mail' => ['jdoe@example.org']];
+        $this->issue();
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+        $this->assertSame([], $this->signedPayloads);
+
+        $this->errorResponses = [];
+        $this->userClaims = ['nationality' => ['HR', 'SI']];
+        $this->issue();
+
         $this->assertSame([], $this->errorResponses);
-        $this->assertCount(1, $this->signedPayloads);
+        $this->assertSame(['HR', 'SI'], $this->credentialSubjectOfFirstCredential()['nationalities'] ?? null);
+    }
+
+
+    public static function mandatoryArrayElementPointerProvider(): array
+    {
+        $nationalities = [ClaimsEnum::Credential_Subject->value, 'nationalities'];
+
+        return [
+            'every element' => [[...$nationalities, null]],
+            'the first element' => [[...$nationalities, 0]],
+        ];
     }
 
 
@@ -3055,6 +3242,188 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->assertSame([], $this->errorResponses);
         $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    /**
+     * A mandatory member named like an index which a mapping writes is a member of the object the mapping brings
+     * into being, though PHP would make the key '0' a list's first element, so the user with its attribute is
+     * issued the credential. (Found by review.)
+     */
+    public function testCountsAMandatoryMemberNamedLikeAnIndexWhichAMappingWrites(): void
+    {
+        $first = [ClaimsEnum::Credential_Subject->value, '0'];
+        $this->validClaimPaths = [$first];
+        $this->mandatoryClaimPaths = [$first];
+        $this->attributeToClaimPathMap = [['l' => $first]];
+        $this->userClaims = ['l' => ['Zagreb']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame('Zagreb', $this->credentialSubjectOfFirstCredential()[0] ?? null);
+    }
+
+
+    /**
+     * Whether a member named like an index is in the credential depends on what holds it there, as the format
+     * builds it: a jwt_vc_json container the mapping brings into being is a PHP array, so a JSON array when '0' is
+     * its only member, where the member can not be found; in the SD-JWT formats the object a value is disclosed in
+     * holds its `_sd` digests, so it is an object, and the member is there. (Found by review.)
+     */
+    #[DataProvider('memberNamedLikeAnIndexProvider')]
+    public function testJudgesAMemberNamedLikeAnIndexAsTheFormatBuildsItsContainer(
+        string $format,
+        array $mandatoryClaimPath,
+        array $attributeToClaimPathMap,
+        bool $isIssued,
+    ): void {
+        $this->validClaimPaths = array_values(array_unique(
+            [$mandatoryClaimPath, ...array_map('current', $attributeToClaimPathMap)],
+            SORT_REGULAR,
+        ));
+        $this->mandatoryClaimPaths = [$mandatoryClaimPath];
+        $this->attributeToClaimPathMap = $attributeToClaimPathMap;
+        $this->userClaims = ['l' => ['Zagreb']];
+
+        $this->issue($format);
+
+        if ($isIssued) {
+            $this->assertSame([], $this->errorResponses);
+            $this->assertCount(1, $this->signedPayloads);
+        } else {
+            $this->assertRefusedWith('credential_request_denied', 400);
+            $this->assertSame([], $this->signedPayloads);
+        }
+    }
+
+
+    public static function memberNamedLikeAnIndexProvider(): array
+    {
+        $first = [ClaimsEnum::Credential_Subject->value, 'address', '0'];
+
+        return [
+            'jwt_vc_json, the member alone in its container' => [
+                CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                $first,
+                [['l' => $first]],
+                false,
+            ],
+            'jwt_vc_json, a value written inside the member' => [
+                CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                $first,
+                [['postalAddress' => $first], ['l' => [...$first, 'locality']]],
+                false,
+            ],
+            'dc+sd-jwt, the member disclosed in its container' => [
+                CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                ['address', '0'],
+                [['l' => ['address', '0']]],
+                true,
+            ],
+            'dc+sd-jwt, a top-level member, which the credential holds' => [
+                CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                ['0'],
+                [['l' => ['0', 'locality']]],
+                true,
+            ],
+            'vc+sd-jwt, the member disclosed in its container' => [
+                CredentialFormatIdentifiersEnum::VcSdJwt->value,
+                $first,
+                [['l' => $first]],
+                true,
+            ],
+        ];
+    }
+
+
+    /**
+     * The subject identifier the issuer writes into a data model credentialSubject after every mapping makes it an
+     * object, even over a list a mapping wrote there, so a member named like an index of that list is in the
+     * credential. (Found by review.)
+     */
+    public function testCountsAMemberOfASubjectTheSubjectIdentifierMakesAnObject(): void
+    {
+        $subject = [ClaimsEnum::Credential_Subject->value];
+        $first = [ClaimsEnum::Credential_Subject->value, '0'];
+        $this->validClaimPaths = [$subject, $first];
+        $this->mandatoryClaimPaths = [$first];
+        $this->attributeToClaimPathMap = [['l' => $subject]];
+        $this->userClaims = ['l' => ['Zagreb', 'HR']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame('Zagreb', $this->credentialSubjectOfFirstCredential()[0] ?? null);
+    }
+
+
+    /**
+     * An index is judged by the member before it, which a mapping to a member named like the index writes: the
+     * mapping is to a claim the configuration describes (compared loosely), and its value lands in that member,
+     * which the credential then holds. (Found by review.)
+     */
+    public function testJudgesAnIndexByTheMemberBeforeIt(): void
+    {
+        $index = [ClaimsEnum::Credential_Subject->value, 'nationalities', 0];
+        $this->validClaimPaths = [$index];
+        $this->mandatoryClaimPaths = [$index];
+        $this->attributeToClaimPathMap = [
+            ['nationality' => [ClaimsEnum::Credential_Subject->value, 'nationalities', '0']],
+        ];
+        $this->userClaims = ['nationality' => ['HR']];
+
+        $this->issue();
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertSame(['HR'], $this->credentialSubjectOfFirstCredential()['nationalities'] ?? null);
+    }
+
+
+    /**
+     * A pointer which starts with an index or a null names no member of the credential, which is an object, so the
+     * claim is in none, and the user is refused. (The configuration check refuses such a configuration first.)
+     */
+    public function testRefusesAMandatoryPointerWhichStartsWithAnIndex(): void
+    {
+        $this->validClaimPaths = [[null]];
+        $this->mandatoryClaimPaths = [[null]];
+        $this->userClaims = ['mail' => ['jdoe@example.org']];
+
+        $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
+
+        $this->assertRefusedWith('credential_request_denied', 400);
+    }
+
+
+    /**
+     * A member name is any string, one starting with NUL included, which a PHP object property could not be: the
+     * user with the attribute is issued the credential. (Found by review.)
+     */
+    #[DataProvider('everyFormatProvider')]
+    public function testWritesAMandatoryMemberWhoseNameStartsWithNul(string $format): void
+    {
+        $claimPath = $format === CredentialFormatIdentifiersEnum::DcSdJwt->value ?
+        ["\0name"] :
+        [ClaimsEnum::Credential_Subject->value, "\0name"];
+        $this->validClaimPaths = [$claimPath];
+        $this->mandatoryClaimPaths = [$claimPath];
+        $this->attributeToClaimPathMap = [['l' => $claimPath]];
+        $this->userClaims = ['l' => ['Zagreb']];
+
+        $this->issue($format);
+
+        $this->assertSame([], $this->errorResponses);
+        $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    public static function everyFormatProvider(): array
+    {
+        return array_combine(
+            ModuleConfig::VCI_ISSUABLE_CREDENTIAL_FORMATS,
+            array_map(fn(string $format): array => [$format], ModuleConfig::VCI_ISSUABLE_CREDENTIAL_FORMATS),
+        );
     }
 
 

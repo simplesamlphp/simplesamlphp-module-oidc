@@ -175,10 +175,9 @@ with the OP as its Authorization Server. What that covers:
   algorithm only), and it meets the FAPI 2.0 provisions only in part (see HAIP
   below).
 - **Configuration matters.** Some requirements are met only with the right
-  settings, DPoP for issuance (`vci_require_dpop`), the transaction code
-  attempt limit (a protocol cache) and mandatory claims (an attribute mapped
-  to each) among them. The same document marks those Config, and names each
-  option.
+  settings, DPoP for issuance (`vci_require_dpop`) and the transaction code
+  attempt limit (a protocol cache) among them. The same document marks those
+  Config, and names each option.
 - **Optional features not implemented**, none of them advertised: Credential
   Offers by reference, and offers sent to a wallet's
   `credential_offer_endpoint`; deferred issuance; the Notification Endpoint;
@@ -287,12 +286,12 @@ Currently implemented OpenID4VCI features:
   where the pre-final drafts had them, are refused). A configuration which is
   not is refused, and with it discovery, registration, authorization, the
   Credential Issuer metadata, credential offers and issuance, until it is
-  corrected. A claim marked `mandatory` has to be in every credential, so a
-  user without the attribute it is mapped from is refused with
-  `credential_request_denied`. That rests on an attribute being mapped to it
-  (`vci_user_attribute_to_credential_claim_path_map`), unless the
-  issuer writes the claim itself, as it does `credentialSubject.id`: a
-  mandatory claim no attribute is mapped to is not checked.
+  corrected. A claim marked `mandatory` has to be in every credential. So a
+  configuration with one that nothing writes, neither the issuer itself (as
+  it does `credentialSubject.id`) nor an attribute mapped to it or to a claim
+  around or inside it (`vci_user_attribute_to_credential_claim_path_map`), is
+  refused the same way, and a user whose attributes leave one out is refused
+  the credential with `credential_request_denied`.
 - Proof of Possession & Binding
   - Proof Type: `jwt` (JSON Web Token proofs).
   - Cryptographic Binding Methods:

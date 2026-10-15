@@ -3857,7 +3857,8 @@ class ModuleConfigTest extends TestCase
     /**
      * Each format with what it requires, and the credential metadata as section 12.2.4 and Appendix B.2 have it: a
      * display object without a locale besides those with one, a claim display object without a name, which only a
-     * credential's must have, and a `vct` which is not a URI, which is warned about and not refused.
+     * credential's must have, and a `vct` which is not a URI, which is warned about and not refused. The mandatory
+     * claim is mapped from an attribute (testRefusesAConfigurationWithAMandatoryClaimNothingWrites).
      *
      * @throws \Exception
      */
@@ -3866,7 +3867,12 @@ class ModuleConfigTest extends TestCase
     {
         $sut = $this->sut(overrides: array_merge(
             $this->withCredentialConfigurations(['TestCredential' => $configuration]),
-            [ModuleConfig::OPTION_VCI_ENABLED => true],
+            [
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
+                    'TestCredential' => [['givenName' => ['given_name']]],
+                ],
+            ],
         ));
 
         $this->assertArrayHasKey('TestCredential', $sut->getScopes());
@@ -3916,6 +3922,261 @@ class ModuleConfigTest extends TestCase
                 ],
             ]],
         ];
+    }
+
+
+    /**
+     * A claim marked mandatory is one the issuer always includes (OpenID4VCI 1.0 Appendix B.2), so a configuration
+     * with one which neither the issuer nor an attribute mapping writes would advertise it and never issue it. It is
+     * refused where the configurations become scopes, as a malformed one is, and the refusal names the claim. A
+     * mapping counts as the Credential Endpoint applies it: the first pair of an entry, under an attribute name, to
+     * a claim the configuration describes, where the format keeps it.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unwrittenMandatoryClaimProvider')]
+    public function testRefusesAConfigurationWithAMandatoryClaimNothingWrites(
+        array $configuration,
+        array $attributeMap,
+        string $claimPath,
+    ): void {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations(['TestCredential' => $configuration]),
+            [
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => $attributeMap,
+            ],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'The claim ' . $claimPath . ' of Verifiable Credential configuration [TestCredential] is marked ' .
+            'mandatory, but neither the issuer nor an attribute mapping writes it, so no credential would include ' .
+            'it: map an attribute to it or to a claim around or inside it (' .
+            ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP . '), or do not mark it mandatory.',
+        );
+
+        $sut->getScopes();
+    }
+
+
+    /**
+     * @return array<string, array{0: array, 1: array, 2: string}>
+     */
+    public static function unwrittenMandatoryClaimProvider(): array
+    {
+        $mandatory = static fn(array $path): array => [
+            ClaimsEnum::Path->value => $path,
+            ClaimsEnum::Mandatory->value => true,
+        ];
+        $optional = static fn(array $path): array => [ClaimsEnum::Path->value => $path];
+        $givenName = ['given_name'];
+        $withGivenName = self::configurationWithClaims('dc+sd-jwt', [$mandatory($givenName)]);
+
+        return [
+            'no mapping at all' => [$withGivenName, [], '["given_name"]'],
+            'a mapping of another configuration' => [
+                $withGivenName,
+                ['OtherCredential' => [['givenName' => $givenName]]],
+                '["given_name"]',
+            ],
+            'a mapping of another claim' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory($givenName), $optional(['family_name'])]),
+                ['TestCredential' => [['sn' => ['family_name']]]],
+                '["given_name"]',
+            ],
+            'a mapping inside it, to a claim the configuration does not describe' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory(['address'])]),
+                ['TestCredential' => [['l' => ['address', 'locality']]]],
+                '["address"]',
+            ],
+            'a mapping under no attribute name' => [
+                $withGivenName,
+                ['TestCredential' => [[$givenName]]],
+                '["given_name"]',
+            ],
+            'a mapping in the second pair of an entry, which is not read' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory($givenName), $optional(['family_name'])]),
+                ['TestCredential' => [['sn' => ['family_name'], 'givenName' => $givenName]]],
+                '["given_name"]',
+            ],
+            'a jwt_vc_json claim outside credentialSubject, which its body does not keep' => [
+                self::configurationWithClaims('jwt_vc_json', [$mandatory($givenName)]),
+                ['TestCredential' => [['givenName' => $givenName]]],
+                '["given_name"]',
+            ],
+            'a subject id in an SD-JWT VC, where the issuer writes none' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory([ClaimsEnum::Credential_Subject->value, 'id'])]),
+                [],
+                '["credentialSubject","id"]',
+            ],
+            'a pointer which starts with every element, naming no member' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory([null])]),
+                [],
+                '[null]',
+            ],
+            // A mapping keeps the members of a path, and ['nationalities'] is not a claim this one describes.
+            'every element of an array, mapped as it is described' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory(['nationalities', null])]),
+                ['TestCredential' => [['nationality' => ['nationalities', null]]]],
+                '["nationalities",null]',
+            ],
+        ];
+    }
+
+
+    /**
+     * A mandatory claim is written when the issuer writes it itself, a claim it is in or one in it (the
+     * ISSUER_WRITTEN_CLAIM_PATHS of CredentialClaimLocator), or when an attribute is mapped to it, around it or
+     * inside it, where the format puts the mapped value; whether a user's attributes give it is the Credential
+     * Endpoint's to judge.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('writtenMandatoryClaimProvider')]
+    public function testAcceptsAConfigurationWhoseMandatoryClaimsAreWritten(
+        array $configuration,
+        array $attributeMap,
+    ): void {
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations(['TestCredential' => $configuration]),
+            [
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => $attributeMap,
+            ],
+        ));
+
+        $this->assertArrayHasKey('TestCredential', $sut->getScopes());
+        $this->assertNull($sut->findFaultInVciCredentialConfiguration('TestCredential', $configuration));
+    }
+
+
+    /**
+     * @return array<string, array{0: array, 1: array}>
+     */
+    public static function writtenMandatoryClaimProvider(): array
+    {
+        $mandatory = static fn(array $path): array => [
+            ClaimsEnum::Path->value => $path,
+            ClaimsEnum::Mandatory->value => true,
+        ];
+        $optional = static fn(array $path): array => [ClaimsEnum::Path->value => $path];
+        $subject = ClaimsEnum::Credential_Subject->value;
+
+        return [
+            'an attribute mapped to it' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory(['given_name'])]),
+                ['TestCredential' => [['givenName' => ['given_name']]]],
+            ],
+            'an attribute mapped inside it' => [
+                self::configurationWithClaims(
+                    'dc+sd-jwt',
+                    [$mandatory(['address']), $optional(['address', 'locality'])],
+                ),
+                ['TestCredential' => [['l' => ['address', 'locality']]]],
+            ],
+            'an attribute mapped around it' => [
+                self::configurationWithClaims(
+                    'dc+sd-jwt',
+                    [$optional(['address']), $mandatory(['address', 'locality'])],
+                ),
+                ['TestCredential' => [['postalAddress' => ['address']]]],
+            ],
+            // An index is judged by the member before it, which a mapping to a member named like the index
+            // writes, the mapping being to the described claim (compared loosely, as at issuance).
+            'an index, mapped at a member named like it' => [
+                self::configurationWithClaims('jwt_vc_json', [$mandatory([$subject, 'nationalities', 0])]),
+                ['TestCredential' => [['nationality' => [$subject, 'nationalities', '0']]]],
+            ],
+            'an array mapped around every element of it' => [
+                self::configurationWithClaims(
+                    'dc+sd-jwt',
+                    [$optional(['nationalities']), $mandatory(['nationalities', null])],
+                ),
+                ['TestCredential' => [['nationality' => ['nationalities']]]],
+            ],
+            'a vc+sd-jwt attribute mapped without credentialSubject, under which the format puts it' => [
+                self::configurationWithClaims(
+                    'vc+sd-jwt',
+                    [$mandatory([$subject, 'given_name']), $optional(['given_name'])],
+                ),
+                ['TestCredential' => [['givenName' => ['given_name']]]],
+            ],
+            'the type of an SD-JWT VC, which the issuer writes' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory(['vct'])]),
+                [],
+            ],
+            'a claim inside the confirmation the issuer writes' => [
+                self::configurationWithClaims('dc+sd-jwt', [$mandatory(['cnf', 'jwk'])]),
+                [],
+            ],
+            'the subject id of a jwt_vc_json credential' => [
+                self::configurationWithClaims('jwt_vc_json', [$mandatory([$subject, 'id'])]),
+                [],
+            ],
+            'the subject of a jwt_vc_json credential, which holds the id' => [
+                self::configurationWithClaims('jwt_vc_json', [$mandatory([$subject])]),
+                [],
+            ],
+            'the issuer of a jwt_vc_json credential, outside credentialSubject' => [
+                self::configurationWithClaims('jwt_vc_json', [$mandatory(['issuer'])]),
+                [],
+            ],
+            'the subject id of a vc+sd-jwt credential' => [
+                self::configurationWithClaims('vc+sd-jwt', [$mandatory([$subject, 'id'])]),
+                [],
+            ],
+        ];
+    }
+
+
+    /**
+     * The attribute mapping is read only for a mandatory claim the issuer does not write, so a configuration whose
+     * mandatory claims are all the issuer's is not refused for a mapping option which can not be read.
+     *
+     * @throws \Exception
+     */
+    public function testReadsNoAttributeMappingForMandatoryClaimsTheIssuerWrites(): void
+    {
+        $configuration = self::configurationWithClaims(
+            'dc+sd-jwt',
+            [[ClaimsEnum::Path->value => ['vct'], ClaimsEnum::Mandatory->value => true]],
+        );
+
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations(['TestCredential' => $configuration]),
+            [ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => 'not a map'],
+        ));
+
+        $this->assertNull($sut->findFaultInVciCredentialConfiguration('TestCredential', $configuration));
+    }
+
+
+    /**
+     * A mapping option which can not be read leaves untold whether a mandatory claim is written. That is the
+     * configuration's fault, named, rather than an error escaping the check, so the configuration overview and
+     * the issuance test page, which show a fault, still show it. (Found by review.)
+     *
+     * @throws \Exception
+     */
+    public function testNamesAnUnreadableAttributeMappingAsTheFaultOfAMandatoryClaim(): void
+    {
+        $configuration = self::configurationWithClaims(
+            'dc+sd-jwt',
+            [[ClaimsEnum::Path->value => ['given_name'], ClaimsEnum::Mandatory->value => true]],
+        );
+
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations(['TestCredential' => $configuration]),
+            [ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => 'not a map'],
+        ));
+
+        $this->assertStringStartsWith(
+            'The claim ["given_name"] of Verifiable Credential configuration [TestCredential] is marked ' .
+            'mandatory, but whether an attribute mapping writes it can not be told: ' .
+            ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP . ' can not be read (',
+            (string)$sut->findFaultInVciCredentialConfiguration('TestCredential', $configuration),
+        );
     }
 
 
@@ -4730,6 +4991,25 @@ class ModuleConfigTest extends TestCase
     protected function issuableCredentialConfiguration(array $parameters = []): array
     {
         return $parameters + [ClaimsEnum::Format->value => 'dc+sd-jwt', ClaimsEnum::Vct->value => 'urn:example:Test'];
+    }
+
+
+    /**
+     * A credential configuration of the format with what the format requires, describing the given claims.
+     */
+    protected static function configurationWithClaims(string $format, array $claims): array
+    {
+        $configuration = [ClaimsEnum::Format->value => $format];
+        if ($format === 'dc+sd-jwt') {
+            $configuration[ClaimsEnum::Vct->value] = 'urn:example:Test';
+        } else {
+            $configuration[ClaimsEnum::CredentialDefinition->value] = [
+                ClaimsEnum::Type->value => ['VerifiableCredential', 'TestCredential'],
+            ];
+        }
+        $configuration[ClaimsEnum::CredentialMetadata->value] = [ClaimsEnum::Claims->value => $claims];
+
+        return $configuration;
     }
 
 
