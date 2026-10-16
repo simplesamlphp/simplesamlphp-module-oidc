@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 $config['module.enable']['exampleauth'] = true;
+// The test-only authentication source of docker/ssp/modules/oidcconformance, which lets a login be cancelled.
+$config['module.enable']['oidcconformance'] = true;
 $config['module.enable']['oidc'] = true;
 // Have preprod warning enabled (though it may not be installed) to ease authproc redirect testing
 $config['module.enable']['preprodwarning'] = true;

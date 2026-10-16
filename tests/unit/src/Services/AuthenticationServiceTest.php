@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
+use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -16,9 +17,12 @@ use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\Source;
 use SimpleSAML\Auth\State;
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
+use SimpleSAML\Error\UserAborted;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
@@ -29,8 +33,15 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
+use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Services\SessionService;
@@ -39,7 +50,9 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\AuthorizationErrorRedirect;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\Session;
 
 /**
@@ -49,6 +62,12 @@ use SimpleSAML\Session;
 class AuthenticationServiceTest extends TestCase
 {
     final public const string URI = 'https://some-server/authorize.php?abc=efg';
+
+    final public const string AUTHORIZATION_URL = 'https://some-server/module.php/oidc/authorization';
+
+    final public const string REDIRECT_URI = 'https://rp.example.org/cb';
+
+    final public const string PUSHED_REQUEST_URI = 'urn:ietf:params:oauth:request_uri:pushed-request';
 
     final public const string AUTH_SOURCE = 'auth_source';
 
@@ -126,6 +145,12 @@ class AuthenticationServiceTest extends TestCase
 
     protected MockObject $routesMock;
 
+    protected ResponseModeResolver $responseModeResolver;
+
+    protected MockObject $formPostResponseModeMock;
+
+    protected MockObject $pushedAuthorizationRequestRepositoryMock;
+
 
     /**
      * @throws \PHPUnit\Framework\MockObject\Exception
@@ -174,6 +199,15 @@ class AuthenticationServiceTest extends TestCase
 
         $this->userEntityFactoryMock = $this->createMock(UserEntityFactory::class);
         $this->routesMock = $this->createMock(Routes::class);
+        $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
+        $this->responseModeResolver = new ResponseModeResolver(
+            new QueryResponseMode(),
+            new FragmentResponseMode(),
+            $this->formPostResponseModeMock,
+        );
+        $this->pushedAuthorizationRequestRepositoryMock = $this->createMock(
+            PushedAuthorizationRequestRepository::class,
+        );
     }
 
 
@@ -199,6 +233,8 @@ class AuthenticationServiceTest extends TestCase
                      $this->userEntityFactoryMock,
                      $this->routesMock,
                      new UserIdentifierResolver(),
+                     $this->responseModeResolver,
+                     $this->pushedAuthorizationRequestRepositoryMock,
                 ],
             )->onlyMethods([])
             ->getMock();
@@ -425,9 +461,39 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testItAuthenticates(): void
     {
-        $this->authSimpleMock->expects($this->once())->method('login')->with([]);
+        $authorizationErrorRedirect = new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state');
+        $this->routesMock->method('getModuleUrl')
+            ->with(RoutesEnum::Authorization->value)
+            ->willReturn(self::AUTHORIZATION_URL);
 
-        $this->mock()->authenticateForClient($this->clientEntityMock);
+        // An exception the authentication source raises comes back to the authorization endpoint, which finds the
+        // redirect to answer the client at in the state the login parameters go into.
+        $this->authSimpleMock->expects($this->once())->method('login')->with([
+            'core:username' => 'user',
+            'ErrorURL' => self::AUTHORIZATION_URL,
+            AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT => $authorizationErrorRedirect,
+        ]);
+
+        $this->mock()->authenticateForClient(
+            $this->clientEntityMock,
+            $authorizationErrorRedirect,
+            ['core:username' => 'user'],
+        );
+    }
+
+
+    /**
+     * A request with no redirect URI can not be answered at one, so its login gets no ErrorURL, and SimpleSAMLphp
+     * handles an exception of it as it would without the module.
+     *
+     * @throws \Throwable
+     */
+    public function testALoginWithNoRedirectGetsNoErrorUrl(): void
+    {
+        $this->routesMock->expects($this->never())->method('getModuleUrl');
+        $this->authSimpleMock->expects($this->once())->method('login')->with(['core:username' => 'user']);
+
+        $this->mock()->authenticate($this->authSimpleMock, null, ['core:username' => 'user']);
     }
 
 
@@ -447,6 +513,8 @@ class AuthenticationServiceTest extends TestCase
         $state[State::RESTART]         = self::URI;
         $state['authorizationRequest'] = $this->authorizationRequestMock;
         $state['authSourceId']         = '';
+        // The request mock has no redirect URI, so there is no redirect to keep.
+        $state[AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = null;
 
         $this->assertSame(
             $state,
@@ -457,6 +525,82 @@ class AuthenticationServiceTest extends TestCase
                 $this->authorizationRequestMock,
             ),
         );
+    }
+
+
+    /**
+     * The processing chain's state keeps the request's redirect, so that a filter's cancel is answered to the
+     * client.
+     *
+     * @throws \SimpleSAML\Error\AuthSource
+     */
+    public function testTheStateArrayKeepsTheAuthorizationErrorRedirect(): void
+    {
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn(self::REDIRECT_URI);
+        $this->authorizationRequestMock->method('getState')->willReturn('the-state');
+        $this->authorizationRequestMock->method('getResponseMode')->willReturn(new FragmentResponseMode());
+
+        $state = $this->mock()->prepareStateArray(
+            $this->authSimpleMock,
+            $this->clientEntityMock,
+            $this->serverRequestMock,
+            $this->authorizationRequestMock,
+        );
+
+        $this->assertEquals(
+            new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state', ResponseModesEnum::Fragment),
+            $state[AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT],
+        );
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    public function testItResolvesTheAuthorizationErrorRedirectOfARequest(): void
+    {
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn(self::REDIRECT_URI);
+        $this->authorizationRequestMock->method('getState')->willReturn('the-state');
+        $this->authorizationRequestMock->method('getResponseMode')->willReturn(new FragmentResponseMode());
+        $this->authorizationRequestMock->method('getPushedAuthorizationRequestUri')
+            ->willReturn(self::PUSHED_REQUEST_URI);
+
+        $authorizationErrorRedirect = $this->mock()->resolveAuthorizationErrorRedirect($this->authorizationRequestMock);
+
+        $this->assertSame(self::REDIRECT_URI, $authorizationErrorRedirect?->getRedirectUri());
+        $this->assertSame('the-state', $authorizationErrorRedirect?->getState());
+        // By its value: the response mode itself does not go into the session.
+        $this->assertSame(ResponseModesEnum::Fragment, $authorizationErrorRedirect?->getResponseMode());
+        $this->assertSame(self::PUSHED_REQUEST_URI, $authorizationErrorRedirect?->getPushedAuthorizationRequestUri());
+    }
+
+
+    /**
+     * A request of the League library has no response mode, so its errors go in the default one.
+     *
+     * @throws \Throwable
+     */
+    public function testTheAuthorizationErrorRedirectOfALeagueRequestHasNoResponseMode(): void
+    {
+        $authorizationRequest = new OAuth2AuthorizationRequest();
+        $authorizationRequest->setRedirectUri(self::REDIRECT_URI);
+        $authorizationRequest->setState('the-state');
+
+        $authorizationErrorRedirect = $this->mock()->resolveAuthorizationErrorRedirect($authorizationRequest);
+
+        $this->assertSame(self::REDIRECT_URI, $authorizationErrorRedirect?->getRedirectUri());
+        $this->assertSame('the-state', $authorizationErrorRedirect?->getState());
+        $this->assertNull($authorizationErrorRedirect?->getResponseMode());
+        $this->assertNull($authorizationErrorRedirect?->getPushedAuthorizationRequestUri());
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    public function testARequestWithNoRedirectUriHasNoAuthorizationErrorRedirect(): void
+    {
+        $this->assertNull($this->mock()->resolveAuthorizationErrorRedirect(new OAuth2AuthorizationRequest()));
     }
 
 
@@ -500,6 +644,8 @@ class AuthenticationServiceTest extends TestCase
                                      $this->userEntityFactoryMock,
                                      $this->routesMock,
                                      new UserIdentifierResolver(),
+                                     $this->responseModeResolver,
+                                     $this->pushedAuthorizationRequestRepositoryMock,
                                  ])
             ->onlyMethods(['runAuthProcs', 'prepareStateArray'])
             ->getMock();
@@ -550,6 +696,8 @@ class AuthenticationServiceTest extends TestCase
                                      $this->userEntityFactoryMock,
                                      $this->routesMock,
                                      new UserIdentifierResolver(),
+                                     $this->responseModeResolver,
+                                     $this->pushedAuthorizationRequestRepositoryMock,
                                  ])
             ->onlyMethods(['runAuthProcs', 'prepareStateArray', 'authenticate'])
             ->getMock();
@@ -559,11 +707,17 @@ class AuthenticationServiceTest extends TestCase
         $this->authSimpleMock->expects($this->once())->method('isAuthenticated')->willReturn(false);
         $this->authorizationRequestMock->method('getClient')->willReturn($this->clientEntityMock);
         $this->authorizationRequestMock->method('getLoginHint')->willReturn('user@example.org');
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn(self::REDIRECT_URI);
+        $this->authorizationRequestMock->method('getState')->willReturn('the-state');
         $authenticationServiceMock->method('prepareStateArray')->willReturn(self::STATE);
 
         $authenticationServiceMock->expects($this->once())
             ->method('authenticate')
-            ->with($this->authSimpleMock, ['core:username' => 'user@example.org']);
+            ->with(
+                $this->authSimpleMock,
+                new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state'),
+                ['core:username' => 'user@example.org'],
+            );
 
         $this->assertSame(
             $authenticationServiceMock->processRequest(
@@ -689,31 +843,14 @@ class AuthenticationServiceTest extends TestCase
         $returnUrl       = 'http://example.com/authorization';
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($authProcFilters);
         $this->routesMock->method('getModuleUrl')->willReturn($returnUrl);
-        $mockedInstance = new class (
-            $this->userRepositoryMock,
-            $this->authSimpleFactoryMock,
-            $this->clientRepositoryMock,
-            $this->opMetadataService,
-            $this->sessionServiceMock,
-            $this->claimTranslatorExtractorMock,
-            $this->moduleConfigMock,
-            $this->processingChainFactoryMock,
-            $this->stateServiceMock,
-            $this->requestParamsResolverMock,
-            $this->userEntityFactoryMock,
-            $this->routesMock,
-            new UserIdentifierResolver(),
-        ) extends AuthenticationService {
-            public function runAuthProcsPublic(array &$state): void
-            {
-                $this->runAuthProcs($state);
-            }
-        };
+        $mockedInstance = $this->authProcRunner();
 
         $state = self::STATE;
         $mockedInstance->runAuthProcsPublic($state);
 
         $this->assertEquals($state['ReturnURL'], $returnUrl);
+        // An exception a filter raises after sending the End-User to a page of its own comes back there too.
+        $this->assertSame($returnUrl, $state[State::EXCEPTION_HANDLER_URL]);
         $this->assertEquals($state['Source']['authproc'], $authProcFilters);
         // The client in STATE has no per-client filters, so the SP side is empty.
         $this->assertSame([], $state['Destination']['authproc']);
@@ -737,7 +874,360 @@ class AuthenticationServiceTest extends TestCase
         $returnUrl     = 'http://example.com/authorization';
         $this->moduleConfigMock->method('getAuthProcFilters')->willReturn($globalFilters);
         $this->routesMock->method('getModuleUrl')->willReturn($returnUrl);
-        $mockedInstance = new class (
+        $mockedInstance = $this->authProcRunner();
+
+        $state = self::STATE;
+        // Per-client authproc filters live in the relying party metadata.
+        $state['Oidc']['RelyingPartyMetadata'][ClientEntity::KEY_AUTH_PROC_FILTERS] = $clientFilters;
+
+        $mockedInstance->runAuthProcsPublic($state);
+
+        $this->assertSame($globalFilters, $state['Source']['authproc']);
+        $this->assertSame($clientFilters, $state['Destination']['authproc']);
+    }
+
+
+    /**
+     * A filter which raises UserAborted before it sends the End-User anywhere has it thrown out of processState():
+     * the client is answered with access_denied, at the redirect in the state, in its response mode, with its state.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelInAProcessingFilterIsAnsweredToTheClient(): void
+    {
+        $userAborted = new UserAborted();
+        $this->processingChainMock->method('processState')->willThrowException($userAborted);
+        // The filters run once the End-User is authenticated, so processRequest() has seen to the login's mark.
+        $this->sessionServiceMock->expects($this->never())->method('setIsAuthnPerformedInPreviousRequest');
+        // No pushed request to consume.
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('consume');
+        $state = self::STATE;
+        $state[AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = new AuthorizationErrorRedirect(
+            self::REDIRECT_URI,
+            'the-state',
+            ResponseModesEnum::Fragment,
+        );
+
+        try {
+            $this->authProcRunner()->runAuthProcsPublic($state);
+            $this->fail('A cancel in a filter must be answered to the client.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame($userAborted, $exception->getPrevious());
+            $this->assertSame(
+                ['error' => 'access_denied', 'state' => 'the-state'],
+                $this->redirectedErrorOf($exception, PHP_URL_FRAGMENT),
+            );
+        }
+    }
+
+
+    /**
+     * Any other exception of a filter is thrown as it was raised, as before the module took cancels back.
+     *
+     * @throws \Throwable
+     */
+    public function testAnotherExceptionOfAProcessingFilterIsThrownAsItWas(): void
+    {
+        $failure = new Exception('A filter failed.');
+        $this->processingChainMock->method('processState')->willThrowException($failure);
+        $this->sessionServiceMock->expects($this->never())->method('setIsAuthnPerformedInPreviousRequest');
+        $state = self::STATE;
+        $state[AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = new AuthorizationErrorRedirect(
+            self::REDIRECT_URI,
+            'the-state',
+        );
+
+        try {
+            $this->authProcRunner()->runAuthProcsPublic($state);
+            $this->fail('The failure of a filter must be thrown.');
+        } catch (Exception $exception) {
+            $this->assertSame($failure, $exception);
+        }
+    }
+
+
+    /**
+     * With no redirect in the state there is nothing to answer the client at, so the cancel is thrown as it was.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelWithNoRedirectInTheStateIsThrownAsItWas(): void
+    {
+        $userAborted = new UserAborted();
+        $this->processingChainMock->method('processState')->willThrowException($userAborted);
+        $this->sessionServiceMock->expects($this->never())->method('setIsAuthnPerformedInPreviousRequest');
+        $state = self::STATE;
+
+        try {
+            $this->authProcRunner()->runAuthProcsPublic($state);
+            $this->fail('A cancel with no redirect must be thrown.');
+        } catch (UserAborted $exception) {
+            $this->assertSame($userAborted, $exception);
+        }
+    }
+
+
+    /**
+     * A cancel which SimpleSAMLphp hands back to the authorization endpoint, from a login or from a filter's page,
+     * is answered to the client at the redirect in the state; with no response mode in it, in the query.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelHandedBackIsAnsweredToTheClient(): void
+    {
+        $userAborted = new UserAborted();
+        $this->stateServiceMock->expects($this->once())
+            ->method('loadExceptionState')
+            ->with('exception-state-id')
+            ->willReturn([
+                State::EXCEPTION_DATA => $userAborted,
+                AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT =>
+                    new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state'),
+            ]);
+        // The login did not complete, so the next request must not take the session for a fresh login.
+        $this->sessionServiceMock->expects($this->once())
+            ->method('setIsAuthnPerformedInPreviousRequest')
+            ->with(false);
+
+        try {
+            $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+            $this->fail('A cancel handed back must be answered to the client.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame($userAborted, $exception->getPrevious());
+            $this->assertSame(
+                ['error' => 'access_denied', 'state' => 'the-state'],
+                $this->redirectedErrorOf($exception, PHP_URL_QUERY),
+            );
+        }
+    }
+
+
+    /**
+     * Any other exception handed back is thrown as it was raised, which SimpleSAMLphp shows as it did when no
+     * handler took it back.
+     *
+     * @throws \Throwable
+     */
+    public function testAnotherExceptionHandedBackIsThrownAsItWas(): void
+    {
+        $failure = new Exception('The upstream identity provider answered with an error.');
+        $this->stateServiceMock->method('loadExceptionState')->willReturn([
+            State::EXCEPTION_DATA => $failure,
+            AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT =>
+                new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state'),
+        ]);
+        // A failed login did not complete either.
+        $this->sessionServiceMock->expects($this->once())
+            ->method('setIsAuthnPerformedInPreviousRequest')
+            ->with(false);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('consume');
+
+        try {
+            $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+            $this->fail('An exception handed back must be thrown.');
+        } catch (Exception $exception) {
+            $this->assertSame($failure, $exception);
+        }
+    }
+
+
+    /**
+     * An exception state the module did not prepare holds no redirect: the cancel is thrown as it was, and the
+     * session is left alone.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelHandedBackWithNoRedirectInTheStateIsThrownAsItWas(): void
+    {
+        $userAborted = new UserAborted();
+        $this->stateServiceMock->method('loadExceptionState')->willReturn([State::EXCEPTION_DATA => $userAborted]);
+        $this->sessionServiceMock->expects($this->never())->method('setIsAuthnPerformedInPreviousRequest');
+
+        try {
+            $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+            $this->fail('A cancel with no redirect must be thrown.');
+        } catch (UserAborted $exception) {
+            $this->assertSame($userAborted, $exception);
+        }
+    }
+
+
+    /**
+     * The cancel's access_denied is the response to the pushed request, so it consumes the request first, as a
+     * successful response does: one request_uri yields at most one response.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelOfAPushedRequestConsumesIt(): void
+    {
+        $this->stateServiceMock->method('loadExceptionState')->willReturn([
+            State::EXCEPTION_DATA => new UserAborted(),
+            AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT => new AuthorizationErrorRedirect(
+                self::REDIRECT_URI,
+                'the-state',
+                null,
+                self::PUSHED_REQUEST_URI,
+            ),
+        ]);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())
+            ->method('consume')
+            ->with(self::PUSHED_REQUEST_URI)
+            ->willReturn(true);
+
+        try {
+            $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+            $this->fail('A cancel of a pushed request must be answered to the client.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame(
+                ['error' => 'access_denied', 'state' => 'the-state'],
+                $this->redirectedErrorOf($exception, PHP_URL_QUERY),
+            );
+        }
+    }
+
+
+    /**
+     * A pushed request which had its response meanwhile, in another tab or by a replay, gets no second one: the cancel
+     * is refused as AuthorizationServer refuses a second successful response, and the client is not answered.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelOfAPushedRequestWhichHadItsResponseIsRefused(): void
+    {
+        $userAborted = new UserAborted();
+        $this->processingChainMock->method('processState')->willThrowException($userAborted);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())
+            ->method('consume')
+            ->with(self::PUSHED_REQUEST_URI)
+            ->willReturn(false);
+        $state = self::STATE;
+        $state[AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = new AuthorizationErrorRedirect(
+            self::REDIRECT_URI,
+            'the-state',
+            null,
+            self::PUSHED_REQUEST_URI,
+        );
+
+        $this->expectException(BadRequest::class);
+
+        $this->authProcRunner()->runAuthProcsPublic($state);
+    }
+
+
+    /**
+     * A cancel in the form_post response mode is posted to the client by the form_post response mode, with the
+     * error and the state.
+     *
+     * @throws \Throwable
+     */
+    public function testACancelInTheFormPostResponseModeIsPostedToTheClient(): void
+    {
+        $this->stateServiceMock->method('loadExceptionState')->willReturn([
+            State::EXCEPTION_DATA => new UserAborted(),
+            AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT => new AuthorizationErrorRedirect(
+                self::REDIRECT_URI,
+                'the-state',
+                ResponseModesEnum::FormPost,
+            ),
+        ]);
+        $page = new HtmlResponse();
+        $page->setHtml('<form method="post"></form>');
+        $this->formPostResponseModeMock->expects($this->once())
+            ->method('buildResponse')
+            ->with(
+                self::REDIRECT_URI,
+                $this->callback(static fn(array $params): bool =>
+                    ($params['error'] ?? null) === 'access_denied' && ($params['state'] ?? null) === 'the-state'),
+            )
+            ->willReturn($page);
+
+        try {
+            $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+            $this->fail('A cancel must be answered to the client.');
+        } catch (OidcServerException $exception) {
+            $response = $exception->generateHttpResponse(new Response());
+            $this->assertSame('<form method="post"></form>', (string)$response->getBody());
+            $this->assertSame('', $response->getHeaderLine('Location'));
+        }
+    }
+
+
+    public static function invalidExceptionStateIdProvider(): array
+    {
+        return [
+            'missing' => [[]],
+            'empty' => [[State::EXCEPTION_PARAM => '']],
+            'not a string' => [[State::EXCEPTION_PARAM => ['exception-state-id']]],
+        ];
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('invalidExceptionStateIdProvider')]
+    public function testAnInvalidExceptionStateIdIsRefused(array $queryParameters): void
+    {
+        $this->stateServiceMock->expects($this->never())->method('loadExceptionState');
+
+        $this->expectException(NoState::class);
+
+        $this->mock()->rethrowAuthenticationException($queryParameters);
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAMissingExceptionStateIsRefused(): void
+    {
+        $this->stateServiceMock->method('loadExceptionState')->willReturn(null);
+
+        $this->expectException(NoState::class);
+
+        $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAnExceptionStateWithNoExceptionIsRefused(): void
+    {
+        $this->stateServiceMock->method('loadExceptionState')->willReturn([
+            AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT =>
+                new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state'),
+        ]);
+
+        // NoState is an Exception too, so the message tells the two refusals apart.
+        $this->expectExceptionMessage('Exception state does not contain an exception.');
+
+        $this->mock()->rethrowAuthenticationException([State::EXCEPTION_PARAM => 'exception-state-id']);
+    }
+
+
+    /**
+     * The error and state an error redirect carries to the client, in the given part of its redirect URI, which must
+     * be the one of the redirect.
+     *
+     * @return array<string, mixed>
+     */
+    private function redirectedErrorOf(OidcServerException $exception, int $component): array
+    {
+        $location = $exception->generateHttpResponse(new Response())->getHeaderLine('Location');
+        $this->assertStringStartsWith(self::REDIRECT_URI . ($component === PHP_URL_FRAGMENT ? '#' : '?'), $location);
+        parse_str((string)parse_url($location, $component), $parameters);
+
+        return array_intersect_key($parameters, ['error' => true, 'state' => true]);
+    }
+
+
+    /**
+     * An AuthenticationService which runs runAuthProcs() for a test.
+     */
+    private function authProcRunner(): AuthenticationService
+    {
+        return new class (
             $this->userRepositoryMock,
             $this->authSimpleFactoryMock,
             $this->clientRepositoryMock,
@@ -751,21 +1241,14 @@ class AuthenticationServiceTest extends TestCase
             $this->userEntityFactoryMock,
             $this->routesMock,
             new UserIdentifierResolver(),
+            $this->responseModeResolver,
+            $this->pushedAuthorizationRequestRepositoryMock,
         ) extends AuthenticationService {
             public function runAuthProcsPublic(array &$state): void
             {
                 $this->runAuthProcs($state);
             }
         };
-
-        $state = self::STATE;
-        // Per-client authproc filters live in the relying party metadata.
-        $state['Oidc']['RelyingPartyMetadata'][ClientEntity::KEY_AUTH_PROC_FILTERS] = $clientFilters;
-
-        $mockedInstance->runAuthProcsPublic($state);
-
-        $this->assertSame($globalFilters, $state['Source']['authproc']);
-        $this->assertSame($clientFilters, $state['Destination']['authproc']);
     }
 
 

@@ -142,7 +142,11 @@ class PromptRule extends AbstractRule
                 $loginParams[AuthenticationService::LOGIN_PARAM_USERNAME] = $loginHint;
             }
 
-            $this->authenticationService->authenticateForClient($client, $loginParams);
+            $this->authenticationService->authenticateForClient(
+                $client,
+                $this->resolveAuthorizationErrorRedirect($currentResultBag, $responseMode),
+                $loginParams,
+            );
         }
 
         return null;

@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\ResponseModes;
 
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use League\OAuth2\Server\ResponseTypes\RedirectResponse;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 class QueryResponseMode implements ResponseModeInterface
 {
@@ -16,5 +17,11 @@ class QueryResponseMode implements ResponseModeInterface
         $response->setRedirectUri($redirectUri . $separator . http_build_query($params));
 
         return $response;
+    }
+
+
+    public function getMode(): ResponseModesEnum
+    {
+        return ResponseModesEnum::Query;
     }
 }

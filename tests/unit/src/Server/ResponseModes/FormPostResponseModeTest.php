@@ -11,6 +11,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\XHTML\Template;
 
 /**
@@ -69,5 +70,14 @@ class FormPostResponseModeTest extends TestCase
         $this->assertStringContainsString('abc123', $body);
         $this->assertStringContainsString('xyz', $body);
         $this->assertMatchesRegularExpression('/method=["\']post["\']/i', $body);
+    }
+
+
+    /**
+     * The value it is kept by where it can not go itself (ResponseModeResolver).
+     */
+    public function testItsValueIsFormPost(): void
+    {
+        $this->assertSame(ResponseModesEnum::FormPost, $this->sut->getMode());
     }
 }

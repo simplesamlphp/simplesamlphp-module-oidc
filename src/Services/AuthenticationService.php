@@ -10,8 +10,10 @@ use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Auth\Simple;
 use SimpleSAML\Auth\State;
+use SimpleSAML\Error\BadRequest;
 use SimpleSAML\Error\Exception;
 use SimpleSAML\Error\NoState;
+use SimpleSAML\Error\UserAborted;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\RoutesEnum;
 use SimpleSAML\Module\oidc\Controllers\EndSessionController;
@@ -24,14 +26,19 @@ use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
+use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\AuthorizationErrorRedirect;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use Throwable;
 
 class AuthenticationService
 {
@@ -39,6 +46,13 @@ class AuthenticationService
      * Login parameter (state array key) used to pre-fill the username on the SimpleSAMLphp core UserPass login form.
      */
     public const string LOGIN_PARAM_USERNAME = 'core:username';
+
+    /**
+     * State array key under which the AuthorizationErrorRedirect of the authorization request being authenticated is
+     * kept: in the authentication source's state (a login parameter, authenticate()) and in the processing chain's
+     * (prepareStateArray()).
+     */
+    public const string STATE_KEY_AUTHORIZATION_ERROR_REDIRECT = 'oidc:AuthorizationErrorRedirect';
 
 
     /**
@@ -70,6 +84,8 @@ class AuthenticationService
         private readonly UserEntityFactory $userEntityFactory,
         private readonly Routes $routes,
         private readonly UserIdentifierResolver $userIdentifierResolver,
+        private readonly ResponseModeResolver $responseModeResolver,
+        private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
     ) {
         $this->userIdAttrs = $this->moduleConfig->getUserIdentifierAttributes();
     }
@@ -97,7 +113,11 @@ class AuthenticationService
         $this->authSourceId = $authSimple->getAuthSource()->getAuthId();
 
         if (! $authSimple->isAuthenticated()) {
-            $this->authenticate($authSimple, $this->resolveLoginParams($authorizationRequest));
+            $this->authenticate(
+                $authSimple,
+                $this->resolveAuthorizationErrorRedirect($authorizationRequest),
+                $this->resolveLoginParams($authorizationRequest),
+            );
         } elseif ($this->sessionService->getIsAuthnPerformedInPreviousRequest()) {
             $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
 
@@ -260,7 +280,38 @@ class AuthenticationService
         $state['authorizationRequest'] = $authorizationRequest;
         $state['authSourceId'] = $authSimple->getAuthSource()->getAuthId();
 
+        // Where the client is answered if the End-User cancels in an authentication processing filter.
+        $state[self::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = $this->resolveAuthorizationErrorRedirect(
+            $authorizationRequest,
+        );
+
         return $state;
+    }
+
+
+    /**
+     * The redirect an error response to the authorization request takes: its redirect URI, which the grants have
+     * validated, its `state`, its response mode, and the Pushed Authorization Request it was made with, if any. A
+     * request with no redirect URI has none, and a cancelled authentication of it is shown to the End-User as
+     * SimpleSAMLphp shows it.
+     */
+    public function resolveAuthorizationErrorRedirect(
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
+    ): ?AuthorizationErrorRedirect {
+        if (($redirectUri = $authorizationRequest->getRedirectUri()) === null) {
+            return null;
+        }
+
+        return new AuthorizationErrorRedirect(
+            $redirectUri,
+            $authorizationRequest->getState(),
+            $authorizationRequest instanceof AuthorizationRequest ?
+                $authorizationRequest->getResponseMode()?->getMode() :
+                null,
+            $authorizationRequest instanceof AuthorizationRequest ?
+                $authorizationRequest->getPushedAuthorizationRequestUri() :
+                null,
+        );
     }
 
 
@@ -316,6 +367,10 @@ class AuthenticationService
 
 
     /**
+     * Log the End-User in for an authorization request. An exception the authentication source raises through its
+     * state (State::throwException()), the End-User cancelling among them, comes back to the authorization endpoint
+     * through the ErrorURL, with the redirect the client is answered at (rethrowAuthenticationException()).
+     *
      * @throws \SimpleSAML\Error\BadRequest
      * @throws \SimpleSAML\Error\NotFound
      * @throws \JsonException
@@ -324,10 +379,16 @@ class AuthenticationService
      */
     public function authenticate(
         Simple $authSimple,
+        ?AuthorizationErrorRedirect $authorizationErrorRedirect,
         array $loginParams = [],
     ): void {
         $this->sessionService->setIsCookieBasedAuthn(false);
         $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
+
+        if ($authorizationErrorRedirect !== null) {
+            $loginParams['ErrorURL'] = $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
+            $loginParams[self::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = $authorizationErrorRedirect;
+        }
 
         $authSimple->login($loginParams);
     }
@@ -341,9 +402,57 @@ class AuthenticationService
      */
     public function authenticateForClient(
         ClientEntityInterface $clientEntity,
+        AuthorizationErrorRedirect $authorizationErrorRedirect,
         array $loginParams = [],
     ): void {
-        $this->authenticate($this->authSimpleFactory->build($clientEntity), $loginParams);
+        $this->authenticate($this->authSimpleFactory->build($clientEntity), $authorizationErrorRedirect, $loginParams);
+    }
+
+
+    /**
+     * Answer an authentication which SimpleSAMLphp ended with an exception and handed back to the authorization
+     * endpoint (State::throwException(), through the ErrorURL authenticate() gives the login or the exception handler
+     * URL runAuthProcs() gives the processing chain). The End-User cancelling (UserAborted) is answered to the client
+     * with `access_denied` (answerCancelledAuthentication()); any other exception is thrown as it was raised, so
+     * SimpleSAMLphp shows it as it would have without the handler.
+     *
+     * Whatever the exception, a login the module started for the request did not complete. It leaves the mark
+     * authenticate() set, that a login was performed, which would have the next request take the session for a
+     * fresh login (processRequest()): after a failed re-authentication for `prompt=login` or `max_age`, the earlier
+     * session. So the mark is cleared, for a state the module prepared.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \SimpleSAML\Error\Exception
+     * @throws \SimpleSAML\Error\NoState
+     */
+    public function rethrowAuthenticationException(array $queryParameters): never
+    {
+        $exceptionStateId = $queryParameters[State::EXCEPTION_PARAM] ?? null;
+        if (!is_string($exceptionStateId) || $exceptionStateId === '') {
+            throw new NoState();
+        }
+
+        $state = $this->stateService->loadExceptionState($exceptionStateId);
+        if ($state === null) {
+            throw new NoState();
+        }
+
+        if (($state[self::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] ?? null) instanceof AuthorizationErrorRedirect) {
+            $this->sessionService->setIsAuthnPerformedInPreviousRequest(false);
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $exception = $state[State::EXCEPTION_DATA] ?? null;
+
+        if ($exception instanceof UserAborted) {
+            throw $this->answerCancelledAuthentication($state, $exception);
+        }
+
+        if ($exception instanceof Throwable) {
+            throw $exception;
+        }
+
+        throw new Exception('Exception state does not contain an exception.');
     }
 
 
@@ -451,6 +560,10 @@ class AuthenticationService
     protected function runAuthProcs(array &$state): void
     {
         $state['ReturnURL'] = $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
+        // An exception a filter raises once it has sent the End-User to a page of its own comes back to the
+        // authorization endpoint too (State::throwException(), rethrowAuthenticationException()). One raised before
+        // that is thrown out of processState(), below.
+        $state[State::EXCEPTION_HANDLER_URL] = $state['ReturnURL'];
 
         // Note: we only augment the existing Source / Destination entries (which
         // already carry the 'entityid' set in prepareStateArray()) with their
@@ -464,7 +577,49 @@ class AuthenticationService
             'authproc' => $this->resolveClientAuthProcFilters($state),
         ];
 
-        $this->processingChainFactory->build($state)->processState($state);
+        try {
+            $this->processingChainFactory->build($state)->processState($state);
+        } catch (UserAborted $exception) {
+            throw $this->answerCancelledAuthentication($state, $exception);
+        }
+    }
+
+
+    /**
+     * The `access_denied` the client is answered with when the End-User cancelled the authentication (UserAborted),
+     * at the redirect kept in the state (RFC 6749 sections 4.1.2.1 and 4.2.2.1); the authorization endpoint adds
+     * `iss`. It is the response to the request, so a Pushed Authorization Request the request was made with is
+     * consumed first, as AuthorizationServer::completeAuthorizationRequest() consumes it for a successful one: one
+     * request_uri yields at most one response.
+     *
+     * @throws \SimpleSAML\Error\UserAborted when the state holds no redirect to answer the client at, so that
+     * SimpleSAMLphp shows the cancel as it would have
+     * @throws \SimpleSAML\Error\BadRequest when the pushed request has had its response already
+     */
+    protected function answerCancelledAuthentication(array $state, UserAborted $exception): OidcServerException
+    {
+        $authorizationErrorRedirect = $state[self::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] ?? null;
+        if (!$authorizationErrorRedirect instanceof AuthorizationErrorRedirect) {
+            throw $exception;
+        }
+
+        if (
+            ($requestUri = $authorizationErrorRedirect->getPushedAuthorizationRequestUri()) !== null &&
+            !$this->pushedAuthorizationRequestRepository->consume($requestUri)
+        ) {
+            // From another tab, or a replay of the request: no second response, as AuthorizationServer refuses one.
+            throw new BadRequest('Pushed authorization request has already been used.');
+        }
+
+        $responseMode = $authorizationErrorRedirect->getResponseMode();
+
+        return OidcServerException::accessDenied(
+            'The End-User cancelled the authentication.',
+            $authorizationErrorRedirect->getRedirectUri(),
+            $exception,
+            $authorizationErrorRedirect->getState(),
+            $responseMode === null ? null : $this->responseModeResolver->forMode($responseMode),
+        );
     }
 
 

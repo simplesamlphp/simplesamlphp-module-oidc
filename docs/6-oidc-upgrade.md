@@ -876,6 +876,17 @@ the token endpoint),
 where its claims used to be read as parameters of the request, superseding
 those of the same name. Only the authorization endpoint and the PAR endpoint
 take a Request Object.
+- An authentication the End-User cancels is now answered to the client with an
+`access_denied` error at its redirect URI, with the request's `state` and the
+issuer (`iss`), in the request's response mode (RFC 6749 sections 4.1.2.1 and
+4.2.2.1), where SimpleSAMLphp's error page was shown before. A cancel is SimpleSAMLphp's
+`UserAborted`, which an authentication source or an Authentication Processing
+Filter raises when it lets the End-User cancel; none of the modules
+SimpleSAMLphp 2.5 ships does. This holds for the login of every flow and for
+the re-authentication `prompt=login` or an expired `max_age` asks for, which,
+cancelled, leaves the earlier session in place. Any other error of an
+authentication is shown as before. See
+[Authentication Processing filters](3-oidc-configuration.md#authentication-processing-filters-oidc).
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
 - The requirements on packages `lcobucci/jwt` and `web-token/jwt-framework`

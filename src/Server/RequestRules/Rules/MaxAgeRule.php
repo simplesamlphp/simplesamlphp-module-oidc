@@ -124,7 +124,11 @@ class MaxAgeRule extends AbstractRule
                 $loginParams[AuthenticationService::LOGIN_PARAM_USERNAME] = $loginHint;
             }
 
-            $this->authenticationService->authenticateForClient($client, $loginParams);
+            $this->authenticationService->authenticateForClient(
+                $client,
+                $this->resolveAuthorizationErrorRedirect($currentResultBag, $responseMode),
+                $loginParams,
+            );
         }
 
         // The result value becomes the ID Token auth_time (set by the grant), satisfying require_auth_time and/or

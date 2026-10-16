@@ -9,8 +9,10 @@ $config = array(
         'core:AdminPassword',
     ),
 
+    // exampleauth:UserPass, where logging in as `cancel` (any password) cancels the authentication, which the
+    // OIDC module answers to the client with access_denied; see docker/ssp/modules/oidcconformance.
     'example-userpass' => [
-        'exampleauth:UserPass',
+        'oidcconformance:CancellableUserPass',
         'users' => [
             'student:studentpass' => [
                 'uid' => ['student'],

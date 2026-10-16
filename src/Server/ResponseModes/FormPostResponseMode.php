@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\ResponseModes;
 use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 class FormPostResponseMode implements ResponseModeInterface
 {
@@ -32,5 +33,11 @@ class FormPostResponseMode implements ResponseModeInterface
         $response = new HtmlResponse();
         $response->setHtml($html);
         return $response;
+    }
+
+
+    public function getMode(): ResponseModesEnum
+    {
+        return ResponseModesEnum::FormPost;
     }
 }

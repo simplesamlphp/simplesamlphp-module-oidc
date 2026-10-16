@@ -47,4 +47,15 @@ class StateService
     {
         return $this->authState::loadState($id, $stage, $allowMissing);
     }
+
+
+    /**
+     * The state saved with an exception raised during authentication (State::throwException()).
+     *
+     * @throws \SimpleSAML\Error\NoState
+     */
+    public function loadExceptionState(string $id): ?array
+    {
+        return $this->authState::loadExceptionState($id);
+    }
 }

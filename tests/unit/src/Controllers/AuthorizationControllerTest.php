@@ -15,6 +15,7 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use SimpleSAML\Auth\ProcessingChain;
+use SimpleSAML\Auth\State;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Locale;
@@ -31,6 +32,7 @@ use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -625,6 +627,61 @@ class AuthorizationControllerTest extends TestCase
         $this->mock()->authorization($this->symfonyRequestMock);
 
         $this->assertSame($expectedPayload, $this->errorGivenToTheResponder?->getPayload());
+    }
+
+
+    /**
+     * An authentication which SimpleSAMLphp ended with an exception and handed back is the authentication service's
+     * to answer, before anything reads the request as an authorization request or loads a processing chain state.
+     *
+     * @throws \Throwable
+     */
+    public function testAnAuthenticationHandedBackWithAnExceptionGoesToTheAuthenticationService(): void
+    {
+        $queryParameters = [State::EXCEPTION_PARAM => 'exception-state-id'];
+        $this->serverRequestStub->method('getQueryParams')->willReturn($queryParameters);
+        $accessDenied = OidcServerException::accessDenied('cancelled', 'https://rp.example.org/cb', null, 'the-state');
+        $this->authenticationServiceStub->expects($this->once())
+            ->method('rethrowAuthenticationException')
+            ->with($queryParameters)
+            ->willThrowException($accessDenied);
+        $this->authenticationServiceStub->expects($this->never())->method('processRequest');
+        $this->authenticationServiceStub->expects($this->never())->method('manageState');
+
+        try {
+            ($this->mock())($this->serverRequestStub);
+            $this->fail('The answer of the authentication service must be thrown.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame($accessDenied, $exception);
+        }
+    }
+
+
+    /**
+     * The access_denied a cancel is answered with is an authorization response, so it carries the issuer
+     * (RFC 9207 section 2).
+     *
+     * @throws \Throwable
+     */
+    public function testACancelHandedBackIsRedirectedToTheClientWithTheIssuer(): void
+    {
+        $this->serverRequestStub->method('getQueryParams')
+            ->willReturn([State::EXCEPTION_PARAM => 'exception-state-id']);
+        $psrHttpFactoryStub = $this->createStub(PsrHttpFactory::class);
+        $psrHttpFactoryStub->method('createRequest')->willReturn($this->serverRequestStub);
+        $this->psrHttpBridgeMock->method('getPsrHttpFactory')->willReturn($psrHttpFactoryStub);
+        $this->moduleConfigStub->method('getIssuer')->willReturn(self::OIDC_OP_METADATA['issuer']);
+        $this->authenticationServiceStub->method('rethrowAuthenticationException')->willThrowException(
+            OidcServerException::accessDenied('cancelled', 'https://rp.example.org/cb', null, 'the-state'),
+        );
+        $this->captureTheErrorGivenToTheResponder();
+
+        $this->mock()->authorization($this->symfonyRequestMock);
+
+        $payload = $this->errorGivenToTheResponder?->getPayload() ?? [];
+        $this->assertSame('access_denied', $payload['error'] ?? null);
+        $this->assertSame('the-state', $payload['state'] ?? null);
+        $this->assertSame(self::OIDC_OP_METADATA['issuer'], $payload['iss'] ?? null);
     }
 
 

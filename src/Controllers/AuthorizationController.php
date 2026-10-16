@@ -9,6 +9,7 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2Aut
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Auth\ProcessingChain;
+use SimpleSAML\Auth\State;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -54,6 +55,13 @@ class AuthorizationController
         $queryParameters = $request->getQueryParams();
         $state = null;
         $this->loggerService->debug('AuthorizationController::invoke: Request parameters: ', $queryParameters);
+
+        if (isset($queryParameters[State::EXCEPTION_PARAM])) {
+            // An authentication which ended with an exception, handed back by SimpleSAMLphp: a cancel is answered to
+            // the client, anything else thrown as it was.
+            $this->loggerService->debug('AuthorizationController::invoke: Authentication ended with an exception.');
+            $this->authenticationService->rethrowAuthenticationException($queryParameters);
+        }
 
         if (!isset($queryParameters[ProcessingChain::AUTHPARAM])) {
             $this->loggerService->debug('AuthorizationController::invoke: No AuthProcId query param.');

@@ -23,11 +23,14 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\LoginHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\MaxAgeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\AuthorizationErrorRedirect;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\Utils\HTTP as SspHttp;
 
 #[CoversClass(MaxAgeRule::class)]
@@ -66,6 +69,7 @@ class MaxAgeRuleTest extends TestCase
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         $this->requestMock = $this->createMock(ServerRequestInterface::class);
         $this->responseModeMock = $this->createMock(ResponseModeInterface::class);
+        $this->responseModeMock->method('getMode')->willReturn(ResponseModesEnum::FormPost);
 
         $this->authSimpleFactoryMock->method('build')->willReturn($this->authSimpleMock);
 
@@ -156,12 +160,54 @@ class MaxAgeRuleTest extends TestCase
         $utilsMock->method('http')->willReturn($httpMock);
         $this->sspBridgeMock->method('utils')->willReturn($utilsMock);
 
+        // A cancelled re-authentication is answered at the request's redirect, with its state, in its response mode.
         $this->authenticationServiceMock->expects($this->once())
             ->method('authenticateForClient')
             ->with(
                 $this->clientMock,
+                new AuthorizationErrorRedirect('https://rp.example.org/cb', 'state123', ResponseModesEnum::FormPost),
                 $this->callback(fn(array $loginParams): bool =>
                     ($loginParams['core:username'] ?? null) === 'user@example.org'),
+            );
+
+        $this->checkRule();
+    }
+
+
+    /**
+     * A re-authentication for the client's default_max_age, which the request does not name, is answered at the
+     * request's redirect too when it is cancelled, and consumes the pushed request it was made with.
+     */
+    public function testExpiredDefaultMaxAgeReAuthenticatesWithTheRedirect(): void
+    {
+        $this->resultBag->add(new Result(ClientRedirectUriRule::class, 'https://rp.example.org/cb'));
+        $this->resultBag->add(new Result(StateRule::class, 'state123'));
+        $this->resultBag->add(new Result(LoginHintRule::class, null));
+        $this->resultBag->add(new Result(RequestUriRule::class, 'urn:ietf:params:oauth:request_uri:pushed-request'));
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')->willReturn([]);
+        $this->clientMock->method('getDefaultMaxAge')->willReturn(60);
+        $this->clientMock->method('getRequireAuthTime')->willReturn(false);
+        $this->authSimpleMock->method('isAuthenticated')->willReturn(true);
+        $this->authSimpleMock->method('getAuthData')->willReturn(time() - 3600);
+
+        $httpMock = $this->createMock(SspHttp::class);
+        $httpMock->method('getSelfURLNoQuery')->willReturn('https://op.example.org/authorize');
+        $httpMock->method('addURLParameters')->willReturn('https://op.example.org/authorize');
+        $utilsMock = $this->createMock(SspBridgeUtils::class);
+        $utilsMock->method('http')->willReturn($httpMock);
+        $this->sspBridgeMock->method('utils')->willReturn($utilsMock);
+
+        $this->authenticationServiceMock->expects($this->once())
+            ->method('authenticateForClient')
+            ->with(
+                $this->clientMock,
+                new AuthorizationErrorRedirect(
+                    'https://rp.example.org/cb',
+                    'state123',
+                    ResponseModesEnum::FormPost,
+                    'urn:ietf:params:oauth:request_uri:pushed-request',
+                ),
+                $this->anything(),
             );
 
         $this->checkRule();

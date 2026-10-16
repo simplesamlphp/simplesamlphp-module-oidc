@@ -26,6 +26,7 @@ RUN /opt/simplesaml/staging-install.sh
 RUN /opt/simplesaml/module-setup.sh
 ADD docker/ssp/module_oidc.php /var/simplesamlphp/config/module_oidc.php
 ADD docker/ssp/authsources.php /var/simplesamlphp/config/authsources.php
+ADD docker/ssp/modules/oidcconformance /var/simplesamlphp/modules/oidcconformance
 ADD docker/ssp/config-override.php /var/simplesamlphp/config/config-override.php
 # Bring the seeded database up to the schema of the module being built. docker/conformance.sql is a dump
 # taken at some earlier schema, so the migrations it has not seen run here and a new migration needs no new

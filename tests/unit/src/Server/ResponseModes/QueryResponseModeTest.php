@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 /**
  * The `query` response mode: the parameters go into the query string of the redirect URI, after a `?`,
@@ -79,5 +80,14 @@ class QueryResponseModeTest extends TestCase
     public function testAppendsTheSeparatorEvenWithNothingToAppend(): void
     {
         $this->assertSame('https://rp.example.org/cb?', $this->locationOf('https://rp.example.org/cb', []));
+    }
+
+
+    /**
+     * The value it is kept by where it can not go itself (ResponseModeResolver).
+     */
+    public function testItsValueIsQuery(): void
+    {
+        $this->assertSame(ResponseModesEnum::Query, (new QueryResponseMode())->getMode());
     }
 }

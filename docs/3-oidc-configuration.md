@@ -1210,6 +1210,14 @@ Additional OIDC data in the state:
 - \['Oidc'\]\['RelyingPartyMetadata'\]
 - \['Oidc'\]\['AuthorizationRequestParameters'\]
 
+A filter which lets the End-User cancel ends the authentication with
+SimpleSAMLphp's `\SimpleSAML\Error\UserAborted`: thrown from `process()`, or,
+once the filter has sent the End-User to a page of its own, passed with the
+state to `\SimpleSAML\Auth\State::throwException()`. The client is then
+answered with an `access_denied` error at its redirect URI (RFC 6749 sections
+4.1.2.1 and 4.2.2.1). An authentication source which lets the End-User cancel does the
+same. Any other exception is shown on SimpleSAMLphp's error page.
+
 Example filter configuration:
 
 ```php

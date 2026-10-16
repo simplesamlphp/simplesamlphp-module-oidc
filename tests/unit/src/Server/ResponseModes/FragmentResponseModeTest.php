@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 /**
  * The `fragment` response mode: the parameters go into the fragment of the redirect URI, after a `#`, or
@@ -86,5 +87,14 @@ class FragmentResponseModeTest extends TestCase
     public function testAppendsTheSeparatorEvenWithNothingToAppend(): void
     {
         $this->assertSame('https://rp.example.org/cb#', $this->locationOf('https://rp.example.org/cb', []));
+    }
+
+
+    /**
+     * The value it is kept by where it can not go itself (ResponseModeResolver).
+     */
+    public function testItsValueIsFragment(): void
+    {
+        $this->assertSame(ResponseModesEnum::Fragment, (new FragmentResponseMode())->getMode());
     }
 }
