@@ -16,6 +16,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -34,6 +35,7 @@ class AuthorizationController
         private readonly ErrorResponder $errorResponder,
         private readonly UiLocalesResolver $uiLocalesResolver,
         private readonly SspBridge $sspBridge,
+        private readonly ResponseModeResolver $responseModeResolver,
     ) {
     }
 
@@ -251,7 +253,7 @@ class AuthorizationController
             $this->resolveRedirectUri($authorizationRequest),
             null,
             $authorizationRequest->getState(),
-            $authorizationRequest->getResponseMode(),
+            $this->responseModeResolver->forOptionalMode($authorizationRequest->getResponseMode()),
         );
     }
 

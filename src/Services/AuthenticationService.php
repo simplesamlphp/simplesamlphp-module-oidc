@@ -306,7 +306,7 @@ class AuthenticationService
             $redirectUri,
             $authorizationRequest->getState(),
             $authorizationRequest instanceof AuthorizationRequest ?
-                $authorizationRequest->getResponseMode()?->getMode() :
+                $authorizationRequest->getResponseMode() :
                 null,
             $authorizationRequest instanceof AuthorizationRequest ?
                 $authorizationRequest->getPushedAuthorizationRequestUri() :
@@ -611,14 +611,12 @@ class AuthenticationService
             throw new BadRequest('Pushed authorization request has already been used.');
         }
 
-        $responseMode = $authorizationErrorRedirect->getResponseMode();
-
         return OidcServerException::accessDenied(
             'The End-User cancelled the authentication.',
             $authorizationErrorRedirect->getRedirectUri(),
             $exception,
             $authorizationErrorRedirect->getState(),
-            $responseMode === null ? null : $this->responseModeResolver->forMode($responseMode),
+            $this->responseModeResolver->forOptionalMode($authorizationErrorRedirect->getResponseMode()),
         );
     }
 

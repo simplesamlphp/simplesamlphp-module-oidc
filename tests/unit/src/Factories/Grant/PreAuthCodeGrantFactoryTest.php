@@ -23,6 +23,7 @@ use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\PreAuthCodeGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
@@ -80,6 +81,8 @@ class PreAuthCodeGrantFactoryTest extends TestCase
 
     protected MockObject $issuerStateRepositoryMock;
 
+    protected MockObject $responseModeResolverMock;
+
     protected MockObject $txCodeAttemptLimiterMock;
 
     protected DateInterval $authCodeDuration;
@@ -110,6 +113,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
         $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
         $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
+        $this->responseModeResolverMock = $this->createMock(ResponseModeResolver::class);
         $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
     }
 
@@ -132,6 +136,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
             $this->issuerStateRepositoryMock,
+            $this->responseModeResolverMock,
             $this->txCodeAttemptLimiterMock,
         );
     }
@@ -174,6 +179,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
         $this->assertSame($this->accessTokenClaimsResolverMock, $this->propertyOf($grant, 'accessTokenClaimsResolver'));
         $this->assertSame($this->moduleConfigMock, $this->propertyOf($grant, 'moduleConfig'));
         $this->assertSame($this->issuerStateRepositoryMock, $this->propertyOf($grant, 'issuerStateRepository'));
+        $this->assertSame($this->responseModeResolverMock, $this->propertyOf($grant, 'responseModeResolver'));
         $this->assertSame($this->txCodeAttemptLimiterMock, $this->propertyOf($grant, 'txCodeAttemptLimiter'));
     }
 

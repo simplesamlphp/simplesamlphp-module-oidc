@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
@@ -76,6 +77,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         AccessTokenClaimsResolver $accessTokenClaimsResolver,
         ModuleConfig $moduleConfig,
         IssuerStateRepository $issuerStateRepository,
+        ResponseModeResolver $responseModeResolver,
         protected readonly TxCodeAttemptLimiter $txCodeAttemptLimiter,
     ) {
         parent::__construct(
@@ -95,6 +97,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
             $accessTokenClaimsResolver,
             $moduleConfig,
             $issuerStateRepository,
+            $responseModeResolver,
         );
     }
 

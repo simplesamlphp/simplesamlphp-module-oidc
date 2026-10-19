@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\Grants\ImplicitGrant;
 use SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
@@ -62,6 +63,8 @@ class ImplicitGrantFactoryTest extends TestCase
 
     protected MockObject $accessTokenClaimsResolverMock;
 
+    protected MockObject $responseModeResolverMock;
+
     protected DateInterval $accessTokenDuration;
 
 
@@ -81,6 +84,7 @@ class ImplicitGrantFactoryTest extends TestCase
         $this->userRepositoryMock = $this->createMock(UserRepository::class);
         $this->subjectResolverMock = $this->createMock(SubjectResolver::class);
         $this->accessTokenClaimsResolverMock = $this->createMock(AccessTokenClaimsResolver::class);
+        $this->responseModeResolverMock = $this->createMock(ResponseModeResolver::class);
     }
 
 
@@ -97,6 +101,7 @@ class ImplicitGrantFactoryTest extends TestCase
             $this->userRepositoryMock,
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
+            $this->responseModeResolverMock,
         );
     }
 
@@ -133,6 +138,7 @@ class ImplicitGrantFactoryTest extends TestCase
         $this->assertSame($this->subjectResolverMock, $this->propertyOf($grant, 'subjectResolver'));
         $this->assertSame($this->accessTokenClaimsResolverMock, $this->propertyOf($grant, 'accessTokenClaimsResolver'));
         $this->assertSame($this->moduleConfigMock, $this->propertyOf($grant, 'moduleConfig'));
+        $this->assertSame($this->responseModeResolverMock, $this->propertyOf($grant, 'responseModeResolver'));
     }
 
 

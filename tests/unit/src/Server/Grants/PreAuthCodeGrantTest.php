@@ -52,6 +52,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AuthorizationDetailsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PreAuthorizedCodeClientRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Server\TokenIssuers\RefreshTokenIssuer;
 use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -1545,6 +1546,7 @@ class PreAuthCodeGrantTest extends TestCase
             $this->accessTokenClaimsResolverMock,
             $this->moduleConfigMock,
             $this->createStub(IssuerStateRepository::class),
+            $this->createStub(ResponseModeResolver::class),
             $this->txCodeAttemptLimiterMock,
         );
         $grant->setScopeRepository(

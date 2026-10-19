@@ -76,6 +76,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -91,6 +92,7 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use Throwable;
 
 use function array_key_exists;
@@ -160,6 +162,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         AccessTokenClaimsResolver $accessTokenClaimsResolver,
         protected readonly ModuleConfig $moduleConfig,
         protected readonly IssuerStateRepository $issuerStateRepository,
+        protected readonly ResponseModeResolver $responseModeResolver,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -255,6 +258,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         $finalRedirectUri = $authorizationRequest->getRedirectUri()
         ?? $this->getAuthorizationRequestClientRedirectUri($authorizationRequest);
 
+        // The request carries its response mode by its value (AuthorizationRequest::getResponseMode()).
+        $responseMode = $this->responseModeResolver->forMode(
+            $authorizationRequest->getResponseMode() ?? ResponseModesEnum::Query,
+        );
+
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
             $this->loggerService->notice(
                 'Authorization request denied by the user.',
@@ -266,7 +274,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $finalRedirectUri,
                 null,
                 $authorizationRequest->getState(),
-                $authorizationRequest->getResponseMode(),
+                $responseMode,
             );
         }
 
@@ -304,7 +312,6 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
-        $responseMode = $authorizationRequest->getResponseMode() ?? new QueryResponseMode();
         $response = $responseMode->buildResponse(
             $finalRedirectUri,
             [
@@ -1541,7 +1548,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'AuthCodeGrant: Response mode: ',
             ['responseMode' => $responseMode],
         );
-        $authorizationRequest->setResponseMode($responseMode);
+        $authorizationRequest->setResponseMode($responseMode->getMode());
 
         // TODO This is a band-aid fix for having credential claims in the userinfo endpoint when
         // only VCI authorizationDetails are supplied. This requires configuring a matching OIDC scope

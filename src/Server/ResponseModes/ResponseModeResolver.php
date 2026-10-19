@@ -29,4 +29,14 @@ class ResponseModeResolver
             ResponseModesEnum::FormPost => $this->formPostResponseMode,
         };
     }
+
+
+    /**
+     * The response mode of a value which may be missing, for an error response: one without a response mode goes
+     * in the default of OidcServerException::generateHttpResponse().
+     */
+    public function forOptionalMode(?ResponseModesEnum $mode): ?ResponseModeInterface
+    {
+        return $mode === null ? null : $this->forMode($mode);
+    }
 }

@@ -14,7 +14,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 #[CoversClass(AuthorizationRequest::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -311,16 +311,19 @@ class AuthorizationRequestTest extends TestCase
 
 
     /**
-     * The response mode decides how the authorization response reaches the client, so it is carried as
-     * the object which knows how to do that rather than as its name.
+     * The request is kept in the SimpleSAMLphp authentication state, which goes into the session store, so it
+     * carries its response mode by its value rather than as the response mode itself (ResponseModeResolver finds
+     * that again), and the value comes back out of the store.
      */
-    public function testCarriesTheResponseMode(): void
+    public function testCarriesTheResponseModeByItsValue(): void
     {
-        $responseModeMock = $this->createMock(ResponseModeInterface::class);
         $authorizationRequest = new AuthorizationRequest();
 
-        $authorizationRequest->setResponseMode($responseModeMock);
+        $authorizationRequest->setResponseMode(ResponseModesEnum::FormPost);
+        $restored = unserialize(serialize($authorizationRequest));
 
-        $this->assertSame($responseModeMock, $authorizationRequest->getResponseMode());
+        $this->assertSame(ResponseModesEnum::FormPost, $authorizationRequest->getResponseMode());
+        $this->assertInstanceOf(AuthorizationRequest::class, $restored);
+        $this->assertSame(ResponseModesEnum::FormPost, $restored->getResponseMode());
     }
 }

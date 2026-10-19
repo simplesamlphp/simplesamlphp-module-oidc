@@ -35,4 +35,22 @@ class ResponseModeResolverTest extends TestCase
             $this->assertSame($mode, $sut->forMode($mode)->getMode());
         }
     }
+
+
+    /**
+     * An error response to a request without a response mode goes in the error's default one, so no value finds
+     * no response mode.
+     */
+    public function testAnOptionalValueFindsTheResponseModeOfThatValueOrNone(): void
+    {
+        $fragmentResponseMode = new FragmentResponseMode();
+        $sut = new ResponseModeResolver(
+            new QueryResponseMode(),
+            $fragmentResponseMode,
+            $this->createStub(FormPostResponseMode::class),
+        );
+
+        $this->assertSame($fragmentResponseMode, $sut->forOptionalMode(ResponseModesEnum::Fragment));
+        $this->assertNull($sut->forOptionalMode(null));
+    }
 }

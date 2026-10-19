@@ -6,7 +6,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestTypes;
 
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
-use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 class AuthorizationRequest extends OAuth2AuthorizationRequest
 {
@@ -106,7 +106,14 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
      */
     protected ?string $dpopJkt = null;
 
-    private ?ResponseModeInterface $responseMode = null;
+    /**
+     * The response mode the authorization response is given in, by its value. The request is kept in the
+     * SimpleSAMLphp authentication state, which goes into the session store when an authentication processing
+     * filter shows the End-User a page of its own, and the response mode itself must not go there: the `form_post`
+     * one holds the services which render its page, and through them the configuration, the private signing keys
+     * and the session. ResponseModeResolver gives the response mode of the value.
+     */
+    private ?ResponseModesEnum $responseMode = null;
 
 
     public static function fromOAuth2AuthorizationRequest(
@@ -218,13 +225,13 @@ class AuthorizationRequest extends OAuth2AuthorizationRequest
     }
 
 
-    public function setResponseMode(ResponseModeInterface $responseMode): void
+    public function setResponseMode(ResponseModesEnum $responseMode): void
     {
         $this->responseMode = $responseMode;
     }
 
 
-    public function getResponseMode(): ?ResponseModeInterface
+    public function getResponseMode(): ?ResponseModesEnum
     {
         return $this->responseMode;
     }

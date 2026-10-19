@@ -56,15 +56,18 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Core\IdToken;
 use SimpleSAML\OpenID\Core\IdTokenHint;
 
@@ -105,6 +108,7 @@ use SimpleSAML\OpenID\Core\IdTokenHint;
 #[UsesClass(FragmentResponseMode::class)]
 #[UsesClass(OidcServerException::class)]
 #[UsesClass(QueryResponseMode::class)]
+#[UsesClass(ResponseModeResolver::class)]
 #[UsesClass(Result::class)]
 #[UsesClass(ResultBag::class)]
 #[UsesClass(ScopeEntity::class)]
@@ -165,6 +169,9 @@ class ImplicitGrantTest extends TestCase
     /** Response mode in the bag check() hands back, which is the one that lands on the request. */
     private ResponseModeInterface $checkedResponseMode;
 
+    /** The form_post response mode the grant resolves the request's response mode value to. */
+    private FormPostResponseMode&MockObject $formPostResponseModeMock;
+
     private ResultBag $incomingResultBag;
 
     /** @var array<int,mixed> Arguments RequestRulesManager::check() was called with. */
@@ -211,6 +218,7 @@ class ImplicitGrantTest extends TestCase
 
         $this->incomingResponseMode = new QueryResponseMode();
         $this->checkedResponseMode = new FragmentResponseMode();
+        $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
     }
 
 
@@ -246,6 +254,7 @@ class ImplicitGrantTest extends TestCase
             $this->subjectResolverMock,
             $this->accessTokenClaimsResolverMock,
             $this->moduleConfigMock,
+            $this->responseModeResolver(),
         );
 
         $implicitGrant->setScopeRepository($scopeRepository);
@@ -504,7 +513,8 @@ class ImplicitGrantTest extends TestCase
         $authorizationRequest = $this->validatedAuthorizationRequest();
 
         $this->assertSame($this->incomingResponseMode, $this->checkArguments[2]);
-        $this->assertSame($this->checkedResponseMode, $authorizationRequest->getResponseMode());
+        // By its value: the request goes into the session store, where the response mode itself must not.
+        $this->assertSame($this->checkedResponseMode->getMode(), $authorizationRequest->getResponseMode());
     }
 
 
@@ -700,17 +710,16 @@ class ImplicitGrantTest extends TestCase
      * A denial is the End-User's answer and it belongs back at the client, as the access_denied error at the
      * redirect URI, carrying the state so the client can match it to the request it made.
      *
-     * Where the error lands is pinned rather than endorsed. With a response mode negotiated it is delivered
-     * in that mode. With none, the grant hands null to accessDenied() and OidcServerException falls back to
-     * the query string -- where the success path at the end of the same method falls back to the fragment
-     * instead. The disagreement is recorded here rather than fixed, and it is latent either way, since a
-     * request which reached this point was given a response mode by getOrFail() during validation.
+     * With a response mode negotiated it is delivered in that mode. With none, it goes in the fragment, as the
+     * success response at the end of the same method does: the implicit grant puts its errors in the fragment
+     * (RFC 6749 section 4.2.2.1). That is latent either way, since a request which reached this point was given
+     * a response mode by getOrFail() during validation.
      *
-     * @param \SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null $responseMode
+     * @param \SimpleSAML\OpenID\Codebooks\ResponseModesEnum|null $responseMode
      */
     #[DataProvider('deniedResponseModeProvider')]
     public function testADeniedAuthorizationIsReportedToTheClientAsAccessDenied(
-        ?ResponseModeInterface $responseMode,
+        ?ResponseModesEnum $responseMode,
         string $expectedSeparator,
     ): void {
         $this->loggerServiceMock->expects($this->once())
@@ -734,14 +743,14 @@ class ImplicitGrantTest extends TestCase
 
 
     /**
-     * @return array<string,array{0:\SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface|null,1:string}>
+     * @return array<string,array{0:\SimpleSAML\OpenID\Codebooks\ResponseModesEnum|null,1:string}>
      */
     public static function deniedResponseModeProvider(): array
     {
         return [
-            'the negotiated fragment mode' => [new FragmentResponseMode(), '#'],
-            'the negotiated query mode' => [new QueryResponseMode(), '?'],
-            'no negotiated mode at all' => [null, '?'],
+            'the negotiated fragment mode' => [ResponseModesEnum::Fragment, '#'],
+            'the negotiated query mode' => [ResponseModesEnum::Query, '?'],
+            'no negotiated mode at all' => [null, '#'],
         ];
     }
 
@@ -850,7 +859,7 @@ class ImplicitGrantTest extends TestCase
 
         $authorizationRequest = $this->authorizationRequest(
             responseType: $responseType,
-            responseMode: $inTheQuery ? new QueryResponseMode() : null,
+            responseMode: $inTheQuery ? ResponseModesEnum::Query : null,
         );
         $params = $this->paramsIn($this->locationOf($this->completed($authorizationRequest)), $component);
 
@@ -1068,11 +1077,35 @@ class ImplicitGrantTest extends TestCase
         $this->idTokenIsBuilt('the-id-token');
 
         $location = $this->locationOf($this->completed(
-            $this->authorizationRequest(responseMode: new QueryResponseMode()),
+            $this->authorizationRequest(responseMode: ResponseModesEnum::Query),
         ));
 
         $this->assertStringStartsWith(self::REDIRECT_URI . '?', $location);
         $this->assertSame('the-id-token', $this->paramsIn($location, PHP_URL_QUERY)['id_token']);
+    }
+
+
+    /**
+     * form_post is carried by its value like the other response modes: the response is the page
+     * FormPostResponseMode builds, with the ID Token among the parameters it posts back.
+     */
+    public function testTheResponseIsBuiltInTheFormPostResponseModeTheRequestCarries(): void
+    {
+        $this->scopesAreFinalizedAs(new ScopeEntity('openid'));
+        $this->accessTokenIsIssued();
+        $this->idTokenIsBuilt('the-id-token');
+        $page = $this->createStub(AbstractResponseType::class);
+        $this->formPostResponseModeMock->expects($this->once())
+            ->method('buildResponse')
+            ->with(self::REDIRECT_URI, $this->callback(
+                static fn(array $params): bool => ($params['id_token'] ?? null) === 'the-id-token',
+            ))
+            ->willReturn($page);
+
+        $this->assertSame(
+            $page,
+            $this->completed($this->authorizationRequest(responseMode: ResponseModesEnum::FormPost)),
+        );
     }
 
 
@@ -1242,7 +1275,7 @@ class ImplicitGrantTest extends TestCase
         ?ClientEntity $client = null,
         ?string $redirectUri = self::REDIRECT_URI,
         string $responseType = 'id_token',
-        ?ResponseModeInterface $responseMode = null,
+        ?ResponseModesEnum $responseMode = null,
         bool $isApproved = true,
         bool $withUser = true,
         ?string $state = self::STATE,
@@ -1312,6 +1345,7 @@ class ImplicitGrantTest extends TestCase
                 $this->subjectResolverMock,
                 $this->accessTokenClaimsResolverMock,
                 $this->moduleConfigMock,
+                $this->responseModeResolver(),
             ])
             ->onlyMethods(['issueAccessToken'])
             ->getMock();
@@ -1321,6 +1355,19 @@ class ImplicitGrantTest extends TestCase
         $sut->method('issueAccessToken')->willReturn($accessToken);
 
         return $sut;
+    }
+
+
+    /**
+     * The grant resolves the response mode value the request carries to the response mode itself.
+     */
+    private function responseModeResolver(): ResponseModeResolver
+    {
+        return new ResponseModeResolver(
+            new QueryResponseMode(),
+            new FragmentResponseMode(),
+            $this->formPostResponseModeMock,
+        );
     }
 
 

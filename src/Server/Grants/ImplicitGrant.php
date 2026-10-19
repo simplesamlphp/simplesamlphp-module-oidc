@@ -43,7 +43,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
-use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Services\IdTokenBuilder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
@@ -51,6 +51,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -76,6 +77,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         SubjectResolver $subjectResolver,
         AccessTokenClaimsResolver $accessTokenClaimsResolver,
         protected readonly ModuleConfig $moduleConfig,
+        protected readonly ResponseModeResolver $responseModeResolver,
     ) {
         parent::__construct($accessTokenTTL);
 
@@ -255,7 +257,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $authorizationRequest->setIdTokenHintSubject($idTokenHint?->getSubject());
 
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
-        $authorizationRequest->setResponseMode($responseMode);
+        $authorizationRequest->setResponseMode($responseMode->getMode());
 
         return $authorizationRequest;
     }
@@ -281,6 +283,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $redirectUrl = $this->getRedirectUrl($authorizationRequest);
 
+        // The request carries its response mode by its value (AuthorizationRequest::getResponseMode()). Without one,
+        // the response and an error alike go in the fragment (RFC 6749 sections 4.2.2 and 4.2.2.1).
+        $responseMode = $this->responseModeResolver->forMode(
+            $authorizationRequest->getResponseMode() ?? ResponseModesEnum::Fragment,
+        );
+
         if ($authorizationRequest->isAuthorizationApproved() !== true) {
             $this->loggerService->notice(
                 'Implicit grant: authorization request denied by the user.',
@@ -291,7 +299,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
                 $redirectUrl,
                 null,
                 $authorizationRequest->getState(),
-                $authorizationRequest->getResponseMode(),
+                $responseMode,
             );
         }
 
@@ -373,7 +381,6 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         // responses get it in AuthorizationController.
         $responseParams['iss'] = $this->moduleConfig->getIssuer();
 
-        $responseMode = $authorizationRequest->getResponseMode() ?? new FragmentResponseMode();
         $response = $responseMode->buildResponse(
             $redirectUrl,
             $responseParams,

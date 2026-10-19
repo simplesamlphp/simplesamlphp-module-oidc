@@ -73,8 +73,11 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AcrResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\AuthTimeResponseTypeInterface;
 use SimpleSAML\Module\oidc\Server\ResponseTypes\Interfaces\NonceResponseTypeInterface;
@@ -89,6 +92,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\Core\IdTokenHint;
 use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Stringable;
@@ -116,6 +120,7 @@ use Throwable;
 #[UsesClass(UserEntity::class)]
 #[UsesClass(Arr::class)]
 #[UsesClass(QueryResponseMode::class)]
+#[UsesClass(ResponseModeResolver::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AuthCodeGrantTest extends TestCase
 {
@@ -172,6 +177,9 @@ class AuthCodeGrantTest extends TestCase
     private ModuleConfig&MockObject $moduleConfigMock;
 
     private IssuerStateRepository&MockObject $issuerStateRepositoryMock;
+
+    /** The form_post response mode the grant resolves the request's response mode value to. */
+    private FormPostResponseMode&MockObject $formPostResponseModeMock;
 
     private Key $encryptionKey;
 
@@ -236,6 +244,7 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
             ->willReturn(self::CREDENTIAL_CONFIGURATION_IDS);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
+        $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
         // key derivation on every encrypt and decrypt, which this many round trips would make noticeably slow.
@@ -1743,6 +1752,7 @@ class AuthCodeGrantTest extends TestCase
         $idTokenHint = $this->createMock(IdTokenHint::class);
         $idTokenHint->method('getSubject')->willReturn('the-subject');
         $responseMode = $this->createStub(ResponseModeInterface::class);
+        $responseMode->method('getMode')->willReturn(ResponseModesEnum::FormPost);
 
         $request = $this->validatedAuthorizationRequest(
             scopes: [new ScopeEntity('profile')],
@@ -1772,7 +1782,8 @@ class AuthCodeGrantTest extends TestCase
         $this->assertSame($this->codeChallenge(), $request->getCodeChallenge());
         $this->assertSame('S256', $request->getCodeChallengeMethod());
         $this->assertSame('thumbprint-of-the-key', $request->getDpopJkt());
-        $this->assertSame($responseMode, $request->getResponseMode());
+        // By its value: the request goes into the session store, where the response mode itself must not.
+        $this->assertSame(ResponseModesEnum::FormPost, $request->getResponseMode());
     }
 
 
@@ -1972,6 +1983,29 @@ class AuthCodeGrantTest extends TestCase
     }
 
 
+    public function testRedirectsADeclinedRequestInTheResponseModeItAskedFor(): void
+    {
+        // The request carries its response mode by its value; the error goes in the response mode of that value.
+        $this->formPostResponseModeMock->expects($this->once())
+            ->method('buildResponse')
+            ->with(self::REDIRECT_URI, $this->callback(
+                static fn(array $params): bool => ($params['error'] ?? null) === 'access_denied',
+            ))
+            ->willReturn($this->createMock(AbstractResponseType::class));
+
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setAuthorizationApproved(false);
+        $authorizationRequest->setResponseMode(ResponseModesEnum::FormPost);
+
+        try {
+            $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
+            $this->fail('A declined authorization must not produce an authorization code.');
+        } catch (OAuthServerException $exception) {
+            $exception->generateHttpResponse(new Response());
+        }
+    }
+
+
     public function testFallsBackToTheClientsRegisteredRedirectUriWhenTheRequestCarriesNone(): void
     {
         // The registered URI is the only one that was ever validated, so it is the only safe fallback.
@@ -2020,8 +2054,7 @@ class AuthCodeGrantTest extends TestCase
     public function testHandsTheIssuerToTheResponseModeTheRequestAskedFor(): void
     {
         // fragment and form_post render whatever parameters they are given, so the issuer has to be among them.
-        $responseModeMock = $this->createMock(ResponseModeInterface::class);
-        $responseModeMock->expects($this->once())
+        $this->formPostResponseModeMock->expects($this->once())
             ->method('buildResponse')
             ->with(self::REDIRECT_URI, $this->callback(
                 static fn(array $params): bool => ($params['iss'] ?? null) === self::ISSUER,
@@ -2029,7 +2062,7 @@ class AuthCodeGrantTest extends TestCase
             ->willReturn($this->createMock(AbstractResponseType::class));
 
         $authorizationRequest = $this->approvedAuthorizationRequest();
-        $authorizationRequest->setResponseMode($responseModeMock);
+        $authorizationRequest->setResponseMode(ResponseModesEnum::FormPost);
         $this->expectAuthCodeToBeIssued();
 
         $this->sut()->completeOidcAuthorizationRequest($authorizationRequest);
@@ -2632,6 +2665,11 @@ class AuthCodeGrantTest extends TestCase
             $this->accessTokenClaimsResolverMock,
             $this->moduleConfigMock,
             $this->issuerStateRepositoryMock,
+            new ResponseModeResolver(
+                new QueryResponseMode(),
+                new FragmentResponseMode(),
+                $this->formPostResponseModeMock,
+            ),
         );
 
         $grant->setEncryptionKey($this->encryptionKey);

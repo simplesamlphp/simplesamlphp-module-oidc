@@ -538,7 +538,7 @@ class AuthenticationServiceTest extends TestCase
     {
         $this->authorizationRequestMock->method('getRedirectUri')->willReturn(self::REDIRECT_URI);
         $this->authorizationRequestMock->method('getState')->willReturn('the-state');
-        $this->authorizationRequestMock->method('getResponseMode')->willReturn(new FragmentResponseMode());
+        $this->authorizationRequestMock->method('getResponseMode')->willReturn(ResponseModesEnum::Fragment);
 
         $state = $this->mock()->prepareStateArray(
             $this->authSimpleMock,
@@ -561,7 +561,7 @@ class AuthenticationServiceTest extends TestCase
     {
         $this->authorizationRequestMock->method('getRedirectUri')->willReturn(self::REDIRECT_URI);
         $this->authorizationRequestMock->method('getState')->willReturn('the-state');
-        $this->authorizationRequestMock->method('getResponseMode')->willReturn(new FragmentResponseMode());
+        $this->authorizationRequestMock->method('getResponseMode')->willReturn(ResponseModesEnum::Fragment);
         $this->authorizationRequestMock->method('getPushedAuthorizationRequestUri')
             ->willReturn(self::PUSHED_REQUEST_URI);
 

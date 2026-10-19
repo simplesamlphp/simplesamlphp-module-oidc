@@ -27,10 +27,15 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\FragmentResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
+use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeResolver;
 use SimpleSAML\Module\oidc\Services\AuthenticationService;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
+use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\Request;
@@ -113,6 +118,8 @@ class AuthorizationControllerTest extends TestCase
     /** What the controller handed to ErrorResponder::forException(); see captureTheErrorGivenToTheResponder(). */
     protected ?OAuthServerException $errorGivenToTheResponder = null;
 
+    protected ResponseModeResolver $responseModeResolver;
+
 
     /**
      * @throws \Exception
@@ -138,6 +145,11 @@ class AuthorizationControllerTest extends TestCase
         $this->sspBridgeLocaleLanguageMock = $this->createMock(Language::class);
         $this->sspBridgeMock->method('locale')->willReturn($this->sspBridgeLocaleMock);
         $this->sspBridgeLocaleMock->method('language')->willReturn($this->sspBridgeLocaleLanguageMock);
+        $this->responseModeResolver = new ResponseModeResolver(
+            new QueryResponseMode(),
+            new FragmentResponseMode(),
+            $this->createStub(FormPostResponseMode::class),
+        );
 
         $this->state = [
             'Attributes' => self::AUTH_DATA['Attributes'],
@@ -182,6 +194,7 @@ class AuthorizationControllerTest extends TestCase
         ?ErrorResponder $errorResponder = null,
         ?UiLocalesResolver $uiLocalesResolver = null,
         ?SspBridge $sspBridge = null,
+        ?ResponseModeResolver $responseModeResolver = null,
     ): AuthorizationController {
         $authenticationService ??= $this->authenticationServiceStub;
         $authorizationServer ??= $this->authorizationServerStub;
@@ -191,6 +204,7 @@ class AuthorizationControllerTest extends TestCase
         $errorResponder ??= $this->errorResponderMock;
         $uiLocalesResolver ??= $this->uiLocalesResolverStub;
         $sspBridge ??= $this->sspBridgeMock;
+        $responseModeResolver ??= $this->responseModeResolver;
 
         return new AuthorizationController(
             $authenticationService,
@@ -201,6 +215,7 @@ class AuthorizationControllerTest extends TestCase
             $errorResponder,
             $uiLocalesResolver,
             $sspBridge,
+            $responseModeResolver,
         );
     }
 
@@ -851,5 +866,41 @@ class AuthorizationControllerTest extends TestCase
         $this->expectExceptionMessage('End-User is not already authenticated.');
 
         ($this->mock())($this->serverRequestStub);
+    }
+
+
+    /**
+     * The login_required of a subject mismatch goes back in the response mode the request carries by its value.
+     *
+     * @throws \Throwable
+     */
+    public function testValidateIdTokenHintAnswersAMismatchInTheResponseModeOfTheRequest(): void
+    {
+        $clientStub = $this->createStub(ClientEntityInterface::class);
+        $clientStub->method('getIdentifier')->willReturn('clientid');
+
+        $this->authorizationRequestMock->method('getIdTokenHintSubject')->willReturn('subject-a');
+        $this->authorizationRequestMock->method('getClient')->willReturn($clientStub);
+        $this->authorizationRequestMock->method('getRedirectUri')->willReturn('https://rp.example.org/cb');
+        $this->authorizationRequestMock->method('getResponseMode')->willReturn(ResponseModesEnum::Fragment);
+
+        $this->serverRequestStub->method('getQueryParams')->willReturn([ProcessingChain::AUTHPARAM => '123']);
+
+        $this->authenticationServiceStub->method('manageState')->willReturn($this->state);
+        $this->authenticationServiceStub
+            ->method('getAuthorizationRequestFromState')
+            ->willReturn($this->authorizationRequestMock);
+        $this->authenticationServiceStub->method('subjectMatchesAttributes')->willReturn(false);
+
+        try {
+            ($this->mock())($this->serverRequestStub);
+            $this->fail('A subject mismatch must not be authorized.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('login_required', $exception->getErrorType());
+            $this->assertStringStartsWith(
+                'https://rp.example.org/cb#',
+                $exception->generateHttpResponse(new PsrResponse())->getHeaderLine('Location'),
+            );
+        }
     }
 }
