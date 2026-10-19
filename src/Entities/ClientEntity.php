@@ -310,6 +310,22 @@ class ClientEntity implements ClientEntityInterface
     }
 
 
+    /**
+     * A copy of the client without what authenticates it: an empty secret, and no hash of a registration access
+     * token. For a client kept where its secret must not go, as the processing chain's state
+     * (AuthenticationService::prepareStateArray()). The copy must not be stored (ClientRepository::update() would
+     * write the empty secret over the client's), nor a client authenticated against it.
+     */
+    public function withoutCredentials(): ClientEntityInterface
+    {
+        $client = clone $this;
+        $client->secret = '';
+        $client->registrationAccessToken = null;
+
+        return $client;
+    }
+
+
     public function getDescription(): string
     {
         return $this->description;

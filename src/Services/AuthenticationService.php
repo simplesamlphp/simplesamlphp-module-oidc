@@ -249,9 +249,14 @@ class AuthenticationService
 
         $state['Oidc'] = [
             'OpenIdProviderMetadata' => $this->opMetadataService->getMetadata(),
+            // Without what authenticates the client, as the request below.
             'RelyingPartyMetadata' => array_filter(
                 $clientArray,
-                fn(/** @param array-key $key */ $key) => $key !== 'secret',
+                fn(/** @param array-key $key */ $key) => !in_array(
+                    $key,
+                    [ClientEntity::KEY_SECRET, ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN],
+                    true,
+                ),
                 ARRAY_FILTER_USE_KEY,
             ),
             // Read as the grants validate the request (AuthCodeGrant::$allowedAuthorizationHttpMethods): from the
@@ -277,7 +282,7 @@ class AuthenticationService
         $state[State::RESTART] = $request->getUri()->__toString();
 
         // Data required after we get back from a ProcessingChain redirect
-        $state['authorizationRequest'] = $authorizationRequest;
+        $state['authorizationRequest'] = $this->withClientWithoutCredentials($authorizationRequest);
         $state['authSourceId'] = $authSimple->getAuthSource()->getAuthId();
 
         // Where the client is answered if the End-User cancels in an authentication processing filter.
@@ -286,6 +291,29 @@ class AuthenticationService
         );
 
         return $state;
+    }
+
+
+    /**
+     * The request as the processing chain's state keeps it: a copy whose client is without what authenticates it
+     * (ClientEntityInterface::withoutCredentials()). The state goes into the session store whenever an
+     * authentication processing filter shows the End-User a page of its own (State::saveState()), and every filter
+     * reads it. Nothing after the login needs the secret or the registration access token hash: the request is
+     * completed with the client's identifier, redirect URIs and metadata, and a client authenticates at the token
+     * endpoint against the client the repository holds.
+     */
+    protected function withClientWithoutCredentials(
+        OAuth2AuthorizationRequestInterface $authorizationRequest,
+    ): OAuth2AuthorizationRequestInterface {
+        $client = $authorizationRequest->getClient();
+        if (!$client instanceof ClientEntityInterface) {
+            return $authorizationRequest;
+        }
+
+        $authorizationRequest = clone $authorizationRequest;
+        $authorizationRequest->setClient($client->withoutCredentials());
+
+        return $authorizationRequest;
     }
 
 

@@ -511,6 +511,8 @@ class AuthenticationServiceTest extends TestCase
             'entityid' => $state['Oidc']['RelyingPartyMetadata']['id'],
         ];
         $state[State::RESTART]         = self::URI;
+        // The request mock's client is a stub of League's interface, not a client of the module's, so the request goes
+        // into the state as it is (testTheStateCarriesNoneOfTheClientCredentials() has one of the module's).
         $state['authorizationRequest'] = $this->authorizationRequestMock;
         $state['authSourceId']         = '';
         // The request mock has no redirect URI, so there is no redirect to keep.
@@ -525,6 +527,64 @@ class AuthenticationServiceTest extends TestCase
                 $this->authorizationRequestMock,
             ),
         );
+    }
+
+
+    /**
+     * The state goes into the session store whenever an authentication processing filter shows the End-User a page,
+     * and every filter reads it: the request in it is a copy whose client has neither the secret nor the
+     * registration access token hash, and the client's metadata neither. The request handed in keeps its client.
+     *
+     * @throws \SimpleSAML\Error\AuthSource
+     */
+    public function testTheStateCarriesNoneOfTheClientCredentials(): void
+    {
+        $secret = 'the-client-secret';
+        $registrationAccessTokenHash = 'the-registration-access-token-hash';
+        $client = new ClientEntity(
+            'clientid',
+            $secret,
+            'Client',
+            'Description',
+            [self::REDIRECT_URI],
+            ['openid'],
+            true,
+            true,
+            registrationAccessToken: $registrationAccessTokenHash,
+        );
+        $authorizationRequest = new AuthorizationRequest();
+        $authorizationRequest->setClient($client);
+
+        $state = $this->mock()->prepareStateArray(
+            $this->authSimpleMock,
+            $client,
+            $this->serverRequestMock,
+            $authorizationRequest,
+        );
+
+        $stateRequest = $state['authorizationRequest'];
+        $this->assertInstanceOf(AuthorizationRequest::class, $stateRequest);
+        $this->assertNotSame($authorizationRequest, $stateRequest);
+        $stateClient = $stateRequest->getClient();
+        $this->assertInstanceOf(ClientEntity::class, $stateClient);
+        $this->assertSame('clientid', $stateClient->getIdentifier());
+        $this->assertSame([self::REDIRECT_URI], $stateClient->getRedirectUri());
+        $this->assertSame('', $stateClient->getSecret());
+        $this->assertNull($stateClient->getRegistrationAccessTokenHash());
+
+        $relyingPartyMetadata = $state['Oidc']['RelyingPartyMetadata'];
+        $this->assertSame('clientid', $relyingPartyMetadata[ClientEntity::KEY_ID]);
+        $this->assertArrayNotHasKey(ClientEntity::KEY_SECRET, $relyingPartyMetadata);
+        $this->assertArrayNotHasKey(ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN, $relyingPartyMetadata);
+
+        // As State::saveState() writes it.
+        $serializedState = serialize($state);
+        $this->assertStringNotContainsString($secret, $serializedState);
+        $this->assertStringNotContainsString($registrationAccessTokenHash, $serializedState);
+
+        $this->assertSame($client, $authorizationRequest->getClient());
+        $this->assertSame($secret, $client->getSecret());
+        $this->assertSame($registrationAccessTokenHash, $client->getRegistrationAccessTokenHash());
     }
 
 

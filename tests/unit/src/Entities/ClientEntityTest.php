@@ -835,6 +835,40 @@ class ClientEntityTest extends TestCase
 
 
     /**
+     * The copy for where the secret must not go has neither the secret nor the registration access token hash, and
+     * is otherwise the client, of its class; the client keeps both.
+     *
+     * @throws \JsonException
+     */
+    public function testACopyWithoutCredentialsHasNoSecretNorRegistrationAccessTokenHash(): void
+    {
+        $this->isConfidential = true;
+        $entity = $this->entityWith(
+            jwks: ['keys' => [['kty' => 'EC', 'kid' => 'rp-1']]],
+            extraMetadata: ['id_token_signed_response_alg' => 'RS256'],
+            registrationAccessToken: 'hash-1',
+        );
+
+        $copy = $entity->withoutCredentials();
+
+        $this->assertInstanceOf(ClientEntity::class, $copy);
+        $this->assertNotSame($entity, $copy);
+        $this->assertSame('', $copy->getSecret());
+        $this->assertHashIs(null, $copy);
+        $this->assertSame(
+            array_merge(
+                $entity->getState(),
+                [ClientEntity::KEY_SECRET => '', ClientEntity::KEY_REGISTRATION_ACCESS_TOKEN => null],
+            ),
+            $copy->getState(),
+        );
+
+        $this->assertSame('secret', $entity->getSecret());
+        $this->assertHashIs('hash-1', $entity);
+    }
+
+
+    /**
      * @return array<string, array{0: ?array<string,mixed>, 1: ?string}>
      */
     public static function idTokenSignedResponseAlgProvider(): array

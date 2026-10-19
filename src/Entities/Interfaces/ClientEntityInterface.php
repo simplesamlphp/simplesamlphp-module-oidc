@@ -20,6 +20,13 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
     public function restoreSecret(string $secret): self;
 
 
+    /**
+     * A copy of the client without what authenticates it: an empty secret, and no hash of a registration access
+     * token.
+     */
+    public function withoutCredentials(): self;
+
+
     public function getDescription(): string;
 
 
