@@ -9,6 +9,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 
@@ -52,6 +53,7 @@ class CredentialIssuerMetadataService
         // configuration. Building the facade validates the DID destination settings and the VCI cache
         // adapter, which only a credential configuration that binds a holder key has any use for.
         protected readonly DidFactory $didFactory,
+        protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
     ) {
     }
 
@@ -91,6 +93,10 @@ class CredentialIssuerMetadataService
         // Nothing is advertised which could not be issued as it stands, so a malformed configuration fails the
         // whole document, as it fails discovery (ModuleConfig::getVciScopes()).
         $this->moduleConfig->validateVciCredentialConfigurations();
+
+        // Nor while nothing could be signed: a certificate chain of the active key which can not be used (an expired
+        // one, say) fails the document as it fails issuance.
+        $this->vciCertificateChainResolver->resolveFor($signatureKeyPair);
 
         $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 

@@ -328,6 +328,39 @@ The mode is read when a credential is signed, so changing it reaches newly issue
 credentials only. Credentials already in wallets go on naming the identity they
 were issued under — which is what the retention rules below are about.
 
+### Issuer certificates (`x5c`)
+
+A signing key can also be backed by an X.509 certificate chain, which is how HAIP
+1.0 has an issuer's key resolved (sections 6.1 and 6.1.1). Name the chain in the
+key's entry under `OPTION_VCI_SIGNATURE_KEY_PAIRS`
+(`KEY_CERTIFICATE_CHAIN_FILENAME`): a PEM file with the certificate of the key
+first, then the certificate of each CA up the chain, without the root. Name the
+roots in `OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME`, a PEM file of self-signed
+root certificates, which is required as soon as any key has a chain. Both are
+read from SimpleSAMLphp's certificate directory unless the path is absolute.
+
+What the key signs then carries the chain in its `x5c` header: credentials of
+every format, under whichever mode above, beside the `kid` the mode gives them,
+and Status List Tokens under the `x509` [key profile](#key-profile). The mode
+still decides `iss`. A verifier which goes by the certificate has to tie it to the
+issuer, and the plainest way is the `https` mode with a certificate naming the
+issuer URL (a URI subject alternative name) or its host (a DNS one); the
+Verifiable Credential configuration screen warns when a certificate names
+neither.
+
+The chain is validated against the roots each time something is signed: path
+validation with each certificate's validity period, CA constraints and critical
+extensions, the certificate holding the key's public key, no root inside the
+chain and no self-signed certificate. A chain which does not validate, an
+expired one included, stops issuance and the Credential Issuer metadata until it
+is fixed, rather than reaching wallets. The configuration screen lists each
+chain with the expiry of every certificate in it, so renew in time: a renewed
+certificate for the same key needs only a new chain file, and a new key is a
+[key rollover](#key-rollover) with a chain of its own. Revocation is not
+checked; to stop trusting a CA, remove its root or the chains it issued. An
+intermediate CA can not be a trust anchor, since PHP's path validation accepts
+self-signed roots only.
+
 ### Keeping the `https` identity resolvable
 
 A verifier discovers the key set by inserting `.well-known/jwt-vc-issuer` into
@@ -1470,6 +1503,10 @@ key it was signed with is a deployment choice:
   error rather than something discovered when a token is signed.
 - `jwks`: `iss` is this module's issuer URL and `kid` is a JWKS key ID, so the key is resolved through
   the published JWKS. Use this for Relying Parties which will not accept a `did:jwk` key identifier.
+- `x509`: `iss` is this module's issuer URL and `x5c` the certificate chain of the signing key, without a
+  `kid`, as HAIP 1.0 section 6.1 has it (see [Issuer certificates](#issuer-certificates-x5c)). The key has
+  to have a chain: while the active key has none, the credentials of a pool on this profile are refused
+  rather than given a status nobody could publish.
 
 Each list records the profile it was created under. Changing the setting therefore routes newly issued
 credentials to newly created lists, while existing lists keep being served under the profile their
@@ -1493,10 +1530,19 @@ credentials by a `did:jwk` while its Status Lists use `did:web`, and then the cr
 seen that identifier. An identifier leaves the Status List row once every list under it has been
 retired, and that is the point at which its document may finally be withdrawn.
 
-**Selecting `did_web` is a one-way upgrade.** Once a list has been created under it, the deployment can
-no longer be rolled back to a release that predates the profile: an older process reading that row
-refuses it rather than guessing an identity, which takes that list's endpoint down. Roll the code
-forward everywhere before switching a pool onto it.
+**An `x509` list records its key, not its chain.** A token carries the chain its key has when the token
+is signed, so a renewed certificate reaches every list signed with that key at its next token, and a
+published token whose chain is no longer the key's is signed again rather than served. A token also
+never outlives a certificate of the chain it carries: it expires when the first of them does, an
+intermediate's or the root's as well as the key's own, and its `ttl` and the cache lifetime it is served
+with stop there too. A chain which does not validate when a token is due to be signed fails that list
+(`503`), as a missing key does; until then the published token, signed under the chain as it validated,
+is still served.
+
+**Selecting `did_web` or `x509` is a one-way upgrade.** Once a list has been created under it, the
+deployment can no longer be rolled back to a release that predates the profile: an older process reading
+that row refuses it rather than guessing an identity, which takes that list's endpoint down. Roll the
+code forward everywhere before switching a pool onto it.
 
 **A signing key has to outlive every list signed with it.** Each list records the key it was created
 with and is re-signed from that key alone, never from whichever key is current. Rotating keys is
@@ -1512,7 +1558,8 @@ and since a revocation is the most likely thing to force a re-sign, the breakage
 when the list matters most.
 
 Whether credentials stay verifiable in the meantime depends on the profile. A `did_jwk` token carries
-its own key, so tokens already published keep verifying. Under `jwks` the key is resolved through this
+its own key, so tokens already published keep verifying, and so does an `x509` one, which carries it in
+its certificate. Under `jwks` the key is resolved through this
 module's published JWKS, which the same removal empties, so already published tokens stop verifying too
 once Relying Parties refetch it. `did_web` behaves the same way as `jwks` here: the key is named in the
 published DID document, which is built from the configured keys, so removing one withdraws it there

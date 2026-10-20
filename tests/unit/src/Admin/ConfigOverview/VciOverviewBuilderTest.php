@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
+use SimpleSAML\Module\oidc\Admin\ConfigOverview\Row;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
@@ -18,12 +19,24 @@ use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
+use SimpleSAML\OpenID\ValueAbstracts;
+use SimpleSAML\OpenID\ValueAbstracts\Factories\SignatureKeyPairBagFactory;
+use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\OpenID\X509\Certificate;
+use SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\CertificateBuilder;
 use stdClass;
 use Stringable;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
+use Throwable;
 
 /**
  * One line is deliberately left uncovered here: the `continue` in `hasMappingFlag()`, which skips
@@ -2965,5 +2978,301 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertSame('notDeclared', $mapping['ineffectiveReason']);
 
         $this->assertStringContainsString('never reaches the credential', (string)$row->getWarning());
+    }
+
+
+    /*****************************************************************************************************************
+     * Issuer certificates.
+     ****************************************************************************************************************/
+
+    public function testShowsNoIssuerTrustAnchorsByDefault(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    public function testShowsEachIssuerTrustAnchorByItsSubjectAndExpiry(): void
+    {
+        $root = (new X509())->certificateFactory()->fromDer(CertificateBuilder::root(CertificateBuilder::ecKey()));
+        $resolverMock = $this->createMock(VciCertificateChainResolver::class);
+        $resolverMock->method('getTrustAnchors')->willReturn([$root]);
+
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module.crt'],
+                vciCertificateChainResolver: $resolverMock,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringList, $row->getValueType());
+        $this->assertSame([$this->described($root)], $row->getValue());
+    }
+
+
+    public function testReportsIssuerTrustAnchorsWhichCanNotBeUsedInPlace(): void
+    {
+        $resolverMock = $this->createMock(VciCertificateChainResolver::class);
+        $resolverMock->method('getTrustAnchors')->willThrowException(new RuntimeException('not a root'));
+
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module.crt'],
+                vciCertificateChainResolver: $resolverMock,
+            )->build(),
+            ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+        $this->assertStringNotContainsString('not a root', (string)$row->getWarning());
+    }
+
+
+    public function testShowsNoCertificateChainByDefault(): void
+    {
+        $row = $this->certificateChainsRow(['vci-01' => null]);
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Key pairs which can not be read are the key pairs' row's to report.
+     */
+    public function testShowsNoCertificateChainWhileTheKeyPairsCanNotBeRead(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => []])->build(),
+            'Signature Key Certificate Chains',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Each key with a chain, by its key ID, the chain as validated: from the leaf to the trust anchor, each
+     * certificate by its subject and the end of its validity. A key without one is not listed.
+     */
+    public function testShowsTheCertificateChainOfEachKeyWhichHasOne(): void
+    {
+        $chain = $this->certificateChain();
+
+        $row = $this->certificateChainsRow(['vci-01' => $chain, 'vci-02' => null]);
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringMap, $row->getValueType());
+        $this->assertSame(
+            ['vci-01' => array_map($this->described(...), $chain->getValidatedPath()->getCertificates())],
+            $row->getValue(),
+        );
+        $this->assertCount(3, $chain->getValidatedPath()->getCertificates());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Naming the issuer by its host is enough.
+     */
+    public function testAcceptsALeafWhichNamesTheIssuersHost(): void
+    {
+        $row = $this->certificateChainsRow(['vci-01' => $this->certificateChain([], ['op.example.org'])]);
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+
+    public function testWarnsOfALeafWhichNamesNeitherTheIssuerNorItsHost(): void
+    {
+        $row = $this->certificateChainsRow(
+            ['vci-01' => $this->certificateChain(['https://other.example.org'], ['other.example.org'])],
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString(
+            'names neither the Credential Issuer URL',
+            (string)$row->getWarning(),
+        );
+    }
+
+
+    /**
+     * A chain which can not be used is left out and named by the warning, not by its reason, which goes to the log.
+     */
+    public function testWarnsOfACertificateChainWhichCanNotBeUsed(): void
+    {
+        $chain = $this->certificateChain();
+
+        $row = $this->certificateChainsRow(['vci-01' => $chain, 'vci-02' => new RuntimeException('expired')]);
+
+        $this->assertNotNull($row);
+        $this->assertSame(['vci-01'], array_keys((array)$row->getValue()));
+        $this->assertStringContainsString('can not be used', (string)$row->getWarning());
+        $this->assertStringNotContainsString('expired', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A pool under the `x509` key profile refuses credentials while the active key has no chain.
+     */
+    public function testWarnsOfAnX509PoolWhileTheActiveKeyHasNoCertificateChain(): void
+    {
+        $row = $this->certificateChainsRow(
+            ['vci-01' => null, 'vci-02' => $this->certificateChain()],
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'default' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => [],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::X509->value,
+                    ],
+                ],
+            ],
+        );
+
+        $this->assertNotNull($row);
+        $this->assertStringContainsString('signs under the "x509" key profile', (string)$row->getWarning());
+    }
+
+
+    public function testDoesNotWarnOfAnX509PoolWhenTheActiveKeyHasACertificateChain(): void
+    {
+        $row = $this->certificateChainsRow(
+            ['vci-01' => $this->certificateChain(), 'vci-02' => null],
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'default' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => [],
+                        StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::X509->value,
+                    ],
+                ],
+            ],
+        );
+
+        $this->assertNotNull($row);
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * The chains row of a deployment whose key pairs are those of the given key IDs, the first active, each
+     * resolving to the given chain, or to none, or throwing.
+     *
+     * @param array<string,mixed> $chains By key ID: its chain, null for none, or what resolving it throws.
+     * @param array<string,mixed> $overrides
+     */
+    protected function certificateChainsRow(array $chains = [], array $overrides = []): ?Row
+    {
+        $signatureKeyPairs = [];
+
+        foreach (array_keys($chains) as $keyId) {
+            $keyPairMock = $this->createMock(KeyPair::class);
+            $keyPairMock->method('getKeyId')->willReturn($keyId);
+            $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+            $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+            $signatureKeyPairs[] = $signatureKeyPairMock;
+        }
+
+        $signatureKeyPairBagFactoryMock = $this->createMock(SignatureKeyPairBagFactory::class);
+        $signatureKeyPairBagFactoryMock->method('fromConfig')
+            ->willReturn(new SignatureKeyPairBag(...$signatureKeyPairs));
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->method('signatureKeyPairBagFactory')->willReturn($signatureKeyPairBagFactoryMock);
+
+        $resolverMock = $this->createMock(VciCertificateChainResolver::class);
+        $resolverMock->method('resolveFor')->willReturnCallback(
+            function (SignatureKeyPair $signatureKeyPair) use ($chains): ?VciCertificateChain {
+                $chain = $chains[$signatureKeyPair->getKeyPair()->getKeyId()] ?? null;
+
+                if ($chain instanceof Throwable) {
+                    throw $chain;
+                }
+
+                $this->assertTrue($chain === null || $chain instanceof VciCertificateChain);
+
+                return $chain;
+            },
+        );
+
+        return $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_ISSUER => 'https://op.example.org',
+                    // Read for its files; the pairs themselves are the bag above.
+                    ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                        [
+                            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+                            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+                            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+                        ],
+                    ],
+                    ...$overrides,
+                ],
+                valueAbstracts: $valueAbstractsMock,
+                vciCertificateChainResolver: $resolverMock,
+            )->build(),
+            'Signature Key Certificate Chains',
+        );
+    }
+
+
+    /**
+     * A chain of a leaf with the given subject alternative names, an intermediate, and a root, validated.
+     *
+     * @param list<string> $uris
+     * @param list<string> $dnsNames
+     */
+    protected function certificateChain(
+        array $uris = ['https://op.example.org'],
+        array $dnsNames = [],
+    ): VciCertificateChain {
+        $rootKey = CertificateBuilder::ecKey();
+        $intermediateKey = CertificateBuilder::ecKey();
+        $x509 = new X509();
+        $chain = $x509->certificateFactory()->chainFromPem(CertificateBuilder::pem(
+            CertificateBuilder::certificate(
+                'CN=Test Credential Issuer',
+                CertificateBuilder::ecKey(),
+                'CN=Test Intermediate CA',
+                $intermediateKey,
+                CertificateBuilder::leafExtensions($uris, $dnsNames),
+            ),
+            CertificateBuilder::certificate(
+                'CN=Test Intermediate CA',
+                $intermediateKey,
+                'CN=Test Root CA',
+                $rootKey,
+                CertificateBuilder::caExtensions(),
+            ),
+        ));
+
+        return new VciCertificateChain(
+            $chain,
+            $x509->certificatePathValidator()->validate(
+                $chain,
+                [$x509->certificateFactory()->fromDer(CertificateBuilder::root($rootKey))],
+            ),
+        );
+    }
+
+
+    protected function described(Certificate $certificate): string
+    {
+        $notAfter = gmdate('Y-m-d H:i', $certificate->getNotAfter());
+
+        return $certificate->getSubjectDn() . ' (valid until ' . $notAfter . ' UTC)';
     }
 }

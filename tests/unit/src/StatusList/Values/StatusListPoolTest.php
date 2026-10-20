@@ -214,8 +214,8 @@ class StatusListPoolTest extends TestCase
     public function testRejectsAnUnknownKeyProfile(): void
     {
         $this->assertRefusedBecause(
-            'Status List pool "default" has a "key_profile" which is not one of: did_jwk, did_web, jwks.',
-            fn (): StatusListPool => $this->sut([StatusListPool::KEY_KEY_PROFILE => 'x509']),
+            'Status List pool "default" has a "key_profile" which is not one of: did_jwk, did_web, jwks, x509.',
+            fn (): StatusListPool => $this->sut([StatusListPool::KEY_KEY_PROFILE => 'x5u']),
         );
     }
 
@@ -725,6 +725,7 @@ class StatusListPoolTest extends TestCase
         return [
             'did:jwk' => [StatusListKeyProfileEnum::DidJwk],
             'jwks' => [StatusListKeyProfileEnum::Jwks],
+            'x509' => [StatusListKeyProfileEnum::X509],
         ];
     }
 

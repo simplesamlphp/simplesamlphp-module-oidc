@@ -46,4 +46,17 @@ enum StatusListKeyProfileEnum: string
      * `did:jwk` key identifier.
      */
     case Jwks = 'jwks';
+
+    /**
+     * `iss` is the module's issuer URL and `x5c` the certificate chain of the signing key, without its trust
+     * anchor, as HAIP 1.0 section 6.1 has it; there is no `kid`. A Relying Party validates the chain against the
+     * trust anchor it holds for this issuer and verifies with the leaf's key, so the token is self-verifiable, and
+     * the certificate is what binds the key to the issuer. Requires a certificate chain on the signing key
+     * (ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME), the same one credentials carry.
+     *
+     * A list keeps its key, not its chain: a token carries the chain its key has when it is signed, so a renewed
+     * certificate reaches the lists signed with that key at their next token, and a token never outlives a
+     * certificate of the chain it carries.
+     */
+    case X509 = 'x509';
 }

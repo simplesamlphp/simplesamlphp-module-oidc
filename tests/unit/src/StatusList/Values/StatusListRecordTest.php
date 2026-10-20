@@ -505,6 +505,7 @@ class StatusListRecordTest extends TestCase
             'did:jwk' => ['did_jwk', StatusListKeyProfileEnum::DidJwk],
             'did:web' => ['did_web', StatusListKeyProfileEnum::DidWeb],
             'jwks' => ['jwks', StatusListKeyProfileEnum::Jwks],
+            'x509' => ['x509', StatusListKeyProfileEnum::X509],
         ];
     }
 
@@ -528,10 +529,10 @@ class StatusListRecordTest extends TestCase
     {
         $this->expectException(StatusListException::class);
         $this->expectExceptionMessage(
-            'Status List row column "key_profile" holds an unknown key profile "x509".',
+            'Status List row column "key_profile" holds an unknown key profile "x5u".',
         );
 
-        StatusListRecord::fromRow($this->row(['key_profile' => 'x509']));
+        StatusListRecord::fromRow($this->row(['key_profile' => 'x5u']));
     }
 
 

@@ -10,6 +10,8 @@ use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
+use SimpleSAML\OpenID\ValueAbstracts;
 use Throwable;
 
 /**
@@ -31,6 +33,10 @@ trait VciOverviewTestTrait
      *                                        test tell one endpoint row from another. Does not
      *                                        cover urlVciDidDocument, which has its own
      *                                        parameter above.
+     * @param ?\SimpleSAML\OpenID\ValueAbstracts $valueAbstracts What builds the key pairs, for a test which
+     *                                                            decides which there are.
+     * @param ?\SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver $vciCertificateChainResolver
+     *        What the key pairs' certificate chains resolve to; none by default.
      * @throws \Exception
      */
     protected function buildVciOverviewBuilder(
@@ -39,6 +45,8 @@ trait VciOverviewTestTrait
         ?string $didDocumentUrl = null,
         array|Throwable $statusListIssuerIdentifiers = [],
         array $routeUrls = [],
+        ?ValueAbstracts $valueAbstracts = null,
+        ?VciCertificateChainResolver $vciCertificateChainResolver = null,
     ): VciOverviewBuilder {
         $vciIssuerIdentityRepository = $this->createMock(VciIssuerIdentityRepository::class);
         $vciIssuerIdentityRepository->method('getAllUsed')->willReturn($usedIssuerIdentities);
@@ -60,12 +68,13 @@ trait VciOverviewTestTrait
         }
 
         return new VciOverviewBuilder(
-            $this->buildOverviewModuleConfig($overrides),
+            $this->buildOverviewModuleConfig($overrides, valueAbstracts: $valueAbstracts),
             $routes,
             new DateIntervalFormatter(),
             $this->createMock(LoggerService::class),
             $vciIssuerIdentityRepository,
             $statusListRepository,
+            $vciCertificateChainResolver ?? $this->createMock(VciCertificateChainResolver::class),
         );
     }
 }

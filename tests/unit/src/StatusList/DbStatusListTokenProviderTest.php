@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\StatusList;
 
+use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -17,6 +18,7 @@ use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime as DateTimeHelper;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
@@ -26,6 +28,8 @@ use SimpleSAML\Module\oidc\StatusList\StatusListContentHasher;
 use SimpleSAML\Module\oidc\StatusList\StatusListKeyResolver;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Did\DidUrl;
@@ -34,12 +38,15 @@ use SimpleSAML\OpenID\Exceptions\StatusListException as LibraryStatusListExcepti
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
+use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\TokenStatusList;
 use SimpleSAML\OpenID\TokenStatusList\Factories\StatusListFactory;
 use SimpleSAML\OpenID\TokenStatusList\Factories\StatusListTokenFactory;
 use SimpleSAML\OpenID\TokenStatusList\StatusListToken;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\CertificateBuilder;
 
 #[CoversClass(DbStatusListTokenProvider::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -81,6 +88,9 @@ class DbStatusListTokenProviderTest extends TestCase
     protected StatusListContentHasher $statusListContentHasher;
 
     protected Helpers $helpers;
+
+    /** The library's own facade in place of the double, for a test which signs for real. */
+    protected ?TokenStatusList $tokenStatusList = null;
 
 
     /**
@@ -131,13 +141,14 @@ class DbStatusListTokenProviderTest extends TestCase
             ->willReturn(new StatusListFactory(new OpenIdHelpers()));
         $tokenStatusListMock->method('statusListTokenFactory')
             ->willReturn($this->statusListTokenFactoryMock);
+        $tokenStatusListMock->method('helpers')->willReturn(new OpenIdHelpers());
 
         return new DbStatusListTokenProvider(
             $this->statusListRepositoryMock,
             $this->statusListEntryRepositoryMock,
             $this->statusListContentHasher,
             $this->statusListKeyResolverMock,
-            $tokenStatusListMock,
+            $this->tokenStatusList ?? $tokenStatusListMock,
             $this->moduleConfigMock,
             $this->didFactoryMock,
             $this->helpers,
@@ -759,5 +770,638 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
         $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
         $this->statusListRepositoryMock->method('publishToken')->willReturn(true);
+    }
+
+
+    /**
+     * A certificate chain whose `x5c` is the given one, valid until the given moment.
+     *
+     * @param non-empty-list<non-empty-string> $x5c
+     */
+    protected function certificateChain(array $x5c, int $earliestNotAfter): VciCertificateChain
+    {
+        $certificateChainMock = $this->createMock(VciCertificateChain::class);
+        $certificateChainMock->method('getX5c')->willReturn($x5c);
+        $certificateChainMock->method('getEarliestNotAfter')->willReturn($earliestNotAfter);
+
+        return $certificateChainMock;
+    }
+
+
+    /**
+     * A list under the `x509` key profile with the given token published just now, with its full life ahead of it.
+     *
+     * @throws \Exception
+     */
+    protected function publishedX509Record(
+        string $token,
+        string $expiresAt = '+7 days',
+        string $issuedAt = 'now',
+    ): StatusListRecord {
+        return $this->record(
+            $token,
+            $this->contentHashFor([]),
+            $issuedAt,
+            $expiresAt,
+            keyProfile: StatusListKeyProfileEnum::X509,
+        );
+    }
+
+
+    /**
+     * A token as this provider publishes it under the `x509` key profile: what is read of it is its header.
+     *
+     * @param list<string> $x5c
+     */
+    protected function tokenCarrying(array $x5c): string
+    {
+        $base64Url = (new OpenIdHelpers())->base64Url();
+
+        $header = $base64Url->encode((string)json_encode(['alg' => 'ES256', 'typ' => 'statuslist+jwt', 'x5c' => $x5c]));
+
+        return $header . '.' . $base64Url->encode('{}') . '.c2lnbmF0dXJl';
+    }
+
+
+    /**
+     * Under the `x509` key profile the token names the issuer by its URL and the key by its certificate chain,
+     * without the trust anchor and without a `kid` (HAIP 1.0 section 6.1). The chain is that of the key the list was
+     * created with, which is the one it is signed with.
+     *
+     * @throws \Exception
+     */
+    public function testSignsWithTheIssuerAndTheCertificateChainUnderTheX509Profile(): void
+    {
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $signatureKeyPair = $this->signatureKeyPair();
+        $this->statusListKeyResolverMock = $this->createMock(StatusListKeyResolver::class);
+        $this->statusListKeyResolverMock->method('getByKeyId')->with(self::SIGNING_KEY_ID)
+            ->willReturn($signatureKeyPair);
+        $this->statusListKeyResolverMock->expects($this->atLeastOnce())->method('getCertificateChainFor')
+            ->with($signatureKeyPair)
+            ->willReturn($this->certificateChain(['bGVhZg==', 'aW50ZXJtZWRpYXRl'], time() + 86400 * 365));
+        $this->statusListTokenFactoryMock = $this->createMock(StatusListTokenFactory::class);
+
+        $this->statusListTokenFactoryMock->expects($this->once())->method('forStatusList')
+            ->with(
+                $this->anything(),
+                self::LIST_URI,
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                $this->anything(),
+                'https://op.example.org',
+                [],
+                ['x5c' => ['bGVhZg==', 'aW50ZXJtZWRpYXRl']],
+            )
+            ->willReturn($this->signedTokenStub());
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * A token under the `x509` key profile names its key by nothing but the chain, so a key without a usable one
+     * does not sign one at all.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotSignAnX509ListWhoseKeyHasNoUsableChain(): void
+    {
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willThrowException(new StatusListException('The key "vci-signing-key" has no certificate chain.'));
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('The key "vci-signing-key" has no certificate chain.');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * A token never outlives a certificate it carries: when the chain expires before the list's token validity is
+     * up (an intermediate, say), the token expires with it, and its `ttl` stops there too. So does what it is
+     * published with, which StatusListTokenResult serves the cache lifetime from.
+     *
+     * @throws \Exception
+     */
+    public function testAnX509TokenExpiresNoLaterThanItsCertificateChain(): void
+    {
+        $chainExpiresAt = time() + 7200;
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], $chainExpiresAt));
+        $this->loggerServiceMock->expects($this->once())->method('warning')
+            ->with($this->stringContains('expires early because a certificate of its key\'s chain does'));
+
+        $signed = [];
+        $this->statusListTokenFactoryMock = $this->createMock(StatusListTokenFactory::class);
+        $this->statusListTokenFactoryMock->method('forStatusList')->willReturnCallback(
+            function (mixed ...$arguments) use (&$signed): StatusListToken {
+                $signed = $arguments;
+
+                return $this->signedTokenStub();
+            },
+        );
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($chainExpiresAt, $result->getExpiresAt()->getTimestamp());
+        [, , , , $issuedAt, $expiresAt, $ttl] = $signed;
+        $this->assertInstanceOf(DateTimeImmutable::class, $issuedAt);
+        $this->assertInstanceOf(DateTimeImmutable::class, $expiresAt);
+        $this->assertInstanceOf(DateInterval::class, $ttl);
+        $this->assertSame($chainExpiresAt, $expiresAt->getTimestamp());
+        $this->assertSame(
+            $chainExpiresAt - $issuedAt->getTimestamp(),
+            (new DateTimeImmutable('@0'))->add($ttl)->getTimestamp(),
+        );
+        $this->assertLessThanOrEqual(7200, $result->getMaxAgeSeconds($issuedAt));
+    }
+
+
+    /**
+     * A chain which outlives the token's validity leaves both as the list has them.
+     *
+     * @throws \Exception
+     */
+    public function testAnX509TokenKeepsItsValidityWhenItsCertificateChainOutlivesIt(): void
+    {
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], time() + 86400 * 30));
+        $this->loggerServiceMock->expects($this->never())->method('warning');
+
+        $signed = [];
+        $this->statusListTokenFactoryMock = $this->createMock(StatusListTokenFactory::class);
+        $this->statusListTokenFactoryMock->method('forStatusList')->willReturnCallback(
+            function (mixed ...$arguments) use (&$signed): StatusListToken {
+                $signed = $arguments;
+
+                return $this->signedTokenStub();
+            },
+        );
+
+        $this->sut()->getToken(self::LIST_ID);
+
+        [, , , , $issuedAt, $expiresAt, $ttl] = $signed;
+        $this->assertInstanceOf(DateTimeImmutable::class, $issuedAt);
+        $this->assertInstanceOf(DateTimeImmutable::class, $expiresAt);
+        $this->assertInstanceOf(DateInterval::class, $ttl);
+        $this->assertSame(604800, $expiresAt->getTimestamp() - $issuedAt->getTimestamp());
+        $this->assertSame(43200, (new DateTimeImmutable('@0'))->add($ttl)->getTimestamp());
+    }
+
+
+    /**
+     * A published token carrying the chain its key has now is served as it is.
+     *
+     * @throws \Exception
+     */
+    public function testServesAnX509TokenWhichCarriesTheCurrentCertificateChain(): void
+    {
+        $token = $this->tokenCarrying(['bGVhZg==', 'aW50ZXJtZWRpYXRl']);
+        $this->statusListRepositoryMock->method('findById')->willReturn($this->publishedX509Record($token));
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg==', 'aW50ZXJtZWRpYXRl'], time() + 86400 * 30));
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($token, $result->getToken());
+    }
+
+
+    /**
+     * A renewed certificate, the same key included, retires the published token signed under the old chain: the
+     * list is signed again with the chain the key has now.
+     *
+     * @throws \Exception
+     */
+    public function testRepublishesAnX509TokenWhoseCertificateChainWasReplaced(): void
+    {
+        $record = $this->publishedX509Record(
+            $this->tokenCarrying(['b2xkIGxlYWY=', 'aW50ZXJtZWRpYXRl']),
+            issuedAt: '-10 minutes',
+        );
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bmV3IGxlYWY=', 'aW50ZXJtZWRpYXRl'], time() + 86400 * 30));
+        $this->statusListRepositoryMock->expects($this->once())->method('publishToken')->willReturn(true);
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame(self::SIGNED_TOKEN, $result->getToken());
+    }
+
+
+    /**
+     * Content which has not changed is published again only with a later `iat` than the published token's, so a
+     * renewed certificate within the second that token was issued in does not replace it then: it is served, rather
+     * than three signings failing to publish.
+     *
+     * @throws \Exception
+     */
+    public function testServesAnX509TokenWhichCanNotBeReplacedWithinTheSecondItWasIssuedIn(): void
+    {
+        $token = $this->tokenCarrying(['b2xkIGxlYWY=', 'aW50ZXJtZWRpYXRl']);
+        $record = $this->publishedX509Record($token, issuedAt: '+1 second');
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bmV3IGxlYWY=', 'aW50ZXJtZWRpYXRl'], time() + 86400 * 30));
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($token, $result->getToken());
+    }
+
+
+    /**
+     * Whether the published token is still unexpired is asked of the clock after the status query, not before it:
+     * an expired token is never served for being unreplaceable.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotServeAnUnreplaceableTokenWhichExpiredDuringTheStatusQuery(): void
+    {
+        $start = time();
+        $queried = false;
+        $dateTimeMock = $this->createMock(DateTimeHelper::class);
+        $dateTimeMock->method('getUtc')->willReturnCallback(
+            static function () use (&$queried, $start): DateTimeImmutable {
+                return new DateTimeImmutable('@' . ($queried ? $start + 10 : $start));
+            },
+        );
+        $helpersMock = $this->createMock(Helpers::class);
+        $helpersMock->method('dateTime')->willReturn($dateTimeMock);
+        $this->helpers = $helpersMock;
+
+        $record = $this->publishedX509Record(
+            $this->tokenCarrying(['b2xkIGxlYWY=']),
+            '@' . ($start + 5),
+            '@' . $start,
+        );
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock = $this->createMock(StatusListEntryRepository::class);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturnCallback(
+            static function () use (&$queried): array {
+                $queried = true;
+
+                return [];
+            },
+        );
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bmV3IGxlYWY='], $start + 86400 * 30));
+        $this->statusListRepositoryMock->method('publishToken')->willReturn(true);
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame(self::SIGNED_TOKEN, $result->getToken());
+    }
+
+
+    /**
+     * Whether the published token is still unexpired is asked again after its chain is resolved, which reads files
+     * and validates a path: a token which expired meanwhile is not served, though the chain can not be resolved.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotServeAnX509TokenWhichExpiredWhileItsChainWasResolved(): void
+    {
+        $start = time();
+        $resolved = false;
+        $dateTimeMock = $this->createMock(DateTimeHelper::class);
+        $dateTimeMock->method('getUtc')->willReturnCallback(
+            static function () use (&$resolved, $start): DateTimeImmutable {
+                return new DateTimeImmutable('@' . ($resolved ? $start + 10 : $start));
+            },
+        );
+        $helpersMock = $this->createMock(Helpers::class);
+        $helpersMock->method('dateTime')->willReturn($dateTimeMock);
+        $this->helpers = $helpersMock;
+
+        $record = $this->publishedX509Record(
+            $this->tokenCarrying(['bGVhZg==']),
+            '@' . ($start + 5),
+            '@' . ($start - 600),
+        );
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')->willReturnCallback(
+            static function () use (&$resolved): never {
+                $resolved = true;
+
+                throw new StatusListException('The certificate chain has expired.');
+            },
+        );
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('The certificate chain has expired.');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * An expired token is refused before its chain is resolved, so a chain which can not be resolved is reported by
+     * the signing which then fails, not as a token being served.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesAnExpiredX509TokenBeforeResolvingItsChain(): void
+    {
+        $record = $this->publishedX509Record($this->tokenCarrying(['bGVhZg==']), '-1 minute', '-10 minutes');
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willThrowException(new StatusListException('The certificate chain has expired.'));
+        $this->loggerServiceMock->expects($this->never())->method('error');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('The certificate chain has expired.');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * Nor does the safety margin, then: a replacement could not be signed.
+     *
+     * @throws \Exception
+     */
+    public function testServesAnX509TokenCloseToItsExpiryWhileItsKeysCertificateChainCanNotBeResolved(): void
+    {
+        $token = $this->tokenCarrying(['bGVhZg==']);
+        $this->statusListRepositoryMock->method('findById')
+            ->willReturn($this->publishedX509Record($token, '+5 minutes', '-10 minutes'));
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willThrowException(new StatusListException('The certificate chain can not be read.'));
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($token, $result->getToken());
+    }
+
+
+    /**
+     * The chain is asked whether it has expired by the clock when the token is signed, not when its list was read:
+     * the status query in between can take long enough for it to have expired.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotSignAnX509ListWhoseCertificateChainExpiredDuringTheStatusQuery(): void
+    {
+        $start = time();
+        $queried = false;
+        $dateTimeMock = $this->createMock(DateTimeHelper::class);
+        $dateTimeMock->method('getUtc')->willReturnCallback(
+            static function () use (&$queried, $start): DateTimeImmutable {
+                return new DateTimeImmutable('@' . ($queried ? $start + 120 : $start));
+            },
+        );
+        $helpersMock = $this->createMock(Helpers::class);
+        $helpersMock->method('dateTime')->willReturn($dateTimeMock);
+        $this->helpers = $helpersMock;
+
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $this->statusListEntryRepositoryMock = $this->createMock(StatusListEntryRepository::class);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturnCallback(
+            static function () use (&$queried): array {
+                $queried = true;
+
+                return [];
+            },
+        );
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], $start + 60));
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('has expired');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * A chain which can not be resolved now does not take the list's status offline while its published token,
+     * signed under a chain validated then, still holds: the token is served, and the fault logged for the operator,
+     * as signing will fail when the token is due to be replaced.
+     *
+     * @throws \Exception
+     */
+    public function testServesAnX509TokenWhileItsKeysCertificateChainCanNotBeResolved(): void
+    {
+        $token = $this->tokenCarrying(['bGVhZg==']);
+        $this->statusListRepositoryMock->method('findById')->willReturn($this->publishedX509Record($token));
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willThrowException(new StatusListException('The certificate chain has expired.'));
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('The certificate chain has expired.'));
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($token, $result->getToken());
+    }
+
+
+    /**
+     * A token which expires with its certificate chain is served to its expiry: one signed now could not last
+     * longer, and replacing it within the safety margin would sign one per request, which two requests in one second
+     * could not both publish.
+     *
+     * @throws \Exception
+     */
+    public function testServesAnX509TokenWhichExpiresWithItsCertificateChainToItsExpiry(): void
+    {
+        $expiresAt = time() + 300;
+        $token = $this->tokenCarrying(['bGVhZg==']);
+        $this->statusListRepositoryMock->method('findById')
+            ->willReturn($this->publishedX509Record($token, '@' . $expiresAt));
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], $expiresAt));
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($token, $result->getToken());
+    }
+
+
+    /**
+     * A token close to its expiry is replaced as any other is when its chain would let a new one last longer.
+     *
+     * @throws \Exception
+     */
+    public function testReplacesAnX509TokenCloseToItsExpiryWhenItsCertificateChainOutlivesIt(): void
+    {
+        $record = $this->publishedX509Record($this->tokenCarrying(['bGVhZg==']), '+5 minutes', '-10 minutes');
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], time() + 86400 * 30));
+        $this->statusListRepositoryMock->expects($this->once())->method('publishToken')->willReturn(true);
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame(self::SIGNED_TOKEN, $result->getToken());
+    }
+
+
+    /**
+     * An expired token is never served, though it expired with the chain it carries: once the key's certificate has
+     * been renewed, with the chain it carries, the list is signed again.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotServeAnExpiredX509Token(): void
+    {
+        $record = $this->publishedX509Record($this->tokenCarrying(['bGVhZg==']), '@' . (time() - 60));
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], time() + 86400 * 30));
+        $this->statusListRepositoryMock->expects($this->once())->method('publishToken')->willReturn(true);
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame(self::SIGNED_TOKEN, $result->getToken());
+    }
+
+
+    /**
+     * A chain which expired after it was resolved, earlier in the request, signs nothing: the token would be expired
+     * already.
+     *
+     * @throws \Exception
+     */
+    public function testDoesNotSignAnX509ListWhoseCertificateChainHasExpired(): void
+    {
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg=='], time() - 1));
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('The certificate chain of the key of Status List "a-status-list-id" has expired');
+
+        $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * A key which can not be loaded any more is the same fault as a chain which can not be used: the published token
+     * is served while it holds.
+     *
+     * @throws \Exception
+     */
+    public function testServesAnX509TokenWhileItsKeyCanNotBeLoaded(): void
+    {
+        $token = $this->tokenCarrying(['bGVhZg==']);
+        $this->statusListRepositoryMock->method('findById')->willReturn($this->publishedX509Record($token));
+        $this->statusListKeyResolverMock = $this->createMock(StatusListKeyResolver::class);
+        $this->statusListKeyResolverMock->method('getByKeyId')
+            ->willThrowException(new RuntimeException('The private key file can not be read.'));
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('The private key file can not be read.'));
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame($token, $result->getToken());
+    }
+
+
+    /**
+     * What a HAIP Relying Party does with a Status List Token: validate its `x5c` chain against the trust anchor,
+     * and verify the signature with the leaf's key (HAIP 1.0 section 6.1). Signed for real.
+     *
+     * @throws \Exception
+     */
+    public function testAnX509TokenVerifiesThroughItsCertificateChain(): void
+    {
+        $rootKey = CertificateBuilder::ecKey();
+        $intermediateKey = CertificateBuilder::ecKey();
+        $leafKey = CertificateBuilder::ecKey();
+        $root = CertificateBuilder::root($rootKey);
+        $intermediate = CertificateBuilder::certificate(
+            'CN=Test Intermediate CA',
+            $intermediateKey,
+            'CN=Test Root CA',
+            $rootKey,
+            CertificateBuilder::caExtensions(),
+        );
+        $leaf = CertificateBuilder::certificate(
+            'CN=Test Credential Issuer',
+            $leafKey,
+            'CN=Test Intermediate CA',
+            $intermediateKey,
+            CertificateBuilder::leafExtensions(['https://op.example.org']),
+        );
+        $x509 = new X509();
+        $trustAnchors = [$x509->certificateFactory()->fromDer($root)];
+        $chain = $x509->certificateFactory()->chainFromPem(CertificateBuilder::pem($leaf, $intermediate));
+
+        $keyPair = $this->createMock(KeyPair::class);
+        $keyPair->method('getKeyId')->willReturn(self::SIGNING_KEY_ID);
+        $keyPair->method('getPrivateKey')->willReturn(
+            (new JwkDecoratorFactory())->fromPkcs1Or8Key(CertificateBuilder::privateKeyPem($leafKey)),
+        );
+        $signatureKeyPair = $this->createMock(SignatureKeyPair::class);
+        $signatureKeyPair->method('getKeyPair')->willReturn($keyPair);
+        $signatureKeyPair->method('getSignatureAlgorithm')->willReturn(SignatureAlgorithmEnum::ES256);
+        $this->statusListKeyResolverMock = $this->createMock(StatusListKeyResolver::class);
+        $this->statusListKeyResolverMock->method('getByKeyId')->willReturn($signatureKeyPair);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')->willReturn(
+            new VciCertificateChain($chain, $x509->certificatePathValidator()->validate($chain, $trustAnchors)),
+        );
+        $this->tokenStatusList = new TokenStatusList(
+            new SupportedAlgorithms(new SignatureAlgorithmBag(SignatureAlgorithmEnum::ES256)),
+        );
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $token = $this->tokenStatusList->statusListTokenFactory()->fromToken($result->getToken());
+        $x5c = $token->getX509CertificateChain();
+        $this->assertSame([base64_encode($leaf), base64_encode($intermediate)], $x5c);
+        $this->assertArrayNotHasKey('kid', $token->getHeader());
+        $this->assertSame('https://op.example.org', $token->getIssuer());
+
+        $token->verifyWithX509CertificatePath(
+            $x509->certificatePathValidator()->validate($x509->certificateFactory()->chainFromX5c($x5c), $trustAnchors),
+        );
     }
 }

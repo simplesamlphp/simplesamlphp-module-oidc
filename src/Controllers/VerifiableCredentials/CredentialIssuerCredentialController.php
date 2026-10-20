@@ -9,6 +9,7 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -31,6 +32,7 @@ use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AtContextsEnum;
@@ -91,6 +93,7 @@ class CredentialIssuerCredentialController
         protected readonly Helpers $helpers,
         protected readonly ErrorResponder $errorResponder,
         protected readonly CredentialClaimLocator $credentialClaimLocator,
+        protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -791,6 +794,17 @@ class CredentialIssuerCredentialController
                 $vciSignatureKeyPair,
             );
 
+            // The header of every format: `x5c` when the key has a certificate chain (HAIP 1.0 section 6.1.1), under
+            // any identifier mode, beside the `kid` of the mode. Resolved before the Status List entry below is
+            // allocated, so that a chain which can not be used refuses the request before anything is written.
+            /** @var array<non-empty-string,mixed> $header */
+            $header = [ClaimsEnum::Kid->value => $issuerIdentity->getKeyId()];
+            $certificateChain = $this->vciCertificateChainResolver->resolveFor($vciSignatureKeyPair);
+
+            if ($certificateChain !== null) {
+                $header[ClaimsEnum::X5c->value] = $certificateChain->getX5c();
+            }
+
             // Unguessable rather than sequential or time based, since this is what revocation is keyed
             // on. Still in URI form, because the credential parsers enforce that of a `jti`.
             $vcId = $this->moduleConfig->getIssuer() . '/vc/' .
@@ -822,6 +836,20 @@ class CredentialIssuerCredentialController
                     'server_error',
                     'Unable to issue a revocable credential at this time.',
                     500,
+                );
+            }
+
+            // The chain was validated before the Status List entry was allocated, which can take long enough (a list
+            // being seeded) for a certificate of it to have expired since, and the credentials of a batch are
+            // signed under the same chain. Asked again of the clock now, so that no credential carries one which
+            // has expired.
+            if (
+                $certificateChain !== null &&
+                $certificateChain->getEarliestNotAfter() <= $this->helpers->dateTime()->getUtc()->getTimestamp()
+            ) {
+                throw new ConfigurationError(
+                    'The certificate chain of the active VCI signature key has expired, so no credential is signed.',
+                    ModuleConfig::DEFAULT_FILE_NAME,
                 );
             }
 
@@ -910,9 +938,7 @@ class CredentialIssuerCredentialController
                         ],
                         $commonClaims,
                     ),
-                    [
-                    ClaimsEnum::Kid->value => $issuerIdentity->getKeyId(),
-                    ],
+                    $header,
                 );
             }
 
@@ -946,9 +972,7 @@ class CredentialIssuerCredentialController
                     $signingKey,
                     $signatureAlgorithm,
                     $sdJwtPayload,
-                    [
-                    ClaimsEnum::Kid->value => $issuerIdentity->getKeyId(),
-                    ],
+                    $header,
                     disclosureBag: $disclosureBag,
                 );
             }
@@ -1000,9 +1024,7 @@ class CredentialIssuerCredentialController
                     $signingKey,
                     $signatureAlgorithm,
                     $sdJwtPayload,
-                    [
-                    ClaimsEnum::Kid->value => $issuerIdentity->getKeyId(),
-                    ],
+                    $header,
                     disclosureBag: $disclosureBag,
                 );
             }

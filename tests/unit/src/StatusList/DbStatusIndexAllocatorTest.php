@@ -28,7 +28,9 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
 use SimpleSAML\OpenID\TokenStatusList;
+use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 
 /**
  * Exercised against a real SQLite database rather than mocked repositories, because what is being
@@ -1803,6 +1805,87 @@ class DbStatusIndexAllocatorTest extends TestCase
         $this->assertSame(
             [0, 0, 0],
             array_map(static fn(array $row): int => (int)$row['is_active'], $this->statusListRows()),
+        );
+    }
+
+
+    /**
+     * A token of a list under the `x509` key profile names its key by the key's certificate chain alone, so while the
+     * current key has none it could be signed with, no credential is allocated a status there, and no list is made.
+     *
+     * @throws \Exception
+     */
+    public function testAllocatesNothingFromAnX509PoolWhileTheCurrentKeyHasNoUsableChain(): void
+    {
+        $signatureKeyPair = $this->createMock(SignatureKeyPair::class);
+        $this->keyResolverMock->method('getCurrent')->willReturn($signatureKeyPair);
+        $this->keyResolverMock->expects($this->once())->method('getCertificateChainFor')->with($signatureKeyPair)
+            ->willThrowException(new StatusListException('The key "signing-key-1" has no certificate chain.'));
+
+        try {
+            $this->sut()->allocateFor(
+                $this->x509Pool(),
+                'https://op.example.org/vc/abc',
+                self::CREDENTIAL_CONFIGURATION_ID,
+            );
+            $this->fail('A status was allocated.');
+        } catch (StatusListException $exception) {
+            $this->assertSame('The key "signing-key-1" has no certificate chain.', $exception->getMessage());
+        }
+
+        $this->assertSame([], $this->statusListRows());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testAllocatesFromAnX509PoolWhoseCurrentKeyHasAChain(): void
+    {
+        $this->keyResolverMock->method('getCurrent')->willReturn($this->createMock(SignatureKeyPair::class));
+        $this->keyResolverMock->expects($this->once())->method('getCertificateChainFor')
+            ->willReturn($this->createMock(VciCertificateChain::class));
+
+        $allocation = $this->sut()->allocateFor(
+            $this->x509Pool(),
+            'https://op.example.org/vc/abc',
+            self::CREDENTIAL_CONFIGURATION_ID,
+        );
+
+        $statusList = $this->statusListRepository->findByIdOnPrimary($allocation->getStatusListId());
+        $this->assertNotNull($statusList);
+        $this->assertSame(StatusListKeyProfileEnum::X509, $statusList->getKeyProfile());
+    }
+
+
+    /**
+     * Pools on another key profile never ask for a chain.
+     *
+     * @throws \Exception
+     */
+    public function testAllocatesFromAPoolOnAnotherKeyProfileWithoutAskingForAChain(): void
+    {
+        $this->keyResolverMock->expects($this->never())->method('getCertificateChainFor');
+
+        $this->allocate('https://op.example.org/vc/abc');
+
+        $this->assertCount(1, $this->statusListRows());
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function x509Pool(): StatusListPool
+    {
+        return StatusListPool::fromConfig(
+            self::POOL_ID,
+            [
+                StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => [self::CREDENTIAL_CONFIGURATION_ID],
+                StatusListPool::KEY_CAPACITY => self::CAPACITY,
+                StatusListPool::KEY_KEY_PROFILE => StatusListKeyProfileEnum::X509->value,
+            ],
+            StatusListKeyProfileEnum::DidJwk,
         );
     }
 }

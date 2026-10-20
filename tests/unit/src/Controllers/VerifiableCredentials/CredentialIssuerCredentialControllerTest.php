@@ -17,6 +17,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
@@ -49,8 +50,10 @@ use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -81,6 +84,8 @@ use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel\Factories\JwtVcJsonFacto
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel\JwtVcJson;
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\Factories\VcSdJwtFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\VcDataModel2\VcSdJwt;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\CertificateBuilder;
 use stdClass;
 use Stringable;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
@@ -138,6 +143,14 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected MockObject $vciContextResolverMock;
 
     protected MockObject $credentialStatusIssuerMock;
+
+    protected MockObject $vciCertificateChainResolverMock;
+
+    /** The certificate chain of the active signing key; none unless a test gives it one. */
+    protected ?VciCertificateChain $certificateChain = null;
+
+    /** What resolving that chain throws, for a chain which can not be used. */
+    protected ?Throwable $certificateChainFault = null;
 
     protected Helpers $helpers;
 
@@ -276,6 +289,21 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->openId4VciProofValidatorMock = $this->createMock(OpenId4VciProofValidator::class);
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
         $this->credentialStatusIssuerMock = $this->createMock(CredentialStatusIssuer::class);
+        $this->certificateChain = null;
+        $this->certificateChainFault = null;
+        $this->vciCertificateChainResolverMock = $this->createMock(VciCertificateChainResolver::class);
+        $this->vciCertificateChainResolverMock->method('resolveFor')->willReturnCallback(
+            function (SignatureKeyPair $signatureKeyPair): ?VciCertificateChain {
+                // The chain of the key which signs, and of no other.
+                $this->assertSame($this->vciSignatureKeyPairMock, $signatureKeyPair);
+
+                if ($this->certificateChainFault !== null) {
+                    throw $this->certificateChainFault;
+                }
+
+                return $this->certificateChain;
+            },
+        );
         $this->helpers = new Helpers();
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
         $this->errorResponderResponse = null;
@@ -517,13 +545,19 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $jwtVcJsonMock->method('getToken')->willReturn('vc_token');
         $jwtVcJsonFactoryMock = $this->createMock(JwtVcJsonFactory::class);
         $jwtVcJsonFactoryMock->method('fromData')->willReturnCallback(
-            function (mixed $key, mixed $algorithm, array $payload) use ($jwtVcJsonMock): JwtVcJson {
+            function (
+                mixed $key,
+                mixed $algorithm,
+                array $payload,
+                array $header = [],
+            ) use ($jwtVcJsonMock): JwtVcJson {
                 $this->signedPayloads[] = $payload;
                 $this->signedDisclosureBags[] = null;
                 $this->signedWith[] = [
                     'key' => $key,
                     'algorithm' => $algorithm,
                     'format' => CredentialFormatIdentifiersEnum::JwtVcJson->value,
+                    'header' => $header,
                 ];
 
                 return $jwtVcJsonMock;
@@ -548,6 +582,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
                     'key' => $key,
                     'algorithm' => $algorithm,
                     'format' => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+                    'header' => $header,
                 ];
 
                 return $sdJwtVcMock;
@@ -572,6 +607,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
                     'key' => $key,
                     'algorithm' => $algorithm,
                     'format' => CredentialFormatIdentifiersEnum::VcSdJwt->value,
+                    'header' => $header,
                 ];
 
                 return $vcSdJwtMock;
@@ -766,6 +802,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->errorResponderMock,
             // The real one: where a claim lands is what the mandatory claim tests are about.
             new CredentialClaimLocator(),
+            $this->vciCertificateChainResolverMock,
         );
     }
 
@@ -797,6 +834,152 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->assertSame($this->vciPrivateKeyMock, $signedWith['key']);
             $this->assertSame(SignatureAlgorithmEnum::ES256, $signedWith['algorithm']);
         }
+    }
+
+
+    /**
+     * Each format carries the active key's certificate chain in `x5c` (HAIP 1.0 section 6.1.1, D32), beside the `kid`
+     * of the identifier mode, which stays.
+     */
+    #[DataProvider('formatProvider')]
+    public function testCarriesTheCertificateChainOfTheSigningKeyInEveryFormat(string $format): void
+    {
+        $x5c = ['bGVhZg==', 'aW50ZXJtZWRpYXRl'];
+        $certificateChainMock = $this->createMock(VciCertificateChain::class);
+        $certificateChainMock->method('getX5c')->willReturn($x5c);
+        $certificateChainMock->method('getEarliestNotAfter')->willReturn(time() + 86400);
+        $this->certificateChain = $certificateChainMock;
+
+        $this->issue($format, ['jwt1', 'jwt2']);
+
+        $header = [ClaimsEnum::Kid->value => self::ISSUER_DID . '#0', ClaimsEnum::X5c->value => $x5c];
+        $this->assertSame([$header, $header], array_column($this->signedWith, 'header'));
+    }
+
+
+    /**
+     * A key without a chain signs as before: `kid` alone.
+     */
+    #[DataProvider('formatProvider')]
+    public function testCarriesNoCertificateChainWhenTheSigningKeyHasNone(string $format): void
+    {
+        $this->issue($format);
+
+        $this->assertSame(
+            [[ClaimsEnum::Kid->value => self::ISSUER_DID . '#0']],
+            array_column($this->signedWith, 'header'),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0: string}>
+     */
+    public static function formatProvider(): array
+    {
+        return [
+            'jwt_vc_json' => [CredentialFormatIdentifiersEnum::JwtVcJson->value],
+            'dc+sd-jwt' => [CredentialFormatIdentifiersEnum::DcSdJwt->value],
+            'vc+sd-jwt' => [CredentialFormatIdentifiersEnum::VcSdJwt->value],
+        ];
+    }
+
+
+    /**
+     * A chain which can not be used (one expired since the configuration was written, say) refuses the request before
+     * a Status List entry is allocated or anything is signed.
+     */
+    public function testAChainWhichCanNotBeUsedRefusesBeforeAnythingIsWritten(): void
+    {
+        $this->certificateChainFault = new ConfigurationError('the chain has expired');
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        try {
+            $this->issue();
+            $this->fail('The credential was issued.');
+        } catch (ConfigurationError $configurationError) {
+            $this->assertStringContainsString('the chain has expired', $configurationError->getMessage());
+        }
+
+        $this->assertSame([], $this->signedWith);
+    }
+
+
+    /**
+     * A chain which expired after it was validated, while the Status List entry was being allocated or an earlier
+     * credential of the batch signed, signs no credential.
+     */
+    public function testAChainWhichExpiredSinceItWasValidatedSignsNothing(): void
+    {
+        $certificateChainMock = $this->createMock(VciCertificateChain::class);
+        $certificateChainMock->method('getX5c')->willReturn(['bGVhZg==']);
+        $certificateChainMock->method('getEarliestNotAfter')->willReturn(time() - 1);
+        $this->certificateChain = $certificateChainMock;
+
+        try {
+            $this->issue();
+            $this->fail('The credential was issued.');
+        } catch (ConfigurationError $configurationError) {
+            $this->assertStringContainsString('has expired', $configurationError->getMessage());
+        }
+
+        $this->assertSame([], $this->signedWith);
+    }
+
+
+    /**
+     * What a HAIP verifier does with an SD-JWT VC: validate the `x5c` chain against its trust anchor, and verify the
+     * signature with the leaf's key. Signed for real, with the leaf's key, under a root, an intermediate and a leaf.
+     */
+    public function testACredentialVerifiesThroughItsCertificateChain(): void
+    {
+        $rootKey = CertificateBuilder::ecKey();
+        $intermediateKey = CertificateBuilder::ecKey();
+        $leafKey = CertificateBuilder::ecKey();
+        $root = CertificateBuilder::root($rootKey);
+        $intermediate = CertificateBuilder::certificate(
+            'CN=Test Intermediate CA',
+            $intermediateKey,
+            'CN=Test Root CA',
+            $rootKey,
+            CertificateBuilder::caExtensions(),
+        );
+        $leaf = CertificateBuilder::certificate(
+            'CN=Test Credential Issuer',
+            $leafKey,
+            'CN=Test Intermediate CA',
+            $intermediateKey,
+            CertificateBuilder::leafExtensions([self::ISSUER]),
+        );
+
+        $x509 = new X509();
+        $trustAnchors = [$x509->certificateFactory()->fromDer($root)];
+        $chain = $x509->certificateFactory()->chainFromPem(CertificateBuilder::pem($leaf, $intermediate));
+        $this->certificateChain = new VciCertificateChain(
+            $chain,
+            $x509->certificatePathValidator()->validate($chain, $trustAnchors),
+        );
+
+        $supportedAlgorithms = new SupportedAlgorithms(new SignatureAlgorithmBag(SignatureAlgorithmEnum::ES256));
+        $this->signingKey = new JwkDecorator(JWKFactory::createFromKey(CertificateBuilder::privateKeyPem($leafKey)));
+        $this->verifiableCredentials = new VerifiableCredentialsService(supportedAlgorithms: $supportedAlgorithms);
+
+        $response = $this->issue(CredentialFormatIdentifiersEnum::DcSdJwt->value);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $body = json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($body);
+        /** @psalm-suppress MixedArrayAccess */
+        $credential = $body['credentials'][0]['credential'] ?? null;
+        $this->assertIsString($credential);
+
+        $jwt = (new Jws($supportedAlgorithms))->parsedJwsFactory()->fromToken(explode('~', $credential)[0]);
+        $x5c = $jwt->getX509CertificateChain();
+        $this->assertSame([base64_encode($leaf), base64_encode($intermediate)], $x5c);
+
+        $jwt->verifyWithX509CertificatePath(
+            $x509->certificatePathValidator()->validate($x509->certificateFactory()->chainFromX5c($x5c), $trustAnchors),
+        );
     }
 
 

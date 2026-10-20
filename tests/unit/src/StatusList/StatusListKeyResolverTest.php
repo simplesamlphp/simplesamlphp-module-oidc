@@ -8,9 +8,12 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\StatusListKeyResolver;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
@@ -25,10 +28,13 @@ class StatusListKeyResolverTest extends TestCase
 
     protected MockObject $signatureKeyPairBagMock;
 
+    protected MockObject $vciCertificateChainResolverMock;
+
 
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->vciCertificateChainResolverMock = $this->createMock(VciCertificateChainResolver::class);
         $this->signatureKeyPairBagMock = $this->createMock(SignatureKeyPairBag::class);
         $this->moduleConfigMock->method('getVciSignatureKeyPairBag')
             ->willReturn($this->signatureKeyPairBagMock);
@@ -37,7 +43,7 @@ class StatusListKeyResolverTest extends TestCase
 
     protected function sut(): StatusListKeyResolver
     {
-        return new StatusListKeyResolver($this->moduleConfigMock);
+        return new StatusListKeyResolver($this->moduleConfigMock, $this->vciCertificateChainResolverMock);
     }
 
 
@@ -113,5 +119,47 @@ class StatusListKeyResolverTest extends TestCase
         $this->expectExceptionMessage('vci-discarded');
 
         $this->sut()->getByKeyId('vci-discarded');
+    }
+
+
+    /**
+     * The chain of the key a list is signed with, as the resolver validated it.
+     */
+    public function testTheCertificateChainOfAKeyIsTheOneItsResolverValidated(): void
+    {
+        $signatureKeyPair = $this->buildSignatureKeyPair('vci-01');
+        $certificateChain = $this->createMock(VciCertificateChain::class);
+        $this->vciCertificateChainResolverMock->expects($this->once())->method('resolveFor')
+            ->with($signatureKeyPair)
+            ->willReturn($certificateChain);
+
+        $this->assertSame($certificateChain, $this->sut()->getCertificateChainFor($signatureKeyPair));
+    }
+
+
+    /**
+     * A token under the `x509` key profile names its key by its chain alone, so a key without one can not sign one.
+     */
+    public function testAKeyWithoutACertificateChainCanNotSignUnderTheX509KeyProfile(): void
+    {
+        $this->vciCertificateChainResolverMock->method('resolveFor')->willReturn(null);
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('The key "vci-01" has no certificate chain');
+
+        $this->sut()->getCertificateChainFor($this->buildSignatureKeyPair('vci-01'));
+    }
+
+
+    public function testAKeyWhoseCertificateChainCanNotBeUsedCanNotSignUnderTheX509KeyProfile(): void
+    {
+        $this->vciCertificateChainResolverMock->method('resolveFor')
+            ->willThrowException(new ConfigurationError('The certificate chain has expired.'));
+
+        $this->expectException(StatusListException::class);
+        $this->expectExceptionMessage('The certificate chain of the key "vci-01" can not be used');
+        $this->expectExceptionMessage('The certificate chain has expired.');
+
+        $this->sut()->getCertificateChainFor($this->buildSignatureKeyPair('vci-01'));
     }
 }

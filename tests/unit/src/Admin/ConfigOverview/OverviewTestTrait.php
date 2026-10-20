@@ -31,6 +31,7 @@ trait OverviewTestTrait
     protected function buildOverviewModuleConfig(
         array $overrides = [],
         string $derivedHost = 'https://derived-host.example.org',
+        ?ValueAbstracts $valueAbstracts = null,
     ): ModuleConfig {
         $sspBridgeUtilsConfigMock = $this->createMock(Config::class);
         $sspBridgeUtilsConfigMock->method('getCertPath')
@@ -55,7 +56,7 @@ trait OverviewTestTrait
             $overrides,
             $this->createMock(Configuration::class),
             $sspBridgeMock,
-            $this->createMock(ValueAbstracts::class),
+            $valueAbstracts ?? $this->createMock(ValueAbstracts::class),
         );
     }
 

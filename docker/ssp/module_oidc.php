@@ -202,8 +202,13 @@ $config = [
             ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::ES256,
             ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module_vci_ec_p256_01.key',
             ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_vci_ec_p256_01.pub',
+            // From a development CA of docker/generate-dev-certs.sh, so credentials carry `x5c` (HAIP 1.0 section
+            // 6.1.1). The issuer plan checks the chain only under HAIP.
+            ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module_vci_ec_p256_01.chain.pem',
         ],
     ],
+    // The development root CA the chain above is validated against.
+    ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module_vci_trust_anchors.pem',
     ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
         'ResearchAndScholarshipCredentialDcSdJwt' => [
             ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,

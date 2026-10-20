@@ -14,3 +14,6 @@
 /docker/ssp/oidc_module.key
 /docker/ssp/oidc_module_vci_ec_p256_01.key
 /docker/ssp/oidc_module_vci_ec_p256_01.pub
+/docker/ssp/oidc_module_vci_ec_p256_01.chain.pem
+/docker/ssp/oidc_module_vci_trust_anchors.pem
+/docker/vci-pki/

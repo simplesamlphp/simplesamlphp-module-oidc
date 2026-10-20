@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -18,6 +19,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -25,6 +27,8 @@ use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
+use SimpleSAML\OpenID\X509\Certificate;
+use SimpleSAML\OpenID\X509\CertificateIdentityTypeEnum;
 use Stringable;
 use Throwable;
 
@@ -59,6 +63,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         LoggerService $logger,
         protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
         protected readonly StatusListRepository $statusListRepository,
+        protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
@@ -796,6 +801,191 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 ),
                 $error,
             ),
+            $this->buildIssuerTrustAnchorsRow(),
+            $this->buildCertificateChainsRow(),
+        );
+    }
+
+
+    /**
+     * The trust anchors the signing keys' certificate chains are validated against, each by its subject and the end
+     * of its validity.
+     */
+    protected function buildIssuerTrustAnchorsRow(): Row
+    {
+        $label = Translate::noop('Credential Issuer Trust Anchors');
+        $note = Translate::noop(
+            'The root certificates the certificate chains of the signing keys are validated against, and which ' .
+            'verifiers have to trust. Required as soon as a key pair has a certificate chain.',
+        );
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+            function () use ($label, $note): Row {
+                if ($this->moduleConfig->getVciIssuerTrustAnchorsFilename() === null) {
+                    return new Row(
+                        $label,
+                        Translate::noop('None configured'),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+                        $note,
+                    );
+                }
+
+                return new Row(
+                    $label,
+                    array_map($this->describeCertificate(...), $this->vciCertificateChainResolver->getTrustAnchors()),
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+                    $note,
+                );
+            },
+        );
+    }
+
+
+    /**
+     * The certificate chain of each signing key which has one, as validated now: each certificate by its subject and
+     * the end of its validity, from the leaf to the trust anchor.
+     *
+     * Tied to no option: a chain is configured inside its key pair, under the option the key pairs' row shows. Built
+     * outside guardRow(), which needs one, to the same end: a key pair bag which can not be built is reported on the
+     * key pairs' row, and a chain which can not be used is left out and reported by the warning, its reason only in
+     * the log, as describeResolutionError() has it for every option, since the reason quotes configured values back.
+     */
+    protected function buildCertificateChainsRow(): Row
+    {
+        $label = Translate::noop('Signature Key Certificate Chains');
+        $note = Translate::noop(
+            'What a key with a certificate chain signs carries the chain in its x5c header: credentials, and ' .
+            'Status List Tokens under the "x509" key profile. A Status List Token expires no later than the first ' .
+            'certificate of its chain does.',
+        );
+
+        try {
+            $signatureKeyPairs = $this->moduleConfig->getVciSignatureKeyPairBag()->getAll();
+        } catch (Throwable) {
+            return new Row($label, Translate::noop('N/A'), ConfigOverviewValueTypeEnum::Text, null, $note);
+        }
+
+        $chains = [];
+        $isAnyUnusable = false;
+        $isAnyLeafUnnamed = false;
+
+        foreach ($signatureKeyPairs as $keyId => $signatureKeyPair) {
+            try {
+                $chain = $this->vciCertificateChainResolver->resolveFor($signatureKeyPair);
+
+                if ($chain === null) {
+                    continue;
+                }
+
+                $chains[$keyId] = array_map(
+                    $this->describeCertificate(...),
+                    $chain->getValidatedPath()->getCertificates(),
+                );
+            } catch (Throwable $exception) {
+                $this->describeResolutionError($exception, ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS);
+                $isAnyUnusable = true;
+
+                continue;
+            }
+
+            $isAnyLeafUnnamed = $isAnyLeafUnnamed || !$this->namesTheIssuer($chain->getLeaf());
+        }
+
+        $warning = null;
+
+        if ($isAnyUnusable) {
+            $warning = Translate::noop(
+                'The certificate chain of a key not listed here can not be used, so nothing is signed with that ' .
+                'key: no credential while it is the active key, and no Status List Token under the "x509" key ' .
+                'profile. The reason was written to the SimpleSAMLphp log.',
+            );
+        } elseif ($this->isActiveKeyMissingTheChainX509Needs(array_map(strval(...), array_keys($chains)))) {
+            $warning = Translate::noop(
+                'A Status List pool signs under the "x509" key profile, but the active key has no certificate ' .
+                'chain, so no credential of that pool can be issued.',
+            );
+        } elseif ($isAnyLeafUnnamed) {
+            $warning = Translate::noop(
+                'A leaf certificate names neither the Credential Issuer URL (as a URI subject alternative name) ' .
+                'nor its host (as a DNS one), so a verifier can not tie the certificate to this issuer by name.',
+            );
+        }
+
+        if ($chains === []) {
+            return new Row(
+                $label,
+                Translate::noop('None configured'),
+                ConfigOverviewValueTypeEnum::Text,
+                null,
+                $note,
+                $warning,
+            );
+        }
+
+        return new Row($label, $chains, ConfigOverviewValueTypeEnum::StringMap, null, $note, $warning);
+    }
+
+
+    /**
+     * Whether a Status List pool signs under the `x509` key profile while the active key has no chain, which refuses
+     * the credentials of that pool (DbStatusIndexAllocator).
+     *
+     * @param list<string> $keyIdsWithChain
+     */
+    protected function isActiveKeyMissingTheChainX509Needs(array $keyIdsWithChain): bool
+    {
+        try {
+            if (!$this->moduleConfig->isAnyStatusListPoolOnKeyProfile(StatusListKeyProfileEnum::X509)) {
+                return false;
+            }
+
+            $activeKeyId = $this->moduleConfig->getActiveVciSignatureKeyPair()->getKeyPair()->getKeyId();
+
+            return !in_array($activeKeyId, $keyIdsWithChain, true);
+        } catch (Throwable) {
+            // The key profile and the key pairs are each reported on their own row when they can not be read.
+            return false;
+        }
+    }
+
+
+    /**
+     * Whether the certificate names the Credential Issuer: its URL as a URI subject alternative name, or its host as
+     * a DNS one. Under the `https` identifier mode the URL is the credentials' `iss`, and HAIP leaves it to a
+     * verifier's policy how a certificate is tied to an issuer, so this is advice, not a requirement.
+     */
+    protected function namesTheIssuer(Certificate $certificate): bool
+    {
+        try {
+            $issuer = $this->moduleConfig->getIssuer();
+
+            if ($certificate->hasIdentity(CertificateIdentityTypeEnum::SubjectAlternativeNameUri, $issuer)) {
+                return true;
+            }
+
+            $host = parse_url($issuer, PHP_URL_HOST);
+
+            return is_string($host) &&
+            $certificate->hasIdentity(CertificateIdentityTypeEnum::SubjectAlternativeNameDnsName, $host);
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+
+    /**
+     * @throws \SimpleSAML\OpenID\Exceptions\X509Exception
+     */
+    protected function describeCertificate(Certificate $certificate): string
+    {
+        return sprintf(
+            '%s (valid until %s UTC)',
+            $certificate->getSubjectDn(),
+            gmdate('Y-m-d H:i', $certificate->getNotAfter()),
         );
     }
 

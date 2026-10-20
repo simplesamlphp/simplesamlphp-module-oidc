@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\StatusList\Contracts\StatusListTokenProviderInterface
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListRecord;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListTokenResult;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\TokenStatusList;
@@ -139,11 +140,22 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
                 $statuses,
             );
 
-            $expiresAt = $now->add(
-                new DateInterval('PT' . $statusList->getTokenValiditySeconds() . 'S'),
-            );
+            // Content which has not changed is published again only with a later `iat` than the published
+            // token's (StatusListRepository::publishToken()), so within the second that token was issued in, or
+            // while another node's clock runs ahead of this one, signing would only fail, three times over. The
+            // token is served instead while it holds: it is current, and verifiable under the chain it carries,
+            // which is all that a reason to replace it (a renewed certificate, the safety margin) needs of it
+            // until the next second.
+            $unreplaceable = $this->unreplaceableResult($statusList, $contentHash);
 
-            $token = $this->sign($statusList, $statuses, $now, $expiresAt);
+            if ($unreplaceable instanceof StatusListTokenResult) {
+                return $unreplaceable;
+            }
+
+            $certificateChain = $this->certificateChainFor($statusList);
+            $expiresAt = $this->expiryFor($statusList, $now, $certificateChain);
+
+            $token = $this->sign($statusList, $statuses, $now, $expiresAt, $certificateChain);
 
             // Signing takes long enough for a revocation to land in the middle of it, and the
             // compare-and-set below would not notice: it compares the list row, which changing an
@@ -223,6 +235,21 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
      * long a change lost to a crash between the entry update and its invalidation can go unnoticed. Or
      * it may be close enough to its own expiry that a Relying Party caching it for the advertised `ttl`
      * would still be holding it after it expired.
+     *
+     * A list under the `x509` key profile adds a fourth: its token carries a chain other than the one its key
+     * has now (a renewed certificate), which retires it, though it would still verify. And it changes the
+     * third: a token which expires with its certificate chain (expiryFor()) is served to its expiry, since
+     * one signed now could not last longer. Replacing it within the safety margin would sign one for every
+     * request, and two requests in one second could not both publish one (StatusListRepository::publishToken()
+     * makes a re-signing of unchanged content later than the last), so the second would fail. A Relying Party
+     * does not rely on it past its `exp` whatever its `ttl` (draft-ietf-oauth-status-list section 13.7).
+     *
+     * A chain which can not be resolved now (removed, unreadable, expired, or its key gone) does not retire
+     * the published token, nor does the safety margin then. That token was signed under a chain validated
+     * when it was signed, it expires no later than that chain does, and it is still current, or it would not
+     * have got this far, while a replacement could not be signed. Refusing it would take the status of every
+     * credential in the list offline over a fault which the next signing reports anyway, and sooner than that
+     * the Credential Issuer metadata and issuance, which check the active key's chain on every request.
      */
     protected function publishedResult(StatusListRecord $statusList, DateTimeImmutable $now): ?StatusListTokenResult
     {
@@ -243,11 +270,180 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
             return null;
         }
 
-        if ($expiresAt->getTimestamp() - $now->getTimestamp() < $this->safetyMarginSeconds()) {
+        $secondsLeft = $expiresAt->getTimestamp() - $now->getTimestamp();
+
+        // Before the chain is resolved, which an expired token does not need, and whose fault would otherwise be
+        // reported as a token being served.
+        if ($secondsLeft <= 0) {
+            return null;
+        }
+
+        $chainExpiresAt = null;
+        $isChainUnresolved = false;
+
+        if ($statusList->getKeyProfile() === StatusListKeyProfileEnum::X509) {
+            try {
+                $certificateChain = $this->certificateChainFor($statusList);
+                $chainExpiresAt = $certificateChain?->getEarliestNotAfter();
+            } catch (Throwable $throwable) {
+                $certificateChain = null;
+                $isChainUnresolved = true;
+                $this->loggerService->error(
+                    'The certificate chain of a Status List\'s key can not be used, so its published token is ' .
+                    'served until it is due to be replaced, when signing will fail: ' . $throwable->getMessage(),
+                    ['statusListId' => $statusList->getId()],
+                );
+            }
+
+            // Resolving the chain reads files and validates a path, which can take long enough for the token to have
+            // expired since $now, and both ways past the safety margin below serve it to its expiry.
+            $secondsLeft = $expiresAt->getTimestamp() - $this->helpers->dateTime()->getUtc()->getTimestamp();
+
+            if ($secondsLeft <= 0) {
+                return null;
+            }
+
+            if ($certificateChain !== null && $this->x5cOf($token) !== $certificateChain->getX5c()) {
+                return null;
+            }
+        }
+
+        if (
+            $secondsLeft < $this->safetyMarginSeconds() &&
+            !$isChainUnresolved &&
+            ($chainExpiresAt === null || $expiresAt->getTimestamp() < $chainExpiresAt)
+        ) {
             return null;
         }
 
         return new StatusListTokenResult($token, $statusList->getTtlSeconds(), $issuedAt, $expiresAt);
+    }
+
+
+    /**
+     * The published token, when its content is that of the list now and it was issued no earlier than now
+     * (publish()). Asked of the clock now, not of the moment the list was read: the status query in between can
+     * take long enough for the token to have expired.
+     */
+    protected function unreplaceableResult(StatusListRecord $statusList, string $contentHash): ?StatusListTokenResult
+    {
+        $now = $this->helpers->dateTime()->getUtc();
+        $token = $statusList->getSignedToken();
+        $issuedAt = $statusList->getSignedTokenIssuedAt();
+        $expiresAt = $statusList->getSignedTokenExpiresAt();
+
+        if (
+            !$statusList->hasPublishedToken() ||
+            $statusList->getSignedTokenContentHash() !== $contentHash ||
+            !is_string($token) ||
+            !$issuedAt instanceof DateTimeImmutable ||
+            !$expiresAt instanceof DateTimeImmutable ||
+            $issuedAt->getTimestamp() < $now->getTimestamp() ||
+            $expiresAt->getTimestamp() <= $now->getTimestamp()
+        ) {
+            return null;
+        }
+
+        return new StatusListTokenResult($token, $statusList->getTtlSeconds(), $issuedAt, $expiresAt);
+    }
+
+
+    /**
+     * The `x5c` header parameter of a token this provider signed, or null for one which has none or can not be read.
+     */
+    protected function x5cOf(string $token): mixed
+    {
+        try {
+            /** @var mixed $header */
+            $header = json_decode(
+                $this->tokenStatusList->helpers()->base64Url()->decode(explode('.', $token, 2)[0]),
+                true,
+                512,
+                JSON_THROW_ON_ERROR,
+            );
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($header) ? ($header[ClaimsEnum::X5c->value] ?? null) : null;
+    }
+
+
+    /**
+     * The certificate chain the list's tokens carry: that of the key the list was created with, for a list under the
+     * `x509` key profile, and none for another.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    protected function certificateChainFor(StatusListRecord $statusList): ?VciCertificateChain
+    {
+        if ($statusList->getKeyProfile() !== StatusListKeyProfileEnum::X509) {
+            return null;
+        }
+
+        return $this->statusListKeyResolver->getCertificateChainFor(
+            $this->statusListKeyResolver->getByKeyId($statusList->getSigningKeyId()),
+        );
+    }
+
+
+    /**
+     * When a token signed now expires: after the list's token validity, or when its certificate chain stops
+     * validating, whichever comes first, so that no token outlives a certificate it carries. An intermediate, or the
+     * trust anchor, may expire before the leaf. The cache lifetimes a token is served with stop at its expiry too
+     * (StatusListTokenResult::getMaxAgeSeconds(), and its `ttl` claim in sign()).
+     *
+     * Such a token is served to its expiry rather than replaced within the safety margin (publishedResult()), and
+     * signing fails once the chain has expired. The warning logged whenever a token is cut short is what tells the
+     * operator to renew in time.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    protected function expiryFor(
+        StatusListRecord $statusList,
+        DateTimeImmutable $now,
+        ?VciCertificateChain $certificateChain,
+    ): DateTimeImmutable {
+        $expiresAt = $now->add(new DateInterval('PT' . $statusList->getTokenValiditySeconds() . 'S'));
+
+        if (!$certificateChain instanceof VciCertificateChain) {
+            return $expiresAt;
+        }
+
+        try {
+            $chainExpiresAt = $certificateChain->getEarliestNotAfter();
+        } catch (Throwable $throwable) {
+            throw new StatusListException(
+                'Unable to read when the certificate chain of a Status List\'s key expires: ' .
+                $throwable->getMessage(),
+                (int)$throwable->getCode(),
+                $throwable,
+            );
+        }
+
+        if ($chainExpiresAt >= $expiresAt->getTimestamp()) {
+            return $expiresAt;
+        }
+
+        // The chain was valid when it was resolved, earlier in this request, but the status query since may have
+        // taken long enough for it not to be any more. Asked of the clock now rather than of the moment the token
+        // is issued at: a token signed now would be expired already.
+        if ($chainExpiresAt <= $this->helpers->dateTime()->getUtc()->getTimestamp()) {
+            throw new StatusListException(
+                sprintf(
+                    'The certificate chain of the key of Status List "%s" has expired, so the list can not be signed.',
+                    $statusList->getId(),
+                ),
+            );
+        }
+
+        $this->loggerService->warning(
+            'A Status List Token expires early because a certificate of its key\'s chain does. Renew the ' .
+            'certificate, or the list can not be signed once it has expired.',
+            ['statusListId' => $statusList->getId(), 'chainExpiresAt' => $chainExpiresAt],
+        );
+
+        return (new DateTimeImmutable('@' . $chainExpiresAt))->setTimezone($now->getTimezone());
     }
 
 
@@ -262,13 +458,21 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         array $statuses,
         DateTimeImmutable $issuedAt,
         DateTimeImmutable $expiresAt,
+        ?VciCertificateChain $certificateChain,
     ): string {
         // Deliberately the key this list was created with rather than the current one, and a failure to
         // find it is fatal here. Signing with today's key instead would produce a token which verifies
         // for nobody holding a credential bound to the old one, while looking like success.
         $signatureKeyPair = $this->statusListKeyResolver->getByKeyId($statusList->getSigningKeyId());
         $keyPair = $signatureKeyPair->getKeyPair();
-        $identity = $this->identityFor($statusList, $keyPair);
+        $identity = $this->identityFor($statusList, $keyPair, $certificateChain);
+
+        // A Relying Party may keep the token for its `ttl`, so that stops at the token's expiry too, which a
+        // certificate chain may have brought forward (expiryFor()).
+        $ttlSeconds = min(
+            $statusList->getTtlSeconds(),
+            max(1, $expiresAt->getTimestamp() - $issuedAt->getTimestamp()),
+        );
 
         try {
             $list = $this->tokenStatusList->statusListFactory()->fromEntries(
@@ -287,10 +491,10 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
                 $signatureKeyPair->getSignatureAlgorithm(),
                 $issuedAt,
                 $expiresAt,
-                new DateInterval('PT' . $statusList->getTtlSeconds() . 'S'),
+                new DateInterval('PT' . $ttlSeconds . 'S'),
                 $identity['issuer'],
                 [],
-                [ClaimsEnum::Kid->value => $identity['keyId']],
+                $identity['header'],
             )->getToken();
         } catch (Throwable $throwable) {
             throw new StatusListException(
@@ -313,26 +517,43 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
      * than anything derivable from the spec. The whole record is taken rather than the profile alone
      * because the answer is assembled from the row and not from configuration -- both the profile and,
      * under `did_web`, the identifier itself -- so that changing a setting never alters a token wallets
-     * are already verifying.
+     * are already verifying. Under `x509` the key's certificate chain, which is configuration, is what names
+     * the key (StatusListKeyProfileEnum::X509).
      *
-     * @return array{issuer: string, keyId: string}
+     * @return array{issuer: string, header: array<non-empty-string,mixed>}
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
-    protected function identityFor(StatusListRecord $statusList, KeyPair $keyPair): array
-    {
+    protected function identityFor(
+        StatusListRecord $statusList,
+        KeyPair $keyPair,
+        ?VciCertificateChain $certificateChain,
+    ): array {
         return match ($statusList->getKeyProfile()) {
             StatusListKeyProfileEnum::Jwks => [
                 'issuer' => $this->moduleConfig->getIssuer(),
-                'keyId' => $keyPair->getKeyId(),
+                'header' => [ClaimsEnum::Kid->value => $keyPair->getKeyId()],
             ],
             StatusListKeyProfileEnum::DidWeb => $this->didWebIdentityFor($statusList, $keyPair),
             StatusListKeyProfileEnum::DidJwk => $this->didJwkIdentityFor($keyPair),
+            StatusListKeyProfileEnum::X509 => [
+                'issuer' => $this->moduleConfig->getIssuer(),
+                'header' => [
+                    ClaimsEnum::X5c->value => $certificateChain?->getX5c() ?? throw new StatusListException(
+                        sprintf(
+                            'Status List "%s" is under the "%s" key profile, but no certificate chain was given to ' .
+                            'sign it with.',
+                            $statusList->getId(),
+                            StatusListKeyProfileEnum::X509->value,
+                        ),
+                    ),
+                ],
+            ],
         };
     }
 
 
     /**
-     * @return array{issuer: string, keyId: string}
+     * @return array{issuer: string, header: array<non-empty-string,mixed>}
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
     protected function didJwkIdentityFor(KeyPair $keyPair): array
@@ -354,7 +575,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
         // which can verify the credential can verify the Status List Token it points at.
         return [
             'issuer' => $didJwk,
-            'keyId' => $didJwk . '#0',
+            'header' => [ClaimsEnum::Kid->value => $didJwk . '#0'],
         ];
     }
 
@@ -365,7 +586,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
      * The key is named through the same factory which builds the published DID document, so a token can
      * not point at a verification method that document does not carry.
      *
-     * @return array{issuer: string, keyId: string}
+     * @return array{issuer: string, header: array<non-empty-string,mixed>}
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
     protected function didWebIdentityFor(StatusListRecord $statusList, KeyPair $keyPair): array
@@ -403,7 +624,7 @@ class DbStatusListTokenProvider implements StatusListTokenProviderInterface
 
         return [
             'issuer' => $didWeb,
-            'keyId' => $keyId,
+            'header' => [ClaimsEnum::Kid->value => $keyId],
         ];
     }
 

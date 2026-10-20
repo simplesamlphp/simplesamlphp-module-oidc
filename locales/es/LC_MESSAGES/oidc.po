@@ -1599,6 +1599,43 @@ msgstr ""
 msgid "Verifiable Credential Signature Key Pairs"
 msgstr ""
 
+msgid "Credential Issuer Trust Anchors"
+msgstr ""
+
+msgid ""
+"The root certificates the certificate chains of the signing keys are "
+"validated against, and which verifiers have to trust. Required as soon as a "
+"key pair has a certificate chain."
+msgstr ""
+
+msgid "Signature Key Certificate Chains"
+msgstr ""
+
+msgid ""
+"What a key with a certificate chain signs carries the chain in its x5c "
+"header: credentials, and Status List Tokens under the \"x509\" key profile. "
+"A Status List Token expires no later than the first certificate of its "
+"chain does."
+msgstr ""
+
+msgid ""
+"The certificate chain of a key not listed here can not be used, so nothing "
+"is signed with that key: no credential while it is the active key, and no "
+"Status List Token under the \"x509\" key profile. The reason was written to "
+"the SimpleSAMLphp log."
+msgstr ""
+
+msgid ""
+"A Status List pool signs under the \"x509\" key profile, but the active key "
+"has no certificate chain, so no credential of that pool can be issued."
+msgstr ""
+
+msgid ""
+"A leaf certificate names neither the Credential Issuer URL (as a URI "
+"subject alternative name) nor its host (as a DNS one), so a verifier can "
+"not tie the certificate to this issuer by name."
+msgstr ""
+
 msgid ""
 "Which released user attribute populates which claim path, per "
 "credential configuration. The effective mappings are also listed per "

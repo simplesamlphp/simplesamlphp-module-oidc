@@ -73,6 +73,12 @@ class ModuleConfig
 
     public const string KEY_KEY_ID = 'key_id';
 
+    /**
+     * In a Verifiable Credential Issuance key pair only: the PEM file of the certificate chain of its key, the leaf
+     * first, then the intermediates, without the trust anchor.
+     */
+    public const string KEY_CERTIFICATE_CHAIN_FILENAME = 'certificate_chain_filename';
+
     final public const string DEFAULT_FILE_NAME = 'module_oidc.php';
 
     /**
@@ -395,6 +401,8 @@ class ModuleConfig
 
     final public const string OPTION_VCI_SIGNATURE_KEY_PAIRS = 'vci_signature_key_pairs';
 
+    final public const string OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME = 'vci_issuer_trust_anchors_filename';
+
     final public const string OPTION_VCI_ISSUER_IDENTIFIER_MODE = 'vci_issuer_identifier_mode';
 
     final public const string OPTION_VCI_ISSUER_DID_IDENTIFIER = 'vci_issuer_did_identifier';
@@ -508,6 +516,11 @@ class ModuleConfig
     protected ?SignatureKeyPairBag $vciSignatureKeyPairBag = null;
 
     protected ?SignatureKeyPairConfigBag $vciSignatureKeyPairConfigBag = null;
+
+    /**
+     * @var ?array<string,non-empty-string>
+     */
+    protected ?array $vciSignatureCertificateChainFilenames = null;
 
     protected ?StatusListPoolBag $vciStatusListPoolBag = null;
 
@@ -2902,6 +2915,132 @@ class ModuleConfig
     public function getActiveVciSignatureKeyPair(): SignatureKeyPair
     {
         return $this->getVciSignatureKeyPairBag()->getFirstOrFail();
+    }
+
+
+    /**
+     * The certificate chain file of each Verifiable Credential Issuance key pair which has one
+     * (KEY_CERTIFICATE_CHAIN_FILENAME), by the key ID the key pair bag holds the pair under. Read and validated by
+     * VciCertificateChainResolver.
+     *
+     * A chain is matched to its pair by position. The bags keep the configured order, so the n-th configured pair is
+     * the n-th pair of the bag as long as no two pairs share a key ID; pairs which do are held as one, which would
+     * leave a chain on whichever key came last, so a chain is refused then.
+     *
+     * @return array<string,non-empty-string>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciSignatureCertificateChainFilenames(): array
+    {
+        if (is_array($this->vciSignatureCertificateChainFilenames)) {
+            return $this->vciSignatureCertificateChainFilenames;
+        }
+
+        $signatureKeyPairs = array_values($this->getVciSignatureKeyPairs());
+        $filenamesByPosition = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($signatureKeyPairs as $position => $signatureKeyPair) {
+            if (
+                !is_array($signatureKeyPair) ||
+                !array_key_exists(self::KEY_CERTIFICATE_CHAIN_FILENAME, $signatureKeyPair)
+            ) {
+                continue;
+            }
+
+            $filenamesByPosition[$position] = $this->resolveCertificateFilename(
+                $signatureKeyPair[self::KEY_CERTIFICATE_CHAIN_FILENAME],
+                sprintf(
+                    '"%s" of key pair %d under "%s"',
+                    self::KEY_CERTIFICATE_CHAIN_FILENAME,
+                    $position + 1,
+                    self::OPTION_VCI_SIGNATURE_KEY_PAIRS,
+                ),
+            );
+        }
+
+        if ($filenamesByPosition === []) {
+            return $this->vciSignatureCertificateChainFilenames = [];
+        }
+
+        $keyIds = array_keys($this->getVciSignatureKeyPairBag()->getAll());
+
+        if (count($keyIds) !== count($signatureKeyPairs)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'A certificate chain is configured under "%s", but two of the key pairs there have the same key ' .
+                    'ID, so it can not be told which key a chain belongs to. Give each key pair a key ID of its own.',
+                    self::OPTION_VCI_SIGNATURE_KEY_PAIRS,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        $filenames = [];
+
+        foreach ($filenamesByPosition as $position => $filename) {
+            $filenames[$keyIds[$position]] = $filename;
+        }
+
+        return $this->vciSignatureCertificateChainFilenames = $filenames;
+    }
+
+
+    /**
+     * The PEM file of the trust anchors the certificate chains of the Verifiable Credential Issuance key pairs are
+     * validated against: self-signed root certificates, more than one while a root is being replaced. Null when not
+     * configured, which VciCertificateChainResolver refuses as soon as a key pair has a chain.
+     *
+     * @return ?non-empty-string
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciIssuerTrustAnchorsFilename(): ?string
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME, null);
+
+        if ($configured === null) {
+            return null;
+        }
+
+        return $this->resolveCertificateFilename(
+            $configured,
+            sprintf('option "%s"', self::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME),
+        );
+    }
+
+
+    /**
+     * A configured file name, resolved the way the key pairs' files are: relative to SimpleSAMLphp's certificate
+     * directory unless absolute.
+     *
+     * @param string $of What the value was configured as, for the error.
+     * @return non-empty-string
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveCertificateFilename(mixed $filename, string $of): string
+    {
+        if (!is_string($filename) || $filename === '') {
+            throw new ConfigurationError(
+                sprintf(
+                    'Unexpected value for %s. Expected a non-empty string, got "%s".',
+                    $of,
+                    var_export($filename, true),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        $path = $this->sspBridge->utils()->config()->getCertPath($filename);
+
+        if ($path === '' || !file_exists($path)) {
+            throw new ConfigurationError(
+                sprintf('The file of %s does not exist: %s', $of, $path),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $path;
     }
 
 

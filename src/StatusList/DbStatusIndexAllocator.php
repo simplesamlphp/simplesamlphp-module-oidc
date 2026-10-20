@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\StatusList;
 use DateInterval;
 use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
@@ -110,6 +111,13 @@ class DbStatusIndexAllocator implements StatusIndexAllocatorInterface
     ): StatusAllocation {
         $signingKeyId = $this->statusListKeyResolver->getCurrentKeyId();
         $policyFingerprint = $pool->getPolicyFingerprint($signingKeyId);
+
+        // A token of a list under the `x509` key profile carries its key's certificate chain, so no credential is
+        // pointed at such a list while the key has none it could be signed with: the credential would name a status
+        // nobody could publish.
+        if ($pool->getKeyProfile() === StatusListKeyProfileEnum::X509) {
+            $this->statusListKeyResolver->getCertificateChainFor($this->statusListKeyResolver->getCurrent());
+        }
 
         // Decided once, here, from the expiry this credential is being issued with, and carried through
         // every lookup below. A list which never expires can never be retired, so it must not share a

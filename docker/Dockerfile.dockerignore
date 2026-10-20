@@ -1,0 +1,3 @@
+# The build context of docker/Dockerfile is the checkout. The development CAs' private keys of
+# docker/generate-dev-certs.sh stay out of the image; it takes only their certificates, from docker/ssp.
+docker/vci-pki

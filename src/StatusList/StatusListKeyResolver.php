@@ -6,6 +6,8 @@ namespace SimpleSAML\Module\oidc\StatusList;
 
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use Throwable;
 
@@ -28,6 +30,7 @@ class StatusListKeyResolver
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
+        protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
     ) {
     }
 
@@ -92,5 +95,41 @@ class StatusListKeyResolver
         }
 
         return $signatureKeyPair;
+    }
+
+
+    /**
+     * The certificate chain a token of a list under the `x509` key profile carries: that of the key it is signed
+     * with, validated now.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException When the key has no chain, or one which
+     * can not be used. Never answered with no chain: a token under this profile names its key by nothing else.
+     */
+    public function getCertificateChainFor(SignatureKeyPair $signatureKeyPair): VciCertificateChain
+    {
+        $keyId = $signatureKeyPair->getKeyPair()->getKeyId();
+
+        try {
+            $certificateChain = $this->vciCertificateChainResolver->resolveFor($signatureKeyPair);
+        } catch (Throwable $throwable) {
+            throw new StatusListException(
+                sprintf(
+                    'The certificate chain of the key "%s" can not be used, so Status List Tokens under the ' .
+                    '"x509" key profile can not be signed with it: %s',
+                    $keyId,
+                    $throwable->getMessage(),
+                ),
+                (int)$throwable->getCode(),
+                $throwable,
+            );
+        }
+
+        return $certificateChain ?? throw new StatusListException(
+            sprintf(
+                'The key "%s" has no certificate chain, so Status List Tokens under the "x509" key profile can not ' .
+                'be signed with it. Configure its chain, or put the pool on another key profile.',
+                $keyId,
+            ),
+        );
     }
 }

@@ -37,6 +37,8 @@ ADD docker/ssp/oidc_module.crt /var/simplesamlphp/cert/oidc_module.crt
 ADD docker/ssp/oidc_module.key /var/simplesamlphp/cert/oidc_module.key
 ADD docker/ssp/oidc_module_vci_ec_p256_01.pub /var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.pub
 ADD docker/ssp/oidc_module_vci_ec_p256_01.key /var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.key
+ADD docker/ssp/oidc_module_vci_ec_p256_01.chain.pem /var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.chain.pem
+ADD docker/ssp/oidc_module_vci_trust_anchors.pem /var/simplesamlphp/cert/oidc_module_vci_trust_anchors.pem
 ADD docker/apache-override.cf /etc/apache2/sites-enabled/ssp-override.cf
 
 RUN chown www-data /var/simplesamlphp/cert/oidc* \

@@ -11,3 +11,4 @@ vendor
 composer.lock
 docker/nginx-certs
 docker/ssp/*.key
+docker/vci-pki

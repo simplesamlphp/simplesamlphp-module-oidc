@@ -207,8 +207,8 @@ formats below (row 45). A request using one anyway is refused, except where note
 | 81 | It is RECOMMENDED to limit the validity of SD-JWT VCs, and a limited one uses `exp`, `status` or both (§6.1). | Config | Credential lifetimes per configuration (`vci_credential_ttls`, none by default); status lists when enabled (off by default). |
 | 82 | `cnf` as in SD-JWT VC, with the key in `jwk` when the configuration requires holder binding (§6.1). | Partial (H-G3) | `cnf.jwk` for proofs carrying a `jwk`; `cnf.kid` for proofs naming a DID verification method. `CredentialIssuerCredentialControllerTest::testAKeyBoundSdJwtVcNamesItsHolderByCnfAlone`. |
 | 83 | `status` contains `status_list`; every credential has its own unique, unpredictable index (§6.1). | Met; unpredictability untested | `DbStatusIndexAllocator` picks free indices at random. `DbStatusIndexAllocatorTest::testNeverHandsOutTheSameIndexTwice` (uniqueness); `CredentialIssuerCredentialControllerTest::testMergesTheStatusClaimIntoTheCredential`. |
-| 84 | Status List Tokens carry the signing certificate in `x5c`, without the trust anchor, not self-signed (§6.1). | Gap (H-G2) | `DbStatusListTokenProvider` signs with a `kid` (`did:jwk`, `did:web` or the JWKS); no `x5c`. |
-| 85 | SD-JWT VCs carry the issuer's signing certificate and chain in `x5c`, without the trust anchor, not self-signed; X.509 key resolution (§6.1.1). | Gap (H-G2) | Credentials name their key with a `kid`; no X.509 support. |
+| 84 | Status List Tokens carry the signing certificate in `x5c`, without the trust anchor, not self-signed (§6.1). | Met; Config (H-G2) | The `x509` key profile (`vci_status_list_key_profile`, or a pool's `key_profile`; default `did_jwk`) signs with `iss` the issuer URL and the key's chain in `x5c`, no `kid`. The chain (`certificate_chain_filename` of the VCI key pair) leaves the anchor out and is validated against `vci_issuer_trust_anchors_filename` before anything is signed (`VciCertificateChainResolver`: no self-signed certificate, no anchor in it, the leaf holding the key); a token expires with the chain and is signed again when the chain changes. `DbStatusListTokenProviderTest::testAnX509TokenVerifiesThroughItsCertificateChain`, `VciCertificateChainResolverTest`. |
+| 85 | SD-JWT VCs carry the issuer's signing certificate and chain in `x5c`, without the trust anchor, not self-signed; X.509 key resolution (§6.1.1). | Met; Config (H-G2) | Every credential carries `x5c` when the signing key has a `certificate_chain_filename`, validated as in row 84, beside the `kid` of the identifier mode. `CredentialIssuerCredentialControllerTest::testACredentialVerifiesThroughItsCertificateChain`, `testCarriesTheCertificateChainOfTheSigningKeyInEveryFormat`. |
 | 86 | ES256 and SHA-256 are supported (§7, §8). | Met | ES256 proofs and signing keys; SHA-256 disclosure digests. `CredentialIssuerCredentialControllerTest::testSignsEveryCredentialWithTheActiveSigningKey` (signing); the library's `SdJwtFactoryTest::testCanUpdatePayloadWithDisclosures`. ES256 proof verification: `OpenId4VciProofValidatorTest`: `testAcceptsARealProof`, `testRefusesAProofSignedWithAnotherKeyThanTheVerificationMethodItNames`. |
 | 87 | Signed issuer metadata where an ecosystem requires it, with `x5c` (§4.1); the `haip-vci://` scheme (§4.2, MAY). | Not implemented | |
 
@@ -256,7 +256,8 @@ HAIP 1.0 and the FAPI 2.0 provisions it applies:
 
 - **H-G1** Client authentication is not required at the PAR and token endpoints; no Wallet Attestation
   (rows 76, 78, 99).
-- **H-G2** No `x5c` (X.509) issuer keys for SD-JWT VCs and Status List Tokens (rows 84, 85).
+- **H-G2** `x5c` (X.509) issuer keys depend on configuration: nothing requires a certificate chain on the signing
+  key, nor the `x509` key profile for Status List Tokens (rows 84, 85).
 - **H-G3** `cnf.kid` instead of `cnf.jwk` for DID-bound keys (row 82).
 - **H-G4** No key attestations (rows 52, 64, 79).
 - **H-G5** PKCE `plain` accepted; PKCE optional for confidential clients (row 100).

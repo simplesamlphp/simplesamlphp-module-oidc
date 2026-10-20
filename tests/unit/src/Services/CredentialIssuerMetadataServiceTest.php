@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Services\CredentialIssuerMetadataService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -72,6 +73,8 @@ class CredentialIssuerMetadataServiceTest extends TestCase
 
     protected MockObject $didFactoryMock;
 
+    protected MockObject $vciCertificateChainResolverMock;
+
     protected SignatureKeyPairBag $vciSignatureKeyPairBag;
 
     protected VciCredentialBindingPolicyEnum $bindingPolicy;
@@ -99,6 +102,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->vciContextResolverMock = $this->createMock(VciContextResolver::class);
         $this->didMock = $this->createMock(Did::class);
         $this->didFactoryMock = $this->createMock(DidFactory::class);
+        $this->vciCertificateChainResolverMock = $this->createMock(VciCertificateChainResolver::class);
 
         $this->didMock->method('supportedMethods')
             ->willReturnCallback(fn(): array => $this->resolvableDidMethods);
@@ -175,6 +179,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
             $this->routesMock,
             $this->vciContextResolverMock,
             $this->didFactoryMock,
+            $this->vciCertificateChainResolverMock,
         );
     }
 
@@ -770,6 +775,23 @@ class CredentialIssuerMetadataServiceTest extends TestCase
 
         $this->expectException(ConfigurationError::class);
         $this->expectExceptionMessage('Verifiable Credential configuration [x] has no vct.');
+
+        $this->sut()->getMetadata();
+    }
+
+
+    /**
+     * Nor while the active key's certificate chain can not be used, since nothing could be signed with it.
+     */
+    public function testPublishesNothingWhileTheActiveKeysCertificateChainCanNotBeUsed(): void
+    {
+        $this->vciCertificateChainResolverMock->expects($this->once())->method('resolveFor')
+            ->with($this->vciSignatureKeyPairBag->getFirstOrFail())
+            ->willThrowException(new ConfigurationError('The certificate chain has expired.'));
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('The certificate chain has expired.');
 
         $this->sut()->getMetadata();
     }

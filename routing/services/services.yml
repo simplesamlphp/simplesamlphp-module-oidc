@@ -175,6 +175,9 @@ services:
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~
+  # Reads and validates the certificate chains of the credential signing keys; the trust store of each validation is
+  # written to the system's temporary directory.
+  SimpleSAML\OpenID\X509: ~
   # Resolution is driven by identifiers supplied from outside, so this gets a destination policy of its
   # own rather than the shared one above.
   SimpleSAML\OpenID\Did:

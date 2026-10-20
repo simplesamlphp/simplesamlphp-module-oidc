@@ -1225,6 +1225,20 @@ $config = [
      * verifiable, and they are signed with keys resolved through this option, so
      * an entry has to remain here for as long as any Status List it signed is
      * still served.
+     *
+     * An entry may name the certificate chain of its key
+     * (KEY_CERTIFICATE_CHAIN_FILENAME): a PEM file holding the certificate of
+     * the key, then the certificate of each CA up the chain, without the trust
+     * anchor. What the key signs then carries the chain in its `x5c` header:
+     * credentials of every format, under any issuer identifier mode, and Status
+     * List Tokens under the X509 key profile (HAIP 1.0 sections 6.1 and 6.1.1).
+     * The certificate has to hold the entry's public key and must not be
+     * self-signed. The chain is validated against
+     * OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME whenever something is signed, so
+     * a chain which does not validate, an expired one included, stops issuance
+     * and the Credential Issuer metadata until it is renewed. Give each entry a
+     * key ID of its own when any entry has a chain. A renewed certificate for
+     * the same key needs only a new chain file.
      */
     ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
         [
@@ -1233,10 +1247,22 @@ $config = [
             ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module_vci_ec_p256_01.pub',
 //            ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => 'private-key-password', // Optional
 //            ModuleConfig::KEY_KEY_ID => 'ec-vci-signing-key-01', // Optional
+//            ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module_vci_ec_p256_01.chain.pem', // Optional
             // Sample when using `did:jwk:...` format.
 //            ModuleConfig::KEY_KEY_ID => 'did:jwk:eyJrdHkiOiJFQyIsImNydiI6IlAtMjU2IiwieCI6IlREaW5WM3R5b2VUNEVmVU1Bd25QZnlkbkdzay1qVnczQlFXNldGdnZjRk0iLCJ5IjoiMGplbkx3UG9IbzRfM21Ma2gyMXV5Y0hWTzM3d2hCUTZqd3pDLV9VUXBsdyIsInVzZSI6InNpZyIsImFsZyI6IkVTMjU2In0#0', // Optional
         ],
     ],
+
+    /**
+     * (optional) The trust anchors the certificate chains of the VCI signature
+     * key pairs are validated against: a PEM file of self-signed root CA
+     * certificates, more than one while a root is being replaced. Required as
+     * soon as a key pair has a certificate chain. These are the roots verifiers
+     * have to trust in turn; an intermediate CA can not be one, since PHP's path
+     * validation accepts self-signed roots only. Revocation is not checked: to
+     * stop trusting a CA, remove its root or the chains it issued.
+     */
+//    ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module_vci_trust_anchors.pem',
 
     /**
      * How issued credentials name the issuer which signed them, in the `iss`
@@ -2172,6 +2198,14 @@ $config = [
      *  - Jwks: `iss` is this module's issuer URL and `kid` is the JWKS key ID,
      *    so the key is resolved through the published JWKS. Use this for Relying
      *    Parties which will not accept a `did:jwk` key identifier.
+     *  - X509: `iss` is this module's issuer URL and `x5c` the certificate chain
+     *    of the signing key, without a `kid`, as HAIP 1.0 section 6.1 has it.
+     *    Requires that key to have a certificate chain (see
+     *    OPTION_VCI_SIGNATURE_KEY_PAIRS); while the active key has none, the
+     *    credentials of a pool on this profile are not issued. A token carries
+     *    the chain its key has when the token is signed, expires no later than
+     *    any certificate of that chain, and is signed again once the chain is
+     *    replaced.
      *
      * Each Status List records the profile it was created under, so changing
      * this routes newly issued credentials to newly created lists while existing

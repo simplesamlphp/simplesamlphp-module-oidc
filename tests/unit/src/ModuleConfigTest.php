@@ -1032,6 +1032,19 @@ class ModuleConfigTest extends TestCase
             $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'jwks'])
                 ->getVciStatusListKeyProfile(),
         );
+
+        $this->assertSame(
+            StatusListKeyProfileEnum::X509,
+            $this->sut(overrides: [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => StatusListKeyProfileEnum::X509,
+            ])->getVciStatusListKeyProfile(),
+        );
+
+        $this->assertSame(
+            StatusListKeyProfileEnum::X509,
+            $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x509'])
+                ->getVciStatusListKeyProfile(),
+        );
     }
 
 
@@ -1042,7 +1055,7 @@ class ModuleConfigTest extends TestCase
     {
         $this->expectException(ConfigurationError::class);
 
-        $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x509'])
+        $this->sut(overrides: [ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x5u'])
             ->getVciStatusListKeyProfile();
     }
 
@@ -4618,6 +4631,196 @@ class ModuleConfigTest extends TestCase
 
         $this->assertInstanceOf(SignatureKeyPairBag::class, $keyPairBag);
         $this->assertSame($keyPairBag, $sut->getVciSignatureKeyPairBag());
+    }
+
+
+    /**
+     * Without a chain the key pairs are not even loaded: a deployment which has none pays nothing for the option.
+     *
+     * @throws \Exception
+     */
+    public function testNoVciCertificateChainIsConfiguredByDefault(): void
+    {
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->expects($this->never())->method('signatureKeyPairBagFactory');
+
+        $sut = $this->sut(overrides: $this->withVciSignatureKeyPair(), valueAbstracts: $valueAbstractsMock);
+
+        $this->assertSame([], $sut->getVciSignatureCertificateChainFilenames());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testAVciCertificateChainBelongsToTheKeyIdOfItsKeyPair(): void
+    {
+        $sut = $this->sutWithVciSignatureKeyPairs(
+            [
+                $this->vciSignatureKeyPairEntry(),
+                $this->vciSignatureKeyPairEntry([ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module.crt']),
+            ],
+            new SignatureKeyPairBag(
+                $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
+                $this->buildSignatureKeyPair('vci-02', SignatureAlgorithmEnum::ES256),
+            ),
+        );
+
+        $this->assertSame(
+            ['vci-02' => dirname(__DIR__, 2) . '/cert/oidc_module.crt'],
+            $sut->getVciSignatureCertificateChainFilenames(),
+        );
+    }
+
+
+    /**
+     * Two key pairs under one key ID are held as one, by whichever came last, so a chain could end up on a key
+     * it was not configured for.
+     *
+     * @throws \Exception
+     */
+    public function testAVciCertificateChainIsRefusedWhenTwoKeyPairsShareAKeyId(): void
+    {
+        $sut = $this->sutWithVciSignatureKeyPairs(
+            [
+                $this->vciSignatureKeyPairEntry([ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module.crt']),
+                $this->vciSignatureKeyPairEntry(),
+            ],
+            new SignatureKeyPairBag($this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256)),
+        );
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('have the same key ID');
+
+        $sut->getVciSignatureCertificateChainFilenames();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testAVciCertificateChainFilenameMustBeANonEmptyString(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS,
+            [$this->vciSignatureKeyPairEntry([ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => ''])],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Unexpected value for "' . ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME . '" of key pair 1',
+        );
+
+        $sut->getVciSignatureCertificateChainFilenames();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testAVciCertificateChainFileMustExist(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS,
+            [$this->vciSignatureKeyPairEntry([ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'missing.pem'])],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('does not exist: ' . dirname(__DIR__, 2) . '/cert/missing.pem');
+
+        $sut->getVciSignatureCertificateChainFilenames();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testNoVciIssuerTrustAnchorsAreConfiguredByDefault(): void
+    {
+        $this->assertNull($this->sut()->getVciIssuerTrustAnchorsFilename());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testVciIssuerTrustAnchorsAreReadFromTheCertificateDirectory(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+            'oidc_module.crt',
+        ));
+
+        $this->assertSame(dirname(__DIR__, 2) . '/cert/oidc_module.crt', $sut->getVciIssuerTrustAnchorsFilename());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testVciIssuerTrustAnchorsMustBeAFileName(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME, 42));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Expected a non-empty string, got "42"');
+
+        $sut->getVciIssuerTrustAnchorsFilename();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testVciIssuerTrustAnchorsFileMustExist(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+            'missing.pem',
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'The file of option "' . ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME . '" does not exist',
+        );
+
+        $sut->getVciIssuerTrustAnchorsFilename();
+    }
+
+
+    /**
+     * A ModuleConfig with the given VCI key pair entries, whose bag is the given one, so that a test decides the key
+     * IDs without key files per key.
+     *
+     * @param list<array<string,mixed>> $entries
+     */
+    protected function sutWithVciSignatureKeyPairs(array $entries, SignatureKeyPairBag $bag): ModuleConfig
+    {
+        $signatureKeyPairBagFactoryMock = $this->createMock(SignatureKeyPairBagFactory::class);
+        $signatureKeyPairBagFactoryMock->method('fromConfig')->willReturn($bag);
+
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->method('signatureKeyPairBagFactory')->willReturn($signatureKeyPairBagFactoryMock);
+
+        return $this->sut(
+            overrides: $this->withOption(ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS, $entries),
+            valueAbstracts: $valueAbstractsMock,
+        );
+    }
+
+
+    /**
+     * @param array<string,mixed> $more
+     * @return array<string,mixed>
+     */
+    protected function vciSignatureKeyPairEntry(array $more = []): array
+    {
+        return [
+            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
+            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+            ...$more,
+        ];
     }
 
 
