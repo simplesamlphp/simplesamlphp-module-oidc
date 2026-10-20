@@ -9,9 +9,10 @@ ENV STAGINGCOMPOSERREPOS=oidc \
     COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:@dev"
 COPY . /var/simplesamlphp/staging-modules/oidc
 
+# With the module's dependencies updated too, as in docker/Dockerfile.
 RUN git config --global --add safe.directory '*' \
     && /opt/simplesaml/staging-install.sh \
-    && /opt/simplesaml/module-setup.sh
+    && COMPOSER_WITH_ALL_DEPENDENCIES=1 /opt/simplesaml/module-setup.sh
 
 # Installed once, here: a container starting from this image runs no Composer.
 ENV STAGINGCOMPOSERREPOS="" \

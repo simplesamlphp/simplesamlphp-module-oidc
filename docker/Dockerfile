@@ -17,8 +17,12 @@ RUN sqlite3 /var/simplesamlphp/data/mydb.sq3  < /tmp/conformance.sql \
 # --build-arg OIDC_VERSION
 ARG OIDC_VERSION="@dev"
 
+# The module is added to SimpleSAMLphp's own lock by a partial update (module-setup.sh, at build and at every start),
+# which may also update the module's dependencies: a version the module requires past the base image's lock
+# (symfony/expression-language ^7.4.21 against 7.4.14, say) can not be installed otherwise.
 ENV STAGINGCOMPOSERREPOS=oidc \
-    COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:$OIDC_VERSION"
+    COMPOSER_REQUIRE="simplesamlphp/simplesamlphp-module-oidc:$OIDC_VERSION" \
+    COMPOSER_WITH_ALL_DEPENDENCIES=1
 ADD . /var/simplesamlphp/staging-modules/oidc
 
 RUN git config --global --add safe.directory '*'
