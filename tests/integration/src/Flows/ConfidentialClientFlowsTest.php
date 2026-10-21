@@ -13,6 +13,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
+use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Server\AuthorizationServer;
@@ -36,6 +37,7 @@ class ConfidentialClientFlowsTest extends TestCase
     protected ClientEntity $client;
     protected UserEntity $user;
     protected array $originalServer;
+    protected Configuration $originalModuleConfig;
 
     public static function setUpBeforeClass(): void
     {
@@ -62,12 +64,9 @@ class ConfidentialClientFlowsTest extends TestCase
         $_SERVER['REQUEST_METHOD'] = 'GET';
 
         Configuration::setConfigDir(__DIR__ . '/../../../config');
-        $this->container = new Container();
-
-        $this->clientRepo = $this->container->get(ClientRepository::class);
-        $this->userRepo = $this->container->get(UserRepository::class);
-        $this->clientFactory = $this->container->get(ClientEntityFactory::class);
-        $this->authServer = $this->container->get(AuthorizationServer::class);
+        $this->originalModuleConfig = Configuration::getConfig(ModuleConfig::DEFAULT_FILE_NAME);
+        // Enable the opt-in hardening for these tests.
+        $this->buildContainer(disallowImplicitForConfidentialClients: true);
 
         // Set up test user
         $this->user = new UserEntity(
@@ -101,6 +100,23 @@ class ConfidentialClientFlowsTest extends TestCase
         $this->clientRepo->add($this->client);
     }
 
+    protected function buildContainer(bool $disallowImplicitForConfidentialClients): void
+    {
+        Configuration::setPreLoadedConfig(
+            Configuration::loadFromArray(array_merge(
+                $this->originalModuleConfig->toArray(),
+                [ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS => $disallowImplicitForConfidentialClients],
+            )),
+            ModuleConfig::DEFAULT_FILE_NAME,
+        );
+
+        $this->container = new Container();
+        $this->clientRepo = $this->container->get(ClientRepository::class);
+        $this->userRepo = $this->container->get(UserRepository::class);
+        $this->clientFactory = $this->container->get(ClientEntityFactory::class);
+        $this->authServer = $this->container->get(AuthorizationServer::class);
+    }
+
     protected function tearDown(): void
     {
         $_SERVER = $this->originalServer;
@@ -117,18 +133,19 @@ class ConfidentialClientFlowsTest extends TestCase
                 $this->userRepo->delete($existingUser);
             }
         }
+
+        Configuration::setPreLoadedConfig($this->originalModuleConfig, ModuleConfig::DEFAULT_FILE_NAME);
     }
 
     /**
      * Test that confidential clients MUST NOT be permitted to use the Implicit Flow
      * (response_type=id_token token or id_token).
      *
-     * Per RFC 9700 Section 2.1.2, RFC 6749 Section 10.3, and RFC 7591 Section 2:
-     * Confidential clients must authenticate to receive tokens, and implicit grant
-     * must not issue tokens to confidential clients without client credentials.
-     *
-     * THIS TEST IS EXPECTED TO FAIL ON THE CURRENT IMPLEMENTATION because the OP
-     * allows confidential clients to obtain tokens via implicit flow without authentication.
+     * Requires opt-in ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS (enabled in setUp).
+     * This is hardening, not a spec requirement. The implicit flow never authenticates the client and
+     * OAuth 2.0 Security BCP advises against it: https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
+     * OIDC Core notes confidential clients would normally use the code flow:
+     * https://openid.net/specs/openid-connect-core-1_0.html#RPMTI
      */
     public function testConfidentialClientCannotUseImplicitFlow(): void
     {
@@ -160,6 +177,35 @@ class ConfidentialClientFlowsTest extends TestCase
         $location = $response->getHeaderLine('Location');
         $this->assertStringNotContainsString('access_token=', $location, 'Confidential client received access_token via implicit flow!');
         $this->assertStringNotContainsString('id_token=', $location, 'Confidential client received id_token via implicit flow!');
+    }
+
+    /**
+     * With the opt-in option disabled (default), behaviour is unchanged: the implicit flow works for
+     * confidential clients, as the specs do not forbid it.
+     */
+    public function testConfidentialClientCanUseImplicitFlowWhenOptionDisabled(): void
+    {
+        $this->buildContainer(disallowImplicitForConfidentialClients: false);
+
+        $implicitRequest = (new ServerRequest('GET', '/module.php/oidc/authorization'))
+            ->withQueryParams([
+                'response_type' => 'id_token token',
+                'client_id' => $this->clientId,
+                'redirect_uri' => $this->redirectUri,
+                'scope' => 'openid',
+                'state' => 'xyz123',
+                'nonce' => 'nonce456',
+            ]);
+
+        $validatedAuthReq = $this->authServer->validateAuthorizationRequest($implicitRequest);
+        $validatedAuthReq->setUser($this->user);
+        $validatedAuthReq->setAuthorizationApproved(true);
+
+        $response = $this->authServer->completeAuthorizationRequest($validatedAuthReq, new Response());
+
+        $location = $response->getHeaderLine('Location');
+        $this->assertStringContainsString('access_token=', $location);
+        $this->assertStringContainsString('id_token=', $location);
     }
 
     /**

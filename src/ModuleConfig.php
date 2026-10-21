@@ -96,6 +96,8 @@ class ModuleConfig
     final public const string OPTION_PROTOCOL_CLIENT_ENTITY_CACHE_DURATION = 'protocol_client_entity_cache_duration';
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
     'protocol_discover_show_claims_supported';
+    final public const string OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS =
+    'disallow_implicit_for_confidential_clients';
 
     final public const string OPTION_PKI_NEW_PRIVATE_KEY_PASSPHRASE = 'new_private_key_passphrase';
     final public const string OPTION_PKI_NEW_PRIVATE_KEY_FILENAME = 'new_privatekey';
@@ -523,6 +525,20 @@ class ModuleConfig
     {
         return $this->config()->getOptionalBoolean(
             self::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED,
+            false,
+        );
+    }
+
+    /**
+     * Opt-in hardening: reject implicit flow requests from confidential clients.
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
+     * @see https://openid.net/specs/openid-connect-core-1_0.html#RPMTI
+     */
+    public function getDisallowImplicitForConfidentialClients(): bool
+    {
+        return $this->config()->getOptionalBoolean(
+            self::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS,
             false,
         );
     }

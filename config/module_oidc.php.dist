@@ -256,6 +256,15 @@ $config = [
     // claims for which "SAML attribute to OIDC claim translation" has been defined above.
     ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => false,
 
+    // Optional security hardening (disabled by default). If enabled, confidential clients will be rejected with
+    // 'unauthorized_client' when they try to use the implicit flow (response_type 'id_token' or 'id_token token'),
+    // so they can only get tokens using the authorization code flow, where they authenticate at the token endpoint.
+    // The specifications do not forbid confidential clients from using the implicit flow, but OAuth 2.0 Security
+    // BCP advises against it (https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2), and OIDC Core notes
+    // that confidential clients would normally use the authorization code flow
+    // (https://openid.net/specs/openid-connect-core-1_0.html#RPMTI).
+    ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS => false,
+
     // Settings regarding Authentication Processing Filters.
     // Note: OIDC authN state array will not contain all the keys which are available during SAML authN,
     // like Service Provider metadata, etc.
