@@ -67,6 +67,12 @@ OAuth 2.0:
   — `private_key_jwt` at the token, PAR and token introspection endpoints
   (the token and introspection endpoints also support `client_secret_basic`
   and `client_secret_post`)
+- [OAuth 2.0 Attestation-Based Client Authentication (draft 07)](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-attestation-based-client-auth-07)
+  — `attest_jwt_client_auth`, the Wallet Attestation of OpenID4VCI 1.0
+  Appendix E, at the token and PAR endpoints for clients an administrator
+  registered for it, while credential issuance is enabled; no challenge
+  endpoint. See
+  [Configuration](3-oidc-configuration.md#wallet-attestation-attest_jwt_client_auth)
 - [OAuth 2.0 Token Introspection (RFC 7662)](https://www.rfc-editor.org/rfc/rfc7662)
   — optional endpoint, advertised as `introspection_endpoint` while enabled;
   with [AARC-G052](https://aarc-community.org/guidelines/aarc-g052/) proxied
@@ -185,16 +191,17 @@ with the OP as its Authorization Server. What that covers:
   Issuer Metadata, and language negotiation of the metadata; the `mso_mdoc`,
   `ldp_vc` and `jwt_vc_json-ld` formats; the `di_vp` and `attestation` proof
   types, and the `x5c` header of `jwt` proofs (a key proof naming its key by a
-  certificate is refused); key attestations and Wallet Attestations.
+  certificate is refused); key attestations.
 - **The OpenID4VC High Assurance Interoperability Profile (HAIP 1.0) is not
   supported.** Among what it requires of an issuer and the module lacks:
   client authentication of every wallet at the PAR and token endpoints (public
   clients, non-registered wallets and anonymous pre-authorized code requests
   are served without it); X.509 (`x5c`) keys for credentials and Status List
   Tokens; the holder's key in `cnf.jwk` whatever the proof named it by; and
-  several FAPI 2.0 provisions. Nor does the module implement the Wallet
-  Attestations HAIP recommends to ecosystems as that client authentication, or
-  evaluate the key attestations it leaves to ecosystems to require. The same
+  several FAPI 2.0 provisions. Wallets registered for it can authenticate
+  with a Wallet Attestation, as HAIP has them, but nothing requires it. Nor
+  does the module evaluate the key attestations HAIP leaves to ecosystems to
+  require. The same
   document lists all of these as gaps H-G1 to H-G11. The OpenID Foundation
   certifies OpenID4VCI issuers through its HAIP issuer test plan, so the module
   can not be certified as it stands; CI runs the foundation's base 1.0 issuer

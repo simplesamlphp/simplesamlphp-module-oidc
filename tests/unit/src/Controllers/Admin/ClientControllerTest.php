@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
+use Closure;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -29,9 +30,14 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\ClientAttestationTrust;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\OpenID\X509\CertificateIdentityTypeEnum;
+use SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\CertificateBuilder;
 use SimpleSAML\Utils\Random as SspRandom;
 use SimpleSAML\XHTML\Template;
 use Symfony\Component\HttpFoundation\Request;
+use TypeError;
 
 #[CoversClass(ClientController::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -165,6 +171,7 @@ class ClientControllerTest extends TestCase
             $routes,
             $helpers,
             $logger,
+            new X509(),
         );
     }
 
@@ -776,6 +783,23 @@ class ClientControllerTest extends TestCase
             ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN => true,
             ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER => true,
             ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => ['deny' => []],
+            ClientEntity::KEY_CLIENT_ATTESTATION => $this->clientAttestationTrust(),
+        ];
+    }
+
+
+    /**
+     * A client attestation trust as the client record keeps it.
+     *
+     * @return array<string,mixed>
+     */
+    protected function clientAttestationTrust(string $trustAnchors = 'PEM'): array
+    {
+        return [
+            'attester' => 'https://wallet-provider.example.org',
+            'issuing_ca_public_key_sha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+            'attester_identity' => ['type' => 'san_uri', 'value' => 'https://wallet-provider.example.org'],
+            'trust_anchors' => $trustAnchors,
         ];
     }
 
@@ -822,6 +846,105 @@ class ClientControllerTest extends TestCase
         $this->assertTrue($saved[ClientEntity::KEY_ADD_CLAIMS_TO_ID_TOKEN]);
         $this->assertTrue($saved[ClientEntity::KEY_INTROSPECTION_RESOURCE_SERVER]);
         $this->assertSame(['deny' => []], $saved[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS]);
+        $this->assertSame($this->clientAttestationTrust(), $saved[ClientEntity::KEY_CLIENT_ATTESTATION]);
+    }
+
+
+    /**
+     * An administrator emptying the attestation trust fields removes the trust from the record.
+     */
+    public function testAnAdministratorRemovesTheClientAttestationTrust(): void
+    {
+        $this->authorizationMock->method('isAdmin')->willReturn(true);
+
+        $saved = $this->extraMetadataSavedByEdit(
+            [ClientEntity::KEY_CLIENT_ATTESTATION => $this->clientAttestationTrust()],
+            [...$this->sampleFormData, ClientEntity::KEY_CLIENT_ATTESTATION => null],
+        );
+
+        $this->assertArrayNotHasKey(ClientEntity::KEY_CLIENT_ATTESTATION, $saved);
+    }
+
+
+    /**
+     * The client page shows the trust with each trust anchor by its subject and the end of its validity, says so
+     * when the trust or its trust anchors can not be read, and shows nothing for a client without one.
+     *
+     * @return array<string,array{\Closure, mixed}>
+     */
+    public static function clientAttestationTrustOnTheClientPageProvider(): array
+    {
+        $trust = static fn(string $trustAnchors): ClientAttestationTrust => new ClientAttestationTrust(
+            'https://wallet-provider.example.org',
+            'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+            CertificateIdentityTypeEnum::SubjectAlternativeNameDnsName,
+            'wallet-provider.example.org',
+            $trustAnchors,
+        );
+        $described = static fn(?array $trustAnchors): array => [
+            'attester' => 'https://wallet-provider.example.org',
+            'issuingCaPublicKeySha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+            'attesterIdentityType' => 'san_dns',
+            'attesterIdentity' => 'wallet-provider.example.org',
+            'trustAnchors' => $trustAnchors,
+        ];
+
+        return [
+            'no trust' => [
+                static fn(MockObject $client) => $client->method('getClientAttestationTrust')->willReturn(null),
+                null,
+            ],
+            'a trust which can not be read' => [
+                static fn(MockObject $client) => $client->method('getClientAttestationTrust')
+                    ->willThrowException(new OidcException('unreadable')),
+                false,
+            ],
+            'a trust whose reading fails otherwise' => [
+                static fn(MockObject $client) => $client->method('getClientAttestationTrust')
+                    ->willThrowException(new TypeError('not an array')),
+                false,
+            ],
+            'trust anchors which can not be read' => [
+                static fn(MockObject $client) => $client->method('getClientAttestationTrust')
+                    ->willReturn($trust('not a certificate')),
+                $described(null),
+            ],
+            'a trust' => [
+                static fn(MockObject $client) => $client->method('getClientAttestationTrust')->willReturn($trust(
+                    CertificateBuilder::pem(
+                        CertificateBuilder::root(
+                            CertificateBuilder::ecKey(),
+                            'CN=Wallet Root CA',
+                            '2030-01-01 12:00:00',
+                        ),
+                    ),
+                )),
+                $described(['cn=Wallet Root CA (valid until 2030-01-01 12:00 UTC)']),
+            ],
+        ];
+    }
+
+
+    /**
+     * @param \Closure $stubTrust
+     */
+    #[DataProvider('clientAttestationTrustOnTheClientPageProvider')]
+    public function testTheClientPageShowsTheClientAttestationTrust(Closure $stubTrust, mixed $expected): void
+    {
+        $request = Request::create('/', 'GET', ['client_id' => 'clientId']);
+        $this->clientEntityMock->method('getIdentifier')->willReturn('clientId');
+        $stubTrust($this->clientEntityMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+
+        $this->templateFactoryMock->expects($this->once())->method('build')
+            ->with('oidc:clients/show.twig', $this->callback(
+                function (array $data) use ($expected): bool {
+                    $this->assertSame($expected, $data['clientAttestationTrust']);
+                    return true;
+                },
+            ));
+
+        $this->sut()->show($request);
     }
 
 
@@ -888,6 +1011,35 @@ class ClientControllerTest extends TestCase
             ['allow' => ['https://node-a.example.org']],
             $saved[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS],
         );
+        $this->assertArrayNotHasKey(ClientEntity::KEY_CLIENT_ATTESTATION, $saved);
+    }
+
+
+    /**
+     * Nor the attestation trust: one an administrator set stays as it is, whether the request carries one or none.
+     */
+    #[DataProvider('withOrWithoutAdministratorOnlyPropertiesProvider')]
+    public function testSomebodyOtherThanAnAdministratorKeepsTheStoredClientAttestationTrust(
+        bool $withAdministratorOnlyProperties,
+    ): void {
+        $this->authorizationMock->method('isAdmin')->willReturn(false);
+        $stored = [ClientEntity::KEY_CLIENT_ATTESTATION => $this->clientAttestationTrust('STORED')];
+
+        $saved = $this->extraMetadataSavedByEdit(
+            $stored,
+            $withAdministratorOnlyProperties ? $this->formDataWithAdminOnlyProperties() : $this->sampleFormData,
+        );
+
+        $this->assertSame($this->clientAttestationTrust('STORED'), $saved[ClientEntity::KEY_CLIENT_ATTESTATION]);
+    }
+
+
+    /**
+     * @return array<string,array{bool}>
+     */
+    public static function withOrWithoutAdministratorOnlyPropertiesProvider(): array
+    {
+        return ['with them' => [true], 'without them' => [false]];
     }
 
 

@@ -14,9 +14,11 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
+use SimpleSAML\Module\oidc\ValueAbstracts\ClientAttestationTrust;
 use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
+use SimpleSAML\OpenID\X509\CertificateIdentityTypeEnum;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Entities\ClientEntity
@@ -290,6 +292,7 @@ class ClientEntityTest extends TestCase
                 'add_claims_to_id_token' => false,
                 'introspection_resource_server' => false,
                 'introspection_foreign_issuers' => null,
+                'client_attestation' => null,
                 'registration_access_token' => null,
             ],
         );
@@ -510,6 +513,74 @@ class ClientEntityTest extends TestCase
             'not a list',
             $this->withExtraMetadata([ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS => 'not a list'])
                 ->toArray()[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS],
+        );
+    }
+
+
+    /**
+     * A client without attestation trust has none of its attestations accepted.
+     */
+    public function testHasNoClientAttestationTrustByDefault(): void
+    {
+        $this->assertNull($this->mock()->getClientAttestationTrust());
+        $this->assertNull($this->withExtraMetadata([])->getClientAttestationTrust());
+    }
+
+
+    public function testReadsTheClientAttestationTrustFromItsExtraMetadata(): void
+    {
+        $trust = $this->withExtraMetadata([
+                ClientEntity::KEY_CLIENT_ATTESTATION => [
+                    'attester' => 'https://wallet-provider.example.org',
+                    'issuing_ca_public_key_sha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+                    'attester_identity' => ['type' => 'san_dns', 'value' => 'wallet-provider.example.org'],
+                    'trust_anchors' => "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
+                ],
+            ])->getClientAttestationTrust();
+
+        $this->assertInstanceOf(ClientAttestationTrust::class, $trust);
+        $this->assertSame('https://wallet-provider.example.org', $trust->getAttester());
+        $this->assertSame(
+            CertificateIdentityTypeEnum::SubjectAlternativeNameDnsName,
+            $trust->getAttesterIdentityType(),
+        );
+        $this->assertSame('wallet-provider.example.org', $trust->getAttesterIdentity());
+    }
+
+
+    /**
+     * A stored value which can not be read is refused, never read as no trust.
+     */
+    public function testRefusesAClientAttestationTrustWhichCanNotBeRead(): void
+    {
+        $clientEntity = $this->withExtraMetadata(
+            [ClientEntity::KEY_CLIENT_ATTESTATION => ['attester' => 'https://wallet-provider.example.org']],
+        );
+
+        $this->expectException(OidcException::class);
+
+        $clientEntity->getClientAttestationTrust();
+    }
+
+
+    /**
+     * A client able to set it through registration could name an attester of its own, and with it any client ID.
+     */
+    public function testTheClientAttestationTrustIsAdministratorOnly(): void
+    {
+        $this->assertContains(ClientEntity::KEY_CLIENT_ATTESTATION, ClientEntity::ADMIN_ONLY_METADATA_KEYS);
+    }
+
+
+    /**
+     * As stored, even when it can not be read; turning a client into an array does not throw for it.
+     */
+    public function testExportsTheClientAttestationTrustAsStored(): void
+    {
+        $this->assertSame(
+            'not an object',
+            $this->withExtraMetadata([ClientEntity::KEY_CLIENT_ATTESTATION => 'not an object'])
+                ->toArray()[ClientEntity::KEY_CLIENT_ATTESTATION],
         );
     }
 

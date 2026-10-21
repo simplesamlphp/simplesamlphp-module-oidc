@@ -11,18 +11,24 @@ use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Codebooks\IntrospectionCallerRoleEnum;
+use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Forms\Controls\UntrimmedTextInput;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
+use SimpleSAML\Module\oidc\ValueAbstracts\ClientAttestationTrust;
 use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ApplicationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\OpenID\X509\CertificateIdentityTypeEnum;
+use Throwable;
 use Traversable;
 
 /**
@@ -73,6 +79,15 @@ class ClientForm extends Form
 
     final public const string FIELD_CLIENT_SECRET = 'client_secret';
 
+    /**
+     * The fields of the client attestation trust, in a container named ClientEntity::KEY_CLIENT_ATTESTATION, with
+     * ClientAttestationTrust::KEY_ATTESTER, KEY_ISSUING_CA_PUBLIC_KEY_SHA256 and KEY_TRUST_ANCHORS: the attester's
+     * identity is two fields here, and one object in the client record.
+     */
+    final public const string FIELD_ATTESTER_IDENTITY_TYPE = 'attester_identity_type';
+
+    final public const string FIELD_ATTESTER_IDENTITY_VALUE = 'attester_identity_value';
+
 
     /**
      * Whether the form is used by a SimpleSAMLphp administrator, the only one who sets the administrator-only client
@@ -92,6 +107,34 @@ class ClientForm extends Form
      */
     protected bool $hasUnreadableForeignIssuerList = false;
 
+    /**
+     * Whether that record holds a client attestation trust the form can not read; see
+     * self::hasUnreadableClientAttestationTrust().
+     */
+    protected bool $hasUnreadableClientAttestationTrust = false;
+
+    /**
+     * Whether the record which filled the form holds a client attestation trust, readable or not: what a form
+     * without its fields (one for somebody other than an administrator) goes by.
+     */
+    protected bool $hasStoredClientAttestationTrust = false;
+
+    /**
+     * Whether some of the client attestation trust fields were filled and others left empty.
+     */
+    protected bool $isClientAttestationTrustIncomplete = false;
+
+    /**
+     * Whether the record which filled the form has the client authenticate with `attest_jwt_client_auth`.
+     */
+    protected bool $isStoredClientAttested = false;
+
+    /**
+     * Whether the record which filled the form is of a client which registers itself (Dynamic Client Registration,
+     * OpenID Federation), and so states its own authentication method whenever it registers again.
+     */
+    protected bool $isSelfRegisteredClient = false;
+
 
     /**
      * @throws \Exception
@@ -102,6 +145,7 @@ class ClientForm extends Form
         protected SspBridge $sspBridge,
         protected Helpers $helpers,
         protected readonly OpenIdHelpers $openIdHelpers = new OpenIdHelpers(),
+        protected readonly X509 $x509 = new X509(),
     ) {
         parent::__construct();
 
@@ -216,6 +260,12 @@ class ClientForm extends Form
      * for any other client, a client being added with a generated ID, and a configuration which names the client in
      * both roles (self::validateIntrospectionResourceServer() reports that one).
      */
+    public function hasUnreadableClientAttestationTrust(): bool
+    {
+        return $this->hasUnreadableClientAttestationTrust;
+    }
+
+
     public function getConfiguredIntrospectionRole(): ?IntrospectionCallerRoleEnum
     {
         try {
@@ -441,6 +491,184 @@ class ClientForm extends Form
                 );
             }
         }
+    }
+
+
+    /**
+     * Validate the client attestation trust (ClientAttestationTrust), which only an administrator sets, and its
+     * pairing with the authentication method: a client authenticating with `attest_jwt_client_auth` needs one, and
+     * one is of no use to a client authenticating otherwise. The trust has to be all there and readable, its trust
+     * anchors self-signed CA certificates, and a subject distinguished name one the module can compare. Somebody
+     * other than an administrator can not give a client the method unless an administrator gave it a trust the form
+     * can read, nor take the method away from a client which has it: the client would then authenticate otherwise,
+     * as a public client with nothing but its client_id among others, while keeping a trust it no longer uses.
+     *
+     * @throws \Exception
+     */
+    public function validateClientAttestationTrust(Form $form): void
+    {
+        $values = $form->getValues(self::TYPE_ARRAY);
+
+        $isAttested = ($values[ClaimsEnum::TokenEndpointAuthMethod->value] ?? null) ===
+        TokenEndpointAuthMethodsEnum::AttestJwtClientAuth->value;
+
+        if (!$this->isAdministrator) {
+            $hasReadableStoredTrust = $this->hasStoredClientAttestationTrust &&
+            !$this->hasUnreadableClientAttestationTrust;
+
+            if ($isAttested && !$hasReadableStoredTrust) {
+                $this->addError(
+                    'Only an administrator can set a client up to authenticate with attest_jwt_client_auth, since ' .
+                    'the client needs the attestation trust only an administrator sets.',
+                );
+            }
+
+            if (!$isAttested && $this->isStoredClientAttested) {
+                $this->addError(
+                    'Only an administrator can change the authentication method of a client which authenticates ' .
+                    'with attest_jwt_client_auth.',
+                );
+            }
+
+            return;
+        }
+
+        /** @var mixed $trust */
+        $trust = $values[ClientEntity::KEY_CLIENT_ATTESTATION] ?? null;
+
+        // A client which registers itself would state its method again with every registration, `none` included,
+        // and keep the trust while dropping the attestation: only a client registered by hand is set up for it.
+        if ($this->isSelfRegisteredClient && ($isAttested || $trust !== null)) {
+            $this->addError(
+                'Only a client registered by an administrator can authenticate with attest_jwt_client_auth: a ' .
+                'client which registers itself (Dynamic Client Registration, OpenID Federation) states its own ' .
+                'authentication method whenever it registers again.',
+            );
+            return;
+        }
+
+        if ($trust === null) {
+            if ($isAttested && !$this->isClientAttestationTrustIncomplete) {
+                $this->addError(
+                    'A client which authenticates with attest_jwt_client_auth needs the attestation trust: the ' .
+                    'attester, the issuing CA public key digest, the attester identity and the trust anchors.',
+                );
+            }
+
+            return;
+        }
+
+        if (!$isAttested) {
+            $this->addError(
+                'The attestation trust is used only by a client which authenticates with attest_jwt_client_auth. ' .
+                'Choose that method, or empty the attestation trust fields.',
+            );
+        }
+
+        try {
+            $clientAttestationTrust = ClientAttestationTrust::fromClientMetadata($trust);
+        } catch (OidcException $oidcException) {
+            $this->addError($oidcException->getMessage());
+            return;
+        }
+
+        if ($clientAttestationTrust === null) {
+            return;
+        }
+
+        try {
+            $trustAnchors = $this->x509->certificateFactory()->bundleFromPem(
+                $clientAttestationTrust->getTrustAnchors(),
+            );
+            $this->x509->certificatePathValidator()->enforceTrustAnchors($trustAnchors);
+        } catch (Throwable $throwable) {
+            $this->addError('The attestation trust anchors can not be used: ' . $throwable->getMessage());
+            return;
+        }
+
+        // A subject distinguished name is parsed when it is compared; compared with a trust anchor's here, so that
+        // one the module can not compare is refused now rather than at every attestation.
+        if (
+            $clientAttestationTrust->getAttesterIdentityType() === CertificateIdentityTypeEnum::SubjectDistinguishedName
+        ) {
+            try {
+                $trustAnchors[0]->hasIdentity(
+                    CertificateIdentityTypeEnum::SubjectDistinguishedName,
+                    $clientAttestationTrust->getAttesterIdentity(),
+                );
+            } catch (Throwable $throwable) {
+                $this->addError(
+                    'The attester identity is not a subject distinguished name the module can compare: ' .
+                    $throwable->getMessage(),
+                );
+            }
+        }
+    }
+
+
+    /**
+     * The client attestation trust as the client record keeps it, from the fields: null when they are all empty,
+     * and when some are, which is an error.
+     *
+     * @return array<string,mixed>|null
+     */
+    protected function clientAttestationTrustFromFields(mixed $fields): ?array
+    {
+        $this->isClientAttestationTrustIncomplete = false;
+
+        if (!is_array($fields)) {
+            return null;
+        }
+
+        $names = [
+            ClientAttestationTrust::KEY_ATTESTER,
+            ClientAttestationTrust::KEY_ISSUING_CA_PUBLIC_KEY_SHA256,
+            self::FIELD_ATTESTER_IDENTITY_TYPE,
+            self::FIELD_ATTESTER_IDENTITY_VALUE,
+            ClientAttestationTrust::KEY_TRUST_ANCHORS,
+        ];
+
+        $trimmed = [];
+        foreach ($names as $name) {
+            /** @var mixed $value */
+            $value = $fields[$name] ?? null;
+            $trimmed[$name] = is_string($value) ? trim($value) : '';
+        }
+
+        // A distinguished name keeps its whitespace: RFC 4514 escapes a significant space ("CN=Provider\ "), which
+        // trimming would cut in half. A URI or a DNS name has none to keep.
+        /** @var mixed $identityValue */
+        $identityValue = $fields[self::FIELD_ATTESTER_IDENTITY_VALUE] ?? null;
+        $identity = is_string($identityValue) &&
+        $trimmed[self::FIELD_ATTESTER_IDENTITY_TYPE] === CertificateIdentityTypeEnum::SubjectDistinguishedName->value ?
+        $identityValue :
+        $trimmed[self::FIELD_ATTESTER_IDENTITY_VALUE];
+
+        $empty = array_keys(array_filter($trimmed, static fn(string $value): bool => $value === ''));
+
+        if (count($empty) === count($names)) {
+            return null;
+        }
+
+        if ($empty !== []) {
+            $this->isClientAttestationTrustIncomplete = true;
+            $this->addError(
+                'The attestation trust is incomplete; fill in, or empty, every field. Empty: ' .
+                implode(', ', $empty) . '.',
+            );
+            return null;
+        }
+
+        return [
+            ClientAttestationTrust::KEY_ATTESTER => $trimmed[ClientAttestationTrust::KEY_ATTESTER],
+            ClientAttestationTrust::KEY_ISSUING_CA_PUBLIC_KEY_SHA256 =>
+                $trimmed[ClientAttestationTrust::KEY_ISSUING_CA_PUBLIC_KEY_SHA256],
+            ClientAttestationTrust::KEY_ATTESTER_IDENTITY => [
+                ClientAttestationTrust::KEY_IDENTITY_TYPE => $trimmed[self::FIELD_ATTESTER_IDENTITY_TYPE],
+                ClientAttestationTrust::KEY_IDENTITY_VALUE => $identity,
+            ],
+            ClientAttestationTrust::KEY_TRUST_ANCHORS => $trimmed[ClientAttestationTrust::KEY_TRUST_ANCHORS] . "\n",
+        ];
     }
 
 
@@ -794,6 +1022,11 @@ class ClientForm extends Form
             }
         }
 
+        // The trust as the client record keeps it (ClientAttestationTrust::fromClientMetadata()), or null for none.
+        $values[ClientEntity::KEY_CLIENT_ATTESTATION] = $this->clientAttestationTrustFromFields(
+            $values[ClientEntity::KEY_CLIENT_ATTESTATION] ?? null,
+        );
+
         // Only an administrator's form for adding a client has these (self::forNewClient()). Left empty, the value is
         // generated (ClientController::add()).
         foreach ([self::FIELD_CLIENT_ID, self::FIELD_CLIENT_SECRET] as $credentialField) {
@@ -907,6 +1140,13 @@ class ClientForm extends Form
                 $tokenEndpointAuthMethod,
                 $this->getSupportedTokenEndpointAuthMethods(),
             )) ? $tokenEndpointAuthMethod : null;
+        $this->isStoredClientAttested =
+        $tokenEndpointAuthMethod === TokenEndpointAuthMethodsEnum::AttestJwtClientAuth->value;
+
+        /** @var mixed $registrationType */
+        $registrationType = $values[ClientEntity::KEY_REGISTRATION_TYPE] ?? null;
+        $this->isSelfRegisteredClient = $registrationType instanceof RegistrationTypeEnum &&
+        $registrationType !== RegistrationTypeEnum::Manual;
 
         /** @var mixed $defaultMaxAge */
         $defaultMaxAge = $values[ClaimsEnum::DefaultMaxAge->value] ?? null;
@@ -978,6 +1218,28 @@ class ClientForm extends Form
             $foreignIssuerList?->getIssuers() ?? [],
         );
 
+        // A trust the form can not read is not shown, and is replaced by what the fields hold when the form is saved:
+        // removed, when they are left empty, which leaves the client refusing every attestation rather than
+        // trusting anybody.
+        /** @var mixed $storedClientAttestationTrust */
+        $storedClientAttestationTrust = $values[ClientEntity::KEY_CLIENT_ATTESTATION] ?? null;
+        $this->hasStoredClientAttestationTrust = !is_null($storedClientAttestationTrust);
+        try {
+            $clientAttestationTrust = ClientAttestationTrust::fromClientMetadata($storedClientAttestationTrust);
+        } catch (OidcException) {
+            $clientAttestationTrust = null;
+        }
+        $this->hasUnreadableClientAttestationTrust = $this->hasStoredClientAttestationTrust &&
+        is_null($clientAttestationTrust);
+        $values[ClientEntity::KEY_CLIENT_ATTESTATION] = is_null($clientAttestationTrust) ? [] : [
+            ClientAttestationTrust::KEY_ATTESTER => $clientAttestationTrust->getAttester(),
+            ClientAttestationTrust::KEY_ISSUING_CA_PUBLIC_KEY_SHA256 =>
+                $clientAttestationTrust->getIssuingCaPublicKeySha256(),
+            self::FIELD_ATTESTER_IDENTITY_TYPE => $clientAttestationTrust->getAttesterIdentityType()->value,
+            self::FIELD_ATTESTER_IDENTITY_VALUE => $clientAttestationTrust->getAttesterIdentity(),
+            ClientAttestationTrust::KEY_TRUST_ANCHORS => $clientAttestationTrust->getTrustAnchors(),
+        ];
+
         parent::setDefaults($values, $erase);
 
         return $this;
@@ -1004,6 +1266,7 @@ class ClientForm extends Form
         $this->onValidate[] = $this->validateRequestUris(...);
         $this->onValidate[] = $this->validateAuthProcFilters(...);
         $this->onValidate[] = $this->validateIntrospectionResourceServer(...);
+        $this->onValidate[] = $this->validateClientAttestationTrust(...);
 
         $this->setMethod('POST');
         $this->addComponent($this->csrfProtection, Form::ProtectorId);
@@ -1198,6 +1461,36 @@ class ClientForm extends Form
             null,
             3,
         )->setHtmlAttribute('class', 'full-width');
+
+        $clientAttestation = $this->addContainer(ClientEntity::KEY_CLIENT_ATTESTATION);
+        $clientAttestation->addText(ClientAttestationTrust::KEY_ATTESTER, Translate::noop('Attester'))
+            ->setHtmlAttribute('class', 'full-width');
+        $clientAttestation->addText(
+            ClientAttestationTrust::KEY_ISSUING_CA_PUBLIC_KEY_SHA256,
+            Translate::noop('Issuing CA Public Key SHA-256'),
+        )->setHtmlAttribute('class', 'full-width');
+        $clientAttestation->addSelect(self::FIELD_ATTESTER_IDENTITY_TYPE, Translate::noop('Attester Identity Type'))
+            ->setHtmlAttribute('class', 'full-width')
+            ->setItems([
+                CertificateIdentityTypeEnum::SubjectAlternativeNameUri->value =>
+                    Translate::noop('URI (subject alternative name)'),
+                CertificateIdentityTypeEnum::SubjectAlternativeNameDnsName->value =>
+                    Translate::noop('DNS name (subject alternative name)'),
+                CertificateIdentityTypeEnum::SubjectDistinguishedName->value =>
+                    Translate::noop('Subject distinguished name (RFC 4514)'),
+            ])
+            ->setPrompt(Translate::noop('-'));
+        // Untrimmed as submitted: a subject distinguished name may end with an escaped space.
+        $clientAttestation->addComponent(
+            (new UntrimmedTextInput(Translate::noop('Attester Identity')))->setHtmlAttribute('class', 'full-width'),
+            self::FIELD_ATTESTER_IDENTITY_VALUE,
+        );
+        $clientAttestation->addTextArea(
+            ClientAttestationTrust::KEY_TRUST_ANCHORS,
+            Translate::noop('Attestation Trust Anchors (PEM)'),
+            null,
+            5,
+        )->setHtmlAttribute('class', 'full-width');
     }
 
 
@@ -1284,6 +1577,9 @@ class ClientForm extends Form
     protected function getSupportedTokenEndpointAuthMethods(): array
     {
         $supported = $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
+        // Not offered through registration: a wallet authenticating by attestation is registered by hand, with the
+        // trust only an administrator sets (validateClientAttestationTrust()).
+        $supported[] = TokenEndpointAuthMethodsEnum::AttestJwtClientAuth->value;
 
         return array_combine($supported, $supported);
     }

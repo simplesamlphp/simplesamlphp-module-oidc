@@ -339,6 +339,23 @@ class ClientMetadataValidatorTest extends TestCase
     }
 
 
+    /**
+     * Attestation-based client authentication is not among the registrable methods (ModuleConfigTest pins that),
+     * so a client registering itself for it is refused.
+     */
+    public function testAttestationBasedClientAuthenticationIsRejected(): void
+    {
+        $this->assertRejected(
+            [
+                'redirect_uris' => ['https://client.example.org/cb'],
+                'token_endpoint_auth_method' => 'attest_jwt_client_auth',
+            ],
+            'invalid_client_metadata',
+            'token_endpoint_auth_method',
+        );
+    }
+
+
     public function testSupportedGrantResponseAndAuthMethodArePassedThrough(): void
     {
         // 'none' (public client) and the implicit response/grant types are supported and must be accepted.

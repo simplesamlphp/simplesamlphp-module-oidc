@@ -1594,6 +1594,31 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
+     * D35 of the HAIP plan: a client which authenticated by attestation gets no refresh token in any flow, since
+     * draft-ietf-oauth-attestation-based-client-auth-07 section 10.3 would have it bound to the client instance.
+     */
+    public function testIssuesNoRefreshTokenToAClientWhichAuthenticatedByAttestation(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::OidcAuthorizationCode);
+        $this->rulesReturn(authenticationMethod: ClientAuthenticationMethodsEnum::AttestJwtClientAuth);
+        $this->expectAccessTokenToBeIssued();
+        $this->offlineAccessGranted = true;
+
+        $this->refreshTokenIssuerMock->expects($this->never())->method('issue');
+
+        $responseType = $this->responseType();
+        $responseType->expects($this->never())->method('setRefreshToken');
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $responseType, new DateInterval('PT5M'));
+
+        $this->assertContains(
+            'No refresh token issued: offline_access was granted, but the client authenticated by attestation.',
+            array_column($this->logRecords, 'message'),
+        );
+    }
+
+
+    /**
      * @return array<string,array{0:\SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum|null}>
      */
     public static function flowsOfNoCredentialIssuance(): array

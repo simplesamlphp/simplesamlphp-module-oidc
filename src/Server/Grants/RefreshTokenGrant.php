@@ -30,6 +30,7 @@ use SimpleSAML\Module\oidc\Utils\AccessTokenClaimsResolver;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
+use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 
 use function array_key_exists;
 use function hash_equals;
@@ -80,6 +81,11 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
      * The refresh token is still bound to a specific client: validateOldRefreshToken() checks that the
      * authenticated client matches the client the refresh token was issued to.
      *
+     * A client which authenticates by attestation is refused (`unauthorized_client`): no refresh token is issued to
+     * one (AuthCodeGrant), since draft-ietf-oauth-attestation-based-client-auth-07 section 10.3 would have it bound
+     * to the client instance and its key, so one it holds was issued before it was registered for attestation, and
+     * can not be refreshed under it.
+     *
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \Throwable
      */
@@ -94,6 +100,20 @@ class RefreshTokenGrant extends OAuth2RefreshTokenGrant
             );
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::CLIENT_AUTHENTICATION_FAILED, $request));
             throw OAuthServerException::invalidClient($request);
+        }
+
+        if (
+            $resolvedClientAuthenticationMethod->getClientAuthenticationMethod() ===
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth
+        ) {
+            $this->loggerService->warning(
+                'Refresh token request rejected: the client authenticated by attestation, under which no refresh ' .
+                'token is issued or refreshed.',
+                ['client_id' => $resolvedClientAuthenticationMethod->getClient()->getIdentifier()],
+            );
+            throw OidcServerException::unauthorizedClient(
+                'A client which authenticates by attestation can not use the refresh_token grant.',
+            );
         }
 
         return $resolvedClientAuthenticationMethod->getClient();

@@ -252,6 +252,44 @@ class OpMetadataServiceTest extends TestCase
      *
      * @throws \Exception
      */
+    /**
+     * draft-ietf-oauth-attestation-based-client-auth-07 section 10.1: attest_jwt_client_auth among the token
+     * endpoint's methods, and both algorithm lists with it, while issuing; the methods DCR offers are unchanged.
+     *
+     * @throws \Exception
+     */
+    public function testAdvertisesAttestationBasedClientAuthenticationWhileIssuing(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
+        $this->moduleConfigMock->method('getClientAttestationSigningAlgorithms')->willReturn(['ES256', 'ES384']);
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertSame(
+            ['client_secret_basic', 'client_secret_post', 'private_key_jwt', 'none', 'attest_jwt_client_auth'],
+            $metadata['token_endpoint_auth_methods_supported'],
+        );
+        $this->assertSame(['ES256', 'ES384'], $metadata['client_attestation_signing_alg_values_supported'] ?? null);
+        $this->assertSame(['ES256', 'ES384'], $metadata['client_attestation_pop_signing_alg_values_supported'] ?? null);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testDoesNotAdvertiseAttestationBasedClientAuthenticationWhenNotIssuing(): void
+    {
+        $this->moduleConfigMock->method('getVciEnabled')->willReturn(false);
+        $this->moduleConfigMock->method('getClientAttestationSigningAlgorithms')->willReturn(['ES256']);
+
+        $metadata = $this->sut()->getMetadata();
+
+        $this->assertNotContains('attest_jwt_client_auth', $metadata['token_endpoint_auth_methods_supported']);
+        $this->assertArrayNotHasKey('client_attestation_signing_alg_values_supported', $metadata);
+        $this->assertArrayNotHasKey('client_attestation_pop_signing_alg_values_supported', $metadata);
+    }
+
+
     public function testAdvertisesTheOpenIdCredentialAuthorizationDetailsTypeWhileIssuing(): void
     {
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);

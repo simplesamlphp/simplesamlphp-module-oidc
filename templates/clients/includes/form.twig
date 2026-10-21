@@ -394,6 +394,43 @@
             {% trans %}The foreign issuer list stored for this Client can not be read, or holds an entry which is not an issuer identifier, so it is not shown. Choose allow or deny and list the issuers again.{% endtrans %}
         </span>
         {% endif %}
+
+        <br>
+        <h4>{{ 'Wallet Attestation'|trans }}</h4>
+        <span class="pure-form-message">
+            {% trans %}For a wallet which authenticates with attest_jwt_client_auth (the Token Endpoint Authentication Method above): whom its Wallet Attestations are trusted from. Fill in every field, or none. Like the options above, these can only be set here (by an administrator), and are never accepted from dynamic / federation client registration.{% endtrans %}
+        </span>
+        {% if form.hasUnreadableClientAttestationTrust() %}
+        <span class="pure-form-message red-text">
+            {% trans %}The attestation trust stored for this Client can not be read, so it is not shown. Saving the form replaces it with what the fields below hold, and removes it when they are empty.{% endtrans %}
+        </span>
+        {% endif %}
+
+        <label for="frm-client_attestation-attester">{{ 'Attester'|trans }}</label>
+        {{ form.client_attestation.attester.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}The iss claim of the wallet provider's attestations, compared exactly.{% endtrans %}
+        </span>
+
+        <label for="frm-client_attestation-issuing_ca_public_key_sha256">{{ 'Issuing CA Public Key SHA-256'|trans }}</label>
+        {{ form.client_attestation.issuing_ca_public_key_sha256.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}The CA which issues the wallet provider's certificate, pinned by the SHA-256 digest of its public key (SubjectPublicKeyInfo), base64url encoded without padding. A provider certified by another CA can not sign for this Client, whatever its name.{% endtrans %}
+        </span>
+
+        <label for="frm-client_attestation-attester_identity_type">{{ 'Attester Identity Type'|trans }}</label>
+        {{ form.client_attestation.attester_identity_type.control | raw }}
+        <label for="frm-client_attestation-attester_identity_value">{{ 'Attester Identity'|trans }}</label>
+        {{ form.client_attestation.attester_identity_value.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}How the wallet provider's certificate names it: a URI or a DNS name subject alternative name, or the subject distinguished name as RFC 4514 writes it, compared exactly.{% endtrans %}
+        </span>
+
+        <label for="frm-client_attestation-trust_anchors">{{ 'Attestation Trust Anchors (PEM)'|trans }}</label>
+        {{ form.client_attestation.trust_anchors.control | raw }}
+        <span class="pure-form-message">
+            {% trans %}One or more self-signed root CA certificates, in PEM, the wallet provider's certificate chain has to validate against.{% endtrans %}
+        </span>
         {% endif %}
 
         <br>

@@ -57,7 +57,8 @@ Status values:
 | Deferred Credential Endpoint (§9), Notification Endpoint (§11) | No | Not advertised |
 | Encrypted requests and responses (§10) | No: encryption parameters in a request are ignored | Not advertised |
 | Signed Credential Issuer Metadata (§12.2.3), `authorization_servers` (§12.2.4) | No | Not advertised; the OP is the only AS |
-| Wallet Attestations (Appendix E), key attestations (Appendix D) | No | Not advertised |
+| Wallet Attestations (Appendix E) | Yes, for clients an administrator registered for them, while issuing | `token_endpoint_auth_methods_supported` (`attest_jwt_client_auth`) and the two attestation algorithm lists |
+| Key attestations (Appendix D) | No | Not advertised |
 
 ## Credential Offer (§4)
 
@@ -184,7 +185,6 @@ formats below (row 45). A request using one anyway is refused, except where note
 - **Proof types** `di_vp` and `attestation`, and the `x5c` header of `jwt` proofs (F.1-F.3); **key
   attestations** (Appendix D, `key_attestations_required`). The `key_attestation` and `trust_chain` headers
   are ignored (row 64).
-- **Wallet Attestations** (Appendix E) as a client authentication method.
 
 ## HAIP 1.0 (issuer)
 
@@ -199,9 +199,9 @@ formats below (row 45). A request using one anyway is refused, except where note
 | 73 | AS metadata per RFC 8414; issuer metadata per OpenID4VCI §12.2.2 (§4.1). | Met | `OAuth2ServerConfigurationControllerTest::testItServesTheOpMetadataAsIs`; row 39. |
 | 74 | A `scope` for every Credential Configuration (§4.1); for the authorization code grant, a scope value lets the wallet identify the credential (§4.2). | Config (H-G9) | `scope` is optional in `vci_credential_configurations_supported` (when present it must equal the configuration id). OpenID4VCI 1.0 offers have no `scope` member, so the wallet takes it from the metadata. |
 | 75 | `nonce_endpoint` is present when a configuration requires key binding (§4.1). | Met | Row 25. |
-| 76 | Wallets authenticate at the PAR endpoint as at the token endpoint (§4.3). | Gap (H-G1) | The PAR endpoint authenticates clients as the token endpoint does, but public clients and non-registered wallets push unauthenticated (row 78). |
+| 76 | Wallets authenticate at the PAR endpoint as at the token endpoint (§4.3). | Gap (H-G1) | The PAR endpoint authenticates clients as the token endpoint does, Wallet Attestation included (`AuthenticatedOAuth2ClientResolver::forClientAttestation()`, `AuthenticatedOAuth2ClientResolverTest::testForAnySupportedMethodResolvesARealAttestation`), but public clients and non-registered wallets push unauthenticated (row 78). |
 | 77 | Refresh tokens are RECOMMENDED for credential refresh; consider how long they may refresh a credential (§4.4). | Not implemented | Credential refresh is not implemented. No refresh token is issued in an issuance flow, even for `offline_access` (`AuthCodeGrant::respondToAccessTokenRequest()`, tested in `AuthCodeGrantTest::testIssuesNoRefreshTokenForACodeOfACredentialIssuanceFlow`); the pre-authorized code grant issues none. The access token a refresh yields would not keep the issuance flow, so the Credential Endpoint would refuse it. |
-| 78 | Issuers MUST require client authentication at the PAR and token endpoints (§4.4.1). | Gap (H-G1) | Public clients, non-registered wallets and anonymous pre-authorized code requests are served without client authentication; Wallet Attestation (OpenID4VCI Appendix E, attestation-based client authentication) is not implemented. |
+| 78 | Issuers MUST require client authentication at the PAR and token endpoints (§4.4.1). | Gap (H-G1) | Wallet Attestation (OpenID4VCI Appendix E, attestation-based client authentication draft 07) is implemented for registered clients (`ClientAttestationVerifier`, `ClientAttestationVerifierTest`), but nothing requires client authentication: public clients, non-registered wallets and anonymous pre-authorized code requests are served without it. |
 | 79 | Key attestations, with `x5c` chains excluding the trust anchor, not self-signed (§4.5.1). | Not implemented (H-G4) | Wallets MUST support them; issuers evaluate them where the ecosystem requires. |
 | 80 | Compact serialization of SD-JWT VCs (§6.1). | Met | `CredentialIssuerCredentialControllerTest::testAnswersEachCredentialAsTheStringItWasSerializedTo` (row 35). |
 | 81 | It is RECOMMENDED to limit the validity of SD-JWT VCs, and a limited one uses `exp`, `status` or both (§6.1). | Config | Credential lifetimes per configuration (`vci_credential_ttls`, none by default); status lists when enabled (off by default). |
@@ -254,8 +254,8 @@ OpenID4VCI 1.0 (the base specification):
 
 HAIP 1.0 and the FAPI 2.0 provisions it applies:
 
-- **H-G1** Client authentication is not required at the PAR and token endpoints; no Wallet Attestation
-  (rows 76, 78, 99).
+- **H-G1** Client authentication is not required at the PAR and token endpoints, though Wallet Attestation is
+  implemented for registered clients (rows 76, 78, 99).
 - **H-G2** `x5c` (X.509) issuer keys depend on configuration: nothing requires a certificate chain on the signing
   key, nor the `x509` key profile for Status List Tokens (rows 84, 85).
 - **H-G3** `cnf.kid` instead of `cnf.jwk` for DID-bound keys (row 82).

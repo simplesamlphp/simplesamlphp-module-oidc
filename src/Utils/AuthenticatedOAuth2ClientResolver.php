@@ -14,6 +14,7 @@ use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Validators\ClientAttestationVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
@@ -39,6 +40,7 @@ class AuthenticatedOAuth2ClientResolver
         protected readonly Helpers $helpers,
         protected readonly ?ProtocolCache $protocolCache,
         protected readonly Routes $routes,
+        protected readonly ClientAttestationVerifier $clientAttestationVerifier,
     ) {
     }
 
@@ -46,7 +48,8 @@ class AuthenticatedOAuth2ClientResolver
     /**
      * The client the request authenticates as, or null when it authenticates as none: either no supported
      * method was presented, or one was and the client was refused (unknown, not active, wrong secret, an
-     * assertion which does not verify, credentials which do not fit the registration). A refusal is an
+     * assertion or attestation which does not verify, credentials which do not fit the registration). The Client
+     * Attestation is tried first, so that a request which presents one is judged by it. A refusal is an
      * AuthorizationException from one of the methods and is logged here with its reason; the caller answers
      * `invalid_client` (RFC 6749 section 5.2, RFC 7521 section 4.2.1), which both cases deserve.
      *
@@ -64,6 +67,7 @@ class AuthenticatedOAuth2ClientResolver
     ): ?ResolvedClientAuthenticationMethod {
         try {
             $resolved =
+            $this->forClientAttestation($request, $preFetchedClient) ??
             $this->forPrivateKeyJwt($request, $preFetchedClient) ??
             $this->forClientSecretBasic($request, $preFetchedClient) ??
             $this->forClientSecretPost($request, $preFetchedClient) ??
@@ -85,13 +89,14 @@ class AuthenticatedOAuth2ClientResolver
 
 
     /**
-     * Whether the request carries client credentials for any of the supported authentication methods: a client
-     * assertion (private_key_jwt), a Basic Authorization header (client_secret_basic) or a client secret in the
-     * POST body (client_secret_post). A bare client_id identifies the client without authenticating it, so it
-     * does not count. What counts is an attempt, not a usable one: an empty assertion, which forPrivateKeyJwt()
-     * goes on to refuse, a malformed Basic header, which forClientSecretBasic() skips, and a client_assertion_type
-     * without an assertion, which nothing reads, are all presented credentials here. The exception is an empty
-     * client secret, which forClientSecretPost() treats as absent, and so does this.
+     * Whether the request carries client credentials for any of the supported authentication methods: either of
+     * the Client Attestation header fields (attest_jwt_client_auth), a client assertion (private_key_jwt), a Basic
+     * Authorization header (client_secret_basic) or a client secret in the POST body (client_secret_post). A bare
+     * client_id identifies the client without authenticating it, so it does not count. What counts is an attempt,
+     * not a usable one: an attestation without its PoP, which forClientAttestation() refuses, an empty assertion,
+     * which forPrivateKeyJwt() goes on to refuse, a malformed Basic header, which forClientSecretBasic() skips, and
+     * a client_assertion_type without an assertion, which nothing reads, are all presented credentials here. The
+     * exception is an empty client secret, which forClientSecretPost() treats as absent, and so does this.
      *
      * For a caller which requires authentication, forAnySupportedMethod() answering null is refusal enough. A
      * caller for whom authentication is optional needs to tell a client that chose not to authenticate apart
@@ -105,6 +110,17 @@ class AuthenticatedOAuth2ClientResolver
             $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
         }
 
+        return $this->clientAttestationVerifier->presentsClientAttestation($request) ||
+        $this->presentsCredentialsOtherThanAClientAttestation($request);
+    }
+
+
+    /**
+     * Whether the request carries client credentials of a method other than attest_jwt_client_auth, counted as
+     * presentsClientCredentials() counts them.
+     */
+    protected function presentsCredentialsOtherThanAClientAttestation(ServerRequestInterface $request): bool
+    {
         foreach ([ParamsEnum::ClientAssertion->value, ParamsEnum::ClientAssertionType->value] as $assertionParam) {
             if (
                 is_string($this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
@@ -206,6 +222,81 @@ class AuthenticatedOAuth2ClientResolver
                 $registeredMethod,
             ));
         }
+    }
+
+
+    /**
+     * For the attest_jwt_client_auth authentication method (draft-ietf-oauth-attestation-based-client-auth-07,
+     * the Wallet Attestation of OpenID4VCI 1.0 Appendix E): the client the Client Attestation names by its `sub`,
+     * when the attestation and its PoP pass every check of ClientAttestationVerifier for that client.
+     *
+     * Accepted only while credential issuance is enabled, which is when the method is advertised. Never together
+     * with credentials of another method: RFC 6749 section 2.3 has a client use one method per request, and a
+     * request presenting two leaves it to the server which one authenticates it. A `client_id` sent with the
+     * request has to be the attestation's `sub` (section 9, check 13; sections 6.3 and 6.4).
+     *
+     * A refusal is an AuthorizationException; a protocol cache which can not check the PoP for replay, or does not
+     * keep its record, and a certificate path validation which can not run, are the OP's own failure and throw a
+     * RuntimeException, as for a client assertion.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * @throws \RuntimeException
+     */
+    public function forClientAttestation(
+        Request|ServerRequestInterface $request,
+        ?ClientEntityInterface $preFetchedClient = null,
+    ): ?ResolvedClientAuthenticationMethod {
+        $this->loggerService->debug('Trying to resolve authenticated client from a Client Attestation.');
+
+        if ($request instanceof Request) {
+            $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
+        }
+
+        if (!$this->clientAttestationVerifier->presentsClientAttestation($request)) {
+            $this->loggerService->debug('No Client Attestation available, skipping.');
+            return null;
+        }
+
+        if (!$this->moduleConfig->getVciEnabled()) {
+            throw new AuthorizationException(
+                'A Client Attestation was presented, but attestation-based client authentication is accepted only ' .
+                'while credential issuance is enabled.',
+            );
+        }
+
+        if ($this->presentsCredentialsOtherThanAClientAttestation($request)) {
+            throw new AuthorizationException(
+                'A Client Attestation was presented together with the client credentials of another ' .
+                'authentication method.',
+            );
+        }
+
+        $presented = $this->clientAttestationVerifier->parse($request) ?? throw new AuthorizationException(
+            'The Client Attestation could not be read from the request.',
+        );
+
+        $clientIdParam = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
+            ParamsEnum::ClientId->value,
+            $request,
+            [HttpMethodsEnum::POST],
+        );
+
+        if ($clientIdParam !== null && $clientIdParam !== $presented->getClientId()) {
+            throw new AuthorizationException(
+                'The client_id parameter does not name the client the Client Attestation names (sub).',
+            );
+        }
+
+        $client = $this->resolveClientOrFail($presented->getClientId(), $preFetchedClient);
+
+        $this->clientAttestationVerifier->verify($presented, $client);
+
+        $this->loggerService->debug('Client authenticated by its Client Attestation: ' . $client->getIdentifier());
+
+        return new ResolvedClientAuthenticationMethod(
+            $client,
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+        );
     }
 
 

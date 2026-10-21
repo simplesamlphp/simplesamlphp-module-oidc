@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\UiLocalesResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
+use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 
 /**
  * OpenID Provider Metadata Service - provides information about OIDC authentication server.
@@ -80,10 +81,22 @@ class OpMetadataService
         $this->metadata[ClaimsEnum::SubjectTypesSupported->value] = ['public'];
         $this->metadata[ClaimsEnum::IdTokenSigningAlgValuesSupported->value] = $protocolSignatureAlgorithmNames;
         $this->metadata[ClaimsEnum::CodeChallengeMethodsSupported->value] = ['plain', 'S256'];
-        $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] =
-        $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
+        $tokenEndpointAuthMethods = $this->moduleConfig->getSupportedTokenEndpointAuthMethods();
+        if ($this->moduleConfig->getVciEnabled()) {
+            // Attestation-based client authentication (draft-ietf-oauth-attestation-based-client-auth-07), the
+            // Wallet Attestation of OpenID4VCI 1.0 Appendix E, for clients an administrator registered for it.
+            $tokenEndpointAuthMethods[] = TokenEndpointAuthMethodsEnum::AttestJwtClientAuth->value;
+        }
+        $this->metadata[ClaimsEnum::TokenEndpointAuthMethodsSupported->value] = $tokenEndpointAuthMethods;
         $this->metadata[ClaimsEnum::TokenEndpointAuthSigningAlgValuesSupported->value] =
         $supportedSignatureAlgorithmNames;
+        if ($this->moduleConfig->getVciEnabled()) {
+            // Section 10.1: required wherever attest_jwt_client_auth is advertised.
+            $this->metadata[ClaimsEnum::ClientAttestationSigningAlgValuesSupported->value] =
+            $this->moduleConfig->getClientAttestationSigningAlgorithms();
+            $this->metadata[ClaimsEnum::ClientAttestationPopSigningAlgValuesSupported->value] =
+            $this->moduleConfig->getClientAttestationSigningAlgorithms();
+        }
         // RFC 9449 section 5.1: the algorithms a DPoP proof may be signed with, the ones the proofs are checked
         // against (DpopProofVerifier).
         $this->metadata[ClaimsEnum::DpopSigningAlgValuesSupported->value] =

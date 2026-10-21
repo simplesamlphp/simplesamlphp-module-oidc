@@ -38,6 +38,9 @@ force**:
   `timestamp_validation_leeway` past that), and presented again it is refused;
 - the replay check of DPoP proofs (RFC 9449): a proof is remembered for as long
   as it is accepted (about two minutes), and presented again it is refused;
+- the replay check of the PoPs of Wallet Attestations
+  (see [Wallet Attestation](#wallet-attestation-attest_jwt_client_auth)), in
+  the same way as for DPoP proofs;
 - the limit on attempts at a Transaction Code (`vci_tx_code_max_attempts`,
   default 5): without it, the four-digit code of a pre-authorized Credential
   Offer can be guessed for as long as the code is valid;
@@ -46,24 +49,25 @@ force**:
 
 These are kept in the cache, so they hold only as far as the cache does. A
 count is read and then written, so requests arriving at the same moment can get
-past a limit together (and a client assertion or a DPoP proof sent twice at once
-can be accepted twice), and a cache local to one web server (the filesystem adapter, for one)
-counts per server when several serve the OP. An entry the cache loses --
-evicted under memory pressure (Memcached, for one), or unreadable while its
-backend fails -- is forgotten by the client assertion check, the DPoP replay
-check and the Status List rate limit. The Transaction Code attempts are kept
+past a limit together (and a client assertion, a DPoP proof or a Wallet
+Attestation PoP sent twice at once can be accepted twice), and a cache local to
+one web server (the filesystem adapter, for one) counts per server when several
+serve the OP. An entry the cache loses -- evicted under memory pressure
+(Memcached, for one), or unreadable while its backend fails -- is forgotten by
+the client assertion check, the DPoP and PoP replay checks and the Status List
+rate limit. The Transaction Code attempts are kept
 the other way round: a code is given its attempts when the Credential Offer is
 made, and spends them from there, so a code whose record is lost is refused
 (the user needs a new offer) rather than given its attempts again, and a record
 which the cache does not store makes the request fail with `server_error`; for
 the same reason, an offer made before a protocol cache was configured can not
 be redeemed with a transaction code once one is. The client assertion check and
-the DPoP replay check fail the request with `server_error` too when the cache
-does not store the record of an assertion or a proof, which could otherwise be
-presented again. A cache which keeps nothing from one request to the next
-(Symfony's `ArrayAdapter` or `NullAdapter`) holds these checks for one request
-at most, and the Transaction Code attempts, the client assertion check and the
-DPoP replay check count it as no cache at all (the admin overview warns of it
+the DPoP and PoP replay checks fail the request with `server_error` too when the
+cache does not store the record of an assertion or a proof, which could
+otherwise be presented again. A cache which keeps nothing from one request to
+the next (Symfony's `ArrayAdapter` or `NullAdapter`) holds these checks for one
+request at most, and the Transaction Code attempts, the client assertion check
+and the DPoP and PoP replay checks count it as no cache at all (the admin overview warns of it
 for the Transaction Code attempts and the DPoP replay check). Where any of this
 matters, use one cache shared by every web server, with room enough not to
 evict entries.
@@ -723,7 +727,8 @@ The PAR endpoint is published in the discovery document as
 - [https://yourserver/simplesaml/module.php/oidc/par](https://yourserver/simplesaml/module.php/oidc/par)
 
 It authenticates the client the same way as the token endpoint (including
-`private_key_jwt`), validates the pushed parameters, stores them, and returns a
+`private_key_jwt` and [Wallet Attestation](#wallet-attestation-attest_jwt_client_auth)),
+validates the pushed parameters, stores them, and returns a
 JSON response with the generated `request_uri` and an `expires_in` value. Errors
 are returned as JSON (token-endpoint style); the endpoint never redirects.
 
@@ -876,6 +881,95 @@ supports. The list is not configurable.
   the key.
 - **Browser clients.** The token and UserInfo endpoints allow the `DPoP`
   request header in CORS preflights, and expose `WWW-Authenticate` to scripts.
+
+## Wallet Attestation (`attest_jwt_client_auth`)
+
+A wallet can authenticate at the PAR and token endpoints with a Wallet
+Attestation (OpenID4VCI 1.0 Appendix E): a Client Attestation its wallet
+provider signed, sent in the `OAuth-Client-Attestation` header, and a proof of
+possession of the key the attestation names, signed by the wallet instance and
+sent in the `OAuth-Client-Attestation-PoP` header, as
+[Attestation-Based Client Authentication](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-attestation-based-client-auth-07)
+(draft 07) defines it. It is HAIP 1.0's way for wallets to authenticate
+(section 4.4.1). The method is accepted, and advertised, while credential
+issuance is enabled: `attest_jwt_client_auth` in
+`token_endpoint_auth_methods_supported`, with
+`client_attestation_signing_alg_values_supported` and
+`client_attestation_pop_signing_alg_values_supported`. The token introspection
+endpoint does not accept it. It is for native wallets, which OpenID4VCI 1.0
+Appendix E designs it for: a client authenticating by attestation is
+confidential, so it has no allowed origins, and the CORS preflights of the
+token endpoint do not allow the two header fields, so a wallet running in a
+browser can not use it across origins.
+
+A wallet solution is one client: every instance of it shares the attestation's
+`sub`, the `client_id` (OpenID4VCI 1.0 section 15.4.4). A SimpleSAMLphp
+administrator registers it in the client administration: Token Endpoint
+Authentication Method `attest_jwt_client_auth`, and under Wallet Attestation
+the trust its attestations are held to. Only an administrator's form has those
+fields, and client registration (Dynamic Client Registration, OpenID
+Federation) can neither offer the method nor set the trust. Nor can a client
+which registered itself be set up for it, since it states its own
+authentication method whenever it registers again. The form refuses a trust
+which is incomplete or can not be used, and the method without one. The trust:
+
+- the attester's `iss`, compared exactly;
+- the trust anchors the attester's certificate chain has to validate against,
+  as PEM: self-signed root certificates, as for
+  [issuer certificates](#issuer-certificates-x5c);
+- the issuing CA which has to have issued the attester's certificate, pinned
+  by the SHA-256 digest of its SubjectPublicKeyInfo, base64url encoded without
+  padding (the digest of HTTP public key pinning, in base64url rather than
+  base64);
+- the attester's identity in that certificate: a URI or a DNS name subject
+  alternative name, or the subject distinguished name (as RFC 4514 writes it,
+  compared exactly).
+
+The digest of a CA's key can be computed from its certificate:
+
+```shell
+openssl x509 -in issuing-ca.pem -noout -pubkey | openssl pkey -pubin -outform der \
+  | openssl dgst -sha256 -binary | base64 | tr '+/' '-_' | tr -d '=\n'
+```
+
+The issuing CA is pinned because a name is unique only among the certificates
+of one CA: without it, another provider certified under the same root, or under
+a sibling CA with the same name, could sign for this client by asserting its
+attester's `iss`. Pinned by its key, a renewal of the attester's certificate, or
+of the issuing CA's with the same key, needs no change.
+
+An attestation is accepted when the attestation carries an `x5c` chain which
+validates against the client's trust anchors, issued by the pinned CA and
+naming the pinned identity, and is signed by that certificate's key; the PoP is
+signed by the key in the attestation's `cnf`, its `iss` is the attestation's
+`sub`, its `aud` is this OP's issuer identifier; a `client_id` parameter sent
+along names the same client; both are signed with an accepted algorithm; the
+attestation has not expired (with `timestamp_validation_leeway`), and the PoP
+was created within 60 seconds of now, either way. Its `jti` is remembered for a
+little over two minutes (125 seconds, the whole time it could be accepted) and a
+PoP presented again is refused; without a protocol cache this
+replay check is not in force (see
+[Caching protocol artifacts](#caching-protocol-artifacts)). A request with an
+attestation and the credentials of another method as well is refused. Every
+refusal is `invalid_client`, logged with its reason; a certificate path
+validation which can not run at all (a temporary directory which can not be
+written) is `server_error`, as is a protocol cache which fails. The module offers no
+challenge endpoint (draft 07 section 8), so freshness rests on the PoP's `iat`
+and its `jti`.
+
+No refresh token is issued to a client which authenticated by attestation, in
+any flow, and such a client is refused the `refresh_token` grant
+(`unauthorized_client`): draft 07 section 10.3 would have its refresh tokens
+bound to the wallet instance and its key, which the module's refresh tokens
+are not.
+
+Neither the revocation of a certificate nor the attestation's `status` is
+checked. To stop trusting a wallet provider at once (a compromised key, say),
+change the trust in its client's record (a new issuing CA key, or other trust
+anchors), or disable the client. An attestation is accepted until its own
+`exp`, which the attester sets (the module sets no maximum), and a compromised
+attester key can make new ones until then. The client page shows the trust,
+with each trust anchor's subject and expiry.
 
 ## Key rollover
 

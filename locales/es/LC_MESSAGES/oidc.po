@@ -2748,6 +2748,74 @@ msgstr ""
 msgid "Foreign Issuers (one per line)"
 msgstr ""
 
+msgid "Wallet Attestation"
+msgstr ""
+
+msgid ""
+"For a wallet which authenticates with attest_jwt_client_auth (the Token "
+"Endpoint Authentication Method above): whom its Wallet Attestations are "
+"trusted from. Fill in every field, or none. Like the options above, these "
+"can only be set here (by an administrator), and are never accepted from "
+"dynamic / federation client registration."
+msgstr ""
+
+msgid ""
+"The attestation trust stored for this Client can not be read, so it is not "
+"shown. Saving the form replaces it with what the fields below hold, and "
+"removes it when they are empty."
+msgstr ""
+
+msgid "Attester"
+msgstr ""
+
+msgid "The iss claim of the wallet provider's attestations, compared exactly."
+msgstr ""
+
+msgid "Issuing CA Public Key SHA-256"
+msgstr ""
+
+msgid ""
+"The CA which issues the wallet provider's certificate, pinned by the "
+"SHA-256 digest of its public key (SubjectPublicKeyInfo), base64url encoded "
+"without padding. A provider certified by another CA can not sign for this "
+"Client, whatever its name."
+msgstr ""
+
+msgid "Attester Identity Type"
+msgstr ""
+
+msgid "URI (subject alternative name)"
+msgstr ""
+
+msgid "DNS name (subject alternative name)"
+msgstr ""
+
+msgid "Subject distinguished name (RFC 4514)"
+msgstr ""
+
+msgid "Attester Identity"
+msgstr ""
+
+msgid ""
+"How the wallet provider's certificate names it: a URI or a DNS name subject "
+"alternative name, or the subject distinguished name as RFC 4514 writes it, "
+"compared exactly."
+msgstr ""
+
+msgid "Attestation Trust Anchors (PEM)"
+msgstr ""
+
+msgid ""
+"One or more self-signed root CA certificates, in PEM, the wallet provider's "
+"certificate chain has to validate against."
+msgstr ""
+
+msgid "The attestation trust stored for this Client can not be read."
+msgstr ""
+
+msgid "The trust anchors can not be read."
+msgstr ""
+
 msgid "Client ID"
 msgstr ""
 

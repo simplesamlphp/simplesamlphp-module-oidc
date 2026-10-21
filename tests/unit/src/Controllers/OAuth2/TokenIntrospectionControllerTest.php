@@ -297,6 +297,34 @@ class TokenIntrospectionControllerTest extends TestCase
 
 
     /**
+     * Attestation-based client authentication is not among the methods this endpoint advertises, so a client which
+     * authenticated so is refused, and the API token is not tried instead.
+     */
+    public function testInvokeRefusesAClientWhichAuthenticatedByAttestation(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn(new ResolvedClientAuthenticationMethod(
+                $this->createMock(ClientEntity::class),
+                ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+            ));
+        $this->apiAuthorizationMock->expects($this->never())->method('requireCallerForAnyOfScope');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with(
+                'unauthorized',
+                'Attestation-based client authentication is not accepted at the token introspection endpoint.',
+                401,
+            )
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
      * A failure of the OP's own while the caller is being authenticated - the database did not answer - is
      * not a 401, which RFC 7662 section 2.3 has mean invalid credentials, and the API token is not tried
      * instead: the request is answered as the OP's failure, and logged as one.

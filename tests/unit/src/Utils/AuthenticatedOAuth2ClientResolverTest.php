@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
+use Closure;
 use DateInterval;
 use InvalidArgumentException;
+use Jose\Component\KeyManagement\JWKFactory;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -24,12 +26,14 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Server\Validators\ClientAttestationVerifier;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\PresentedClientAttestation;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
@@ -37,6 +41,11 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core\ClientAssertion;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\OAuth2;
+use SimpleSAML\OpenID\OAuth2\ClientAttestation;
+use SimpleSAML\OpenID\OAuth2\ClientAttestationPop;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\Test\Module\oidc\unit\Server\Validators\ClientAttestationBuilder;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -90,6 +99,16 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
 
     protected bool $protocolCacheKeptAcrossRequests = true;
 
+    protected MockObject $clientAttestationVerifierMock;
+
+    /** Whether the verifier mock says the request presents a Client Attestation. */
+    protected bool $presentsClientAttestation = false;
+
+    /** A real verifier, for the tests with real attestations; the mock otherwise. */
+    protected ?ClientAttestationVerifier $clientAttestationVerifier = null;
+
+    protected bool $isVciEnabled = true;
+
 
     protected function setUp(): void
     {
@@ -105,6 +124,8 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->moduleConfigMock->method('isProtocolCacheKeptAcrossRequests')
             ->willReturnCallback(fn(): bool => $this->protocolCacheKeptAcrossRequests);
         $this->moduleConfigMock->method('getTimestampValidationLeeway')->willReturn(new DateInterval('PT1M'));
+        $this->moduleConfigMock->method('getVciEnabled')->willReturnCallback(fn(): bool => $this->isVciEnabled);
+        $this->moduleConfigMock->method('getClientAttestationSigningAlgorithms')->willReturn(['ES256', 'ES384']);
         $this->routesMock = $this->createMock(Routes::class);
         $this->routesMock->method('getModuleUrl')
             ->willReturnMap([
@@ -134,6 +155,10 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->clientAssertionMock->method('getAudience')->willReturn([self::TOKEN_ENDPOINT]);
         $this->clientAssertionMock->method('getJwtId')->willReturn('unique-jti-value');
         $this->clientAssertionMock->method('getExpirationTime')->willReturn(time() + 60);
+
+        $this->clientAttestationVerifierMock = $this->createMock(ClientAttestationVerifier::class);
+        $this->clientAttestationVerifierMock->method('presentsClientAttestation')
+            ->willReturnCallback(fn(): bool => $this->presentsClientAttestation);
     }
 
 
@@ -149,6 +174,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             $this->helpersMock,
             $protocolCache,
             $this->routesMock,
+            $this->clientAttestationVerifier ?? $this->clientAttestationVerifierMock,
         );
     }
 
@@ -1680,5 +1706,343 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ->willReturn(null);
 
         $this->assertTrue($this->sut()->presentsClientCredentials($symfonyRequest));
+    }
+
+    // -----------------------------------------------------------------------
+    // forClientAttestation
+    // -----------------------------------------------------------------------
+
+    protected function presentedAttestation(string $clientId = self::CLIENT_ID): PresentedClientAttestation
+    {
+        return new PresentedClientAttestation(
+            $this->createStub(ClientAttestation::class),
+            $this->createStub(ClientAttestationPop::class),
+            $clientId,
+            time() + 300,
+            time(),
+            null,
+            'pop-1',
+            'instance-key-thumbprint',
+        );
+    }
+
+
+    /**
+     * A request presenting a Client Attestation, and nothing else unless the parameters say so.
+     *
+     * @param array<string,string> $params
+     */
+    protected function presentAttestation(array $params = []): PresentedClientAttestation
+    {
+        $this->presentsClientAttestation = true;
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn([]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(static fn(string $paramKey): ?string => $params[$paramKey] ?? null);
+
+        $presented = $this->presentedAttestation();
+        $this->clientAttestationVerifierMock->method('parse')->willReturn($presented);
+
+        return $presented;
+    }
+
+
+    public function testForClientAttestationReturnsNullWhenNoneIsPresented(): void
+    {
+        $this->clientAttestationVerifierMock->expects($this->never())->method('parse');
+
+        $this->assertNull($this->sut()->forClientAttestation($this->serverRequestMock));
+    }
+
+
+    public function testForClientAttestationResolvesTheClientTheAttestationNames(): void
+    {
+        $presented = $this->presentAttestation();
+        $this->clientRepositoryMock->expects($this->once())->method('findById')->with(self::CLIENT_ID)
+            ->willReturn($this->clientEntityMock);
+        $this->clientAttestationVerifierMock->expects($this->once())->method('verify')
+            ->with($this->identicalTo($presented), $this->identicalTo($this->clientEntityMock));
+
+        $result = $this->sut()->forClientAttestation($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($this->clientEntityMock, $result->getClient());
+        $this->assertSame(
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+            $result->getClientAuthenticationMethod(),
+        );
+    }
+
+
+    /**
+     * Section 9 check 13: a client_id sent with the request is the attestation's `sub`, and is checked before the
+     * client is looked up.
+     */
+    public function testForClientAttestationRefusesAClientIdOtherThanTheAttestationsSubject(): void
+    {
+        $this->presentAttestation([ParamsEnum::ClientId->value => 'other-client']);
+        $this->clientRepositoryMock->expects($this->never())->method('findById');
+        $this->clientAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage('The client_id parameter does not name the client the Client Attestation names');
+
+        $this->sut()->forClientAttestation($this->serverRequestMock);
+    }
+
+
+    public function testForClientAttestationAcceptsAClientIdWhichIsTheAttestationsSubject(): void
+    {
+        $this->presentAttestation([ParamsEnum::ClientId->value => self::CLIENT_ID]);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+
+        $this->assertSame(
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+            $this->sut()->forClientAttestation($this->serverRequestMock)?->getClientAuthenticationMethod(),
+        );
+    }
+
+
+    /**
+     * A pre-fetched client is compared with the attestation's `sub`, as for the other methods.
+     */
+    public function testForClientAttestationRefusesAPreFetchedClientTheAttestationDoesNotName(): void
+    {
+        $this->presentAttestation();
+        $otherClient = $this->createMock(ClientEntityInterface::class);
+        $otherClient->method('getIdentifier')->willReturn('other-client');
+        $this->clientAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage('Client ID does not match.');
+
+        $this->sut()->forClientAttestation($this->serverRequestMock, $otherClient);
+    }
+
+
+    public function testForClientAttestationIsRefusedWhileCredentialIssuanceIsDisabled(): void
+    {
+        $this->presentAttestation();
+        $this->isVciEnabled = false;
+        $this->clientAttestationVerifierMock->expects($this->never())->method('parse');
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage('accepted only while credential issuance is enabled');
+
+        $this->sut()->forClientAttestation($this->serverRequestMock);
+    }
+
+
+    /**
+     * RFC 6749 section 2.3: one method per request, so an attestation together with a client secret, a client
+     * assertion or a Basic Authorization header is refused, whichever would verify.
+     *
+     * @return array<string,array{array<string,string>, string[]}>
+     */
+    public static function otherCredentialsProvider(): array
+    {
+        return [
+            'a client secret' => [[ParamsEnum::ClientSecret->value => self::CLIENT_SECRET], []],
+            'a client assertion' => [[ParamsEnum::ClientAssertion->value => 'some-assertion-token'], []],
+            'a client assertion type' => [
+                [ParamsEnum::ClientAssertionType->value => ClientAssertionTypesEnum::JwtBaerer->value],
+                [],
+            ],
+            'a Basic Authorization header' => [
+                [],
+                ['Basic ' . base64_encode(self::CLIENT_ID . ':' . self::CLIENT_SECRET)],
+            ],
+        ];
+    }
+
+
+    /**
+     * @param array<string,string> $params
+     * @param string[] $authorizationHeader
+     */
+    #[DataProvider('otherCredentialsProvider')]
+    public function testForClientAttestationRefusesCredentialsOfAnotherMethodAlongside(
+        array $params,
+        array $authorizationHeader,
+    ): void {
+        $this->presentsClientAttestation = true;
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn($authorizationHeader);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(static fn(string $paramKey): ?string => $params[$paramKey] ?? null);
+        $this->clientAttestationVerifierMock->expects($this->never())->method('parse');
+
+        $this->expectException(AuthorizationException::class);
+        $this->expectExceptionMessage('together with the client credentials of another authentication method');
+
+        $this->sut()->forClientAttestation($this->serverRequestMock);
+    }
+
+
+    public function testPresentsClientCredentialsCountsAClientAttestation(): void
+    {
+        $this->presentsClientAttestation = true;
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn([]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+
+        $this->assertTrue($this->sut()->presentsClientCredentials($this->serverRequestMock));
+    }
+
+
+    /**
+     * Tried first: a request with an attestation is judged by it, and one which fails is refused rather than
+     * resolved as the public client its client_id names.
+     */
+    public function testForAnySupportedMethodRefusesAFailedAttestationWithoutFallingThrough(): void
+    {
+        $this->presentAttestation([ParamsEnum::ClientId->value => self::CLIENT_ID]);
+        $this->clientEntityMock->method('isConfidential')->willReturn(false);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->clientAttestationVerifierMock->method('verify')
+            ->willThrowException(new AuthorizationException('The Client Attestation PoP has been used before.'));
+        $this->loggerServiceMock->expects($this->once())->method('warning')
+            ->with('Client authentication refused: The Client Attestation PoP has been used before.');
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock));
+    }
+
+
+    public function testForAnySupportedMethodResolvesAnAttestedClient(): void
+    {
+        $this->presentAttestation();
+        $this->clientEntityMock->method('getTokenEndpointAuthMethod')->willReturn('attest_jwt_client_auth');
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+
+        $this->assertSame(
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+            $this->sut()->forAnySupportedMethod($this->serverRequestMock)?->getClientAuthenticationMethod(),
+        );
+    }
+
+
+    /**
+     * A cache which can not check the PoP for replay is the OP's own failure, not a refusal.
+     */
+    public function testForAnySupportedMethodLetsAFailureOfThePopReplayCheckThrough(): void
+    {
+        $this->presentAttestation();
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $cacheFailure = new RuntimeException('Unable to check the Client Attestation PoP for replay.');
+        $this->clientAttestationVerifierMock->method('verify')->willThrowException($cacheFailure);
+
+        $this->expectExceptionObject($cacheFailure);
+
+        $this->sut()->forAnySupportedMethod($this->serverRequestMock);
+    }
+
+
+    /**
+     * The resolver and the verifier together, on real attestations: the client the attestation names, registered
+     * for attestation, resolves.
+     */
+    protected function withRealVerifier(ClientAttestationBuilder $builder): void
+    {
+        $this->clientAttestationVerifier = new ClientAttestationVerifier(
+            new OAuth2(supportedAlgorithms: ClientAttestationBuilder::supportedAlgorithms()),
+            new X509(),
+            $this->moduleConfigMock,
+            new ProtocolCache(new Psr16Cache(new ArrayAdapter())),
+            $this->loggerServiceMock,
+        );
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+        $client = $builder->client();
+        $this->clientRepositoryMock->method('findById')->willReturnCallback(
+            static fn(string $clientId): ?ClientEntityInterface => $clientId === $client->getIdentifier() ?
+            $client :
+            null,
+        );
+    }
+
+
+    protected function attestedRequest(string $attestation, string $pop): ServerRequestInterface
+    {
+        return (new ServerRequest('POST', self::TOKEN_ENDPOINT))
+            ->withHeader('OAuth-Client-Attestation', $attestation)
+            ->withHeader('OAuth-Client-Attestation-PoP', $pop);
+    }
+
+
+    public function testForAnySupportedMethodResolvesARealAttestation(): void
+    {
+        $builder = new ClientAttestationBuilder();
+        $this->withRealVerifier($builder);
+
+        $result = $this->sut()->forAnySupportedMethod(
+            $this->attestedRequest($builder->attestation(), $builder->pop(['aud' => self::ISSUER])),
+        );
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame(ClientAttestationBuilder::CLIENT_ID, $result->getClient()->getIdentifier());
+        $this->assertSame(
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+            $result->getClientAuthenticationMethod(),
+        );
+    }
+
+
+    /**
+     * The conformance suite's six negative cases, which it sends to the pushed authorization request endpoint, each
+     * refused on its own as the null the endpoint answers `invalid_client` for.
+     *
+     * @return array<string,array{\Closure}>
+     */
+    public static function suiteNegativeCaseProvider(): array
+    {
+        $aud = ['aud' => self::ISSUER];
+
+        return [
+            'an attestation signed by another key' => [
+                static fn(ClientAttestationBuilder $b): array => [
+                    $b->attestation(signingKey: JWKFactory::createECKey('P-256')),
+                    $b->pop($aud),
+                ],
+            ],
+            'an attestation past its exp' => [
+                static fn(ClientAttestationBuilder $b): array => [
+                    $b->attestation(['iat' => time() - 900, 'nbf' => time() - 900, 'exp' => time() - 120]),
+                    $b->pop($aud),
+                ],
+            ],
+            'an attestation without sub' => [
+                static fn(ClientAttestationBuilder $b): array => [$b->attestation(['sub' => null]), $b->pop($aud)],
+            ],
+            'a PoP for another audience' => [
+                static fn(ClientAttestationBuilder $b): array => [
+                    $b->attestation(),
+                    $b->pop(['aud' => 'https://other.example.org']),
+                ],
+            ],
+            'a PoP signed by another key' => [
+                static fn(ClientAttestationBuilder $b): array => [
+                    $b->attestation(),
+                    $b->pop($aud, JWKFactory::createECKey('P-256')),
+                ],
+            ],
+            'a PoP whose signature was tampered with' => [
+                static function (ClientAttestationBuilder $b) use ($aud): array {
+                    $pop = $b->pop($aud);
+                    return [$b->attestation(), substr($pop, 0, -4) . (str_ends_with($pop, 'AAAA') ? 'BBBB' : 'AAAA')];
+                },
+            ],
+        ];
+    }
+
+
+    /**
+     * @param \Closure $tokens
+     */
+    #[DataProvider('suiteNegativeCaseProvider')]
+    public function testForAnySupportedMethodRefusesTheSuitesNegativeCases(Closure $tokens): void
+    {
+        $builder = new ClientAttestationBuilder();
+        $this->withRealVerifier($builder);
+        [$attestation, $pop] = $tokens($builder);
+        $this->loggerServiceMock->expects($this->once())->method('warning')
+            ->with($this->stringStartsWith('Client authentication refused: The Client Attestation'));
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->attestedRequest($attestation, $pop)));
     }
 }

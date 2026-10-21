@@ -398,6 +398,69 @@ class ClientEntityFactoryTest extends TestCase
 
 
     /**
+     * A client registering itself must not be able to name the attester its attestations are trusted from: it
+     * could then authenticate as any client ID with an attester of its own.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('selfRegistrationTypeProvider')]
+    public function testFromRegistrationDataIgnoresTheAdminOnlyClientAttestationTrust(
+        RegistrationTypeEnum $registrationType,
+    ): void {
+        $client = $this->sut()->fromRegistrationData(
+            [
+                ClaimsEnum::RedirectUris->value => ['https://example.org/cb'],
+                ClientEntity::KEY_CLIENT_ATTESTATION => [
+                    'attester' => 'https://attacker.example.org',
+                    'issuing_ca_public_key_sha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+                    'attester_identity' => ['type' => 'san_dns', 'value' => 'attacker.example.org'],
+                    'trust_anchors' => "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
+                ],
+            ],
+            $registrationType,
+        );
+
+        $this->assertNull($client->getClientAttestationTrust());
+        $this->assertArrayNotHasKey(ClientEntity::KEY_CLIENT_ATTESTATION, $client->getExtraMetadata());
+    }
+
+
+    /**
+     * Nor the attestation trust an administrator gave it, which an update can neither drop nor replace.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('selfRegistrationTypeProvider')]
+    public function testFromRegistrationDataKeepsTheAdminSetClientAttestationTrustOnAnUpdate(
+        RegistrationTypeEnum $registrationType,
+    ): void {
+        $trust = [
+            'attester' => 'https://wallet-provider.example.org',
+            'issuing_ca_public_key_sha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+            'attester_identity' => ['type' => 'san_dns', 'value' => 'wallet-provider.example.org'],
+            'trust_anchors' => "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
+        ];
+        $existingClient = $this->createMock(ClientEntity::class);
+        $existingClient->method('getIdentifier')->willReturn('existing-client');
+        $existingClient->method('getExtraMetadata')->willReturn([ClientEntity::KEY_CLIENT_ATTESTATION => $trust]);
+
+        $updates = [[], [ClientEntity::KEY_CLIENT_ATTESTATION => ['attester' => 'https://attacker.example.org']]];
+
+        foreach ($updates as $update) {
+            $client = $this->sut()->fromRegistrationData(
+                [ClaimsEnum::RedirectUris->value => ['https://example.org/cb'], ...$update],
+                $registrationType,
+                existingClient: $existingClient,
+            );
+
+            $this->assertSame($trust, $client->getExtraMetadata()[ClientEntity::KEY_CLIENT_ATTESTATION] ?? null);
+        }
+    }
+
+
+    /**
      * A client updating its own registration keeps the role an administrator gave it, whatever the update says:
      * it can neither drop it (RFC 7592 update being a full replacement) nor turn it off.
      *

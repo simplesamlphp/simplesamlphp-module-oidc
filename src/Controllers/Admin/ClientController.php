@@ -27,8 +27,11 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\X509;
+use SimpleSAML\OpenID\X509\Certificate;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class ClientController
 {
@@ -44,6 +47,7 @@ class ClientController
         protected readonly Routes $routes,
         protected readonly Helpers $helpers,
         protected readonly LoggerService $logger,
+        protected readonly X509 $x509,
     ) {
         $this->authorization->requireAdminOrUserWithPermission(AuthContextService::PERM_CLIENT);
     }
@@ -101,9 +105,58 @@ class ClientController
                 'client' => $client,
                 'allowedOrigins' => $allowedOrigins,
                 'setsGivenSecret' => $this->authorization->isAdmin(),
+                'clientAttestationTrust' => $this->describeClientAttestationTrust($client),
             ],
             RoutesEnum::AdminClients->value,
         );
+    }
+
+
+    /**
+     * The client's attestation trust as the client page shows it: null when it has none, false when it can not be
+     * read, and otherwise its members, with each trust anchor by its subject and the end of its validity, or null
+     * for trust anchors which can not be read.
+     *
+     * @return array{
+     *     attester: string,
+     *     issuingCaPublicKeySha256: string,
+     *     attesterIdentityType: string,
+     *     attesterIdentity: string,
+     *     trustAnchors: list<string>|null,
+     * }|false|null
+     */
+    protected function describeClientAttestationTrust(ClientEntityInterface $client): array|false|null
+    {
+        try {
+            $trust = $client->getClientAttestationTrust();
+        } catch (Throwable) {
+            return false;
+        }
+
+        if ($trust === null) {
+            return null;
+        }
+
+        try {
+            $trustAnchors = array_map(
+                static fn(Certificate $certificate): string => sprintf(
+                    '%s (valid until %s UTC)',
+                    $certificate->getSubjectDn(),
+                    gmdate('Y-m-d H:i', $certificate->getNotAfter()),
+                ),
+                $this->x509->certificateFactory()->bundleFromPem($trust->getTrustAnchors()),
+            );
+        } catch (Throwable) {
+            $trustAnchors = null;
+        }
+
+        return [
+            'attester' => $trust->getAttester(),
+            'issuingCaPublicKeySha256' => $trust->getIssuingCaPublicKeySha256(),
+            'attesterIdentityType' => $trust->getAttesterIdentityType()->value,
+            'attesterIdentity' => $trust->getAttesterIdentity(),
+            'trustAnchors' => $trustAnchors,
+        ];
     }
 
 
@@ -550,6 +603,14 @@ class ClientController
         $foreignIssuerList = $data[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null;
         if (is_array($foreignIssuerList)) {
             $extraMetadata[ClientEntity::KEY_INTROSPECTION_FOREIGN_ISSUERS] = $foreignIssuerList;
+        }
+
+        // Whom the client's attestations are trusted from, administrator-only on the same terms: it decides which
+        // wallet provider can authenticate as the client. ClientForm refuses a trust which can not be used.
+        /** @var mixed $clientAttestationTrust */
+        $clientAttestationTrust = $data[ClientEntity::KEY_CLIENT_ATTESTATION] ?? null;
+        if (is_array($clientAttestationTrust)) {
+            $extraMetadata[ClientEntity::KEY_CLIENT_ATTESTATION] = $clientAttestationTrust;
         }
 
         // Only a SimpleSAMLphp administrator sets the administrator-only properties. A user managing their own

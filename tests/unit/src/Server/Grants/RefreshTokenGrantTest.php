@@ -424,6 +424,37 @@ class RefreshTokenGrantTest extends TestCase
 
 
     /**
+     * D35 of the HAIP plan: a client which authenticates by attestation is refused the refresh_token grant, as
+     * `unauthorized_client`, whatever refresh token it holds; not announced as a failed authentication, which it
+     * is not.
+     *
+     * @throws \ReflectionException
+     */
+    public function testValidateClientRefusesAClientWhichAuthenticatedByAttestation(): void
+    {
+        $clientMock = $this->createMock(ClientEntity::class);
+        $clientMock->method('getIdentifier')->willReturn('wallet-a');
+        $this->clientResolverMock->expects($this->once())
+            ->method('forAnySupportedMethod')
+            ->with($this->serverRequestMock)
+            ->willReturn(new ResolvedClientAuthenticationMethod(
+                $clientMock,
+                ClientAuthenticationMethodsEnum::AttestJwtClientAuth,
+            ));
+        $this->loggerServiceMock->expects($this->once())->method('warning')
+            ->with($this->stringContains('the client authenticated by attestation'), ['client_id' => 'wallet-a']);
+
+        try {
+            $this->callValidateClient($this->sut());
+            $this->fail('A client which authenticated by attestation was let refresh.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('unauthorized_client', $exception->getErrorType());
+            $this->assertSame([], $this->emittedEventNames);
+        }
+    }
+
+
+    /**
      * When the client cannot be authenticated the grant must reject the request with an invalid_client error,
      * not fall back to the league default (which would demand a client_id parameter). The failure is both
      * logged and announced on the emitter, which is what a listener registered on the server would count.

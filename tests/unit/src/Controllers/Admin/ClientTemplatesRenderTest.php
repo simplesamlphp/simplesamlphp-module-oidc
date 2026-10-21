@@ -76,8 +76,13 @@ class ClientTemplatesRenderTest extends TestCase
     }
 
 
-    protected function renderClientPage(ClientEntity $client): string
-    {
+    /**
+     * @param array<string,mixed>|false|null $clientAttestationTrust As ClientController::show() describes it.
+     */
+    protected function renderClientPage(
+        ClientEntity $client,
+        array|false|null $clientAttestationTrust = null,
+    ): string {
         return $this->twig()->render(
             '@oidc/clients/show.twig',
             [
@@ -85,7 +90,44 @@ class ClientTemplatesRenderTest extends TestCase
                 'allowedOrigins' => [],
                 'setsGivenSecret' => true,
                 'routes' => $this->routes(),
+                'clientAttestationTrust' => $clientAttestationTrust,
             ],
+        );
+    }
+
+
+    public function testTheClientPageShowsTheClientAttestationTrust(): void
+    {
+        $html = $this->renderClientPage($this->client('wallet', false), [
+            'attester' => 'https://wallet-provider.example.org',
+            'issuingCaPublicKeySha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+            'attesterIdentityType' => 'san_dns',
+            'attesterIdentity' => 'wallet-provider.example.org',
+            'trustAnchors' => ['cn=Wallet Root CA (valid until 2030-01-01 12:00 UTC)'],
+        ]);
+
+        $this->assertStringContainsString('https://wallet-provider.example.org', $html);
+        $this->assertStringContainsString('oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE', $html);
+        $this->assertStringContainsString('san_dns wallet-provider.example.org', $html);
+        $this->assertStringContainsString('cn=Wallet Root CA (valid until 2030-01-01 12:00 UTC)', $html);
+    }
+
+
+    public function testTheClientPageSaysWhenTheClientAttestationTrustCanNotBeRead(): void
+    {
+        $this->assertStringContainsString(
+            'The attestation trust stored for this Client can not be read.',
+            $this->renderClientPage($this->client('wallet', false), false),
+        );
+        $this->assertStringContainsString(
+            'The trust anchors can not be read.',
+            $this->renderClientPage($this->client('wallet', false), [
+                'attester' => 'https://wallet-provider.example.org',
+                'issuingCaPublicKeySha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+                'attesterIdentityType' => 'san_dns',
+                'attesterIdentity' => 'wallet-provider.example.org',
+                'trustAnchors' => null,
+            ]),
         );
     }
 

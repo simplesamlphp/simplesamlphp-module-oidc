@@ -958,6 +958,20 @@ class ModuleConfig
     }
 
 
+    /**
+     * The names of the signature algorithms a Client Attestation and its PoP may be signed with
+     * (draft-ietf-oauth-attestation-based-client-auth-07 section 9, check 4), advertised as
+     * `client_attestation_signing_alg_values_supported` and `client_attestation_pop_signing_alg_values_supported`
+     * (section 10.1): those of getSupportedAlgorithms(), every one of them asymmetric, as for DPoP proofs.
+     *
+     * @return string[]
+     */
+    public function getClientAttestationSigningAlgorithms(): array
+    {
+        return array_values($this->getSupportedAlgorithms()->getSignatureAlgorithmBag()->getAllNamesUnique());
+    }
+
+
     public function getSupportedSerializers(): SupportedSerializers
     {
         return new SupportedSerializers(

@@ -89,6 +89,7 @@ use SimpleSAML\Module\oidc\Utils\SubjectResolver;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
@@ -890,11 +891,22 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // refresh token is issued which the token endpoint would then refuse.
             // Nor is one issued for a code of a credential issuance flow, as the pre-authorized code grant issues
             // none: the access token a refresh yields does not keep the issuance flow, so the Credential Endpoint
-            // would refuse it.
+            // would refuse it. Nor to a client which authenticated by attestation, in any flow:
+            // draft-ietf-oauth-attestation-based-client-auth-07 section 10.3 would have its refresh token bound to
+            // the client instance and its key, which refresh tokens here are not (D35 of the HAIP plan).
             if ($this->helpers->scope()->exists($scopes, 'offline_access')) {
                 if ($storedAuthCodeEntity->getFlowTypeEnum()?->isVciFlow() === true) {
                     $this->loggerService->info(
                         'No refresh token issued: offline_access was granted, but for a credential issuance flow.',
+                        ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+                    );
+                } elseif (
+                    $resolvedClientAuthenticationMethod?->getClientAuthenticationMethod() ===
+                    ClientAuthenticationMethodsEnum::AttestJwtClientAuth
+                ) {
+                    $this->loggerService->info(
+                        'No refresh token issued: offline_access was granted, but the client authenticated by ' .
+                        'attestation.',
                         ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
                     );
                 } else {

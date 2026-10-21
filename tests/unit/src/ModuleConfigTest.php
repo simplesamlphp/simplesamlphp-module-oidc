@@ -3179,6 +3179,21 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * A client can not register itself for attestation-based client authentication (Dynamic Client Registration
+     * offers what this lists): the trust its attestations are held to is set by an administrator only.
+     *
+     * @throws \Exception
+     */
+    public function testAttestationBasedClientAuthenticationIsNotRegistrable(): void
+    {
+        $this->assertNotContains(
+            TokenEndpointAuthMethodsEnum::AttestJwtClientAuth->value,
+            $this->sut()->getSupportedTokenEndpointAuthMethods(),
+        );
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testRegistrableTokenEndpointAuthMethodsAreDistinctAndKnown(): void
@@ -4417,6 +4432,19 @@ class ModuleConfigTest extends TestCase
         $this->assertSame(
             ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'ES512', 'PS256', 'PS384', 'PS512', 'EdDSA'],
             $this->sut()->getDpopSigningAlgorithms(),
+        );
+    }
+
+
+    /**
+     * Client Attestations and their PoPs may be signed with any of the supported algorithms, all asymmetric, and
+     * nothing else (draft-ietf-oauth-attestation-based-client-auth-07 section 9, check 4).
+     */
+    public function testAcceptsClientAttestationsSignedWithTheSupportedAlgorithms(): void
+    {
+        $this->assertSame(
+            ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'ES512', 'PS256', 'PS384', 'PS512', 'EdDSA'],
+            $this->sut()->getClientAttestationSigningAlgorithms(),
         );
     }
 

@@ -358,6 +358,32 @@
             </tr>
             <tr>
                 <td class="client-col col-property">
+                    {{ 'Wallet Attestation'|trans }}
+                </td>
+                <td>
+                    {% if clientAttestationTrust is same as(false) %}
+                        {{ 'The attestation trust stored for this Client can not be read.'|trans }}
+                    {% elseif clientAttestationTrust is null %}
+                        {{ 'N/A'|trans }}
+                    {% else %}
+                        <ul class="disc">
+                            <li>{{ 'Attester'|trans }}: {{ clientAttestationTrust.attester }}</li>
+                            <li>{{ 'Issuing CA Public Key SHA-256'|trans }}: {{ clientAttestationTrust.issuingCaPublicKeySha256 }}</li>
+                            <li>{{ 'Attester Identity'|trans }}: {{ clientAttestationTrust.attesterIdentityType }} {{ clientAttestationTrust.attesterIdentity }}</li>
+                            <li>
+                                {{ 'Attestation Trust Anchors (PEM)'|trans }}:
+                                {% if clientAttestationTrust.trustAnchors is null %}
+                                    {{ 'The trust anchors can not be read.'|trans }}
+                                {% else %}
+                                    {{ clientAttestationTrust.trustAnchors|join(', ') }}
+                                {% endif %}
+                            </li>
+                        </ul>
+                    {% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td class="client-col col-property">
                     {{ 'Default ACR Values'|trans }}
                 </td>
                 <td>

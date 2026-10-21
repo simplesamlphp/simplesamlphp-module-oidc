@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Entities\Interfaces;
 use DateTimeImmutable;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
+use SimpleSAML\Module\oidc\ValueAbstracts\ClientAttestationTrust;
 use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 
 interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInterface
@@ -238,4 +239,13 @@ interface ClientEntityInterface extends OAuth2ClientEntityInterface, MementoInte
      * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException When the stored value can not be applied.
      */
     public function getIntrospectionForeignIssuerList(): ?ForeignIssuerList;
+
+
+    /**
+     * Whom this client's Client Attestations are trusted from, when it authenticates with `attest_jwt_client_auth`;
+     * null when no administrator set that up.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException When the stored value can not be read.
+     */
+    public function getClientAttestationTrust(): ?ClientAttestationTrust;
 }

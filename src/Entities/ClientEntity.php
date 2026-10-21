@@ -11,6 +11,7 @@ use League\OAuth2\Server\Entities\Traits\EntityTrait;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
+use SimpleSAML\Module\oidc\ValueAbstracts\ClientAttestationTrust;
 use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
@@ -108,6 +109,12 @@ class ClientEntity implements ClientEntityInterface
     public const string KEY_INTROSPECTION_RESOURCE_SERVER = 'introspection_resource_server';
 
     /**
+     * Whom the client's Client Attestations are trusted from, when it authenticates with `attest_jwt_client_auth`
+     * (ClientAttestationTrust). Stored as an entry inside the extra metadata JSON blob.
+     */
+    public const string KEY_CLIENT_ATTESTATION = 'client_attestation';
+
+    /**
      * Client properties (metadata keys) which are "administrator-only":
      * they may only be set by a trusted administrator (via the admin UI / API,
      * i.e. ClientEntityFactory::fromData()), and MUST NOT be honored when they
@@ -123,6 +130,7 @@ class ClientEntity implements ClientEntityInterface
         self::KEY_ADD_CLAIMS_TO_ID_TOKEN,
         self::KEY_INTROSPECTION_FOREIGN_ISSUERS,
         self::KEY_INTROSPECTION_RESOURCE_SERVER,
+        self::KEY_CLIENT_ATTESTATION,
     ];
 
 
@@ -291,6 +299,8 @@ class ClientEntity implements ClientEntityInterface
             // getIntrospectionForeignIssuerList()) instead of throwing wherever a client is turned into an array.
             self::KEY_INTROSPECTION_FOREIGN_ISSUERS =>
             $this->extraMetadata[self::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null,
+            // As stored, for the same reason (see getClientAttestationTrust()).
+            self::KEY_CLIENT_ATTESTATION => $this->extraMetadata[self::KEY_CLIENT_ATTESTATION] ?? null,
             self::KEY_REGISTRATION_ACCESS_TOKEN => $this->registrationAccessToken,
         ];
     }
@@ -617,6 +627,26 @@ class ClientEntity implements ClientEntityInterface
 
         return ForeignIssuerList::fromClientMetadata(
             $this->extraMetadata[self::KEY_INTROSPECTION_FOREIGN_ISSUERS] ?? null,
+        );
+    }
+
+
+    /**
+     * Whom the client's Client Attestations are trusted from, when it authenticates with `attest_jwt_client_auth`;
+     * null when it has no such trust, and no attestation of it can be accepted. Administrator-only: a client able
+     * to set it through registration could name an attester of its own choosing, and with it any client ID.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException When the stored value can not be read. It is
+     * never read as "no trust".
+     */
+    public function getClientAttestationTrust(): ?ClientAttestationTrust
+    {
+        if (!is_array($this->extraMetadata)) {
+            return null;
+        }
+
+        return ClientAttestationTrust::fromClientMetadata(
+            $this->extraMetadata[self::KEY_CLIENT_ATTESTATION] ?? null,
         );
     }
 

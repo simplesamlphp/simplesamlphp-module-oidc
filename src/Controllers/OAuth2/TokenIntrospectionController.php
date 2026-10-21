@@ -33,6 +33,7 @@ use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionReleaseDecision;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
+use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Exceptions\JwsParseException;
@@ -705,6 +706,17 @@ class TokenIntrospectionController
 
         // First, try regular OAuth2 client authentication methods.
         $resolvedClientAuthenticationMethod = $this->authenticatedOAuth2ClientResolver->forAnySupportedMethod($request);
+
+        // Attestation-based client authentication is for wallets at the pushed authorization request and token
+        // endpoints, and this endpoint does not advertise it (introspection_endpoint_auth_methods_supported).
+        if (
+            $resolvedClientAuthenticationMethod?->getClientAuthenticationMethod() ===
+            ClientAuthenticationMethodsEnum::AttestJwtClientAuth
+        ) {
+            throw new AuthorizationException(
+                'Attestation-based client authentication is not accepted at the token introspection endpoint.',
+            );
+        }
 
         if (
             $resolvedClientAuthenticationMethod instanceof ResolvedClientAuthenticationMethod &&

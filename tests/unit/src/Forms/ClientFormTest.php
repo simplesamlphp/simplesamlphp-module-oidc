@@ -26,11 +26,13 @@ use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Forms\ClientForm;
 use SimpleSAML\Module\oidc\Forms\Controls\CsrfProtection;
+use SimpleSAML\Module\oidc\Forms\Controls\UntrimmedTextInput;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\ValueAbstracts\ForeignIssuerList;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
+use SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\CertificateBuilder;
 use SimpleSAML\Utils\Auth as SspUtilsAuth;
 
 /**
@@ -1027,6 +1029,399 @@ class ClientFormTest extends TestCase
     protected function adminOnlyFieldNames(): array
     {
         return [...ClientEntity::ADMIN_ONLY_METADATA_KEYS, ClientForm::FIELD_INTROSPECTION_FOREIGN_ISSUERS_MODE];
+    }
+
+
+    // Wallet Attestation (the administrator-only client attestation trust).
+
+    /**
+     * A trust as the client record keeps it, under a root made now, with the given members replaced.
+     *
+     * @param array<string,mixed> $replacements
+     * @return array<string,mixed>
+     */
+    protected function clientAttestationTrust(array $replacements = []): array
+    {
+        return [
+            'attester' => 'https://wallet-provider.example.org',
+            'issuing_ca_public_key_sha256' => 'oK0aZlY8bQfkRFIkV3WdWDiLT_7WWqv0eXhTYGOE7wE',
+            'attester_identity' => ['type' => 'san_uri', 'value' => 'https://wallet-provider.example.org'],
+            'trust_anchors' => CertificateBuilder::pem(
+                CertificateBuilder::root(CertificateBuilder::ecKey(), 'CN=Wallet Root CA,O=Example'),
+            ),
+            ...$replacements,
+        ];
+    }
+
+
+    /**
+     * A certificate which is not a CA's, issued by a root made for it.
+     */
+    protected static function endEntityCertificatePem(): string
+    {
+        $rootKey = CertificateBuilder::ecKey();
+
+        return CertificateBuilder::pem(CertificateBuilder::certificate(
+            'CN=Wallet Provider,O=Example',
+            CertificateBuilder::ecKey(),
+            'CN=Wallet Root CA,O=Example',
+            $rootKey,
+            CertificateBuilder::leafExtensions(),
+        ));
+    }
+
+
+    /**
+     * A self-signed certificate which is not a CA's.
+     */
+    protected static function selfSignedEndEntityCertificatePem(): string
+    {
+        $key = CertificateBuilder::ecKey();
+
+        return CertificateBuilder::pem(CertificateBuilder::certificate(
+            'CN=Wallet Provider,O=Example',
+            $key,
+            'CN=Wallet Provider,O=Example',
+            $key,
+            CertificateBuilder::leafExtensions(),
+        ));
+    }
+
+
+    /**
+     * The fields as an administrator fills them in for the given trust.
+     *
+     * @param array<string,mixed> $trust
+     * @return array<string,string>
+     */
+    protected function clientAttestationFields(array $trust): array
+    {
+        /** @var array{type: string, value: string} $identity */
+        $identity = $trust['attester_identity'];
+
+        return [
+            'attester' => (string)$trust['attester'],
+            'issuing_ca_public_key_sha256' => (string)$trust['issuing_ca_public_key_sha256'],
+            ClientForm::FIELD_ATTESTER_IDENTITY_TYPE => $identity['type'],
+            ClientForm::FIELD_ATTESTER_IDENTITY_VALUE => $identity['value'],
+            'trust_anchors' => (string)$trust['trust_anchors'],
+        ];
+    }
+
+
+    public function testOffersAttestationBasedClientAuthenticationInTheForm(): void
+    {
+        $items = $this->sut()->getComponent('token_endpoint_auth_method')->getItems();
+
+        $this->assertArrayHasKey('attest_jwt_client_auth', $items);
+    }
+
+
+    public function testSetDefaultsAndGetValuesRoundTripTheClientAttestationTrust(): void
+    {
+        $trust = $this->clientAttestationTrust();
+        $sut = $this->filledForm(
+            ['token_endpoint_auth_method' => 'attest_jwt_client_auth', 'client_attestation' => $trust],
+        );
+
+        $this->assertFalse($sut->hasUnreadableClientAttestationTrust());
+        $this->assertSame($trust, $sut->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]);
+
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    /**
+     * Surrounding blanks go; the trust anchors keep one line break at their end. (The identity type is a select,
+     * which refuses any value it does not offer.)
+     */
+    public function testReadsTheClientAttestationTrustFromItsFields(): void
+    {
+        $trust = $this->clientAttestationTrust();
+        $fields = array_map(
+            static fn(string $value): string => " \t" . $value . "\n\n",
+            $this->clientAttestationFields($trust),
+        );
+        $fields[ClientForm::FIELD_ATTESTER_IDENTITY_TYPE] = 'san_uri';
+
+        $sut = $this->filledForm([], ['client_attestation' => $fields]);
+
+        $this->assertSame($trust, $sut->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]);
+    }
+
+
+    /**
+     * A subject distinguished name keeps the space RFC 4514 escapes at its end; a URI loses surrounding blanks.
+     */
+    public function testKeepsTheWhitespaceOfASubjectDistinguishedName(): void
+    {
+        $trust = $this->clientAttestationTrust(
+            ['attester_identity' => ['type' => 'subject_dn', 'value' => 'O=Example,CN=Wallet Provider\\ ']],
+        );
+        $sut = $this->filledForm(
+            ['token_endpoint_auth_method' => 'attest_jwt_client_auth', 'client_attestation' => $trust],
+        );
+
+        $this->assertSame($trust, $sut->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]);
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+
+        $fields = $this->clientAttestationFields($this->clientAttestationTrust());
+        $fields[ClientForm::FIELD_ATTESTER_IDENTITY_VALUE] = ' https://wallet-provider.example.org ';
+        $this->assertSame(
+            ['type' => 'san_uri', 'value' => 'https://wallet-provider.example.org'],
+            $this->filledForm([], ['client_attestation' => $fields])
+                ->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]['attester_identity'],
+        );
+    }
+
+
+    /**
+     * The identity field loads a submitted value untrimmed (UntrimmedTextInputTest), where Nette's text input would
+     * cut the escaped space off the end of a subject distinguished name.
+     */
+    public function testTheAttesterIdentityFieldIsLoadedUntrimmed(): void
+    {
+        $this->assertInstanceOf(
+            UntrimmedTextInput::class,
+            $this->sut()->getComponent('client_attestation')->getComponent(ClientForm::FIELD_ATTESTER_IDENTITY_VALUE),
+        );
+    }
+
+
+    public function testNoClientAttestationTrustIsReadFromEmptyFields(): void
+    {
+        $sut = $this->filledForm();
+
+        $this->assertNull($sut->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]);
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    /**
+     * @return array<string,array{array<string,mixed>, array<string,mixed>, string}>
+     */
+    public static function refusedClientAttestationTrustProvider(): array
+    {
+        $attested = ['token_endpoint_auth_method' => 'attest_jwt_client_auth'];
+
+        return [
+            'the method without a trust' => [
+                $attested,
+                [],
+                'A client which authenticates with attest_jwt_client_auth needs the attestation trust',
+            ],
+            'a trust with another method' => [
+                ['token_endpoint_auth_method' => 'private_key_jwt'],
+                ['trust' => []],
+                'The attestation trust is used only by a client which authenticates with attest_jwt_client_auth.',
+            ],
+            'a trust without a method' => [
+                [],
+                ['trust' => []],
+                'The attestation trust is used only by a client which authenticates with attest_jwt_client_auth.',
+            ],
+            'a digest which is not one' => [
+                $attested,
+                ['trust' => ['issuing_ca_public_key_sha256' => 'not-a-digest']],
+                'is not a base64url encoded SHA-256 digest',
+            ],
+            'trust anchors which are not certificates' => [
+                $attested,
+                ['trust' => ['trust_anchors' => 'not a certificate']],
+                'The attestation trust anchors can not be used',
+            ],
+            'a trust anchor which is not self-signed' => [
+                $attested,
+                ['trust' => ['trust_anchors' => self::endEntityCertificatePem()]],
+                'is not a self-signed certificate',
+            ],
+            'a trust anchor which is not a CA certificate' => [
+                $attested,
+                ['trust' => ['trust_anchors' => self::selfSignedEndEntityCertificatePem()]],
+                'is not a CA certificate',
+            ],
+            'a subject distinguished name which is not one' => [
+                $attested,
+                ['trust' => ['attester_identity' => ['type' => 'subject_dn', 'value' => 'not a name']]],
+                'The attester identity is not a subject distinguished name the module can compare',
+            ],
+        ];
+    }
+
+
+    /**
+     * @param array<string,mixed> $stored
+     * @param array<string,mixed> $submitted With 'trust', the replacements of a trust whose fields are filled in.
+     */
+    #[DataProvider('refusedClientAttestationTrustProvider')]
+    public function testRefusesAClientAttestationTrustWhichCanNotStand(
+        array $stored,
+        array $submitted,
+        string $expectedError,
+    ): void {
+        if (array_key_exists('trust', $submitted)) {
+            /** @var array<string,mixed> $replacements */
+            $replacements = $submitted['trust'];
+            $submitted = [
+                'client_attestation' => $this->clientAttestationFields($this->clientAttestationTrust($replacements)),
+            ];
+        }
+
+        $sut = $this->filledForm($stored, $submitted);
+        $sut->validateClientAttestationTrust($sut);
+
+        $this->assertStringContainsString($expectedError, implode("\n", $this->ownErrors($sut)));
+    }
+
+
+    /**
+     * A client which registers itself states its own method whenever it registers again, so it is not set up for
+     * attestation, neither the method nor the trust; a client registered by hand is.
+     *
+     * @return array<string,array{\SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum, bool}>
+     */
+    public static function registrationTypeProvider(): array
+    {
+        return [
+            'registered by hand' => [RegistrationTypeEnum::Manual, true],
+            'Dynamic Client Registration' => [RegistrationTypeEnum::Dynamic, false],
+            'OpenID Federation' => [RegistrationTypeEnum::FederatedAutomatic, false],
+        ];
+    }
+
+
+    #[DataProvider('registrationTypeProvider')]
+    public function testOnlyAClientRegisteredByHandIsSetUpForAttestation(
+        RegistrationTypeEnum $registrationType,
+        bool $isAccepted,
+    ): void {
+        $trust = $this->clientAttestationTrust();
+        $cases = [
+            'the method and the trust' => [
+                ['token_endpoint_auth_method' => 'attest_jwt_client_auth'],
+                ['client_attestation' => $this->clientAttestationFields($trust)],
+            ],
+            'the trust alone' => [[], ['client_attestation' => $this->clientAttestationFields($trust)]],
+        ];
+
+        foreach ($cases as $name => [$stored, $submitted]) {
+            $sut = $this->filledForm(['registration_type' => $registrationType, ...$stored], $submitted);
+            $sut->validateClientAttestationTrust($sut);
+
+            $errors = implode("\n", $this->ownErrors($sut));
+            $refusal = 'Only a client registered by an administrator can authenticate with attest_jwt_client_auth';
+            if ($isAccepted) {
+                $this->assertStringNotContainsString($refusal, $errors, $name);
+            } else {
+                $this->assertStringContainsString($refusal, $errors, $name);
+            }
+        }
+    }
+
+
+    /**
+     * A trust with some fields left empty is refused once, naming them, whatever the method.
+     */
+    public function testRefusesAnIncompleteClientAttestationTrust(): void
+    {
+        $fields = $this->clientAttestationFields($this->clientAttestationTrust());
+        $fields['issuing_ca_public_key_sha256'] = ' ';
+        $fields['trust_anchors'] = '';
+
+        $sut = $this->filledForm(
+            ['token_endpoint_auth_method' => 'attest_jwt_client_auth'],
+            ['client_attestation' => $fields],
+        );
+        $sut->validateClientAttestationTrust($sut);
+
+        $this->assertNull($sut->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]);
+        $this->assertSame(
+            ['The attestation trust is incomplete; fill in, or empty, every field. Empty: ' .
+                'issuing_ca_public_key_sha256, trust_anchors.'],
+            $this->ownErrors($sut),
+        );
+    }
+
+
+    /**
+     * A stored trust the form can not read is not shown; emptying the fields removes it.
+     */
+    public function testAnUnreadableStoredClientAttestationTrustIsNotShown(): void
+    {
+        $sut = $this->filledForm(['client_attestation' => ['attester' => 'https://wallet-provider.example.org']]);
+
+        $this->assertTrue($sut->hasUnreadableClientAttestationTrust());
+        $this->assertSame('', $sut->getComponent('client_attestation')->getComponent('attester')->getValue());
+        $this->assertNull($sut->getValues()[ClientEntity::KEY_CLIENT_ATTESTATION]);
+
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    /**
+     * Somebody other than an administrator has no attestation trust fields, and can not give a client the method
+     * without the trust an administrator set; with it, the client keeps both.
+     */
+    public function testSomebodyOtherThanAnAdministratorCanNotSetUpAttestation(): void
+    {
+        $this->isAdministrator = false;
+
+        $sut = $this->filledForm([], ['token_endpoint_auth_method' => 'attest_jwt_client_auth']);
+        $this->assertNull($sut->getComponent('client_attestation', false));
+        $this->assertArrayNotHasKey(ClientEntity::KEY_CLIENT_ATTESTATION, $sut->getValues());
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertStringContainsString(
+            'Only an administrator can set a client up to authenticate with attest_jwt_client_auth',
+            implode("\n", $this->ownErrors($sut)),
+        );
+
+        $sut = $this->filledForm([
+            'token_endpoint_auth_method' => 'attest_jwt_client_auth',
+            'client_attestation' => $this->clientAttestationTrust(),
+        ]);
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertSame([], $this->ownErrors($sut));
+    }
+
+
+    /**
+     * Nor can they give the method to a client whose stored trust can not be read, or take it away from a client
+     * which has it: it would then authenticate otherwise, as a public client by its client_id alone, say.
+     */
+    public function testSomebodyOtherThanAnAdministratorCanNotChangeAnAttestedClientsMethod(): void
+    {
+        $this->isAdministrator = false;
+
+        $sut = $this->filledForm(
+            ['token_endpoint_auth_method' => 'private_key_jwt', 'client_attestation' => ['attester' => 'x']],
+            ['token_endpoint_auth_method' => 'attest_jwt_client_auth'],
+        );
+        $sut->validateClientAttestationTrust($sut);
+        $this->assertStringContainsString(
+            'Only an administrator can set a client up to authenticate with attest_jwt_client_auth',
+            implode("\n", $this->ownErrors($sut)),
+        );
+
+        foreach (['none', 'client_secret_basic', null] as $method) {
+            $sut = $this->filledForm(
+                [
+                    'token_endpoint_auth_method' => 'attest_jwt_client_auth',
+                    'client_attestation' => $this->clientAttestationTrust(),
+                ],
+                ['token_endpoint_auth_method' => $method],
+            );
+            $sut->validateClientAttestationTrust($sut);
+            $this->assertStringContainsString(
+                'Only an administrator can change the authentication method of a client which authenticates with ' .
+                'attest_jwt_client_auth.',
+                implode("\n", $this->ownErrors($sut)),
+                (string)$method,
+            );
+        }
     }
 
 
