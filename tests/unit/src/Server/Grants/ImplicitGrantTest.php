@@ -69,6 +69,7 @@ class ImplicitGrantTest extends TestCase
         ?string $queryDelimiter = null,
         ?AccessTokenEntityFactory $accessTokenEntityFactory = null,
         ?ScopeRepositoryInterface $scopeRepository = null,
+        bool $disallowImplicitForConfidentialClients = false,
     ): ImplicitGrant {
         $idTokenBuilder ??= $this->idTokenBuilderMock;
         $accessTokenTtl ??= $this->accessTokenTtl1h;
@@ -88,6 +89,7 @@ class ImplicitGrantTest extends TestCase
             $requestParamsResolver,
             $queryDelimiter,
             $accessTokenEntityFactory,
+            $disallowImplicitForConfidentialClients,
         );
 
         $implicitGrant->setScopeRepository($scopeRepository);
@@ -170,5 +172,63 @@ class ImplicitGrantTest extends TestCase
     public function testCanValidateAuthorizationRequestWithRequestRules(): void
     {
         $this->markTestIncomplete('RequestRulesManager needs to be refactored so it can be strongly typed.');
+    }
+
+    protected function confidentialClientResultBag(): \SimpleSAML\Module\oidc\Server\RequestRules\ResultBag
+    {
+        $redirectUriResult = new \SimpleSAML\Module\oidc\Server\RequestRules\Result(
+            \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RedirectUriRule::class,
+            'https://example.com/callback'
+        );
+        $stateResult = new \SimpleSAML\Module\oidc\Server\RequestRules\Result(
+            \SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule::class,
+            'test-state'
+        );
+
+        $this->clientEntityMock->method('isConfidential')->willReturn(true);
+        $clientResult = new \SimpleSAML\Module\oidc\Server\RequestRules\Result(
+            \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientIdRule::class,
+            $this->clientEntityMock
+        );
+
+        $resultBag = new \SimpleSAML\Module\oidc\Server\RequestRules\ResultBag();
+        $resultBag->add($redirectUriResult);
+        $resultBag->add($stateResult);
+        $resultBag->add($clientResult);
+
+        return $resultBag;
+    }
+
+    /**
+     * Opt-in hardening, see ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS.
+     *
+     * @see https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
+     * @see https://openid.net/specs/openid-connect-core-1_0.html#RPMTI
+     */
+    public function testValidateAuthorizationRequestThrowsForConfidentialClientWhenDisallowed(): void
+    {
+        $resultBag = $this->confidentialClientResultBag();
+
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+
+        $this->expectException(\SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException::class);
+        $this->expectExceptionMessageMatches('/unauthorized_client/');
+
+        $this->sut(disallowImplicitForConfidentialClients: true)
+            ->validateAuthorizationRequestWithRequestRules($this->serverRequestMock, $resultBag);
+    }
+
+    public function testValidateAuthorizationRequestDoesNotRejectConfidentialClientByDefault(): void
+    {
+        $resultBag = $this->confidentialClientResultBag();
+
+        // Guard is off by default, so processing continues to the request rules.
+        $this->requestRulesManagerMock->expects($this->once())->method('check')
+            ->willThrowException(new \RuntimeException('rules executed'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('rules executed');
+
+        $this->sut()->validateAuthorizationRequestWithRequestRules($this->serverRequestMock, $resultBag);
     }
 }
