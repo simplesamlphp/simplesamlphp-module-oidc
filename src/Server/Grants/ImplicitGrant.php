@@ -110,8 +110,18 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
 
         $responseType = explode(" ", $requestParams['response_type']);
 
-        return in_array('id_token', $responseType, true) &&
-        ! in_array('code', $responseType, true); // ...avoid triggering hybrid flow
+        if (!in_array('id_token', $responseType, true) || in_array('code', $responseType, true)) {
+            return false; // ...avoid triggering hybrid flow
+        }
+
+        // Issuance runs in the authorization code flow only, and while it follows HAIP a request for an ID token is
+        // not served (FAPI 2.0 section 5.3.2.2): no other grant takes it, so the authorization server answers it
+        // `unsupported_response_type`. The PAR endpoint, which such a request has to go through, refuses it already,
+        // so this holds one pushed before issuance followed HAIP.
+        return !$this->requestParamsResolver->isVciHaipIssuanceRequest(
+            $request,
+            $this->allowedAuthorizationHttpMethods,
+        );
     }
 
 

@@ -119,6 +119,12 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      */
     public const string VCI_UNBOUND_ACCESS_TOKEN_MAX_TTL = 'PT5M';
 
+    /**
+     * The longest an authorization code for Verifiable Credential Issuance lives while issuance follows HAIP,
+     * whatever the configuration says (FAPI 2.0 section 5.3.2.1, authCodeTtlFor()).
+     */
+    public const string VCI_HAIP_AUTH_CODE_MAX_TTL = 'PT60S';
+
 
     protected DateInterval $authCodeTTL;
 
@@ -280,8 +286,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         // The user approved the client, redirect them back with an auth code
+        $authCodeTtl = $this->authCodeTtlFor($authorizationRequest);
         $authCode = $this->issueOidcAuthCode(
-            $this->authCodeTTL,
+            $authCodeTtl,
             $authorizationRequest->getClient(),
             $user->getIdentifier(),
             $finalRedirectUri,
@@ -299,7 +306,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             'auth_code_id'          => $authCode->getIdentifier(),
             'scopes'                => $authCode->getScopes(),
             'user_id'               => $authCode->getUserIdentifier(),
-            'expire_time'           => (new DateTimeImmutable())->add($this->authCodeTTL)->getTimestamp(),
+            'expire_time'           => (new DateTimeImmutable())->add($authCodeTtl)->getTimestamp(),
             'code_challenge'        => $authorizationRequest->getCodeChallenge(),
             'code_challenge_method' => $authorizationRequest->getCodeChallengeMethod(),
             'nonce'                 => $authorizationRequest->getNonce(),
@@ -345,11 +352,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::serverError('Unexpected auth code repository entity type.');
         }
 
-        // The flow validateAuthorizationRequestWithRequestRules() found the request to belong to; one which names
-        // none is told apart by the VCI marker, as before.
-        $flowType = $authorizationRequest->getFlowType() ?? ($authorizationRequest->isVciRequest() ?
-            FlowTypeEnum::VciAuthorizationCode :
-            FlowTypeEnum::OidcAuthorizationCode);
+        $flowType = $this->flowTypeOf($authorizationRequest);
 
         while ($maxGenerationAttempts-- > 0) {
             try {
@@ -379,6 +382,41 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         }
 
         throw OAuthServerException::serverError('Could not issue OIDC Auth Code.');
+    }
+
+
+    /**
+     * The flow validateAuthorizationRequestWithRequestRules() found the request to belong to; one which names none
+     * is told apart by the VCI marker, as before.
+     */
+    protected function flowTypeOf(AuthorizationRequest $authorizationRequest): FlowTypeEnum
+    {
+        return $authorizationRequest->getFlowType() ?? ($authorizationRequest->isVciRequest() ?
+            FlowTypeEnum::VciAuthorizationCode :
+            FlowTypeEnum::OidcAuthorizationCode);
+    }
+
+
+    /**
+     * The lifetime of an authorization code issued now: the configured one, but one for Verifiable Credential
+     * Issuance (flowTypeOf()) not longer than VCI_HAIP_AUTH_CODE_MAX_TTL while issuance follows HAIP. The two are
+     * compared as the moments they end at from now, as in accessTokenTtlFor().
+     *
+     * @throws \Exception
+     */
+    protected function authCodeTtlFor(AuthorizationRequest $authorizationRequest): DateInterval
+    {
+        if (
+            $this->flowTypeOf($authorizationRequest) !== FlowTypeEnum::VciAuthorizationCode ||
+            !$this->moduleConfig->getVciHaipEnabled()
+        ) {
+            return $this->authCodeTTL;
+        }
+
+        $haipMaxTtl = new DateInterval(self::VCI_HAIP_AUTH_CODE_MAX_TTL);
+        $now = new DateTimeImmutable();
+
+        return $now->add($this->authCodeTTL) > $now->add($haipMaxTtl) ? $haipMaxTtl : $this->authCodeTTL;
     }
 
 
@@ -524,7 +562,33 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 );
                 throw OAuthServerException::invalidGrant('Authorization code was not issued to this client');
             }
+
+            // While issuance follows HAIP, a wallet authenticates at the token endpoint too (HAIP 1.0 section
+            // 4.4.1), which is judged by the flow the code was issued in, never by the request.
+            if (
+                $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNone() &&
+                $this->isVciHaipCode($storedAuthCodeEntity)
+            ) {
+                $this->loggerService->warning(
+                    'Token request rejected: credential issuance following HAIP requires client authentication, ' .
+                    'and the client used the "none" authentication method.',
+                    ['client_id' => $authenticatedClientId, 'auth_code_id' => $authCodePayload->auth_code_id],
+                );
+                throw OidcServerException::invalidClient($request);
+            }
         } else {
+            // A wallet which is not registered has nothing to authenticate with. Such a code was issued before
+            // issuance followed HAIP: since, an issuance request has to be pushed, and the PAR endpoint refuses a
+            // client which does not authenticate.
+            if ($this->isVciHaipCode($storedAuthCodeEntity)) {
+                $this->loggerService->warning(
+                    'Token request rejected: credential issuance following HAIP requires client authentication, ' .
+                    'and the authorization code was issued to a wallet which is not registered.',
+                    ['auth_code_id' => $authCodePayload->auth_code_id],
+                );
+                throw OidcServerException::invalidClient($request);
+            }
+
             $this->loggerService->debug('Generic client encountered. Checking for authorization bound params.');
             // We used generic client in the flow, so check for bound client_id and redirect_uri.
             // Currently used client_id and redirect_uri must be the same as in authorization request.
@@ -648,8 +712,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // A client which neither authenticated nor sent a code_verifier: a backstop, since CodeVerifierRule refuses
         // a client which is not confidential without a code_verifier, and ClientAuthenticationRule a confidential
         // one which presents no authentication. For a code with a code_challenge, which every code of a client
-        // which does not authenticate has (CodeChallengeRule), that is the missing code_verifier, as below;
-        // without one, nothing in the request authenticates the client (RFC 6749 section 5.2).
+        // which does not authenticate has (CodeChallengeRule), that is the missing code_verifier, an invalid grant
+        // as below; without one, nothing in the request authenticates the client (RFC 6749 section 5.2).
         if (empty($utilizedClientAuthenticationParams)) {
             $this->loggerService->warning(
                 'Token request rejected: client authentication not performed (no client authentication ' .
@@ -658,7 +722,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             );
             throw empty($authCodePayload->code_challenge) ?
             OidcServerException::invalidClient($request) :
-            OAuthServerException::invalidRequest('code_verifier');
+            OAuthServerException::invalidGrant('Code Verifier must be provided.');
         }
 
         $verifiedDpopProof = $this->getVerifiedDpopProof($request);
@@ -704,7 +768,8 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             );
         }
 
-        // Validate code challenge
+        // Validate code challenge. A code whose challenge is not verified, with no code_verifier or a wrong one, is
+        // not granted: invalid_grant (RFC 7636 section 4.6).
         if (!empty($authCodePayload->code_challenge)) {
             if ($codeVerifier === null) {
                 $this->loggerService->notice(
@@ -712,7 +777,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                     'in the authorization request.',
                     ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
                 );
-                throw OAuthServerException::invalidRequest('code_verifier');
+                throw OAuthServerException::invalidGrant('Code Verifier must be provided.');
             }
 
             // OAuth2 implementation
@@ -1188,6 +1253,17 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             );
             throw OidcServerException::invalidGrant('The authorization code is bound to another DPoP key.');
         }
+    }
+
+
+    /**
+     * Whether HAIP's rules hold for the token request redeeming this code: it was issued for Verifiable Credential
+     * Issuance (by its flow type as stored), and issuance follows HAIP.
+     */
+    protected function isVciHaipCode(AuthCodeEntity $storedAuthCodeEntity): bool
+    {
+        return $storedAuthCodeEntity->getFlowTypeEnum()?->isVciFlow() === true &&
+        $this->moduleConfig->getVciHaipEnabled();
     }
 
 

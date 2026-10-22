@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
+use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -41,10 +43,12 @@ use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\ResolvedClientAuthenticationMethod;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -91,6 +95,8 @@ class PushedAuthorizationControllerTest extends TestCase
 
     protected MockObject $routesMock;
 
+    protected MockObject $requestParamsResolverMock;
+
 
     protected function setUp(): void
     {
@@ -133,6 +139,7 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->dpopProofVerifierMock = $this->createMock(DpopProofVerifier::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->routesMock->method('urlPushedAuthorizationRequest')->willReturn('https://op.example.org/oidc/par');
+        $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
     }
 
 
@@ -149,6 +156,7 @@ class PushedAuthorizationControllerTest extends TestCase
             $this->loggerMock,
             $this->dpopProofVerifierMock,
             $this->routesMock,
+            $this->requestParamsResolverMock,
         );
     }
 
@@ -480,7 +488,7 @@ class PushedAuthorizationControllerTest extends TestCase
     /**
      * A plain pushed request, authenticated, whose rules let the `dpop_jkt` given here through.
      *
-     * @param array<string, string> $params
+     * @param array<string, mixed> $params
      */
     protected function preparePushedRequest(array $params, ?string $dpopJkt): void
     {
@@ -495,11 +503,163 @@ class PushedAuthorizationControllerTest extends TestCase
                     ScopeRule::class,
                     array_map(
                         static fn(string $scope): ScopeEntity => new ScopeEntity($scope),
-                        array_filter(explode(' ', $params['scope'] ?? '')),
+                        array_filter(explode(' ', is_string($params['scope'] ?? null) ? $params['scope'] : '')),
                     ),
                 ),
             },
         );
+    }
+
+
+    /**
+     * While issuance follows HAIP, a client which does not authenticate can not push an issuance request (HAIP 1.0
+     * section 4.4.1, FAPI 2.0 section 5.3.2.2): `invalid_client`, nothing persisted. The resolver judges the request
+     * as the PAR endpoint receives it, by its form body.
+     */
+    public function testRefusesAPublicClientPushingAnIssuanceRequestWhileIssuanceFollowsHaip(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'scope' => 'credential-a'], null);
+        $this->authenticatedOAuth2ClientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
+        $this->prepareAuthenticatedClient(ClientAuthenticationMethodsEnum::None);
+        $this->requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->with($this->serverRequestMock, [HttpMethodsEnum::POST])
+            ->willReturn(true);
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+
+        $this->assertRefusedAsInvalidClient();
+    }
+
+
+    /**
+     * A public client pushing an OpenID Connect request is not affected by HAIP: its request is persisted with the
+     * configured lifetime.
+     */
+    public function testLetsAPublicClientPushARequestWhichIsNotForIssuance(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'scope' => 'openid'], null);
+        $this->authenticatedOAuth2ClientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
+        $this->prepareAuthenticatedClient(ClientAuthenticationMethodsEnum::None);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(false);
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with('client123', $this->anything(), null, null)
+            ->willReturn($this->parEntityMock);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())->method('persist');
+
+        $this->sut()->__invoke($this->serverRequestMock);
+    }
+
+
+    /**
+     * While issuance follows HAIP, a pushed issuance request lives VCI_HAIP_REQUEST_URI_MAX_TTL at most (FAPI 2.0
+     * section 5.3.2.2: under 600 seconds), which the factory compares with the configured lifetime.
+     */
+    public function testCapsTheLifetimeOfAnIssuanceRequestWhileIssuanceFollowsHaip(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'scope' => 'credential-a'], null);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(true);
+        $this->requestParamsResolverMock->method('getBasedOnAllowedMethods')->willReturn('code');
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                'client123',
+                ['response_type' => 'code', 'scope' => 'credential-a', 'client_id' => 'client123'],
+                null,
+                $this->callback(
+                    fn(mixed $maxTtl): bool => $maxTtl instanceof DateInterval &&
+                        $maxTtl->format('%d %h %i %s') === '0 0 5 0',
+                ),
+            )
+            ->willReturn($this->parEntityMock);
+
+        $this->sut()->__invoke($this->serverRequestMock);
+
+        $this->assertSame('PT5M', PushedAuthorizationController::VCI_HAIP_REQUEST_URI_MAX_TTL);
+    }
+
+
+    /**
+     * While issuance follows HAIP, an issuance request for another response type than `code` is refused at the
+     * push as `unsupported_response_type`, one asking for an ID token besides included (FAPI 2.0 section 5.3.2.2),
+     * and nothing is persisted. It is refused before any rule runs, since RequiredOpenIdScopeRule would refuse a
+     * request for an ID token without the `openid` scope otherwise, and before the DPoP proof is spent. The
+     * response type is read as the request carries it, with a Request Object's claims, over POST.
+     */
+    #[DataProvider('responseTypesOtherThanCode')]
+    public function testRefusesAnIssuanceRequestForAnotherResponseTypeWhileIssuanceFollowsHaip(
+        mixed $responseType,
+    ): void {
+        $this->preparePushedRequest(['response_type' => $responseType, 'scope' => 'credential-a'], null);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(true);
+        $this->requestParamsResolverMock->expects($this->once())->method('getBasedOnAllowedMethods')
+            ->with('response_type', $this->serverRequestMock, [HttpMethodsEnum::POST])
+            ->willReturn($responseType);
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->dpopProofVerifierMock->expects($this->never())->method('verify');
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->never())->method('fromData');
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+
+        try {
+            $this->sut()->__invoke($this->serverRequestMock);
+            $this->fail('The request must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('unsupported_response_type', $exception->getErrorType());
+            $this->assertSame(400, $exception->getHttpStatusCode());
+            $this->assertFalse($exception->hasRedirect());
+        }
+    }
+
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function responseTypesOtherThanCode(): array
+    {
+        return [
+            'code id_token' => ['code id_token'],
+            'id_token' => ['id_token'],
+            'token' => ['token'],
+            'code with a space' => ['code '],
+            'a list' => [['code']],
+        ];
+    }
+
+
+    /**
+     * An issuance request without a response type is refused as any other (testRefusesAPushedRequestWithoutA...),
+     * once the rules have run, while issuance follows HAIP too.
+     */
+    public function testRefusesAnIssuanceRequestWithoutAResponseTypeAsAnyOtherWhileIssuanceFollowsHaip(): void
+    {
+        $this->preparePushedRequest(['scope' => 'credential-a'], null);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(true);
+        $this->requestParamsResolverMock->method('getBasedOnAllowedMethods')->willReturn(null);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+
+        try {
+            $this->sut()->__invoke($this->serverRequestMock);
+            $this->fail('The request must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('Missing response_type', $exception->getHint());
+        }
+    }
+
+
+    /**
+     * The same request is persisted when issuance does not follow HAIP: the response type is the authorization
+     * endpoint's to judge then.
+     */
+    public function testLeavesTheResponseTypeOfAnIssuanceRequestToTheAuthorizationEndpointWithoutHaip(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code id_token', 'scope' => 'credential-a'], null);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(false);
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->willReturn($this->parEntityMock);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())->method('persist');
+
+        $this->sut()->__invoke($this->serverRequestMock);
     }
 
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Factories\Entities;
 
+use DateInterval;
 use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
 use SimpleSAML\Module\oidc\Helpers;
@@ -23,6 +24,8 @@ class PushedAuthorizationRequestEntityFactory
 
 
     /**
+     * A request given no expiry expires after the configured lifetime, or after $maxTtl when that ends sooner.
+     *
      * @param mixed[] $parameters
      * @throws \Exception
      */
@@ -30,12 +33,19 @@ class PushedAuthorizationRequestEntityFactory
         string $clientId,
         array $parameters,
         ?DateTimeImmutable $expiresAt = null,
+        ?DateInterval $maxTtl = null,
     ): PushedAuthorizationRequestEntity {
 
         $requestUri = self::REQUEST_URI_PREFIX . $this->helpers->random()->getIdentifier(32);
 
-        $expiresAt ??= $this->helpers->dateTime()->getUtc()
-            ->add($this->moduleConfig->getParRequestUriTtl());
+        if ($expiresAt === null) {
+            $now = $this->helpers->dateTime()->getUtc();
+            $expiresAt = $now->add($this->moduleConfig->getParRequestUriTtl());
+
+            if ($maxTtl !== null && $now->add($maxTtl) < $expiresAt) {
+                $expiresAt = $now->add($maxTtl);
+            }
+        }
 
         return new PushedAuthorizationRequestEntity(
             $requestUri,

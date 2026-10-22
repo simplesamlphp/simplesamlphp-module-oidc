@@ -292,6 +292,36 @@ class ImplicitGrantTest extends TestCase
     }
 
 
+    /**
+     * While issuance follows HAIP, an issuance request is not served in the implicit flow (FAPI 2.0 section
+     * 5.3.2.2), and no other grant takes it, so the authorization server answers `unsupported_response_type`. The
+     * resolver judges the request as the grant reads it, by GET or POST.
+     */
+    #[DataProvider('implicitResponseTypeProvider')]
+    public function testDoesNotRespondToAnIssuanceRequestWhileIssuanceFollowsHaip(string $responseType): void
+    {
+        $this->requestParamsResolverMock->method('getAllBasedOnAllowedMethods')
+            ->willReturn(['client_id' => 'clientId', 'response_type' => $responseType]);
+        $this->requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->with($this->serverRequestMock, [HttpMethodsEnum::GET, HttpMethodsEnum::POST])
+            ->willReturn(true);
+
+        $this->assertFalse($this->sut()->canRespondToAuthorizationRequest($this->serverRequestMock));
+    }
+
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function implicitResponseTypeProvider(): array
+    {
+        return [
+            'id_token' => ['id_token'],
+            'id_token token' => ['id_token token'],
+        ];
+    }
+
+
     public function testCanRespondToAuthorizationRequestReturnsFalseIfNoClientId(): void
     {
         $this->requestParamsResolverMock->expects($this->once())

@@ -76,6 +76,27 @@ class CodeChallengeMethodRule extends AbstractRule
             );
         }
 
+        // Issuance following HAIP takes S256 only (FAPI 2.0 section 5.3.2.2), which the metadata, shared with OpenID
+        // Connect, can not say; a request naming no method asks for plain.
+        if (
+            $codeChallengeMethod !== 'S256' &&
+            $this->requestParamsResolver->isVciHaipIssuanceRequest($request, $allowedServerRequestMethods)
+        ) {
+            $loggerService->notice(
+                'Authorization request rejected: `code_challenge_method` other than S256 for credential issuance ' .
+                'following HAIP.',
+                ['code_challenge_method' => $codeChallengeMethod],
+            );
+            throw OidcServerException::invalidRequest(
+                'code_challenge_method',
+                'Code challenge method must be `S256` for credential issuance.',
+                null,
+                $redirectUri,
+                $state,
+                $responseMode,
+            );
+        }
+
         return new Result($this->getKey(), $codeChallengeMethod);
     }
 }

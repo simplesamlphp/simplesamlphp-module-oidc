@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers;
 
+use DateInterval;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ResponseInterface;
@@ -35,6 +36,7 @@ use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\AuthenticatedOAuth2ClientResolver;
+use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\ValueAbstracts\VerifiedDpopProof;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -48,6 +50,14 @@ use function hash_equals;
 
 class PushedAuthorizationController
 {
+    /**
+     * The longest a pushed request for credential issuance is kept while issuance follows HAIP: under the 600
+     * seconds of FAPI 2.0 section 5.3.2.2, and long enough for a login, since the authorization endpoint reads the
+     * pushed request again when the user comes back from logging in.
+     */
+    public const string VCI_HAIP_REQUEST_URI_MAX_TTL = 'PT5M';
+
+
     public function __construct(
         private readonly AuthenticatedOAuth2ClientResolver $authenticatedOAuth2ClientResolver,
         private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
@@ -59,6 +69,7 @@ class PushedAuthorizationController
         private readonly LoggerService $logger,
         private readonly DpopProofVerifier $dpopProofVerifier,
         private readonly Routes $routes,
+        private readonly RequestParamsResolver $requestParamsResolver,
     ) {
     }
 
@@ -103,6 +114,46 @@ class PushedAuthorizationController
                 ParamsEnum::RequestUri->value,
                 'The request_uri parameter must not be used in pushed authorization requests.',
             );
+        }
+
+        // While issuance follows HAIP, a wallet authenticates (HAIP 1.0 section 4.4.1, FAPI 2.0 section 5.3.2.2), so
+        // `none` is refused once the request is known to be one for issuance; a public client pushing an OpenID
+        // Connect request is not affected.
+        $isVciHaipIssuanceRequest = $this->requestParamsResolver->isVciHaipIssuanceRequest(
+            $request,
+            [HttpMethodsEnum::POST],
+        );
+
+        if ($isVciHaipIssuanceRequest && $resolvedAuth->getClientAuthenticationMethod()->isNone()) {
+            $this->logger->warning(
+                'Pushed authorization request rejected: credential issuance following HAIP requires client ' .
+                'authentication, and the client used the "none" authentication method.',
+                ['client_id' => $client->getIdentifier()],
+            );
+            throw OidcServerException::invalidClient($request);
+        }
+
+        // Issuance runs in the authorization code flow only, and while it follows HAIP a request for any other
+        // response type is refused (FAPI 2.0 section 5.3.2.2), one asking for an ID token besides included. That is
+        // judged before the rules, some of which judge a request by its response type, and before the DPoP proof is
+        // spent, on the response type as the request carries it, a Request Object's claim superseding the form's,
+        // which is what is persisted. A request without one is refused once the rules have run, as any other.
+        if ($isVciHaipIssuanceRequest) {
+            /** @psalm-suppress MixedAssignment */
+            $responseType = $this->requestParamsResolver->getBasedOnAllowedMethods(
+                ParamsEnum::ResponseType->value,
+                $request,
+                [HttpMethodsEnum::POST],
+            );
+
+            if ($responseType !== null && $responseType !== 'code') {
+                $this->logger->notice(
+                    'Pushed authorization request rejected: credential issuance following HAIP takes the `code` ' .
+                    'response type only.',
+                    ['client_id' => $client->getIdentifier()],
+                );
+                throw OidcServerException::unsupportedResponseType();
+            }
         }
 
         // A DPoP proof the pushed request carries is checked as at the token endpoint, against this endpoint's
@@ -154,6 +205,7 @@ class PushedAuthorizationController
         $parEntity = $this->pushedAuthorizationRequestEntityFactory->fromData(
             $client->getIdentifier(),
             $parameters,
+            maxTtl: $isVciHaipIssuanceRequest ? new DateInterval(self::VCI_HAIP_REQUEST_URI_MAX_TTL) : null,
         );
 
         $this->pushedAuthorizationRequestRepository->persist($parEntity);

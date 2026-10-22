@@ -1074,6 +1074,132 @@ class RequestParamsResolverTest extends TestCase
         $this->assertFalse(
             $resolver->isVciAuthorizationCodeRequestWithIssuerState($this->requestMock, [HttpMethodsEnum::GET]),
         );
+        $this->assertFalse($resolver->isVciIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]));
+        $this->assertFalse($resolver->isVciHaipIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]));
+    }
+
+
+    /**
+     * An issuance request is told by what only issuance carries, whatever its response type: the cases of the
+     * authorization code detection, with every other response type an issuance request too.
+     */
+    #[DataProvider('vciIssuanceRequestProvider')]
+    public function testTellsAnIssuanceRequestByWhatOnlyVciCarriesWhateverItsResponseType(
+        array $params,
+        bool $isVciIssuanceRequest,
+    ): void {
+        $this->enableVciWithCredentialScope();
+
+        $this->assertSame(
+            $isVciIssuanceRequest,
+            $this->mock($this->helpersWithParams($params))
+                ->isVciIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+
+    public static function vciIssuanceRequestProvider(): array
+    {
+        $cases = [];
+
+        foreach (self::vciAuthorizationCodeRequestProvider() as $name => [$params, $isVciAuthorizationCodeRequest]) {
+            $cases[$name] = [
+                $params,
+                $isVciAuthorizationCodeRequest || str_starts_with((string)$name, 'another response type'),
+            ];
+        }
+
+        return [
+            ...$cases,
+            'no response type with a credential scope' => [['scope' => 'ResearchCredential'], true],
+            'code id_token with a credential scope among OpenID Connect ones' => [
+                ['response_type' => 'code id_token', 'scope' => 'openid ResearchCredential'],
+                true,
+            ],
+            'another response type without any of them' => [
+                ['response_type' => 'id_token', 'scope' => 'openid'],
+                false,
+            ],
+        ];
+    }
+
+
+    public function testTellsAnIssuanceRequestFromTheAllowedMethodsOnly(): void
+    {
+        $this->enableVciWithCredentialScope();
+        $this->httpHelperMock->expects($this->atLeastOnce())->method('getAllRequestParamsBasedOnAllowedMethods')
+            ->with($this->identicalTo($this->requestMock), [HttpMethodsEnum::POST])
+            ->willReturn(['scope' => 'ResearchCredential']);
+        $this->httpHelperMock->expects($this->never())->method('getAllRequestParams');
+
+        $this->assertTrue($this->mock()->isVciIssuanceRequest($this->requestMock, [HttpMethodsEnum::POST]));
+    }
+
+
+    /**
+     * HAIP's rules hold for an issuance request while issuance follows HAIP, and for nothing else.
+     */
+    #[DataProvider('vciHaipIssuanceRequestProvider')]
+    public function testTellsAnIssuanceRequestWhichHaipsRulesHoldFor(
+        array $params,
+        bool $isVciHaipEnabled,
+        bool $isVciHaipIssuanceRequest,
+    ): void {
+        $this->enableVciWithCredentialScope();
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturn($isVciHaipEnabled);
+
+        $this->assertSame(
+            $isVciHaipIssuanceRequest,
+            $this->mock($this->helpersWithParams($params))
+                ->isVciHaipIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+
+    public static function vciHaipIssuanceRequestProvider(): array
+    {
+        $issuance = ['response_type' => 'code', 'scope' => 'ResearchCredential'];
+        $openIdConnect = ['response_type' => 'code', 'scope' => 'openid'];
+
+        return [
+            'an issuance request, HAIP on' => [$issuance, true, true],
+            'an issuance request, HAIP off' => [$issuance, false, false],
+            'an issuance request for an ID token, HAIP on' => [
+                ['response_type' => 'id_token', 'scope' => 'ResearchCredential'],
+                true,
+                true,
+            ],
+            'an OpenID Connect request, HAIP on' => [$openIdConnect, true, false],
+            'an OpenID Connect request, HAIP off' => [$openIdConnect, false, false],
+        ];
+    }
+
+
+    /**
+     * The option is read for an issuance request only, so that a request which is not one never depends on it.
+     */
+    public function testDoesNotReadTheHaipOptionForARequestWhichIsNotForIssuance(): void
+    {
+        $this->enableVciWithCredentialScope();
+        $this->moduleConfigMock->expects($this->never())->method('getVciHaipEnabled');
+
+        $this->assertFalse(
+            $this->mock($this->helpersWithParams(['response_type' => 'code', 'scope' => 'openid']))
+                ->isVciHaipIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]),
+        );
+    }
+
+
+    public function testTellsAnIssuanceRequestWhichHaipsRulesHoldForFromTheAllowedMethodsOnly(): void
+    {
+        $this->enableVciWithCredentialScope();
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturn(true);
+        $this->httpHelperMock->expects($this->atLeastOnce())->method('getAllRequestParamsBasedOnAllowedMethods')
+            ->with($this->identicalTo($this->requestMock), [HttpMethodsEnum::POST])
+            ->willReturn(['scope' => 'ResearchCredential']);
+        $this->httpHelperMock->expects($this->never())->method('getAllRequestParams');
+
+        $this->assertTrue($this->mock()->isVciHaipIssuanceRequest($this->requestMock, [HttpMethodsEnum::POST]));
     }
 
 

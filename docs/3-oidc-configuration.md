@@ -86,7 +86,10 @@ After you create the database schema, go to the SimpleSAMLphp admin area:
 Notes:
 
 - Clients can be public or confidential.
-- Public clients using Authorization Code flow must send PKCE parameters.
+- Public clients using Authorization Code flow must send PKCE parameters. A
+  token request which leaves out the `code_verifier` of a code issued with a
+  `code_challenge` is refused with `invalid_grant`, as one with a wrong
+  `code_verifier` is (RFC 7636 section 4.6), whichever the client.
 - Client ID and secret are generated unless an administrator gives them when
   adding the client, for example the ones another authorization server issued
   for it (an EOSC Node registers the EOSC AAI Federation hub with the client
@@ -970,6 +973,51 @@ anchors), or disable the client. An attestation is accepted until its own
 `exp`, which the attester sets (the module sets no maximum), and a compromised
 attester key can make new ones until then. The client page shows the trust,
 with each trust anchor's subject and expiry.
+
+## HAIP 1.0 (`vci_haip`)
+
+The [OpenID4VC High Assurance Interoperability Profile](https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0.html)
+(HAIP 1.0) profiles credential issuance, and has an issuer comply with the
+provisions of the FAPI 2.0 Security Profile which apply to it (HAIP section 4).
+With `vci_haip` (default `false`), credential issuance follows the rules below;
+the option has no effect while issuance is off. They hold for issuance requests
+only: an authorization request is one when it carries an `issuer_state`, the
+scope of a credential configuration or `openid_credential` authorization
+details, whatever its `response_type`. OpenID Connect and plain OAuth 2.0
+requests keep the rules of the rest of this document, and the discovery
+document is the same with the option on.
+
+- **Pushed requests only.** The authorization endpoint refuses an issuance
+  request which does not come as a pushed request (FAPI 2.0 section 5.3.2.2),
+  as `require_pushed_authorization_requests` would: one sent as parameters, or
+  as a Request Object by value or by reference, gets an error page
+  (`invalid_request`). A pushed issuance request lives 5 minutes at most
+  (`par_request_uri_ttl` when that is shorter), long enough for the user to
+  log in.
+- **The authorization code flow only.** The PAR endpoint refuses an issuance
+  request for any `response_type` but `code`, one asking for an ID token
+  besides (`code id_token`) included, with `unsupported_response_type`.
+- **PKCE with `S256`.** An issuance request carries a `code_challenge` whichever
+  client sends it, a confidential one too, with `code_challenge_method` `S256`;
+  `plain`, or no method, which means `plain`, is refused (`invalid_request`).
+  `code_challenge_methods_supported` still lists `plain`, which other requests
+  may use.
+- **Client authentication.** A wallet authenticates at the PAR and token
+  endpoints (HAIP section 4.4.1), with a
+  [Wallet Attestation](#wallet-attestation-attest_jwt_client_auth) or any other
+  method its client is registered with. `none` is refused (`invalid_client`):
+  for an issuance request at the PAR endpoint, for a code of the issuance flow
+  at the token endpoint, and for a pre-authorized code, which a wallet that is
+  not registered, or names no client, then can not redeem either, whatever
+  `vci_allow_anonymous_pre_authorized_access` says (the metadata's
+  `pre-authorized_grant_anonymous_access_supported` is then `false`).
+- **60-second codes.** An issuance authorization code lives 60 seconds at most
+  (FAPI 2.0 section 5.3.2.1; the authorization code lifetime when that is
+  shorter).
+
+HAIP also has every access token bound to a key of the wallet: with the option
+on, set `vci_require_dpop` as well (see
+[DPoP](#dpop-sender-constrained-tokens)).
 
 ## Key rollover
 

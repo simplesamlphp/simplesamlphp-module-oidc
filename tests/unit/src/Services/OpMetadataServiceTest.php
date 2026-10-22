@@ -314,7 +314,8 @@ class OpMetadataServiceTest extends TestCase
 
     /**
      * Whether a pre-authorized code may be redeemed anonymously (OpenID4VCI 1.0 section 12.3) is stated either way
-     * while issuing, since a wallet reads its absence as false, and not at all otherwise.
+     * while issuing, since a wallet reads its absence as false, and not at all otherwise. Issuance following HAIP
+     * serves none, whatever the option says.
      *
      * @throws \Exception
      */
@@ -323,9 +324,11 @@ class OpMetadataServiceTest extends TestCase
         bool $isIssuing,
         bool $isAllowed,
         ?bool $expected,
+        bool $isVciHaipEnabled = false,
     ): void {
         $this->moduleConfigMock->method('getVciEnabled')->willReturn($isIssuing);
         $this->moduleConfigMock->method('getVciAllowAnonymousPreAuthorizedAccess')->willReturn($isAllowed);
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturn($isVciHaipEnabled);
 
         $metadata = $this->sut()->getMetadata();
 
@@ -346,6 +349,8 @@ class OpMetadataServiceTest extends TestCase
             'issuing, allowed' => [true, true, true],
             'issuing, not allowed' => [true, false, false],
             'not issuing' => [false, true, null],
+            'issuing following HAIP, allowed' => [true, true, false, true],
+            'issuing following HAIP, not allowed' => [true, false, false, true],
         ];
     }
 

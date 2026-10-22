@@ -1181,7 +1181,8 @@ $config = [
      * not set, OpenID Verifiable Credential capabilities will be disabled.
      *
      * The module is a Credential Issuer of OpenID4VCI 1.0, with the OP as its
-     * Authorization Server; the HAIP 1.0 profile is not supported. What is
+     * Authorization Server; the HAIP 1.0 profile is not supported as a whole
+     * (see OPTION_VCI_HAIP below). What is
      * supported, and which requirements depend on the options below, is
      * described in the module documentation, under "Note on OpenID for
      * Verifiable Credential Issuance (OpenID4VCI) support" (docs/1-oidc.md).
@@ -1192,6 +1193,23 @@ $config = [
      * disabled (false).
      */
     ModuleConfig::OPTION_VCI_ENABLED => false,
+
+    /**
+     * (optional) Whether credential issuance follows HAIP 1.0, the OpenID4VC
+     * High Assurance Interoperability Profile, with the FAPI 2.0 provisions it
+     * applies. Defaults to false, and has no effect while issuance is
+     * disabled. It holds for issuance requests only, OpenID Connect requests
+     * being not affected: an issuance request has to be pushed (PAR), use the
+     * authorization code flow and PKCE with S256, and the wallet has to
+     * authenticate at the PAR and token endpoints (none is refused, for a
+     * pre-authorized code too, whatever
+     * OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS says). An issuance code
+     * lives 60 seconds, and a pushed issuance request 5 minutes, at most.
+     * HAIP also has every access token bound to a key of the wallet: set
+     * OPTION_VCI_REQUIRE_DPOP as well. See "HAIP 1.0" in the configuration
+     * documentation (docs/3-oidc-configuration.md).
+     */
+//    ModuleConfig::OPTION_VCI_HAIP => false,
 
     /**
      * Verifiable Credential signature algorithm and key-pair definitions,
@@ -1951,6 +1969,8 @@ $config = [
      * `pre-authorized_grant_anonymous_access_supported`. When false, such a
      * token request is refused with invalid_client; a wallet which sends its
      * `client_id`, registered or not, or authenticates, is still accepted.
+     * While issuance follows HAIP (OPTION_VCI_HAIP), no anonymous access is
+     * served, and the metadata says so, whatever this option is.
      */
 //    ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => true,
 

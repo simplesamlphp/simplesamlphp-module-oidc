@@ -177,8 +177,48 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($enabledRow);
         $note = (string)$enabledRow->getNote();
         $this->assertStringContainsString('OpenID4VCI 1.0', $note);
-        $this->assertStringContainsString('The HAIP 1.0 profile is not supported.', $note);
+        $this->assertStringContainsString('The HAIP 1.0 profile is not supported as a whole', $note);
         $this->assertNull($enabledRow->getWarning());
+    }
+
+
+    /**
+     * Whether issuance requests are held to HAIP 1.0's request rules: off unless set, never while issuance is off,
+     * and the note says what each setting means.
+     */
+    public function testShowsWhetherIssuanceRequestsAreHeldToHaipsRequestRules(): void
+    {
+        $defaultRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([ModuleConfig::OPTION_VCI_ENABLED => true])->build(),
+            ModuleConfig::OPTION_VCI_HAIP,
+        );
+        $this->assertNotNull($defaultRow);
+        $this->assertSame('HAIP 1.0 Request Rules', $defaultRow->getLabel());
+        $this->assertSame('No', $defaultRow->getValue());
+        $this->assertSame(
+            'Issuance requests are not held to the request rules of HAIP 1.0.',
+            $defaultRow->getNote(),
+        );
+
+        $enabledRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ENABLED => true, ModuleConfig::OPTION_VCI_HAIP => true],
+            )->build(),
+            ModuleConfig::OPTION_VCI_HAIP,
+        );
+        $this->assertNotNull($enabledRow);
+        $this->assertSame('Yes', $enabledRow->getValue());
+        $this->assertStringContainsString('have to be pushed (PAR)', (string)$enabledRow->getNote());
+        $this->assertStringContainsString('OpenID Connect requests are not affected.', (string)$enabledRow->getNote());
+
+        $issuanceOffRow = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ENABLED => false, ModuleConfig::OPTION_VCI_HAIP => true],
+            )->build(),
+            ModuleConfig::OPTION_VCI_HAIP,
+        );
+        $this->assertNotNull($issuanceOffRow);
+        $this->assertSame('No', $issuanceOffRow->getValue());
     }
 
 

@@ -46,6 +46,10 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *   (ModuleConfig::getVciAllowAnonymousPreAuthorizedAccess()); where it is not, the request is refused with
  *   `invalid_client` (OpenID4VCI 1.0 section 6.3).
  *
+ * While issuance follows HAIP (ModuleConfig::getVciHaipEnabled()), every wallet authenticates (HAIP 1.0 section
+ * 4.4.1), so only the first way is served, and the others are refused with `invalid_client`: the resolver accepts
+ * a registered client which presents no credentials by `none` alone.
+ *
  * A registered client is not checked against its registered `grant_types`: the pre-authorized code grant is an
  * OP capability rather than a per-client registrable grant type (see OpMetadataService), so no registration
  * could name it.
@@ -98,6 +102,11 @@ class PreAuthorizedCodeClientRule extends AbstractRule
         $presentsCredentials = $this->authenticatedOAuth2ClientResolver->presentsClientCredentials($request);
         $registeredClient = $clientId === null ? null : $this->clientRepository->findById($clientId);
 
+        // While issuance follows HAIP, a wallet authenticates at the token endpoint (HAIP 1.0 section 4.4.1), for a
+        // pre-authorized code too: a registered client without credentials, a self-declared one and anonymous access
+        // are refused, whatever anonymous access is configured to.
+        $isVciHaipEnabled = $this->moduleConfig->getVciHaipEnabled();
+
         if ($presentsCredentials || $registeredClient !== null) {
             // Only an active client is handed over as pre-fetched: the resolver takes a pre-fetched client on
             // trust, and its own lookup is what refuses a disabled or expired one.
@@ -124,6 +133,15 @@ class PreAuthorizedCodeClientRule extends AbstractRule
                 throw OidcServerException::invalidClient($request);
             }
 
+            if ($isVciHaipEnabled && $resolved->getClientAuthenticationMethod()->isNone()) {
+                $loggerService->warning(
+                    'Token request rejected: credential issuance following HAIP requires client authentication, ' .
+                    'and the client used the "none" authentication method.',
+                    ['client_id' => $resolvedClientId],
+                );
+                throw OidcServerException::invalidClient($request);
+            }
+
             $loggerService->debug(
                 'PreAuthorizedCodeClientRule: client resolved.',
                 [
@@ -133,6 +151,15 @@ class PreAuthorizedCodeClientRule extends AbstractRule
             );
 
             return new Result($this->getKey(), PreAuthorizedCodeClient::registered($resolved->getClient()));
+        }
+
+        if ($isVciHaipEnabled) {
+            $loggerService->warning(
+                'Token request rejected: credential issuance following HAIP requires client authentication, and ' .
+                'a pre-authorized code was redeemed by a client which is not registered, or by none.',
+                ['client_id' => $clientId],
+            );
+            throw OidcServerException::invalidClient($request);
         }
 
         if ($clientId !== null) {

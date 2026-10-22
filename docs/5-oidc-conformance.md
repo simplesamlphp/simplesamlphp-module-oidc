@@ -221,9 +221,9 @@ flow, but the plan is no substitute for the checklist.
 CI also runs the OpenID Foundation's OpenID4VCI 1.0 issuer test plan,
 `oid4vci-1_0-issuer-test-plan`. At the suite release CI uses (`release-v5.3.3`)
 the suite labels this plan alpha and outside its certification programme:
-certification goes through the HAIP issuer plan, which needs client
-attestation, and this module does not support client attestation. A passing run
-is a test result, not a certification.
+certification goes through the HAIP issuer plan, which needs HAIP 1.0, and this
+module does not support HAIP as a whole. A passing run is a test result, not a
+certification.
 
 The runs use the two clients seeded by `docker/conformance-vci.sql` and the suite
 configuration in `conformance-tests/conformance-vci-issuer.json`. CI runs the plan

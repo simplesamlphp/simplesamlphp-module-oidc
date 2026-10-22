@@ -290,6 +290,8 @@ class ModuleConfig
 
     final public const string OPTION_VCI_ENABLED = 'vci_enabled';
 
+    final public const string OPTION_VCI_HAIP = 'vci_haip';
+
     final public const string OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED =
     'vci_credential_configurations_supported';
 
@@ -2037,6 +2039,19 @@ class ModuleConfig
     public function getVciEnabled(): bool
     {
         return $this->config()->getOptionalBoolean(self::OPTION_VCI_ENABLED, false);
+    }
+
+
+    /**
+     * Whether credential issuance follows the OpenID4VC High Assurance Interoperability Profile 1.0 (HAIP), with the
+     * provisions of the FAPI 2.0 Security Profile it takes in: an issuance request has to be pushed (PAR), carry an
+     * S256 PKCE challenge and use the authorization code flow, the wallet has to authenticate at the PAR and token
+     * endpoints, and issuance codes and pushed requests live shorter. Off unless set, and never while issuance is
+     * off. OpenID Connect requests are not affected (RequestParamsResolver::isVciHaipIssuanceRequest()).
+     */
+    public function getVciHaipEnabled(): bool
+    {
+        return $this->getVciEnabled() && $this->config()->getOptionalBoolean(self::OPTION_VCI_HAIP, false);
     }
 
 

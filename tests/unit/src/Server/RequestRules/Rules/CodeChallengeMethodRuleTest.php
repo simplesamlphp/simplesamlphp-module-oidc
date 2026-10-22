@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
  * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeMethodRule
@@ -143,6 +145,80 @@ class CodeChallengeMethodRuleTest extends TestCase
 
         $this->assertInstanceOf(Result::class, $result);
         $this->assertSame('plain', $result->getValue());
+    }
+
+
+    /**
+     * While issuance follows HAIP, an issuance request takes S256 only (FAPI 2.0 section 5.3.2.2): plain is refused,
+     * and so is a request naming no method, which asks for plain. The resolver judges the request with the methods
+     * the rule was given.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('methodsOtherThanS256')]
+    public function testRefusesAMethodOtherThanS256ForIssuanceFollowingHaip(?string $codeChallengeMethod): void
+    {
+        $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
+        $requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn($codeChallengeMethod);
+        $requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->with($this->requestStub, [HttpMethodsEnum::POST])
+            ->willReturn(true);
+        $this->codeChallengeVerifiersRepositoryMock->method('has')->willReturn(true);
+
+        try {
+            $this->sut($requestParamsResolverMock)->checkRule(
+                $this->requestStub,
+                $this->prepareValidResultBag(),
+                $this->loggerServiceStub,
+                [],
+                $this->responseModeStub,
+                [HttpMethodsEnum::POST],
+            );
+            $this->fail('An issuance request following HAIP must use S256.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame(400, $exception->getHttpStatusCode());
+            $this->assertSame(
+                'Code challenge method must be `S256` for credential issuance.',
+                $exception->getHint(),
+            );
+            $this->assertSame('https://some-uri.org', $exception->getRedirectUri());
+            $this->assertSame('123', $exception->getPayload()['state']);
+        }
+    }
+
+
+    /**
+     * @return array<string, array{?string}>
+     */
+    public static function methodsOtherThanS256(): array
+    {
+        return [
+            'plain' => ['plain'],
+            'none, which asks for plain' => [null],
+            'S256 in lower case' => ['s256'],
+        ];
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    public function testAcceptsS256ForIssuanceFollowingHaip(): void
+    {
+        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn('S256');
+        $this->requestParamsResolverStub->method('isVciHaipIssuanceRequest')->willReturn(true);
+        $this->codeChallengeVerifiersRepositoryMock->method('has')->willReturn(true);
+
+        $result = $this->sut()->checkRule(
+            $this->requestStub,
+            $this->prepareValidResultBag(),
+            $this->loggerServiceStub,
+            [],
+            $this->responseModeStub,
+        );
+
+        $this->assertSame('S256', $result?->getValue());
     }
 
 

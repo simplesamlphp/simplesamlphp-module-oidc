@@ -5309,6 +5309,24 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * vci_haip is off unless set, and holds only while issuance is enabled.
+     */
+    public function testCredentialIssuanceFollowsHaipOnlyWhenConfiguredToWhileIssuanceIsEnabled(): void
+    {
+        $this->assertFalse($this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => true])->getVciHaipEnabled());
+        $this->assertTrue(
+            $this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => true, ModuleConfig::OPTION_VCI_HAIP => true])
+                ->getVciHaipEnabled(),
+        );
+        $this->assertFalse(
+            $this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => false, ModuleConfig::OPTION_VCI_HAIP => true])
+                ->getVciHaipEnabled(),
+        );
+        $this->assertSame('vci_haip', ModuleConfig::OPTION_VCI_HAIP);
+    }
+
+
+    /**
      * vci_allow_anonymous_pre_authorized_access is on unless turned off, as anonymous access always was.
      */
     public function testAllowsAnonymousPreAuthorizedAccessUnlessTurnedOff(): void

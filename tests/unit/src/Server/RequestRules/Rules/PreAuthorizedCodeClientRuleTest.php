@@ -43,6 +43,7 @@ use Stringable;
  * second from the third is a registry lookup by the identifier presented, and what keeps a disabled or expired
  * registration from being taken on trust is that only an active one is handed to the resolver as pre-fetched.
  * Anonymous access is on unless the configuration turns it off, and then it is refused as `invalid_client` too.
+ * While issuance follows HAIP, only an authenticated client is accepted.
  */
 #[CoversClass(PreAuthorizedCodeClientRule::class)]
 #[UsesClass(PreAuthorizedCodeClient::class)]
@@ -72,6 +73,8 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
 
     private bool $isAnonymousAccessAllowed = true;
 
+    private bool $isVciHaipEnabled = false;
+
     /** @var array<int, array{level: string, message: string, context: array}> */
     private array $logRecords = [];
 
@@ -88,6 +91,7 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciAllowAnonymousPreAuthorizedAccess')
             ->willReturnCallback(fn(): bool => $this->isAnonymousAccessAllowed);
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturnCallback(fn(): bool => $this->isVciHaipEnabled);
 
         foreach (['debug', 'warning'] as $level) {
             $this->loggerServiceMock->method($level)->willReturnCallback(
@@ -203,6 +207,83 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
         $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(true);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::ClientSecretBasic));
+
+        $this->assertResolvedToTheRegisteredClient($this->check());
+    }
+
+
+    /**
+     * While issuance follows HAIP, a wallet authenticates at the token endpoint for a pre-authorized code too (HAIP
+     * 1.0 section 4.4.1): a registered client the resolver accepts without credentials is refused.
+     */
+    public function testRefusesARegisteredClientWithoutCredentialsWhileIssuanceFollowsHaip(): void
+    {
+        $this->isVciHaipEnabled = true;
+        $this->withClientId(self::CLIENT_ID);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(false);
+        $this->withRegisteredClient(isEnabled: true, isExpired: false);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::None));
+
+        $this->assertRefused();
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: credential issuance following HAIP requires client authentication, and the ' .
+            'client used the "none" authentication method.',
+            ['client_id' => self::CLIENT_ID],
+        );
+    }
+
+
+    /**
+     * A wallet which names itself by a `client_id` no client is registered under, or which names nothing, is
+     * refused while issuance follows HAIP, whatever anonymous access is configured to.
+     */
+    #[DataProvider('unauthenticatedWalletProvider')]
+    public function testRefusesAWalletWhichIsNotRegisteredWhileIssuanceFollowsHaip(
+        ?string $clientId,
+        bool $isAnonymousAccessAllowed,
+    ): void {
+        $this->isVciHaipEnabled = true;
+        $this->isAnonymousAccessAllowed = $isAnonymousAccessAllowed;
+        $this->withClientId($clientId);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(false);
+        $this->clientRepositoryMock->method('findById')->willReturn(null);
+        $this->authenticatedOAuth2ClientResolverMock->expects($this->never())->method('forAnySupportedMethod');
+
+        $this->assertRefused();
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: credential issuance following HAIP requires client authentication, and a ' .
+            'pre-authorized code was redeemed by a client which is not registered, or by none.',
+            ['client_id' => $clientId === '' ? null : $clientId],
+        );
+    }
+
+
+    public static function unauthenticatedWalletProvider(): array
+    {
+        return [
+            'self-declared' => [self::CLIENT_ID, true],
+            'self-declared, anonymous access off' => [self::CLIENT_ID, false],
+            'anonymous, though allowed' => [null, true],
+            'an empty client_id, though anonymous access is allowed' => ['', true],
+            'anonymous, anonymous access off' => [null, false],
+        ];
+    }
+
+
+    /**
+     * A client which authenticates is accepted while issuance follows HAIP, by attestation among the methods.
+     */
+    public function testAcceptsAnAuthenticatedClientWhileIssuanceFollowsHaip(): void
+    {
+        $this->isVciHaipEnabled = true;
+        $this->withClientId(self::CLIENT_ID);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(true);
+        $this->withRegisteredClient(isEnabled: true, isExpired: false);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::AttestJwtClientAuth));
 
         $this->assertResolvedToTheRegisteredClient($this->check());
     }

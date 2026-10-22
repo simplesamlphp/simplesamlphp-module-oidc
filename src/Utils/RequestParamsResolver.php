@@ -578,13 +578,45 @@ class RequestParamsResolver
         Request|ServerRequestInterface $request,
         array $allowedMethods,
     ): bool {
-        if (!$this->isVciCodeRequest($request, $allowedMethods)) {
+        return $this->isVciCodeRequest($request, $allowedMethods) &&
+        $this->isVciIssuanceRequest($request, $allowedMethods);
+    }
+
+
+    /**
+     * Whether this is a request for credential issuance, whatever its `response_type`: issuance is enabled, and
+     * the request carries an issuer_state, a scope of a credential configuration, or `openid_credential`
+     * authorization details, read the way isVciAuthorizationCodeRequest() reads them. A request asking for an ID
+     * token besides is one too, so that the rules of issuance flows hold for it; the authorization code flow is the
+     * only one issuance runs in.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function isVciIssuanceRequest(Request|ServerRequestInterface $request, array $allowedMethods): bool
+    {
+        if (!$this->moduleConfig->getVciEnabled()) {
             return false;
         }
 
         return $this->hasIssuerState($request, $allowedMethods) ||
         $this->hasVciScope($request, $allowedMethods) ||
         $this->hasOpenIdCredentialAuthorizationDetails($request, $allowedMethods);
+    }
+
+
+    /**
+     * Whether this is a request for credential issuance (isVciIssuanceRequest()) which HAIP's rules apply to, issuance
+     * following the profile (ModuleConfig::getVciHaipEnabled()). The option is read only for an issuance request.
+     *
+     * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function isVciHaipIssuanceRequest(Request|ServerRequestInterface $request, array $allowedMethods): bool
+    {
+        return $this->isVciIssuanceRequest($request, $allowedMethods) && $this->moduleConfig->getVciHaipEnabled();
     }
 
 

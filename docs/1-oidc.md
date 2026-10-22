@@ -193,15 +193,20 @@ with the OP as its Authorization Server. What that covers:
   types, and the `x5c` header of `jwt` proofs (a key proof naming its key by a
   certificate is refused); key attestations.
 - **The OpenID4VC High Assurance Interoperability Profile (HAIP 1.0) is not
-  supported.** Among what it requires of an issuer and the module lacks:
-  client authentication of every wallet at the PAR and token endpoints (public
-  clients, non-registered wallets and anonymous pre-authorized code requests
-  are served without it); X.509 (`x5c`) keys for credentials and Status List
-  Tokens; the holder's key in `cnf.jwk` whatever the proof named it by; and
-  several FAPI 2.0 provisions. Wallets registered for it can authenticate
-  with a Wallet Attestation, as HAIP has them, but nothing requires it. Nor
-  does the module evaluate the key attestations HAIP leaves to ecosystems to
-  require. The same
+  supported as a whole.** With `vci_haip`, issuance requests are held to its
+  request rules (see
+  [HAIP 1.0](3-oidc-configuration.md#haip-10-vci_haip)): pushed, in the
+  authorization code flow, with PKCE `S256`, from a wallet which authenticates
+  at the PAR and token endpoints (with a Wallet Attestation, for wallets
+  registered for it), and with 60-second codes. Credentials and Status List
+  Tokens can carry X.509 (`x5c`) certificate chains. Among what HAIP requires
+  of an issuer and the module lacks: the refusal of a configuration HAIP can
+  not work with (DPoP not required, a credential configuration without a
+  `scope`, a signing key without a certificate chain); the holder's key in
+  `cnf.jwk` whatever the proof named it by; and the other FAPI 2.0 provisions
+  (no CORS at the authorization endpoint, no `http` redirect URIs but native
+  loopback ones, 303 redirects, RSA key lengths). Nor does the module evaluate
+  the key attestations HAIP leaves to ecosystems to require. The same
   document lists all of these as gaps H-G1 to H-G11. The OpenID Foundation
   certifies OpenID4VCI issuers through its HAIP issuer test plan, so the module
   can not be certified as it stands; CI runs the foundation's base 1.0 issuer

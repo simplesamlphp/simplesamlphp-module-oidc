@@ -151,6 +151,46 @@ class RequestUriRuleTest extends TestCase
     }
 
 
+    /**
+     * While issuance follows HAIP, an issuance request is pushed (FAPI 2.0 section 5.3.2.2), however PAR is
+     * configured for other requests; the resolver judges the request with the methods the rule was given.
+     */
+    public function testRequiresParForAnIssuanceRequestWhileIssuanceFollowsHaip(): void
+    {
+        $this->prepareRawParams([]);
+        $this->requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->with($this->requestStub, [HttpMethodsEnum::GET])
+            ->willReturn(true);
+
+        try {
+            $this->checkRule();
+            $this->fail('An issuance request following HAIP which is not pushed must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('Pushed Authorization Request (PAR) is required.', $exception->getHint());
+        }
+    }
+
+
+    /**
+     * A Request Object by reference is no pushed request either, and is refused before it is resolved.
+     */
+    public function testRefusesAnIssuanceRequestByReferenceWhileIssuanceFollowsHaip(): void
+    {
+        $this->prepareRawParams(['request_uri' => self::HTTPS_REQUEST_URI, 'client_id' => 'client123']);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(true);
+        $this->requestParamsResolverMock->expects($this->never())->method('getRequestObjectBag');
+
+        try {
+            $this->checkRule();
+            $this->fail('An issuance request following HAIP which is not pushed must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('Pushed Authorization Request (PAR) is required.', $exception->getHint());
+        }
+    }
+
+
     public function testThrowsIfRequestAndRequestUriAreBothPresent(): void
     {
         $this->prepareRawParams([

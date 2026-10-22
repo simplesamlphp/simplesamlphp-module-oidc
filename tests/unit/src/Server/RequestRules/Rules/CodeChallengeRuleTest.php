@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Stringable;
 
 /**
@@ -291,6 +292,53 @@ class CodeChallengeRuleTest extends TestCase
                 [
                     'message' => 'Authorization request rejected: `code_challenge` (PKCE) is required for ' .
                         'public clients.',
+                    'context' => ['client_id' => self::CLIENT_ID],
+                ],
+            ],
+            $this->logRecordsOfLevel('notice'),
+        );
+    }
+
+
+    /**
+     * While issuance follows HAIP, an issuance request carries a challenge whoever sends it, a confidential client
+     * too (FAPI 2.0 section 5.3.2.2); the resolver judges the request with the methods the rule was given.
+     *
+     * @throws \Throwable
+     */
+    public function testRefusesAConfidentialClientWhichSendsNoCodeChallengeForIssuanceFollowingHaip(): void
+    {
+        $this->clientStub->method('isConfidential')->willReturn(true);
+        $this->clientStub->method('getIdentifier')->willReturn(self::CLIENT_ID);
+        $requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
+        $requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn(null);
+        $requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->with($this->requestStub, [HttpMethodsEnum::POST])
+            ->willReturn(true);
+
+        try {
+            $this->sut($requestParamsResolverMock)->checkRule(
+                $this->requestStub,
+                $this->prepareValidResultBag(),
+                $this->loggerServiceMock,
+                [],
+                $this->responseModeStub,
+                [HttpMethodsEnum::POST],
+            );
+            $this->fail('An issuance request following HAIP which sends no code_challenge must be refused.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame(400, $exception->getHttpStatusCode());
+            $this->assertSame('Code Challenge must be provided for credential issuance.', $exception->getHint());
+            $this->assertSame('https://some-uri.org', $exception->getRedirectUri());
+            $this->assertSame('123', $exception->getPayload()['state']);
+        }
+
+        $this->assertSame(
+            [
+                [
+                    'message' => 'Authorization request rejected: `code_challenge` (PKCE) is required for ' .
+                        'credential issuance following HAIP.',
                     'context' => ['client_id' => self::CLIENT_ID],
                 ],
             ],

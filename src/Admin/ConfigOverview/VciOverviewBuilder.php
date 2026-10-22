@@ -469,8 +469,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         // switched it on is looking.
                         $isEnabled ? Translate::noop(
                             'Credentials are issued as OpenID4VCI 1.0 has it, with this OP as the ' .
-                            'Authorization Server. The HAIP 1.0 profile is not supported. The module ' .
-                            'documentation describes what is supported.',
+                            'Authorization Server. The HAIP 1.0 profile is not supported as a whole: see the ' .
+                            'row below. The module documentation describes what is supported.',
                         ) : Translate::noop(
                             'All Verifiable Credential capabilities are off, and the credential ' .
                             'issuer endpoints are not served. The settings below are inert until ' .
@@ -479,6 +479,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->buildHaipRow(),
             $this->buildIssuerRow(
                 Translate::noop('Also the Credential Issuer identifier.'),
                 Translate::noop(
@@ -500,6 +501,37 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 $this->routes->urlJwtVcIssuerConfiguration(),
                 ConfigOverviewValueTypeEnum::Url,
             ),
+        );
+    }
+
+
+    /**
+     * Whether issuance requests are held to the request rules of HAIP 1.0, which is never while issuance is off
+     * (ModuleConfig::getVciHaipEnabled()).
+     */
+    protected function buildHaipRow(): Row
+    {
+        $label = Translate::noop('HAIP 1.0 Request Rules');
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_HAIP,
+            function () use ($label): Row {
+                $isEnabled = $this->moduleConfig->getVciHaipEnabled();
+
+                return new Row(
+                    $label,
+                    $this->yesNo($isEnabled),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_VCI_HAIP,
+                    $isEnabled ? Translate::noop(
+                        'Issuance requests have to be pushed (PAR), use the authorization code flow and S256 PKCE, ' .
+                        'and come from a wallet which authenticates at the PAR and token endpoints; an issuance ' .
+                        'code lives 60 seconds and a pushed issuance request 5 minutes at most. OpenID Connect ' .
+                        'requests are not affected.',
+                    ) : Translate::noop('Issuance requests are not held to the request rules of HAIP 1.0.'),
+                );
+            },
         );
     }
 

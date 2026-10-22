@@ -48,6 +48,23 @@ class CodeChallengeRule extends AbstractRule
         );
 
         if ($codeChallenge === null) {
+            // Issuance following HAIP has PKCE from every client, confidential ones too (FAPI 2.0 section 5.3.2.2).
+            if ($this->requestParamsResolver->isVciHaipIssuanceRequest($request, $allowedServerRequestMethods)) {
+                $loggerService->notice(
+                    'Authorization request rejected: `code_challenge` (PKCE) is required for credential issuance ' .
+                    'following HAIP.',
+                    ['client_id' => $client->getIdentifier()],
+                );
+                throw OidcServerException::invalidRequest(
+                    ParamsEnum::CodeChallenge->value,
+                    'Code Challenge must be provided for credential issuance.',
+                    null,
+                    $redirectUri,
+                    $state,
+                    $responseMode,
+                );
+            }
+
             if (! $client->isConfidential()) {
                 $loggerService->notice(
                     'Authorization request rejected: `code_challenge` (PKCE) is required for public clients.',

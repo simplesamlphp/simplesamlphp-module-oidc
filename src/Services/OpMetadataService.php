@@ -168,9 +168,11 @@ class OpMetadataService
         }
 
         // OpenID4VCI 1.0 section 12.3. Stated either way while issuing, since a wallet reads its absence as false.
+        // Issuance following HAIP serves no anonymous access (PreAuthorizedCodeClientRule), whatever the option says.
         if ($this->moduleConfig->getVciEnabled()) {
             $this->metadata[ClaimsEnum::PreAuthorizedGrantAnonymousAccessSupported->value] =
-            $this->moduleConfig->getVciAllowAnonymousPreAuthorizedAccess();
+            $this->moduleConfig->getVciAllowAnonymousPreAuthorizedAccess() &&
+            !$this->moduleConfig->getVciHaipEnabled();
         }
     }
 

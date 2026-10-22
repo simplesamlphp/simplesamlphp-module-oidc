@@ -42,15 +42,14 @@ class CodeVerifierRule extends AbstractRule
         );
 
         if (is_null($codeVerifier)) {
+            // Every code of a client which is not confidential was issued with a challenge (CodeChallengeRule), and a
+            // code whose challenge is not verified is not granted: invalid_grant (RFC 7636 section 4.6).
             if (!$client->isConfidential()) {
                 $loggerService->notice(
                     'Token request rejected: `code_verifier` (PKCE) is required for public clients.',
                     ['client_id' => $client->getIdentifier()],
                 );
-                throw OidcServerException::invalidRequest(
-                    'code_verifier',
-                    'Code Verifier must be provided for public clients.',
-                );
+                throw OidcServerException::invalidGrant('Code Verifier must be provided for public clients.');
             }
 
             return new Result($this->getKey(), null);

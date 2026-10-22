@@ -192,6 +192,9 @@ class AuthCodeGrantTest extends TestCase
     /** What ModuleConfig answers for vci_require_dpop. */
     private bool $vciRequireDpop = false;
 
+    /** What ModuleConfig::getVciHaipEnabled() answers. */
+    private bool $vciHaipEnabled = false;
+
     /** @var string[] Scope identifiers the scope repository no longer resolves, as ModuleConfig::getScopes() drops them. */
     private array $unsupportedScopes = [];
 
@@ -241,6 +244,7 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigMock->method('getVciAccessTokenDuration')
             ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
         $this->moduleConfigMock->method('getVciRequireDpop')->willReturnCallback(fn(): bool => $this->vciRequireDpop);
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturnCallback(fn(): bool => $this->vciHaipEnabled);
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
             ->willReturn(self::CREDENTIAL_CONFIGURATION_IDS);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
@@ -406,14 +410,18 @@ class AuthCodeGrantTest extends TestCase
 
     /**
      * A client which does not authenticate has a code with a code_challenge, and the request lacks the
-     * code_verifier, as it would for a client which does authenticate.
+     * code_verifier, as it would for a client which does authenticate: an invalid grant (RFC 7636 section 4.6).
      */
     public function testRequiresTheCodeVerifierOfAClientWhichDoesNotAuthenticate(): void
     {
         $this->storedAuthCode();
         $this->rulesReturn(codeVerifier: null, authenticationMethod: ClientAuthenticationMethodsEnum::None);
 
-        $this->assertRejects('invalid_request', $this->requestFor($this->payloadWithChallenge()));
+        $this->assertRejectsWithHint(
+            'invalid_grant',
+            'Code Verifier must be provided.',
+            $this->requestFor($this->payloadWithChallenge()),
+        );
     }
 
     // PKCE.
@@ -429,15 +437,128 @@ class AuthCodeGrantTest extends TestCase
     }
 
 
+    /**
+     * A code whose challenge is not verified is not granted, whichever flow it belongs to: invalid_grant (RFC 7636
+     * section 4.6), as FAPI 2.0 has it checked (`FAPI2SPFinalPAREnsurePKCECodeVerifierRequired`).
+     */
     public function testRequiresCodeVerifierWhenAuthorizationRequestUsedCodeChallenge(): void
     {
         $this->storedAuthCode();
         $this->rulesReturn(codeVerifier: null);
 
-        $this->assertRejects(
-            'invalid_request',
+        $this->assertRejectsWithHint(
+            'invalid_grant',
+            'Code Verifier must be provided.',
             $this->requestFor($this->payloadWithChallenge()),
         );
+    }
+
+
+    /**
+     * While issuance follows HAIP, a wallet authenticates at the token endpoint (HAIP 1.0 section 4.4.1): a client
+     * which does not, though it proves the code's challenge, is refused for a code of the issuance flow, which is
+     * read from the stored code.
+     */
+    public function testRefusesAClientWhichDoesNotAuthenticateForAnIssuanceCodeWhileIssuanceFollowsHaip(): void
+    {
+        $this->vciHaipEnabled = true;
+        $this->storedAuthCode(flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->rulesReturn(
+            codeVerifier: self::CODE_VERIFIER,
+            authenticationMethod: ClientAuthenticationMethodsEnum::None,
+        );
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        $this->assertRejects(
+            'invalid_client',
+            $this->requestFor($this->payloadWithChallenge(), ['code_verifier' => self::CODE_VERIFIER]),
+        );
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: credential issuance following HAIP requires client authentication, and the ' .
+            'client used the "none" authentication method.',
+            ['client_id' => self::CLIENT_ID, 'auth_code_id' => self::AUTH_CODE_ID],
+        );
+    }
+
+
+    /**
+     * The same request is served for a code of another flow while issuance follows HAIP, and for an issuance code
+     * while it does not.
+     */
+    #[DataProvider('codesHaipLeavesToPublicClientsProvider')]
+    public function testLetsAClientWhichDoesNotAuthenticateRedeemACodeHaipsRulesDoNotHoldFor(
+        ?FlowTypeEnum $flowType,
+        bool $vciHaipEnabled,
+    ): void {
+        $this->vciHaipEnabled = $vciHaipEnabled;
+        $this->storedAuthCode(flowType: $flowType);
+        $this->rulesReturn(
+            codeVerifier: self::CODE_VERIFIER,
+            authenticationMethod: ClientAuthenticationMethodsEnum::None,
+        );
+        $this->expectAccessTokenToBeIssued();
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestFor($this->payloadWithChallenge(), ['code_verifier' => self::CODE_VERIFIER]),
+            $this->responseType(),
+            new DateInterval('PT5M'),
+        );
+    }
+
+
+    public static function codesHaipLeavesToPublicClientsProvider(): array
+    {
+        return [
+            'an OpenID Connect code, HAIP on' => [FlowTypeEnum::OidcAuthorizationCode, true],
+            'a code which names no flow, HAIP on' => [null, true],
+            'an issuance code, HAIP off' => [FlowTypeEnum::VciAuthorizationCode, false],
+        ];
+    }
+
+
+    /**
+     * A code issued to the generic client of non-registered wallets, before issuance followed HAIP, has no client
+     * to authenticate, so it is refused while issuance follows HAIP; one of another flow, or while issuance does
+     * not follow HAIP, is redeemed as before.
+     */
+    #[DataProvider('genericClientCodeProvider')]
+    public function testRefusesAnIssuanceCodeOfTheGenericClientWhileIssuanceFollowsHaip(
+        ?FlowTypeEnum $flowType,
+        bool $vciHaipEnabled,
+        bool $isRefused,
+    ): void {
+        $this->vciHaipEnabled = $vciHaipEnabled;
+        // PKCE is what authenticates the generic client otherwise (testRedeemsCodeForGenericClientBound...()).
+        $this->storedAuthCode(isGeneric: true, flowType: $flowType);
+        $this->rulesReturn(codeVerifier: self::CODE_VERIFIER);
+        $request = $this->requestFor($this->payloadWithChallenge());
+
+        if ($isRefused) {
+            $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+            $this->assertRejects('invalid_client', $request);
+            $this->assertLogged(
+                'warning',
+                'Token request rejected: credential issuance following HAIP requires client authentication, and ' .
+                'the authorization code was issued to a wallet which is not registered.',
+                ['auth_code_id' => self::AUTH_CODE_ID],
+            );
+
+            return;
+        }
+
+        $this->expectAccessTokenToBeIssued();
+        $this->sut()->respondToAccessTokenRequest($request, $this->responseType(), new DateInterval('PT5M'));
+    }
+
+
+    public static function genericClientCodeProvider(): array
+    {
+        return [
+            'an issuance code, HAIP on' => [FlowTypeEnum::VciAuthorizationCode, true, true],
+            'an issuance code, HAIP off' => [FlowTypeEnum::VciAuthorizationCode, false, false],
+            'a code which names no flow, HAIP on' => [null, true, false],
+        ];
     }
 
 
@@ -2126,6 +2247,70 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
+     * While issuance follows HAIP, an issuance code lives VCI_HAIP_AUTH_CODE_MAX_TTL at most (FAPI 2.0 section
+     * 5.3.2.1: 60 seconds), a shorter configured lifetime staying; another code, or one while issuance does not
+     * follow HAIP, lives the configured lifetime. Both the stored code and the code handed out end then, the
+     * latter being what the token endpoint checks.
+     */
+    #[DataProvider('authCodeLifetimeProvider')]
+    public function testIssuesTheCodeWithTheLifetimeOfItsFlow(
+        ?FlowTypeEnum $flowType,
+        bool $isVciRequest,
+        bool $vciHaipEnabled,
+        string $configuredTtl,
+        int $expectedSeconds,
+    ): void {
+        $this->vciHaipEnabled = $vciHaipEnabled;
+        $authorizationRequest = $this->approvedAuthorizationRequest();
+        $authorizationRequest->setFlowType($flowType);
+        $authorizationRequest->setIsVciRequest($isVciRequest);
+        $arguments = [];
+        $this->authCodeEntityFactoryMock->method('fromData')->willReturnCallback(
+            function (...$captured) use (&$arguments): AuthCodeEntity {
+                $arguments = $captured;
+
+                return $this->authCodeEntity();
+            },
+        );
+        $sut = $this->sut(authCodeTtl: new DateInterval($configuredTtl));
+
+        $before = time();
+        $query = $this->redirectQueryOf($sut->completeOidcAuthorizationRequest($authorizationRequest));
+        $after = time();
+
+        // The factory's arguments by position: the expiry is the fourth.
+        $this->assertInstanceOf(DateTimeImmutable::class, $arguments[3]);
+        $this->assertGreaterThanOrEqual($before + $expectedSeconds, $arguments[3]->getTimestamp());
+        $this->assertLessThanOrEqual($after + $expectedSeconds, $arguments[3]->getTimestamp());
+
+        $decrypt = Closure::bind(fn(string $data): string => $this->decrypt($data), $sut, AuthCodeGrant::class);
+        $payload = json_decode($decrypt($query['code']), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertIsArray($payload);
+        $this->assertGreaterThanOrEqual($before + $expectedSeconds, $payload['expire_time']);
+        $this->assertLessThanOrEqual($after + $expectedSeconds, $payload['expire_time']);
+    }
+
+
+    public static function authCodeLifetimeProvider(): array
+    {
+        return [
+            'an issuance code, HAIP on' => [FlowTypeEnum::VciAuthorizationCode, true, true, 'PT10M', 60],
+            'an issuance code told by the VCI marker alone, HAIP on' => [null, true, true, 'PT10M', 60],
+            'an issuance code, HAIP on, a shorter lifetime configured' => [
+                FlowTypeEnum::VciAuthorizationCode,
+                true,
+                true,
+                'PT30S',
+                30,
+            ],
+            'an issuance code, HAIP off' => [FlowTypeEnum::VciAuthorizationCode, true, false, 'PT10M', 600],
+            'an OpenID Connect code, HAIP on' => [FlowTypeEnum::OidcAuthorizationCode, false, true, 'PT10M', 600],
+            'a plain OAuth 2.0 code, HAIP on' => [FlowTypeEnum::OAuth2AuthorizationCode, false, true, 'PT10M', 600],
+        ];
+    }
+
+
+    /**
      * A plain OAuth 2.0 request completes as any other: its code is issued by this module, stamped with its flow
      * and carrying no nonce, and the client is sent back with it, the state and the issuer. Before, the grant
      * handed such a request to League's completion, which asks for a code from a repository method this module
@@ -2671,13 +2856,15 @@ class AuthCodeGrantTest extends TestCase
 
     // Helpers.
 
-    private function sut(?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null): AuthCodeGrant
-    {
+    private function sut(
+        ?OAuth2AuthCodeRepositoryInterface $authCodeRepository = null,
+        ?DateInterval $authCodeTtl = null,
+    ): AuthCodeGrant {
         $grant = new AuthCodeGrant(
             $authCodeRepository ?? $this->authCodeRepositoryMock,
             $this->accessTokenRepositoryMock,
             $this->refreshTokenRepositoryMock,
-            new DateInterval('PT1M'),
+            $authCodeTtl ?? new DateInterval('PT1M'),
             $this->requestRulesManagerMock,
             $this->requestParamsResolverMock,
             $this->accessTokenEntityFactoryMock,
@@ -3374,6 +3561,15 @@ class AuthCodeGrantTest extends TestCase
                 $this->logRecords[] = ['level' => $level, 'message' => (string)$message, 'context' => $context];
             },
         );
+    }
+
+
+    /**
+     * A record of this level and message was logged, with this context.
+     */
+    private function assertLogged(string $level, string $message, array $context): void
+    {
+        $this->assertContains(['level' => $level, 'message' => $message, 'context' => $context], $this->logRecords);
     }
 
 

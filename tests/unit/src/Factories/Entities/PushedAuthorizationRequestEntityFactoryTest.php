@@ -78,6 +78,37 @@ class PushedAuthorizationRequestEntityFactoryTest extends TestCase
     }
 
 
+    /**
+     * A maximum lifetime shorter than the configured one (PT5M here) ends the request sooner; a longer one leaves
+     * the configured one.
+     */
+    public function testBuildsNewWithTheShorterOfTheConfiguredAndTheMaximumLifetime(): void
+    {
+        $before = $this->helpers->dateTime()->getUtc()->getTimestamp();
+        $shorter = $this->sut()->fromData('client123', [], maxTtl: new DateInterval('PT1M'));
+        $longer = $this->sut()->fromData('client123', [], maxTtl: new DateInterval('PT10M'));
+        $after = $this->helpers->dateTime()->getUtc()->getTimestamp();
+
+        $this->assertGreaterThanOrEqual($before + 60, $shorter->getExpiresAt()->getTimestamp());
+        $this->assertLessThanOrEqual($after + 60, $shorter->getExpiresAt()->getTimestamp());
+        $this->assertGreaterThanOrEqual($before + 300, $longer->getExpiresAt()->getTimestamp());
+        $this->assertLessThanOrEqual($after + 300, $longer->getExpiresAt()->getTimestamp());
+    }
+
+
+    /**
+     * An expiry given is kept as it is, whatever the maximum lifetime.
+     */
+    public function testKeepsAGivenExpiryWhateverTheMaximumLifetime(): void
+    {
+        $expiresAt = $this->helpers->dateTime()->getUtc()->add(new DateInterval('PT1H'));
+
+        $entity = $this->sut()->fromData('client123', [], $expiresAt, new DateInterval('PT1M'));
+
+        $this->assertSame($expiresAt, $entity->getExpiresAt());
+    }
+
+
     public function testBuildNewGeneratesUniqueRequestUris(): void
     {
         $sut = $this->sut();

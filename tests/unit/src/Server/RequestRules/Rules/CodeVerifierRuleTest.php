@@ -83,14 +83,17 @@ class CodeVerifierRuleTest extends TestCase
 
     public function testRejectsAPublicClientThatSendsNoCodeVerifier(): void
     {
-        // A public client has no secret, so without PKCE nothing binds the code to whoever requested it.
+        // A public client has no secret, so without PKCE nothing binds the code to whoever requested it. Its codes
+        // all carry a challenge, and one whose challenge is not verified is an invalid grant (RFC 7636 section 4.6).
         $this->resolverReturns(null);
 
         try {
             $this->check($this->resultBagFor($this->client(isConfidential: false)));
             $this->fail('A public client must not be able to redeem a code without a code_verifier.');
         } catch (OidcServerException $exception) {
-            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('invalid_grant', $exception->getErrorType());
+            $this->assertSame(400, $exception->getHttpStatusCode());
+            $this->assertSame('Code Verifier must be provided for public clients.', $exception->getHint());
         }
     }
 

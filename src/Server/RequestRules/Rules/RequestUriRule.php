@@ -36,7 +36,9 @@ use SimpleSAML\OpenID\Codebooks\ParamsEnum;
  *  - https Request URIs (Request Object by reference): the OP must support
  *    the request_uri parameter, and the Request Object must be resolvable
  *    (registration / federation policy is enforced in RequestParamsResolver),
- *  - Pushed Authorization Request usage if required by server or client policy.
+ *  - Pushed Authorization Request usage if required by server or client policy,
+ *    or by issuance following HAIP, for an issuance request (FAPI 2.0 section
+ *    5.3.2.2).
  *
  * @see \SimpleSAML\Module\oidc\Utils\RequestParamsResolver
  * @see \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule
@@ -84,7 +86,8 @@ class RequestUriRule extends AbstractRule
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
         $isParRequired = $this->moduleConfig->getRequirePushedAuthorizationRequests() ||
-        $client->getRequirePushedAuthorizationRequests();
+        $client->getRequirePushedAuthorizationRequests() ||
+        $this->requestParamsResolver->isVciHaipIssuanceRequest($request, $allowedServerRequestMethods);
 
         if (is_null($requestUri) || $requestUri === '') {
             if ($isParRequired) {
