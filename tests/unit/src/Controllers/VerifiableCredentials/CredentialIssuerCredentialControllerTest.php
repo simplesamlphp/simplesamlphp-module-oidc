@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 
 use ArrayObject;
 use DateInterval;
+use DateMalformedIntervalStringException;
 use DateTimeImmutable;
 use DateTimeZone;
 use Jose\Component\KeyManagement\JWKFactory;
@@ -3192,6 +3193,47 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ]],
             $this->logLinesOfLevel($logged, 'error'),
         );
+    }
+
+
+    /**
+     * Nothing is issued while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, though a
+     * token issued before the configuration changed may still come: answered as this issuer's own misconfiguration
+     * before the token is looked at, the reason in the log only; so is an option the check can not read.
+     */
+    #[DataProvider('haipConfigurationRefusalProvider')]
+    public function testRefusesToIssueWhileTheConfigurationDoesNotMeetHaip(Throwable $refusal): void
+    {
+        $logged = $this->captureLog();
+        $this->moduleConfigMock->method('validateVciHaipConfiguration')->willThrowException($refusal);
+        $this->validatedProofs = [$this->validatedProof()];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame([], $this->resourceUrls);
+        $this->assertSame(
+            [[
+                'CredentialIssuerCredentialController::credential: Credential issuance is set to follow HAIP 1.0, ' .
+                'which the configuration does not meet, or an option it reads is malformed.',
+                ['error' => $refusal->getMessage()],
+            ]],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
+    }
+
+
+    public static function haipConfigurationRefusalProvider(): array
+    {
+        return [
+            'a prerequisite missing' => [
+                new ConfigurationError('Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.'),
+            ],
+            'an option which can not be read' => [
+                new DateMalformedIntervalStringException('DateInterval::__construct(): Unknown or bad format (10s)'),
+            ],
+        ];
     }
 
 

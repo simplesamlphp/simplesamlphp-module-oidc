@@ -198,12 +198,13 @@ with the OP as its Authorization Server. What that covers:
   [HAIP 1.0](3-oidc-configuration.md#haip-10-vci_haip)): pushed, in the
   authorization code flow, with PKCE `S256`, from a wallet which authenticates
   at the PAR and token endpoints (with a Wallet Attestation, for wallets
-  registered for it), and with 60-second codes. Credentials and Status List
-  Tokens can carry X.509 (`x5c`) certificate chains. Among what HAIP requires
-  of an issuer and the module lacks: the refusal of a configuration HAIP can
-  not work with (DPoP not required, a credential configuration without a
-  `scope`, a signing key without a certificate chain); the holder's key in
-  `cnf.jwk` whatever the proof named it by; and the other FAPI 2.0 provisions
+  registered for it), and with 60-second codes; and nothing is issued under a
+  configuration the profile can not work with (DPoP not required, a credential
+  configuration without a `scope`, a signing key without a certificate chain,
+  and the like). Credentials and Status List Tokens can carry X.509 (`x5c`)
+  certificate chains. Among what HAIP requires of an issuer and the module
+  lacks: the holder's key in `cnf.jwk` whatever the proof named it by; and the
+  other FAPI 2.0 provisions
   (no CORS at the authorization endpoint, no `http` redirect URIs but native
   loopback ones, 303 redirects, RSA key lengths). Nor does the module evaluate
   the key attestations HAIP leaves to ecosystems to require. The same

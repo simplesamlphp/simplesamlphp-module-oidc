@@ -608,7 +608,8 @@ class RequestParamsResolver
 
     /**
      * Whether this is a request for credential issuance (isVciIssuanceRequest()) which HAIP's rules apply to, issuance
-     * following the profile (ModuleConfig::getVciHaipEnabled()). The option is read only for an issuance request.
+     * following the profile (ModuleConfig::getVciHaipEnabled()). The option is read only for an issuance request,
+     * so a configuration which does not meet the profile, which reading it refuses, fails issuance requests only.
      *
      * @param \SimpleSAML\OpenID\Codebooks\HttpMethodsEnum[] $allowedMethods
      * @throws \SimpleSAML\OpenID\Exceptions\JwsException

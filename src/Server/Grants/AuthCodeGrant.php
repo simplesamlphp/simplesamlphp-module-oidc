@@ -528,6 +528,10 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
         $resolvedClientAuthenticationMethod = null;
 
+        // Read for every code, whichever way its client authenticates: for one of the issuance flow, reading it also
+        // refuses a configuration which does not meet HAIP (ModuleConfig::getVciHaipEnabled()).
+        $isVciHaipCode = $this->isVciHaipCode($storedAuthCodeEntity);
+
         if (! $authorizationClientEntity->isGeneric()) {
             $this->loggerService->debug('Executing standard rules for non-generic clients.');
             // The caller is authenticated as whichever client its credentials name, from the request alone, and that
@@ -565,10 +569,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
 
             // While issuance follows HAIP, a wallet authenticates at the token endpoint too (HAIP 1.0 section
             // 4.4.1), which is judged by the flow the code was issued in, never by the request.
-            if (
-                $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNone() &&
-                $this->isVciHaipCode($storedAuthCodeEntity)
-            ) {
+            if ($isVciHaipCode && $resolvedClientAuthenticationMethod->getClientAuthenticationMethod()->isNone()) {
                 $this->loggerService->warning(
                     'Token request rejected: credential issuance following HAIP requires client authentication, ' .
                     'and the client used the "none" authentication method.',
@@ -580,7 +581,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             // A wallet which is not registered has nothing to authenticate with. Such a code was issued before
             // issuance followed HAIP: since, an issuance request has to be pushed, and the PAR endpoint refuses a
             // client which does not authenticate.
-            if ($this->isVciHaipCode($storedAuthCodeEntity)) {
+            if ($isVciHaipCode) {
                 $this->loggerService->warning(
                     'Token request rejected: credential issuance following HAIP requires client authentication, ' .
                     'and the authorization code was issued to a wallet which is not registered.',

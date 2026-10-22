@@ -252,12 +252,14 @@ class CredentialOfferUriFactory
      * that each identify one of the keys" of `credential_configurations_supported`), and no configuration
      * malformed. That last check covers every configuration, not only the ones offered, since the Credential
      * Issuer metadata a wallet reads to redeem the offer is not built while any of them is
-     * (CredentialIssuerMetadataService::buildMetadata()).
+     * (CredentialIssuerMetadataService::buildMetadata()); nor is it while issuance is set to follow HAIP 1.0 under a
+     * configuration which does not meet it, so no offer is made then either.
      *
      * @param mixed[] $credentialConfigurationIds
      * @return list<string>
      * @throws \RuntimeException When the configurations named can not be offered.
-     * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed.
+     * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed, or does not meet HAIP 1.0
+     * while issuance is set to follow it.
      */
     protected function offerableCredentialConfigurationIds(array $credentialConfigurationIds): array
     {
@@ -288,6 +290,7 @@ class CredentialOfferUriFactory
         }
 
         $this->moduleConfig->validateVciCredentialConfigurations();
+        $this->moduleConfig->validateVciHaipConfiguration();
 
         return $offerableCredentialConfigurationIds;
     }

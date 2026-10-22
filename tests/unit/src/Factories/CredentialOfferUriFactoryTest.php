@@ -462,6 +462,28 @@ class CredentialOfferUriFactoryTest extends TestCase
     }
 
 
+    /**
+     * Nor while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, which the metadata
+     * is not built under either.
+     */
+    #[DataProvider('grantProvider')]
+    public function testRefusesAnyOfferWhileTheConfigurationDoesNotMeetHaip(string $grant): void
+    {
+        $fault = new ConfigurationError('Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.');
+        $this->moduleConfigMock->method('validateVciHaipConfiguration')->willThrowException($fault);
+        $this->expectNothingWritten();
+
+        try {
+            $this->buildOffer($grant, ['credential-configuration']);
+        } catch (ConfigurationError $e) {
+            $this->assertSame($fault, $e);
+            return;
+        }
+
+        $this->fail('A ConfigurationError was expected.');
+    }
+
+
     public static function grantProvider(): array
     {
         return array_map(fn (string $grant): array => [$grant], self::grants());

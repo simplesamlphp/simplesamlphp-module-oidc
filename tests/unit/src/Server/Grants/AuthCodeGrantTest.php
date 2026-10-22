@@ -28,6 +28,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
@@ -195,6 +196,9 @@ class AuthCodeGrantTest extends TestCase
     /** What ModuleConfig::getVciHaipEnabled() answers. */
     private bool $vciHaipEnabled = false;
 
+    /** What ModuleConfig::getVciHaipEnabled() throws instead, as for a configuration which does not meet HAIP. */
+    private ?Throwable $vciHaipRefusal = null;
+
     /** @var string[] Scope identifiers the scope repository no longer resolves, as ModuleConfig::getScopes() drops them. */
     private array $unsupportedScopes = [];
 
@@ -244,7 +248,9 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigMock->method('getVciAccessTokenDuration')
             ->willReturnCallback(fn(): DateInterval => new DateInterval($this->vciAccessTokenTtl));
         $this->moduleConfigMock->method('getVciRequireDpop')->willReturnCallback(fn(): bool => $this->vciRequireDpop);
-        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturnCallback(fn(): bool => $this->vciHaipEnabled);
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturnCallback(
+            fn(): bool => $this->vciHaipRefusal === null ? $this->vciHaipEnabled : throw $this->vciHaipRefusal,
+        );
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
             ->willReturn(self::CREDENTIAL_CONFIGURATION_IDS);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
@@ -479,6 +485,78 @@ class AuthCodeGrantTest extends TestCase
             'client used the "none" authentication method.',
             ['client_id' => self::CLIENT_ID, 'auth_code_id' => self::AUTH_CODE_ID],
         );
+    }
+
+
+    /**
+     * Redeeming a code of the issuance flow asks whether issuance follows HAIP whichever way the client authenticates,
+     * so a configuration which does not meet the profile, which asking refuses (ModuleConfig::getVciHaipEnabled()),
+     * refuses every such redemption; a code of another flow is redeemed as before.
+     */
+    #[DataProvider('redemptionUnderAConfigurationWhichDoesNotMeetHaipProvider')]
+    public function testRefusesAnIssuanceCodeUnderAConfigurationWhichDoesNotMeetHaip(
+        ?FlowTypeEnum $flowType,
+        ClientAuthenticationMethodsEnum $authenticationMethod,
+        bool $isGeneric,
+        bool $isRefused,
+    ): void {
+        $refusal = new ConfigurationError(
+            'Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.',
+        );
+        $this->vciHaipRefusal = $refusal;
+        $this->storedAuthCode(isGeneric: $isGeneric, flowType: $flowType);
+        $this->rulesReturn(codeVerifier: self::CODE_VERIFIER, authenticationMethod: $authenticationMethod);
+        $request = $this->requestFor($this->payloadWithChallenge(), ['code_verifier' => self::CODE_VERIFIER]);
+
+        if (!$isRefused) {
+            $this->expectAccessTokenToBeIssued();
+            $this->sut()->respondToAccessTokenRequest($request, $this->responseType(), new DateInterval('PT5M'));
+
+            return;
+        }
+
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest($request, $this->responseType(), new DateInterval('PT5M'));
+        } catch (ConfigurationError $configurationError) {
+            $this->assertSame($refusal, $configurationError);
+
+            return;
+        }
+
+        $this->fail('The refusal was not let through.');
+    }
+
+
+    public static function redemptionUnderAConfigurationWhichDoesNotMeetHaipProvider(): array
+    {
+        return [
+            'an issuance code, a client which authenticates' => [
+                FlowTypeEnum::VciAuthorizationCode,
+                ClientAuthenticationMethodsEnum::ClientSecretBasic,
+                false,
+                true,
+            ],
+            'an issuance code, a client which does not authenticate' => [
+                FlowTypeEnum::VciAuthorizationCode,
+                ClientAuthenticationMethodsEnum::None,
+                false,
+                true,
+            ],
+            'an issuance code of the generic client' => [
+                FlowTypeEnum::VciAuthorizationCode,
+                ClientAuthenticationMethodsEnum::ClientSecretBasic,
+                true,
+                true,
+            ],
+            'an OpenID Connect code, a client which authenticates' => [
+                FlowTypeEnum::OidcAuthorizationCode,
+                ClientAuthenticationMethodsEnum::ClientSecretBasic,
+                false,
+                false,
+            ],
+        ];
     }
 
 

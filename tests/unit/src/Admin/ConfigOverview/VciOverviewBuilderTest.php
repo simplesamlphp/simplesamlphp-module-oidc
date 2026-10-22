@@ -222,6 +222,142 @@ class VciOverviewBuilderTest extends TestCase
     }
 
 
+    /**
+     * While issuance is set to follow HAIP 1.0, what the configuration lacks for it (ModuleConfig, whose wording is
+     * shown as it stands) is listed on a row of its own right below the option's, which still says the option is
+     * on, with the warning that nothing is issued meanwhile.
+     *
+     * @throws \Exception
+     */
+    public function testListsWhatTheConfigurationLacksForHaipRightBelowTheOption(): void
+    {
+        $overrides = [
+            ModuleConfig::OPTION_VCI_ENABLED => true,
+            ModuleConfig::OPTION_VCI_HAIP => true,
+            ModuleConfig::OPTION_VCI_REQUIRE_DPOP => true,
+            ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                [
+                    ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::ES256,
+                    ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+                    ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+                ],
+            ],
+        ];
+        $sections = $this->buildVciOverviewBuilder($overrides)->build();
+        $expectedFaults = $this->buildOverviewModuleConfig($overrides)->findVciHaipConfigurationFaults();
+
+        $this->assertCount(6, $expectedFaults);
+
+        $optionRow = $this->findRowForOption($sections, ModuleConfig::OPTION_VCI_HAIP);
+        $this->assertNotNull($optionRow);
+        $this->assertSame('Yes', $optionRow->getValue());
+
+        $row = $this->findRowByLabel($sections, 'HAIP 1.0 Prerequisites');
+        $this->assertNotNull($row);
+        $this->assertNull($row->getConfigOption());
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringList, $row->getValueType());
+        $this->assertSame($expectedFaults, $row->getValue());
+        $this->assertSame('No credential is issued until these are put right.', $row->getWarning());
+
+        $entityRows = $sections[0]->getRows();
+        $optionRowPosition = array_search($optionRow, $entityRows, true);
+        $this->assertIsInt($optionRowPosition);
+        $this->assertSame($row, $entityRows[$optionRowPosition + 1] ?? null);
+    }
+
+
+    /**
+     * Under a configuration with every prerequisite, the row says so, and warns of nothing.
+     *
+     * @throws \Exception
+     */
+    public function testSaysWhenTheConfigurationMeetsEveryPrerequisiteOfHaip(): void
+    {
+        $keyPairMock = $this->createMock(KeyPair::class);
+        $keyPairMock->method('getKeyId')->willReturn('vci-01');
+        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+        $signatureKeyPairBagFactoryMock = $this->createMock(SignatureKeyPairBagFactory::class);
+        $signatureKeyPairBagFactoryMock->method('fromConfig')
+            ->willReturn(new SignatureKeyPairBag($signatureKeyPairMock));
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->method('signatureKeyPairBagFactory')->willReturn($signatureKeyPairBagFactoryMock);
+
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [
+                    ModuleConfig::OPTION_VCI_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_HAIP => true,
+                    ModuleConfig::OPTION_VCI_REQUIRE_DPOP => true,
+                    ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => FilesystemAdapter::class,
+                    ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => false,
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                        'Pid' => ['format' => 'dc+sd-jwt', 'vct' => 'https://example.org/pid', 'scope' => 'Pid'],
+                    ],
+                    ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                        [
+                            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::ES256,
+                            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+                            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+                            ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module.crt',
+                        ],
+                    ],
+                    ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module.crt',
+                    ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => 'https',
+                ],
+                valueAbstracts: $valueAbstractsMock,
+            )->build(),
+            'HAIP 1.0 Prerequisites',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('All met', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * While the option is off, or issuance is, there is nothing to meet, so there is no row, whatever the
+     * configuration lacks.
+     *
+     * @throws \Exception
+     */
+    public function testListsNoPrerequisiteOfHaipWhileTheOptionIsOff(): void
+    {
+        foreach (
+            [
+                [ModuleConfig::OPTION_VCI_ENABLED => true],
+                [ModuleConfig::OPTION_VCI_ENABLED => false, ModuleConfig::OPTION_VCI_HAIP => true],
+            ] as $overrides
+        ) {
+            $this->assertNull(
+                $this->findRowByLabel($this->buildVciOverviewBuilder($overrides)->build(), 'HAIP 1.0 Prerequisites'),
+            );
+        }
+    }
+
+
+    /**
+     * An option the check reads which can not be resolved (here no key pair at all) is reported on the row, and the
+     * page is still built.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAPrerequisiteOfHaipWhichCanNotBeReadOnItsRow(): void
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_ENABLED => true, ModuleConfig::OPTION_VCI_HAIP => true],
+            )->build(),
+            'HAIP 1.0 Prerequisites',
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertStringContainsString('could not be resolved', (string)$row->getWarning());
+    }
+
+
     public function testBuildsCredentialConfigurationDetail(): void
     {
         $row = $this->findRowForOption(

@@ -94,6 +94,10 @@ class CredentialIssuerMetadataService
         // whole document, as it fails discovery (ModuleConfig::getVciScopes()).
         $this->moduleConfig->validateVciCredentialConfigurations();
 
+        // Nor while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, which fails the
+        // requests that lead to a credential as well (ModuleConfig::getVciHaipEnabled()).
+        $this->moduleConfig->validateVciHaipConfiguration();
+
         // Nor while nothing could be signed: a certificate chain of the active key which can not be used (an expired
         // one, say) fails the document as it fails issuance.
         $this->vciCertificateChainResolver->resolveFor($signatureKeyPair);

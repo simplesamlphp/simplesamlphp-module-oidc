@@ -450,9 +450,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
      */
     protected function buildEntitySection(): Section
     {
-        return new Section(
-            Translate::noop('Entity'),
-            'entity',
+        $rows = [
             $this->guardRow(
                 Translate::noop('Verifiable Credential Issuance Enabled'),
                 ModuleConfig::OPTION_VCI_ENABLED,
@@ -480,6 +478,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 },
             ),
             $this->buildHaipRow(),
+            ...$this->buildHaipPrerequisitesRows(),
             $this->buildIssuerRow(
                 Translate::noop('Also the Credential Issuer identifier.'),
                 Translate::noop(
@@ -501,13 +500,16 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 $this->routes->urlJwtVcIssuerConfiguration(),
                 ConfigOverviewValueTypeEnum::Url,
             ),
-        );
+        ];
+
+        return new Section(Translate::noop('Entity'), 'entity', ...$rows);
     }
 
 
     /**
-     * Whether issuance requests are held to the request rules of HAIP 1.0, which is never while issuance is off
-     * (ModuleConfig::getVciHaipEnabled()).
+     * Whether issuance requests are held to the request rules of HAIP 1.0, which is never while issuance is off:
+     * the option as set (ModuleConfig::isVciHaipOptionOn()), so that the row still says it is on while the
+     * configuration does not meet the profile (buildHaipPrerequisitesRows()).
      */
     protected function buildHaipRow(): Row
     {
@@ -517,7 +519,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $label,
             ModuleConfig::OPTION_VCI_HAIP,
             function () use ($label): Row {
-                $isEnabled = $this->moduleConfig->getVciHaipEnabled();
+                $isEnabled = $this->moduleConfig->isVciHaipOptionOn();
 
                 return new Row(
                     $label,
@@ -533,6 +535,59 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 );
             },
         );
+    }
+
+
+    /**
+     * While issuance is set to follow HAIP 1.0, what the configuration lacks for it, for which no credential is
+     * issued (ModuleConfig::validateVciHaipConfiguration()); nothing while it is not. The faults are shown as the
+     * configuration words them, as a credential configuration's are: they quote ids and option values, never a
+     * secret.
+     *
+     * @return list<\SimpleSAML\Module\oidc\Admin\ConfigOverview\Row>
+     */
+    protected function buildHaipPrerequisitesRows(): array
+    {
+        try {
+            if (!$this->moduleConfig->isVciHaipOptionOn()) {
+                return [];
+            }
+        } catch (Throwable) {
+            // Reported on the row above, where the option which failed to resolve is named.
+            return [];
+        }
+
+        $label = Translate::noop('HAIP 1.0 Prerequisites');
+
+        try {
+            $faults = $this->moduleConfig->findVciHaipConfigurationFaults();
+        } catch (Throwable $exception) {
+            return [
+                new Row(
+                    $label,
+                    Translate::noop('N/A'),
+                    ConfigOverviewValueTypeEnum::Text,
+                    null,
+                    null,
+                    $this->describeResolutionError($exception, ModuleConfig::OPTION_VCI_HAIP),
+                ),
+            ];
+        }
+
+        if ($faults === []) {
+            return [new Row($label, Translate::noop('All met'))];
+        }
+
+        return [
+            new Row(
+                $label,
+                $faults,
+                ConfigOverviewValueTypeEnum::StringList,
+                null,
+                null,
+                Translate::noop('No credential is issued until these are put right.'),
+            ),
+        ];
     }
 
 

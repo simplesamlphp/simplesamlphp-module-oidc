@@ -1205,9 +1205,19 @@ $config = [
      * pre-authorized code too, whatever
      * OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS says). An issuance code
      * lives 60 seconds, and a pushed issuance request 5 minutes, at most.
-     * HAIP also has every access token bound to a key of the wallet: set
-     * OPTION_VCI_REQUIRE_DPOP as well. See "HAIP 1.0" in the configuration
-     * documentation (docs/3-oidc-configuration.md).
+     * With it on, nothing is issued while the rest of the configuration does
+     * not meet the profile, which needs: OPTION_VCI_REQUIRE_DPOP on; a
+     * protocol cache kept across requests (OPTION_PROTOCOL_CACHE_ADAPTER, not
+     * ArrayAdapter or NullAdapter); OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS
+     * and OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS off;
+     * OPTION_TIMESTAMP_VALIDATION_LEEWAY from 10 to 60 seconds; a scope in
+     * every credential configuration, and a dc+sd-jwt one among them; none
+     * under the diip_proof_bound binding policy; a certificate chain on the
+     * key pair which signs, and OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME; the
+     * https OPTION_VCI_ISSUER_IDENTIFIER_MODE; and, while status lists are on,
+     * the x509 key profile for every pool. The configuration overview lists
+     * what is missing. See "HAIP 1.0" in the configuration documentation
+     * (docs/3-oidc-configuration.md).
      */
 //    ModuleConfig::OPTION_VCI_HAIP => false,
 
@@ -1969,8 +1979,8 @@ $config = [
      * `pre-authorized_grant_anonymous_access_supported`. When false, such a
      * token request is refused with invalid_client; a wallet which sends its
      * `client_id`, registered or not, or authenticates, is still accepted.
-     * While issuance follows HAIP (OPTION_VCI_HAIP), no anonymous access is
-     * served, and the metadata says so, whatever this option is.
+     * With OPTION_VCI_HAIP on, set this to false: nothing is issued
+     * otherwise, and the metadata says false either way.
      */
 //    ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => true,
 

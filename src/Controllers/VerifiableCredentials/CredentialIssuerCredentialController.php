@@ -193,6 +193,23 @@ class CredentialIssuerCredentialController
     protected function issueCredential(Request $request): Response
     {
         $this->loggerService->info('Verifiable Credential issuance request received.');
+
+        // Nothing is issued while issuance is set to follow HAIP 1.0 under a configuration which does not meet it,
+        // which the requests leading here and the Credential Issuer metadata are refused for as well
+        // (ModuleConfig::getVciHaipEnabled()); a token issued before the configuration changed may still come. Any
+        // failure to check is the configuration's: an option the check reads may fail to parse otherwise than as a
+        // ConfigurationError (an interval).
+        try {
+            $this->moduleConfig->validateVciHaipConfiguration();
+        } catch (Throwable $throwable) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Credential issuance is set to follow HAIP 1.0, ' .
+                'which the configuration does not meet, or an option it reads is malformed.',
+                ['error' => $throwable->getMessage()],
+            );
+            throw OidcServerException::serverError('Credential issuance is misconfigured.');
+        }
+
         $psrRequest = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
 
         $requestData = $this->requestParamsResolver->getAllFromRequestBasedOnAllowedMethods(

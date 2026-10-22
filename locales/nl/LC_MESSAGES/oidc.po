@@ -1563,6 +1563,15 @@ msgstr ""
 msgid "Issuance requests are not held to the request rules of HAIP 1.0."
 msgstr ""
 
+msgid "HAIP 1.0 Prerequisites"
+msgstr ""
+
+msgid "All met"
+msgstr ""
+
+msgid "No credential is issued until these are put right."
+msgstr ""
+
 msgid "Verifiable Credential Signature Key Pairs"
 msgstr ""
 

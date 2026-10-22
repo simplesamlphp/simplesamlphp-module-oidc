@@ -781,6 +781,25 @@ class CredentialIssuerMetadataServiceTest extends TestCase
 
 
     /**
+     * Nor while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, which the requests
+     * leading to a credential are refused for as well.
+     */
+    public function testPublishesNothingWhileTheConfigurationDoesNotMeetHaip(): void
+    {
+        $this->moduleConfigMock->expects($this->once())->method('validateVciHaipConfiguration')
+            ->willThrowException(
+                new ConfigurationError('Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.'),
+            );
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('does not meet HAIP 1.0');
+
+        $this->sut()->getMetadata();
+    }
+
+
+    /**
      * Nor while the active key's certificate chain can not be used, since nothing could be signed with it.
      */
     public function testPublishesNothingWhileTheActiveKeysCertificateChainCanNotBeUsed(): void

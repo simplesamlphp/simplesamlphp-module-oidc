@@ -11,6 +11,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\PushedAuthorizationRequestEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\PushedAuthorizationRequestEntityFactory;
@@ -169,6 +170,30 @@ class RequestUriRuleTest extends TestCase
             $this->assertSame('invalid_request', $exception->getErrorType());
             $this->assertSame('Pushed Authorization Request (PAR) is required.', $exception->getHint());
         }
+    }
+
+
+    /**
+     * Whether the request is one for issuance following HAIP is asked whatever else requires PAR, so that a
+     * configuration which does not meet HAIP, which asking refuses, fails an issuance request here, before the user
+     * logs in.
+     */
+    public function testAsksAboutHaipWhereParIsRequiredAnyway(): void
+    {
+        $this->prepareRawParams([]);
+        $this->moduleConfigMock->method('getRequirePushedAuthorizationRequests')->willReturn(true);
+        $refusal = new ConfigurationError('Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.');
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willThrowException($refusal);
+
+        try {
+            $this->checkRule();
+        } catch (ConfigurationError $configurationError) {
+            $this->assertSame($refusal, $configurationError);
+
+            return;
+        }
+
+        $this->fail('The refusal was not let through.');
     }
 
 

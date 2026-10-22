@@ -11,6 +11,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
@@ -1187,6 +1188,28 @@ class RequestParamsResolverTest extends TestCase
             $this->mock($this->helpersWithParams(['response_type' => 'code', 'scope' => 'openid']))
                 ->isVciHaipIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]),
         );
+    }
+
+
+    /**
+     * Reading the option refuses a configuration which does not meet HAIP (ModuleConfig::getVciHaipEnabled()), and
+     * the refusal fails the issuance request which read it.
+     */
+    public function testFailsAnIssuanceRequestUnderAConfigurationWhichDoesNotMeetHaip(): void
+    {
+        $this->enableVciWithCredentialScope();
+        $refusal = new ConfigurationError('Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.');
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willThrowException($refusal);
+
+        try {
+            $this->mock($this->helpersWithParams(['response_type' => 'code', 'scope' => 'ResearchCredential']))
+                ->isVciHaipIssuanceRequest($this->requestMock, [HttpMethodsEnum::GET]);
+        } catch (ConfigurationError $configurationError) {
+            $this->assertSame($refusal, $configurationError);
+            return;
+        }
+
+        $this->fail('The refusal was not let through.');
     }
 
 

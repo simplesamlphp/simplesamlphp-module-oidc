@@ -39,6 +39,7 @@ use SimpleSAML\OpenID\Codebooks\ResponseTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
+use SimpleSAML\OpenID\Decorators\DateIntervalDecorator;
 use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
 use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
@@ -534,6 +535,11 @@ class ModuleConfig
      * configuration ID to whether its credentials are bound to a holder key.
      */
     protected ?array $vciCredentialBindingPolicies = null;
+
+    /**
+     * @var ?list<string> What the configuration lacks for HAIP 1.0 (findVciHaipConfigurationFaults()).
+     */
+    protected ?array $vciHaipConfigurationFaults = null;
 
 
     /**
@@ -2048,10 +2054,256 @@ class ModuleConfig
      * S256 PKCE challenge and use the authorization code flow, the wallet has to authenticate at the PAR and token
      * endpoints, and issuance codes and pushed requests live shorter. Off unless set, and never while issuance is
      * off. OpenID Connect requests are not affected (RequestParamsResolver::isVciHaipIssuanceRequest()).
+     *
+     * With the option on, the configuration is checked first (validateVciHaipConfiguration()), so that every rule
+     * of the profile, each of which asks this, fails closed under a configuration the profile can not work with.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError With the option on and a prerequisite of the profile missing.
      */
     public function getVciHaipEnabled(): bool
     {
+        if (!$this->isVciHaipOptionOn()) {
+            return false;
+        }
+
+        $this->validateVciHaipConfiguration();
+
+        return true;
+    }
+
+
+    /**
+     * Whether the configuration asks for credential issuance to follow HAIP 1.0: the option, while issuance is on,
+     * without the check getVciHaipEnabled() makes. For what goes on serving under a configuration the profile can
+     * not work with: OpenID Connect discovery, and the configuration overview, which shows what is missing.
+     */
+    public function isVciHaipOptionOn(): bool
+    {
         return $this->getVciEnabled() && $this->config()->getOptionalBoolean(self::OPTION_VCI_HAIP, false);
+    }
+
+
+    /**
+     * Refuse a configuration which asks for HAIP 1.0 (isVciHaipOptionOn()) and lacks a prerequisite of the profile
+     * (findVciHaipConfigurationFaults()), naming every one it lacks. Asked through getVciHaipEnabled() by the
+     * request rules of the profile, and called where credentials are advertised, offered and issued without them:
+     * the Credential Issuer metadata, credential offers and the Credential Endpoint.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function validateVciHaipConfiguration(): void
+    {
+        if (!$this->isVciHaipOptionOn()) {
+            return;
+        }
+
+        $faults = $this->findVciHaipConfigurationFaults();
+
+        if ($faults !== []) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is on, but the configuration does not meet HAIP 1.0, so no credential is issued: %s',
+                    self::OPTION_VCI_HAIP,
+                    implode(' ', $faults),
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+    }
+
+
+    /**
+     * What the configuration lacks for credential issuance to follow HAIP 1.0, one sentence per prerequisite, each
+     * naming what to set; empty when nothing. Answered whether or not the option is on. A malformed option among
+     * those read throws as its own getter does.
+     *
+     * Each is a read of the configuration. Whether the signing key's certificate chain validates is for
+     * VciCertificateChainResolver, at every signature and in the Credential Issuer metadata, and what a credential
+     * configuration lacks on its own is for validateVciCredentialConfigurations().
+     *
+     * @return list<string>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \Exception
+     */
+    public function findVciHaipConfigurationFaults(): array
+    {
+        if (is_array($this->vciHaipConfigurationFaults)) {
+            return $this->vciHaipConfigurationFaults;
+        }
+
+        $faults = [];
+
+        // Only sender-constrained access tokens (FAPI 2.0 section 5.3.2.1), by DPoP (HAIP 1.0 section 4).
+        if (!$this->getVciRequireDpop()) {
+            $faults[] = sprintf('DPoP is not required: set "%s" to true.', self::OPTION_VCI_REQUIRE_DPOP);
+        }
+
+        // What keeps a DPoP proof and a Wallet Attestation proof of possession from being used twice.
+        if (!$this->isProtocolCacheKeptAcrossRequests()) {
+            $faults[] = sprintf(
+                'No protocol cache keeps entries from one request to the next, so DPoP proofs and Wallet ' .
+                'Attestation proofs of possession are not checked for replay: set "%s" to an adapter other than ' .
+                'ArrayAdapter or NullAdapter.',
+                self::OPTION_PROTOCOL_CACHE_ADAPTER,
+            );
+        }
+
+        // Every wallet authenticates at the PAR and token endpoints (HAIP 1.0 section 4.4.1), which one which is not
+        // registered, or which names no client, can not.
+        if ($this->getVciAllowNonRegisteredClients()) {
+            $faults[] = sprintf(
+                'Wallets which are not registered are allowed: set "%s" to false.',
+                self::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS,
+            );
+        }
+
+        if ($this->getVciAllowAnonymousPreAuthorizedAccess()) {
+            $faults[] = sprintf(
+                'Anonymous pre-authorized access is allowed, as it is unless turned off: set "%s" to false.',
+                self::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS,
+            );
+        }
+
+        // JWTs with an iat or nbf up to 10 seconds ahead accepted, and more than 60 seconds ahead refused (FAPI 2.0
+        // section 5.3.2.1).
+        $leeway = DateIntervalDecorator::toSeconds($this->getTimestampValidationLeeway());
+
+        if ($leeway < 10 || $leeway > 60) {
+            $faults[] = sprintf(
+                'The timestamp validation leeway is %d seconds: set "%s" to from 10 to 60 seconds (PT10S to PT1M).',
+                $leeway,
+                self::OPTION_TIMESTAMP_VALIDATION_LEEWAY,
+            );
+        }
+
+        // A scope for every credential configuration (HAIP 1.0 section 4.1).
+        $credentialConfigurationIdsWithoutScope = $this->getVciCredentialConfigurationIdsWithoutScope();
+
+        if ($credentialConfigurationIdsWithoutScope !== []) {
+            $faults[] = sprintf(
+                'Credential configurations without a scope: %s. Give each a "%s" equal to its id.',
+                implode(', ', $credentialConfigurationIdsWithoutScope),
+                ClaimsEnum::Scope->value,
+            );
+        }
+
+        // SD-JWT VC or mdoc (HAIP 1.0 section 4), and SD-JWT VC is the one of the two this module issues.
+        $isSdJwtVcIssued = false;
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($this->getVciCredentialConfigurationsSupported() as $configuration) {
+            if (
+                is_array($configuration) &&
+                ($configuration[ClaimsEnum::Format->value] ?? null) === CredentialFormatIdentifiersEnum::DcSdJwt->value
+            ) {
+                $isSdJwtVcIssued = true;
+                break;
+            }
+        }
+
+        if (!$isSdJwtVcIssued) {
+            $faults[] = sprintf(
+                'No credential configuration issues SD-JWT VCs (format "%s"), the credential format of HAIP 1.0 ' .
+                'this module issues.',
+                CredentialFormatIdentifiersEnum::DcSdJwt->value,
+            );
+        }
+
+        // The DIIP policy advertises DID methods for holder binding and refuses a key proof carrying its key inline,
+        // where HAIP binds a credential to the key itself (cnf.jwk, HAIP 1.0 section 6.1).
+        $credentialConfigurationIdsUnderDiip = array_keys(
+            array_filter(
+                $this->getVciCredentialBindingPolicies(),
+                static fn(VciCredentialBindingPolicyEnum $bindingPolicy): bool =>
+                $bindingPolicy === VciCredentialBindingPolicyEnum::DiipProofBound,
+            ),
+        );
+
+        if ($credentialConfigurationIdsUnderDiip !== []) {
+            $faults[] = sprintf(
+                'Credential configurations under the "%s" binding policy, which does not combine with HAIP 1.0: ' .
+                '%s. Give them another policy under "%s".',
+                VciCredentialBindingPolicyEnum::DiipProofBound->value,
+                implode(', ', $credentialConfigurationIdsUnderDiip),
+                self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+            );
+        }
+
+        // The issuer's certificate and its chain in x5c (HAIP 1.0 section 6.1.1), validated against the anchors. The
+        // chain of the key which signs, found by its key ID, as VciCertificateChainResolver finds it; the key pairs
+        // are not loaded for that while no key pair has a chain.
+        $certificateChainFilenames = $this->getVciSignatureCertificateChainFilenames();
+
+        if (
+            $certificateChainFilenames === [] ||
+            !array_key_exists(
+                $this->getActiveVciSignatureKeyPair()->getKeyPair()->getKeyId(),
+                $certificateChainFilenames,
+            )
+        ) {
+            $faults[] = sprintf(
+                'The key pair which signs credentials, the first under "%s", has no certificate chain: set its "%s".',
+                self::OPTION_VCI_SIGNATURE_KEY_PAIRS,
+                self::KEY_CERTIFICATE_CHAIN_FILENAME,
+            );
+        }
+
+        if ($this->getVciIssuerTrustAnchorsFilename() === null) {
+            $faults[] = sprintf(
+                'No trust anchors are configured for the certificate chain of the signing key: set "%s".',
+                self::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME,
+            );
+        }
+
+        // The issuer named by the Credential Issuer URL, which its certificate can name (D32 (b) of the HAIP plan).
+        $issuerIdentifierMode = $this->getVciIssuerIdentifierMode();
+
+        if ($issuerIdentifierMode !== VciIssuerIdentifierModeEnum::Https) {
+            $faults[] = sprintf(
+                'Credentials are issued under the "%s" issuer identifier mode: set "%s" to "%s".',
+                $issuerIdentifierMode->value,
+                self::OPTION_VCI_ISSUER_IDENTIFIER_MODE,
+                VciIssuerIdentifierModeEnum::Https->value,
+            );
+        }
+
+        // Status List Tokens carry the signing certificate in x5c as well (HAIP 1.0 section 6.1). Each pool's key
+        // profile is read as the pools are built for issuance (a pool which sets none signs under the default one), so
+        // that a profile issuance can not read fails here as it fails there.
+        if ($this->getVciStatusListEnabled()) {
+            $poolKeyProfiles = array_map(
+                static fn(StatusListPool $pool): StatusListKeyProfileEnum => $pool->getKeyProfile(),
+                $this->getVciStatusListPoolBag()->getAll(),
+            );
+            $keyProfilesOtherThanX509 = array_values(
+                array_filter(
+                    StatusListKeyProfileEnum::cases(),
+                    static fn(StatusListKeyProfileEnum $keyProfile): bool =>
+                    $keyProfile !== StatusListKeyProfileEnum::X509 &&
+                    in_array($keyProfile, $poolKeyProfiles, true),
+                ),
+            );
+
+            if ($keyProfilesOtherThanX509 !== []) {
+                $faults[] = sprintf(
+                    'Status List pools sign under the key profile %s: set "%s" of each pool under "%s", or "%s" for ' .
+                    'a pool which sets none, to "%s".',
+                    implode(
+                        ', ',
+                        array_map(
+                            static fn(StatusListKeyProfileEnum $keyProfile): string => '"' . $keyProfile->value . '"',
+                            $keyProfilesOtherThanX509,
+                        ),
+                    ),
+                    StatusListPool::KEY_KEY_PROFILE,
+                    self::OPTION_VCI_STATUS_LIST_POOLS,
+                    self::OPTION_VCI_STATUS_LIST_KEY_PROFILE,
+                    StatusListKeyProfileEnum::X509->value,
+                );
+            }
+        }
+
+        return $this->vciHaipConfigurationFaults = $faults;
     }
 
 

@@ -5309,20 +5309,550 @@ class ModuleConfigTest extends TestCase
 
 
     /**
-     * vci_haip is off unless set, and holds only while issuance is enabled.
+     * vci_haip is off unless set, and holds only while issuance is enabled: as set (isVciHaipOptionOn()), and as
+     * followed, under a configuration which meets the profile (getVciHaipEnabled()). Neither configuration which
+     * leaves it off has a key pair, so checking it, which reads them, would throw.
+     *
+     * @throws \Exception
      */
     public function testCredentialIssuanceFollowsHaipOnlyWhenConfiguredToWhileIssuanceIsEnabled(): void
     {
-        $this->assertFalse($this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => true])->getVciHaipEnabled());
+        $this->assertFalse($this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => true])->isVciHaipOptionOn());
         $this->assertTrue(
             $this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => true, ModuleConfig::OPTION_VCI_HAIP => true])
-                ->getVciHaipEnabled(),
+                ->isVciHaipOptionOn(),
         );
+        $this->assertFalse(
+            $this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => false, ModuleConfig::OPTION_VCI_HAIP => true])
+                ->isVciHaipOptionOn(),
+        );
+
+        $this->assertFalse($this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => true])->getVciHaipEnabled());
         $this->assertFalse(
             $this->sut(overrides: [ModuleConfig::OPTION_VCI_ENABLED => false, ModuleConfig::OPTION_VCI_HAIP => true])
                 ->getVciHaipEnabled(),
         );
+        $this->assertTrue($this->sutMeetingHaip()->getVciHaipEnabled());
+
         $this->assertSame('vci_haip', ModuleConfig::OPTION_VCI_HAIP);
+    }
+
+
+    /**
+     * A configuration with every prerequisite of HAIP 1.0, and its variations which keep them, has no fault, and
+     * its option is followed.
+     *
+     * @param array<string,mixed> $more
+     * @throws \Exception
+     */
+    #[DataProvider('haipMetProvider')]
+    public function testFindsNoFaultInAConfigurationWhichMeetsHaip(array $more): void
+    {
+        $sut = $this->sutMeetingHaip($more);
+
+        $this->assertSame([], $sut->findVciHaipConfigurationFaults());
+        $this->assertTrue($sut->getVciHaipEnabled());
+    }
+
+
+    public static function haipMetProvider(): array
+    {
+        return [
+            'as it is' => [[]],
+            'a leeway of 10 seconds' => [[ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT10S']],
+            'a leeway of 60 seconds' => [[ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT60S']],
+            'another protocol cache kept across requests' => [
+                [ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => MemcachedAdapter::class],
+            ],
+            'another format beside SD-JWT VC' => [
+                [
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                        'Pid' => self::haipSdJwtVcConfiguration(),
+                        'Diploma' => [
+                            'format' => 'jwt_vc_json',
+                            'credential_definition' => ['type' => ['VerifiableCredential']],
+                            'scope' => 'Diploma',
+                        ],
+                    ],
+                ],
+            ],
+            'a configuration under another binding policy' => [
+                [ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['Pid' => 'proofless']],
+            ],
+            'status lists on, every pool on x509' => [
+                [
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::haipConfigurations(),
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                        'first' => self::haipPool(['Pid'], 'x509'),
+                        'second' => self::haipPool(['Diploma'], StatusListKeyProfileEnum::X509),
+                    ],
+                ],
+            ],
+            'status lists on, a pool on the default key profile, x509' => [
+                [
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x509',
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => ['first' => self::haipPool(['Pid'])],
+                ],
+            ],
+            'status lists on, no pool' => [[ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true]],
+            'status lists off, a pool on jwks' => [
+                [ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => ['first' => self::haipPool(['Pid'], 'jwks')]],
+            ],
+        ];
+    }
+
+
+    /**
+     * Each prerequisite of HAIP 1.0 the configuration lacks is one fault of its own, naming what to set.
+     *
+     * @param array<string,mixed> $more
+     * @param list<string> $without
+     * @throws \Exception
+     */
+    #[DataProvider('haipPrerequisiteProvider')]
+    public function testFindsEachPrerequisiteOfHaipTheConfigurationLacks(
+        array $more,
+        array $without,
+        string $expectedFault,
+    ): void {
+        $this->assertSame([$expectedFault], $this->sutMeetingHaip($more, $without)->findVciHaipConfigurationFaults());
+    }
+
+
+    public static function haipPrerequisiteProvider(): array
+    {
+        $noProtocolCache = 'No protocol cache keeps entries from one request to the next, so DPoP proofs and Wallet ' .
+        'Attestation proofs of possession are not checked for replay: set "protocol_cache_adapter" to an ' .
+        'adapter other than ArrayAdapter or NullAdapter.';
+        $anonymousAccess = 'Anonymous pre-authorized access is allowed, as it is unless turned off: set ' .
+        '"vci_allow_anonymous_pre_authorized_access" to false.';
+        $didJwkMode = 'Credentials are issued under the "did_jwk" issuer identifier mode: set ' .
+        '"vci_issuer_identifier_mode" to "https".';
+        $keyProfile = 'Status List pools sign under the key profile %s: set "key_profile" of each pool under ' .
+        '"vci_status_list_pools", or "vci_status_list_key_profile" for a pool which sets none, to "x509".';
+
+        return [
+            'DPoP not required' => [
+                [ModuleConfig::OPTION_VCI_REQUIRE_DPOP => false],
+                [],
+                'DPoP is not required: set "vci_require_dpop" to true.',
+            ],
+            'DPoP not required, by default' => [
+                [],
+                [ModuleConfig::OPTION_VCI_REQUIRE_DPOP],
+                'DPoP is not required: set "vci_require_dpop" to true.',
+            ],
+            'no protocol cache' => [[], [ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER], $noProtocolCache],
+            'a protocol cache of one request' => [
+                [ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => ArrayAdapter::class],
+                [],
+                $noProtocolCache,
+            ],
+            'a protocol cache which keeps nothing' => [
+                [ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => NullAdapter::class],
+                [],
+                $noProtocolCache,
+            ],
+            'wallets which are not registered' => [
+                [ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => true],
+                [],
+                'Wallets which are not registered are allowed: set "vci_allow_non_registered_clients" to false.',
+            ],
+            'anonymous pre-authorized access' => [
+                [ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => true],
+                [],
+                $anonymousAccess,
+            ],
+            'anonymous pre-authorized access, by default' => [
+                [],
+                [ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS],
+                $anonymousAccess,
+            ],
+            'a leeway under 10 seconds' => [
+                [ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT9S'],
+                [],
+                'The timestamp validation leeway is 9 seconds: set "timestamp_validation_leeway" to from 10 to 60 ' .
+                'seconds (PT10S to PT1M).',
+            ],
+            'a leeway over 60 seconds' => [
+                [ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY => 'PT61S'],
+                [],
+                'The timestamp validation leeway is 61 seconds: set "timestamp_validation_leeway" to from 10 to 60 ' .
+                'seconds (PT10S to PT1M).',
+            ],
+            'credential configurations without a scope' => [
+                [
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                        'Pid' => self::haipSdJwtVcConfiguration(),
+                        'Diploma' => ['format' => 'dc+sd-jwt', 'vct' => 'https://example.org/diploma'],
+                        'Badge' => ['format' => 'dc+sd-jwt', 'vct' => 'https://example.org/badge'],
+                    ],
+                ],
+                [],
+                'Credential configurations without a scope: Diploma, Badge. Give each a "scope" equal to its id.',
+            ],
+            'no SD-JWT VC configuration' => [
+                [
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                        'Diploma' => [
+                            'format' => 'jwt_vc_json',
+                            'credential_definition' => ['type' => ['VerifiableCredential']],
+                            'scope' => 'Diploma',
+                        ],
+                    ],
+                ],
+                [],
+                'No credential configuration issues SD-JWT VCs (format "dc+sd-jwt"), the credential format of ' .
+                'HAIP 1.0 this module issues.',
+            ],
+            'a configuration under the DIIP binding policy' => [
+                [ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['Pid' => 'diip_proof_bound']],
+                [],
+                'Credential configurations under the "diip_proof_bound" binding policy, which does not combine with ' .
+                'HAIP 1.0: Pid. Give them another policy under "vci_credential_binding_policies".',
+            ],
+            'no certificate chain on the signing key' => [
+                [
+                    ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                        [
+                            ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::ES256,
+                            ModuleConfig::KEY_PRIVATE_KEY_FILENAME => 'oidc_module.key',
+                            ModuleConfig::KEY_PUBLIC_KEY_FILENAME => 'oidc_module.crt',
+                        ],
+                    ],
+                ],
+                [],
+                'The key pair which signs credentials, the first under "vci_signature_key_pairs", has no certificate ' .
+                'chain: set its "certificate_chain_filename".',
+            ],
+            'no trust anchors' => [
+                [],
+                [ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME],
+                'No trust anchors are configured for the certificate chain of the signing key: set ' .
+                '"vci_issuer_trust_anchors_filename".',
+            ],
+            'the did:jwk identifier mode' => [
+                [ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => 'did_jwk'],
+                [],
+                $didJwkMode,
+            ],
+            'the did:jwk identifier mode, by default' => [
+                [],
+                [ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE],
+                $didJwkMode,
+            ],
+            'the did:web identifier mode' => [
+                [ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => VciIssuerIdentifierModeEnum::DidWeb],
+                [],
+                'Credentials are issued under the "did_web" issuer identifier mode: set "vci_issuer_identifier_mode" ' .
+                'to "https".',
+            ],
+            'status lists on, a pool on the default key profile, did_jwk by default' => [
+                [
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::haipConfigurations(),
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                        'first' => self::haipPool(['Pid'], 'x509'),
+                        'second' => self::haipPool(['Diploma']),
+                    ],
+                ],
+                [],
+                sprintf($keyProfile, '"did_jwk"'),
+            ],
+            'status lists on, pools on jwks and did_jwk' => [
+                [
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_KEY_PROFILE => 'x509',
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::haipConfigurations(),
+                    ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                        'first' => self::haipPool(['Pid'], 'jwks'),
+                        'second' => self::haipPool(['Diploma'], StatusListKeyProfileEnum::DidJwk),
+                        'third' => self::haipPool(['Badge']),
+                    ],
+                ],
+                [],
+                sprintf($keyProfile, '"did_jwk", "jwks"'),
+            ],
+        ];
+    }
+
+
+    /**
+     * The chain which counts is that of the key pair which signs, the first, found by its key ID as the chains are
+     * (VciCertificateChainResolver): one on another key pair is not the signing key's.
+     *
+     * @throws \Exception
+     */
+    public function testWantsTheCertificateChainOfTheKeyPairWhichSignsForHaip(): void
+    {
+        $bag = new SignatureKeyPairBag(
+            $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
+            $this->buildSignatureKeyPair('vci-02', SignatureAlgorithmEnum::ES256),
+        );
+        $withChain = $this->vciSignatureKeyPairEntry(
+            [ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module.crt'],
+        );
+
+        $this->assertSame(
+            [],
+            $this->sutMeetingHaip(
+                [ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [$withChain, $this->vciSignatureKeyPairEntry()]],
+                bag: $bag,
+            )->findVciHaipConfigurationFaults(),
+        );
+        $this->assertSame(
+            [
+                'The key pair which signs credentials, the first under "vci_signature_key_pairs", has no certificate ' .
+                'chain: set its "certificate_chain_filename".',
+            ],
+            $this->sutMeetingHaip(
+                [ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [$this->vciSignatureKeyPairEntry(), $withChain]],
+                bag: $bag,
+            )->findVciHaipConfigurationFaults(),
+        );
+    }
+
+
+    /**
+     * With the option on, a configuration which lacks a prerequisite is refused, every fault named, by the check and
+     * by the getter every rule of the profile asks, so that each of them fails closed.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesAConfigurationWhichDoesNotMeetHaipWhileTheOptionIsOn(): void
+    {
+        $sut = $this->sutMeetingHaip(
+            [
+                ModuleConfig::OPTION_VCI_REQUIRE_DPOP => false,
+                ModuleConfig::OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS => true,
+            ],
+        );
+        $expectedReason = 'Option "vci_haip" is on, but the configuration does not meet HAIP 1.0, so no credential ' .
+        'is issued: DPoP is not required: set "vci_require_dpop" to true. Wallets which are not registered are ' .
+        'allowed: set "vci_allow_non_registered_clients" to false.';
+
+        foreach (
+            [
+                'validateVciHaipConfiguration' => $sut->validateVciHaipConfiguration(...),
+                'getVciHaipEnabled' => $sut->getVciHaipEnabled(...),
+            ] as $method => $call
+        ) {
+            try {
+                $call();
+                $this->fail($method . ' refused nothing.');
+            } catch (ConfigurationError $configurationError) {
+                $this->assertSame($expectedReason, $configurationError->getReason(), $method);
+            }
+        }
+    }
+
+
+    /**
+     * A pool's key profile is read as issuance reads it, so one it can not read fails the check as it fails issuance,
+     * rather than counting as no profile at all.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unreadablePoolKeyProfileProvider')]
+    public function testRefusesAStatusListPoolWhoseKeyProfileCanNotBeReadForHaip(mixed $keyProfile): void
+    {
+        $sut = $this->sutMeetingHaip(
+            [
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
+                    'first' => [
+                        StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => ['Pid'],
+                        StatusListPool::KEY_KEY_PROFILE => $keyProfile,
+                    ],
+                ],
+            ],
+        );
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Status List pool "first" has a "key_profile" which is not one of');
+
+        $sut->findVciHaipConfigurationFaults();
+    }
+
+
+    public static function unreadablePoolKeyProfileProvider(): array
+    {
+        return ['none' => [null], 'an unknown one' => ['x5c']];
+    }
+
+
+    /**
+     * While no key pair has a certificate chain, the one which signs has none either, and the key pairs are not
+     * loaded to say so.
+     *
+     * @throws \Exception
+     */
+    public function testFindsTheSigningKeyHasNoChainWithoutLoadingTheKeyPairs(): void
+    {
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->expects($this->never())->method('signatureKeyPairBagFactory');
+
+        $sut = $this->sut(
+            overrides: $this->withHaipMet(
+                [ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [$this->vciSignatureKeyPairEntry()]],
+            ),
+            valueAbstracts: $valueAbstractsMock,
+        );
+
+        $this->assertSame(
+            [
+                'The key pair which signs credentials, the first under "vci_signature_key_pairs", has no certificate ' .
+                'chain: set its "certificate_chain_filename".',
+            ],
+            $sut->findVciHaipConfigurationFaults(),
+        );
+    }
+
+
+    /**
+     * With the option off nothing is refused, and the faults are still found, for whoever asks.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesNothingWhileTheOptionIsOff(): void
+    {
+        $sut = $this->sutMeetingHaip(
+            [ModuleConfig::OPTION_VCI_HAIP => false, ModuleConfig::OPTION_VCI_REQUIRE_DPOP => false],
+        );
+
+        $sut->validateVciHaipConfiguration();
+        $this->assertFalse($sut->getVciHaipEnabled());
+        $this->assertSame(
+            ['DPoP is not required: set "vci_require_dpop" to true.'],
+            $sut->findVciHaipConfigurationFaults(),
+        );
+    }
+
+
+    /**
+     * A malformed option the check reads is refused as its own getter refuses it.
+     *
+     * @throws \Exception
+     */
+    public function testLetsAMalformedOptionItReadsThroughFromTheHaipCheck(): void
+    {
+        $sut = $this->sutMeetingHaip([ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => 'x509']);
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('vci_issuer_identifier_mode');
+
+        $sut->getVciHaipEnabled();
+    }
+
+
+    /**
+     * A credential configuration HAIP 1.0 can be issued under.
+     *
+     * @return array<string,string>
+     */
+    protected static function haipSdJwtVcConfiguration(): array
+    {
+        return ['format' => 'dc+sd-jwt', 'vct' => 'https://example.org/pid', 'scope' => 'Pid'];
+    }
+
+
+    /**
+     * A Status List pool of the given credential configurations, on the given key profile, or on the default one.
+     *
+     * @param list<string> $credentialConfigurationIds
+     * @return array<string,mixed>
+     */
+    protected static function haipPool(
+        array $credentialConfigurationIds,
+        StatusListKeyProfileEnum|string|null $keyProfile = null,
+    ): array {
+        $pool = [StatusListPool::KEY_CREDENTIAL_CONFIGURATIONS => $credentialConfigurationIds];
+
+        if ($keyProfile !== null) {
+            $pool[StatusListPool::KEY_KEY_PROFILE] = $keyProfile;
+        }
+
+        return $pool;
+    }
+
+
+    /**
+     * Three credential configurations HAIP 1.0 can be issued under, for a Status List pool each.
+     *
+     * @return array<string,array<string,string>>
+     */
+    protected static function haipConfigurations(): array
+    {
+        return [
+            'Pid' => self::haipSdJwtVcConfiguration(),
+            'Diploma' => ['format' => 'dc+sd-jwt', 'vct' => 'https://example.org/diploma', 'scope' => 'Diploma'],
+            'Badge' => ['format' => 'dc+sd-jwt', 'vct' => 'https://example.org/badge', 'scope' => 'Badge'],
+        ];
+    }
+
+
+    /**
+     * A configuration with every prerequisite of HAIP 1.0 (ModuleConfig::findVciHaipConfigurationFaults()) and the
+     * option on, with the given options set on top and the named ones left out, so that a test changes the one it
+     * is about.
+     *
+     * @param array<string,mixed> $more
+     * @param list<string> $without
+     * @return array<string,mixed>
+     */
+    protected function withHaipMet(array $more = [], array $without = []): array
+    {
+        $overrides = array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_ENABLED => true,
+                ModuleConfig::OPTION_VCI_HAIP => true,
+                ModuleConfig::OPTION_VCI_REQUIRE_DPOP => true,
+                ModuleConfig::OPTION_PROTOCOL_CACHE_ADAPTER => FilesystemAdapter::class,
+                ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS => false,
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'Pid' => self::haipSdJwtVcConfiguration(),
+                ],
+                ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                    $this->vciSignatureKeyPairEntry(
+                        [ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module.crt'],
+                    ),
+                ],
+                ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module.crt',
+                ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE => 'https',
+            ],
+            $more,
+        );
+
+        return array_diff_key($overrides, array_flip($without));
+    }
+
+
+    /**
+     * A ModuleConfig of withHaipMet(), whose VCI key pairs are the given bag (one key pair, "vci-01", unless
+     * given), so that the key ID a chain belongs to is the test's.
+     *
+     * @param array<string,mixed> $more
+     * @param list<string> $without
+     */
+    protected function sutMeetingHaip(
+        array $more = [],
+        array $without = [],
+        ?SignatureKeyPairBag $bag = null,
+    ): ModuleConfig {
+        $signatureKeyPairBagFactoryMock = $this->createMock(SignatureKeyPairBagFactory::class);
+        $signatureKeyPairBagFactoryMock->method('fromConfig')->willReturn(
+            $bag ?? new SignatureKeyPairBag(
+                $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
+            ),
+        );
+
+        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
+        $valueAbstractsMock->method('signatureKeyPairBagFactory')->willReturn($signatureKeyPairBagFactoryMock);
+
+        return $this->sut(overrides: $this->withHaipMet($more, $without), valueAbstracts: $valueAbstractsMock);
     }
 
 

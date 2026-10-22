@@ -1008,16 +1008,46 @@ document is the same with the option on.
   method its client is registered with. `none` is refused (`invalid_client`):
   for an issuance request at the PAR endpoint, for a code of the issuance flow
   at the token endpoint, and for a pre-authorized code, which a wallet that is
-  not registered, or names no client, then can not redeem either, whatever
-  `vci_allow_anonymous_pre_authorized_access` says (the metadata's
-  `pre-authorized_grant_anonymous_access_supported` is then `false`).
+  not registered, or names no client, then can not redeem either (the
+  metadata's `pre-authorized_grant_anonymous_access_supported` is then
+  `false`).
 - **60-second codes.** An issuance authorization code lives 60 seconds at most
   (FAPI 2.0 section 5.3.2.1; the authorization code lifetime when that is
   shorter).
 
-HAIP also has every access token bound to a key of the wallet: with the option
-on, set `vci_require_dpop` as well (see
-[DPoP](#dpop-sender-constrained-tokens)).
+### What a HAIP configuration needs
+
+With the option on, the rest of the configuration has to let issuance follow
+the profile, and nothing is issued while it does not. It needs:
+
+- `vci_require_dpop` on, so that every access token is bound to a key of the
+  wallet (HAIP section 4; see [DPoP](#dpop-sender-constrained-tokens));
+- a `protocol_cache_adapter` which keeps entries from one request to the next,
+  not `ArrayAdapter` or `NullAdapter`, for the replay checks of DPoP proofs
+  and Wallet Attestation proofs of possession (see
+  [Caching protocol artifacts](#caching-protocol-artifacts));
+- `vci_allow_non_registered_clients` off, and
+  `vci_allow_anonymous_pre_authorized_access` off, which is on unless set:
+  every wallet authenticates;
+- `timestamp_validation_leeway` from 10 to 60 seconds (FAPI 2.0 section
+  5.3.2.1), which the default, one minute, is;
+- a `scope` in every credential configuration (HAIP section 4.1), and at
+  least one `dc+sd-jwt` configuration;
+- no credential configuration under the `diip_proof_bound`
+  [binding policy](#holder-binding-and-the-diip-profile);
+- a certificate chain on the key pair which signs, the first under
+  `vci_signature_key_pairs`, and `vci_issuer_trust_anchors_filename` (see
+  [Issuer certificates](#issuer-certificates-x5c)), with
+  `vci_issuer_identifier_mode` `https`;
+- while status lists are on, the `x509` [key profile](#key-profile) for every
+  pool: its own `key_profile`, or `vci_status_list_key_profile` for a pool
+  which sets none.
+
+While one is missing, the Credential Issuer metadata, credential offers, the
+Credential Endpoint, and issuance requests at the PAR, authorization and token
+endpoints fail with a configuration error, logged with everything that is
+missing, and the configuration overview lists it as "HAIP 1.0 Prerequisites".
+OpenID Connect requests, and the discovery document, are served as before.
 
 ## Key rollover
 

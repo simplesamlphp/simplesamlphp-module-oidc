@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
 use chillerlan\QRCode\QRCode;
+use DateMalformedIntervalStringException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -30,6 +31,7 @@ use SimpleSAML\Session;
 use SimpleSAML\XHTML\Template;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Throwable;
 
 #[CoversClass(VerifiableCredentailsTestController::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -619,6 +621,47 @@ class VerifiableCredentailsTestControllerTest extends TestCase
             ['The configuration is invalid: Verifiable Credential configuration [university_degree] has no vct.'],
             $this->templateData['setupErrors'] ?? null,
         );
+    }
+
+
+    /**
+     * Nor while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, nor while an option
+     * the check reads can not be read.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\CredentialOfferException
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     */
+    #[DataProvider('haipConfigurationRefusalProvider')]
+    public function testReportsAConfigurationWhichDoesNotMeetHaip(Throwable $refusal, string $expectedError): void
+    {
+        $this->moduleConfigMock->method('validateVciHaipConfiguration')->willThrowException($refusal);
+        $this->requestParams = [
+            'credentialConfigurationId' => self::CONFIGURATION_ID,
+            'grantType' => GrantTypesEnum::AuthorizationCode->value,
+        ];
+
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildForAuthorization');
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildPreAuthorized');
+
+        $this->sut()->verifiableCredentialIssuance($this->request());
+
+        $this->assertSame([$expectedError], $this->templateData['setupErrors'] ?? null);
+    }
+
+
+    public static function haipConfigurationRefusalProvider(): array
+    {
+        return [
+            'a prerequisite missing' => [
+                new ConfigurationError('Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.'),
+                'The configuration is invalid: Option "vci_haip" is on, but the configuration does not meet HAIP 1.0.',
+            ],
+            'an option which can not be read' => [
+                new DateMalformedIntervalStringException('DateInterval::__construct(): Unknown or bad format (10s)'),
+                'DateInterval::__construct(): Unknown or bad format (10s)',
+            ],
+        ];
     }
 
 

@@ -85,9 +85,16 @@ class RequestUriRule extends AbstractRule
 
         $client = $currentResultBag->getOrFail(ClientRule::class)->getValue();
 
+        // Asked whatever else requires PAR, so that an issuance request under a configuration which does not meet
+        // HAIP, which asking refuses (ModuleConfig::getVciHaipEnabled()), fails here, before the user logs in.
+        $isVciHaipIssuanceRequest = $this->requestParamsResolver->isVciHaipIssuanceRequest(
+            $request,
+            $allowedServerRequestMethods,
+        );
+
         $isParRequired = $this->moduleConfig->getRequirePushedAuthorizationRequests() ||
         $client->getRequirePushedAuthorizationRequests() ||
-        $this->requestParamsResolver->isVciHaipIssuanceRequest($request, $allowedServerRequestMethods);
+        $isVciHaipIssuanceRequest;
 
         if (is_null($requestUri) || $requestUri === '') {
             if ($isParRequired) {

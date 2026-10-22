@@ -7,7 +7,6 @@ namespace SimpleSAML\Module\oidc\Controllers\Admin;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QRCodeException;
 use SimpleSAML\Auth\Simple;
-use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
@@ -23,6 +22,7 @@ use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class VerifiableCredentailsTestController
 {
@@ -66,14 +66,17 @@ class VerifiableCredentailsTestController
             );
         }
 
-        // No offer is made while a configuration is malformed (CredentialOfferUriFactory), so the fault is shown
-        // here rather than as an error page once an offer is asked for.
+        // No offer is made while a configuration is malformed, nor while issuance is set to follow HAIP 1.0 under a
+        // configuration which does not meet it (CredentialOfferUriFactory), so the fault is shown here rather than
+        // as an error page once an offer is asked for; so is an option either check reads which fails to parse
+        // otherwise than as a ConfigurationError (an interval).
         try {
             $this->moduleConfig->validateVciCredentialConfigurations();
-        } catch (ConfigurationError $configurationError) {
+            $this->moduleConfig->validateVciHaipConfiguration();
+        } catch (Throwable $throwable) {
             return $this->templateFactory->build(
                 'oidc:tests/verifiable-credential-issuance.twig',
-                ['setupErrors' => [$configurationError->getMessage()]],
+                ['setupErrors' => [$throwable->getMessage()]],
                 RoutesEnum::AdminTestVerifiableCredentialIssuance->value,
             );
         }
