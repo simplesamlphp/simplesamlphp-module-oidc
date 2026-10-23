@@ -18,11 +18,12 @@ Before submitting a Pull Request, please make sure your changes adhere to the pr
    ```
 
    This executes:
+   * **Rector** (`vendor/bin/rector`)
    * **PHP_CodeSniffer** (`vendor/bin/phpcbf` and `vendor/bin/phpcs`)
    * **Psalm** (`vendor/bin/psalm`)
    * **PHPUnit** (`vendor/bin/phpunit`)
 
-   `phpcbf` fixes coding-standard violations in place. If it changes any files, review the changes and run the command again until it passes.
+   Rector and `phpcbf` rewrite files in place, so review their changes before you commit.
 
 3. **Targeted Tests:** You can also run unit and integration suites separately:
 
@@ -32,6 +33,12 @@ Before submitting a Pull Request, please make sure your changes adhere to the pr
    ```
 
    The integration tests start their dependencies in containers (Testcontainers), so they need a running Docker daemon.
+
+4. **End-to-End Suites:** CI also runs the OpenID conformance suite and the proxied introspection harness on every push and pull request. Both need Docker; see [OpenID Conformance](docs/5-oidc-conformance.md) and [Using Docker](docs/4-oidc-docker.md) to run them locally. The harness has its own Composer script:
+
+   ```bash
+   composer harness-tests
+   ```
 
 ## Reporting Security Vulnerabilities
 
