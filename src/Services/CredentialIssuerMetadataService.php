@@ -98,6 +98,7 @@ class CredentialIssuerMetadataService
         // Nor while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, which fails the
         // requests that lead to a credential as well (ModuleConfig::getVciHaipEnabled()).
         $this->moduleConfig->validateVciHaipConfiguration();
+        $isVciHaipEnabled = $this->moduleConfig->getVciHaipEnabled();
 
         // Nor while nothing could be signed: a certificate chain of the active key which can not be used (an expired
         // one, say) fails the document as it fails issuance.
@@ -130,10 +131,14 @@ class CredentialIssuerMetadataService
                 //
                 // Only a configuration which binds needs the registry, and only then is it worth
                 // building the DID facade to ask for it: a deployment issuing nothing but proofless
-                // credentials publishes this document without its DID settings ever being read.
-                $bindingMethods = $bindingPolicy->requiresKeyProof() ?
-                $bindingPolicy->bindingMethodsFrom($this->resolvableDidMethods()) :
-                null;
+                // credentials publishes this document without its DID settings ever being read. Nor does
+                // one which follows HAIP, which binds a credential to the key itself however a proof names
+                // it.
+                $bindingMethods = match (true) {
+                    !$bindingPolicy->requiresKeyProof() => null,
+                    $isVciHaipEnabled => $bindingPolicy->bindingMethodsUnderHaip(),
+                    default => $bindingPolicy->bindingMethodsFrom($this->resolvableDidMethods()),
+                };
 
                 if ($bindingMethods !== null) {
                     $isAnyConfigurationProofBound = true;

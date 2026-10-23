@@ -137,7 +137,14 @@ class RequestObjectRule extends AbstractRule
                 );
             }
 
-            $this->verifySignature($jarRequestObject, $client, $redirectUri, $stateValue, $responseMode);
+            $this->verifySignature(
+                $jarRequestObject,
+                $client,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+                $this->requestParamsResolver->isVciHaipIssuanceRequest($request, $allowedServerRequestMethods),
+            );
 
             $this->verifyAudience($jarRequestObject, $redirectUri, $stateValue, $responseMode);
             $this->verifyIssuer($jarRequestObject, $client, $redirectUri, $stateValue, $responseMode);
@@ -204,7 +211,14 @@ class RequestObjectRule extends AbstractRule
             }
         } else {
             // It is protected, we must validate the signature.
-            $this->verifySignature($requestObject, $client, $redirectUri, $stateValue, $responseMode);
+            $this->verifySignature(
+                $requestObject,
+                $client,
+                $redirectUri,
+                $stateValue,
+                $responseMode,
+                $this->requestParamsResolver->isVciHaipIssuanceRequest($request, $allowedServerRequestMethods),
+            );
         }
 
         $this->verifyAudience($requestObject, $redirectUri, $stateValue, $responseMode);
@@ -345,6 +359,9 @@ class RequestObjectRule extends AbstractRule
 
 
     /**
+     * @param bool $isVciHaipIssuanceRequest Whether the request is one for issuance while issuance follows HAIP, whose
+     * Request Object is signed with a key FAPI 2.0 lets sign with (section 5.4.1): it is verified without the client's
+     * RSA keys shorter than 2048 bits.
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function verifySignature(
@@ -353,6 +370,7 @@ class RequestObjectRule extends AbstractRule
         string $redirectUri,
         ?string $stateValue,
         ResponseModeInterface $responseMode,
+        bool $isVciHaipIssuanceRequest = false,
     ): void {
         ($jwks = $this->jwksResolver->forClient($client)) || throw OidcServerException::accessDenied(
             'can not validate request object, client JWKS not available',
@@ -362,11 +380,18 @@ class RequestObjectRule extends AbstractRule
             $responseMode,
         );
 
+        $verificationJwks = $isVciHaipIssuanceRequest ? $this->helpers->jwks()->withoutShortRsaKeys($jwks) : $jwks;
+
         try {
-            $requestObject->verifyWithKeySet($jwks);
+            $requestObject->verifyWithKeySet($verificationJwks);
         } catch (Throwable $exception) {
+            $leftOut = $verificationJwks === $jwks ?
+            '' :
+            ' RSA keys of the client shorter than 2048 bits were left out, as credential issuance following HAIP ' .
+            'requires.';
+
             throw OidcServerException::accessDenied(
-                'request object validation failed: ' . $exception->getMessage(),
+                'request object validation failed: ' . $exception->getMessage() . $leftOut,
                 $redirectUri,
                 null,
                 $stateValue,

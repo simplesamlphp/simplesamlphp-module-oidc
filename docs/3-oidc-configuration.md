@@ -981,11 +981,12 @@ The [OpenID4VC High Assurance Interoperability Profile](https://openid.net/specs
 provisions of the FAPI 2.0 Security Profile which apply to it (HAIP section 4).
 With `vci_haip` (default `false`), credential issuance follows the rules below;
 the option has no effect while issuance is off. They hold for issuance requests
-only: an authorization request is one when it carries an `issuer_state`, the
-scope of a credential configuration or `openid_credential` authorization
-details, whatever its `response_type`. OpenID Connect and plain OAuth 2.0
-requests keep the rules of the rest of this document, and the discovery
-document is the same with the option on.
+only, but for the last, which is about the authorization endpoint: an
+authorization request is one when it carries an `issuer_state`, the scope of a
+credential configuration or `openid_credential` authorization details, whatever
+its `response_type`. OpenID Connect and plain OAuth 2.0 requests keep the rules
+of the rest of this document, and the discovery document is the same with the
+option on.
 
 - **Pushed requests only.** The authorization endpoint refuses an issuance
   request which does not come as a pushed request (FAPI 2.0 section 5.3.2.2),
@@ -1014,6 +1015,32 @@ document is the same with the option on.
 - **60-second codes.** An issuance authorization code lives 60 seconds at most
   (FAPI 2.0 section 5.3.2.1; the authorization code lifetime when that is
   shorter).
+- **The holder's key in `cnf.jwk`.** A credential bound to a key names the key
+  itself, in `cnf.jwk` alone (HAIP section 6.1), a key the proof names by a DID
+  verification method too (by its key members, not the document's members
+  about it), and a proof-bound credential configuration advertises `["jwk"]` as
+  its `cryptographic_binding_methods_supported`, which says how the credential
+  is bound. A proof may still name its key by a DID verification method.
+- **No `http` redirect URIs but a native client's loopback one.** An issuance
+  request whose `redirect_uri` uses `http` is refused (`invalid_request`, on an
+  error page) unless its client is registered with `application_type` `native`
+  and the URI's host is `127.0.0.1` or `[::1]` (FAPI 2.0 section 5.3.2.2, RFC
+  8252 section 7.3), whatever its port; `localhost` is refused. It is judged at
+  the PAR and authorization endpoints, for clients registered by hand too.
+- **RSA keys of 2048 bits at least** (FAPI 2.0 section 5.4.1). A client
+  assertion (`private_key_jwt`) signed with a shorter RSA key is refused at the
+  PAR endpoint for an issuance request, and at the token endpoint for an
+  issuance code and a pre-authorized code (`invalid_client`); a Request Object
+  pushed with an issuance request is verified without the client's shorter RSA
+  keys (`access_denied`), and a key proof made with one is refused
+  (`invalid_proof`). Wallet Attestations and their proofs of possession, and
+  DPoP proofs, are held to the same length with or without the option.
+- **No CORS and 303 redirects at the authorization endpoint, for every
+  request.** The authorization endpoint adds no `Access-Control-Allow-Origin`
+  to its responses (FAPI 2.0 section 5.2.3), and redirects with `303 See Other`
+  rather than `302 Found` (section 5.3.2.2), OpenID Connect requests included:
+  a browser follows either with a `GET`, but a JavaScript client which reads
+  authorization responses through CORS can not while the option is on.
 
 ### What a HAIP configuration needs
 
@@ -1031,6 +1058,9 @@ the profile, and nothing is issued while it does not. It needs:
   every wallet authenticates;
 - `timestamp_validation_leeway` from 10 to 60 seconds (FAPI 2.0 section
   5.3.2.1), which the default, one minute, is;
+- RSA key pairs of 2048 bits at least (FAPI 2.0 section 5.4.1) under
+  `protocol_signature_key_pairs` and `vci_signature_key_pairs`, a key pair kept
+  for a rollover included, since every one of them is published;
 - a `scope` in every credential configuration (HAIP section 4.1), and at
   least one `dc+sd-jwt` configuration;
 - no credential configuration under the `diip_proof_bound`

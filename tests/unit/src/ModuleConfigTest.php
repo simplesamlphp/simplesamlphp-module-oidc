@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit;
 
 use DateInterval;
 use Defuse\Crypto\Key;
+use Jose\Component\Core\JWK;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -39,6 +40,7 @@ use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\TokenEndpointAuthMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TrustMarkStatusEndpointUsagePolicyEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
+use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\SupportedSerializers;
 use SimpleSAML\OpenID\ValueAbstracts;
@@ -482,6 +484,32 @@ class ModuleConfigTest extends TestCase
         $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
         $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
         $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn($algorithm);
+
+        return $signatureKeyPairMock;
+    }
+
+
+    /**
+     * A key pair whose public key is an RSA key with a modulus of the given length. Only the length is read: the
+     * modulus is its most significant bit followed by ones.
+     */
+    protected function buildRsaSignatureKeyPair(string $keyId, int $modulusBits): SignatureKeyPair
+    {
+        $octets = intdiv($modulusBits + 7, 8);
+        $modulus = chr(1 << ($modulusBits - ($octets - 1) * 8 - 1)) . str_repeat("\xFF", $octets - 1);
+        $publicJwk = new JWK([
+            'kty' => 'RSA',
+            'n' => rtrim(strtr(base64_encode($modulus), '+/', '-_'), '='),
+            'e' => 'AQAB',
+        ]);
+
+        $keyPairMock = $this->createMock(KeyPair::class);
+        $keyPairMock->method('getKeyId')->willReturn($keyId);
+        $keyPairMock->method('getPublicKey')->willReturn(new JwkDecorator($publicJwk));
+
+        $signatureKeyPairMock = $this->createMock(SignatureKeyPair::class);
+        $signatureKeyPairMock->method('getKeyPair')->willReturn($keyPairMock);
+        $signatureKeyPairMock->method('getSignatureAlgorithm')->willReturn(SignatureAlgorithmEnum::RS256);
 
         return $signatureKeyPairMock;
     }
@@ -5685,6 +5713,54 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * An RSA key pair shorter than 2048 bits (FAPI 2.0 section 5.4.1) is a fault among the protocol key pairs and
+     * the Verifiable Credential ones, whether it signs or is only published; one of 2048 bits, and an EC key pair,
+     * are not.
+     *
+     * @throws \Exception
+     */
+    public function testWantsRsaKeyPairsOfAtLeast2048BitsForHaip(): void
+    {
+        $vciKeyPairs = [
+            ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [
+                $this->vciSignatureKeyPairEntry([ModuleConfig::KEY_CERTIFICATE_CHAIN_FILENAME => 'oidc_module.crt']),
+                $this->vciSignatureKeyPairEntry(),
+            ],
+        ];
+
+        $this->assertSame(
+            [
+                'RSA key pairs shorter than the 2048 bits FAPI 2.0 requires: "protocol-1024" under ' .
+                '"protocol_signature_key_pairs" (1024 bits), "vci-2047" under "vci_signature_key_pairs" (2047 bits). ' .
+                'Replace them with keys of 2048 bits or more.',
+            ],
+            $this->sutMeetingHaip(
+                $vciKeyPairs,
+                bag: new SignatureKeyPairBag(
+                    $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
+                    $this->buildRsaSignatureKeyPair('vci-2047', 2047),
+                ),
+                protocolBag: new SignatureKeyPairBag(
+                    $this->buildRsaSignatureKeyPair('protocol-2048', 2048),
+                    $this->buildRsaSignatureKeyPair('protocol-1024', 1024),
+                ),
+            )->findVciHaipConfigurationFaults(),
+        );
+        $this->assertSame(
+            [],
+            $this->sutMeetingHaip(
+                $vciKeyPairs,
+                bag: new SignatureKeyPairBag(
+                    $this->buildRsaSignatureKeyPair('vci-01', 2048),
+                    $this->buildSignatureKeyPair('vci-02', SignatureAlgorithmEnum::ES256),
+                ),
+                protocolBag: new SignatureKeyPairBag($this->buildRsaSignatureKeyPair('protocol-4096', 4096)),
+            )->findVciHaipConfigurationFaults(),
+        );
+    }
+
+
+    /**
      * With the option on, a configuration which lacks a prerequisite is refused, every fault named, by the check and
      * by the getter every rule of the profile asks, so that each of them fails closed.
      *
@@ -5749,34 +5825,6 @@ class ModuleConfigTest extends TestCase
     public static function unreadablePoolKeyProfileProvider(): array
     {
         return ['none' => [null], 'an unknown one' => ['x5c']];
-    }
-
-
-    /**
-     * While no key pair has a certificate chain, the one which signs has none either, and the key pairs are not
-     * loaded to say so.
-     *
-     * @throws \Exception
-     */
-    public function testFindsTheSigningKeyHasNoChainWithoutLoadingTheKeyPairs(): void
-    {
-        $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
-        $valueAbstractsMock->expects($this->never())->method('signatureKeyPairBagFactory');
-
-        $sut = $this->sut(
-            overrides: $this->withHaipMet(
-                [ModuleConfig::OPTION_VCI_SIGNATURE_KEY_PAIRS => [$this->vciSignatureKeyPairEntry()]],
-            ),
-            valueAbstracts: $valueAbstractsMock,
-        );
-
-        $this->assertSame(
-            [
-                'The key pair which signs credentials, the first under "vci_signature_key_pairs", has no certificate ' .
-                'chain: set its "certificate_chain_filename".',
-            ],
-            $sut->findVciHaipConfigurationFaults(),
-        );
     }
 
 
@@ -5901,7 +5949,8 @@ class ModuleConfigTest extends TestCase
 
     /**
      * A ModuleConfig of withHaipMet(), whose VCI key pairs are the given bag (one key pair, "vci-01", unless
-     * given), so that the key ID a chain belongs to is the test's.
+     * given), so that the key ID a chain belongs to is the test's. Its protocol key pairs are the same bag, unless
+     * a bag of their own is given.
      *
      * @param array<string,mixed> $more
      * @param list<string> $without
@@ -5910,18 +5959,30 @@ class ModuleConfigTest extends TestCase
         array $more = [],
         array $without = [],
         ?SignatureKeyPairBag $bag = null,
+        ?SignatureKeyPairBag $protocolBag = null,
     ): ModuleConfig {
+        $bag ??= new SignatureKeyPairBag($this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256));
+        $sut = null;
+
         $signatureKeyPairBagFactoryMock = $this->createMock(SignatureKeyPairBagFactory::class);
-        $signatureKeyPairBagFactoryMock->method('fromConfig')->willReturn(
-            $bag ?? new SignatureKeyPairBag(
-                $this->buildSignatureKeyPair('vci-01', SignatureAlgorithmEnum::ES256),
-            ),
+        $signatureKeyPairBagFactoryMock->method('fromConfig')->willReturnCallback(
+            static function (SignatureKeyPairConfigBag $config) use (&$sut, $bag, $protocolBag): SignatureKeyPairBag {
+                if (
+                    $protocolBag instanceof SignatureKeyPairBag &&
+                    $sut instanceof ModuleConfig &&
+                    $config === $sut->getProtocolSignatureKeyPairConfigBag()
+                ) {
+                    return $protocolBag;
+                }
+
+                return $bag;
+            },
         );
 
         $valueAbstractsMock = $this->createMock(ValueAbstracts::class);
         $valueAbstractsMock->method('signatureKeyPairBagFactory')->willReturn($signatureKeyPairBagFactoryMock);
 
-        return $this->sut(overrides: $this->withHaipMet($more, $without), valueAbstracts: $valueAbstractsMock);
+        return $sut = $this->sut(overrides: $this->withHaipMet($more, $without), valueAbstracts: $valueAbstractsMock);
     }
 
 

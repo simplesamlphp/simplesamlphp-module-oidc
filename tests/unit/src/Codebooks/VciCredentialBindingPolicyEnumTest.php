@@ -127,6 +127,24 @@ class VciCredentialBindingPolicyEnumTest extends TestCase
 
 
     /**
+     * While issuance follows HAIP, a credential is bound to the key itself (`cnf.jwk`, HAIP 1.0 section 6.1), so a
+     * policy which takes a key proof advertises `jwk` alone, and one which takes none nothing.
+     */
+    public function testAdvertisesTheKeyItselfWhileIssuanceFollowsHaip(): void
+    {
+        $this->assertSame(
+            [VciCredentialBindingPolicyEnum::BINDING_METHOD_JWK],
+            VciCredentialBindingPolicyEnum::ProofBound->bindingMethodsUnderHaip(),
+        );
+        $this->assertSame(
+            [VciCredentialBindingPolicyEnum::BINDING_METHOD_JWK],
+            VciCredentialBindingPolicyEnum::DiipProofBound->bindingMethodsUnderHaip(),
+        );
+        $this->assertNull(VciCredentialBindingPolicyEnum::Proofless->bindingMethodsUnderHaip());
+    }
+
+
+    /**
      * Null rather than an empty list, and the difference matters at the one call site: OpenID4VCI
      * chains `proof_types_supported` to `cryptographic_binding_methods_supported`, so a proofless
      * configuration omits both fields instead of publishing one of them empty.

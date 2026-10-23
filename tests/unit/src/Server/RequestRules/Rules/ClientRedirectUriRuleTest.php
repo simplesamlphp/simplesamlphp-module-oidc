@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ClientRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
 /**
  * Redirect URI validation.
@@ -253,6 +255,119 @@ class ClientRedirectUriRuleTest extends TestCase
     }
 
 
+    // HAIP: no http redirect URI but the loopback one of a native client.
+
+    /**
+     * While issuance follows HAIP, an issuance request is answered at no `http` redirect URI but the loopback one of
+     * a native client (FAPI 2.0 section 5.3.2.2, RFC 8252 section 7.3), whatever its port; `https` and custom schemes
+     * are not affected, and the request is not asked about for them.
+     */
+    #[DataProvider('haipRedirectUriProvider')]
+    public function testTakesNoHttpRedirectUriButANativeLoopbackOneForIssuanceFollowingHaip(
+        string $redirectUri,
+        ?string $applicationType,
+        bool $isAccepted,
+    ): void {
+        $this->resolverReturns($redirectUri);
+        $this->requestParamsResolverMock
+            ->expects(preg_match('/^[\x00-\x20]*http:/i', $redirectUri) === 1 ? $this->once() : $this->never())
+            ->method('isVciHaipIssuanceRequest')
+            ->with($this->requestMock, [HttpMethodsEnum::GET])
+            ->willReturn(true);
+        $resultBag = $this->resultBagFor($this->client([$redirectUri], applicationType: $applicationType));
+
+        if ($isAccepted) {
+            $this->assertSame($redirectUri, $this->check($resultBag)?->getValue());
+
+            return;
+        }
+
+        $this->assertRefusedWithoutARedirect($resultBag);
+    }
+
+
+    public static function haipRedirectUriProvider(): array
+    {
+        return [
+            'the IPv4 loopback, native' => ['http://127.0.0.1:61234/callback', 'native', true],
+            'the IPv6 loopback, native' => ['http://[::1]:61234/callback', 'native', true],
+            'the IPv4 loopback without a port, native' => ['http://127.0.0.1/callback', 'native', true],
+            'the scheme in capitals, the IPv4 loopback, native' => ['HTTP://127.0.0.1:61234/callback', 'native', true],
+            'the IPv4 loopback, web' => ['http://127.0.0.1:61234/callback', 'web', false],
+            'the IPv4 loopback, no application type' => ['http://127.0.0.1:61234/callback', null, false],
+            'localhost, native' => ['http://localhost:61234/callback', 'native', false],
+            'another loopback address, native' => ['http://127.0.0.2:61234/callback', 'native', false],
+            'a host name, native' => ['http://wallet.example.org/callback', 'native', false],
+            'the scheme in capitals, a host name, web' => ['HTTP://wallet.example.org/callback', 'web', false],
+            'a query after the IPv6 loopback, native' => ['http://[::1]:61234?flow=issuance', 'native', true],
+            // parse_url() reads 127.0.0.1 for the host, where a browser, reading the backslash as a slash, goes to
+            // attacker.example.
+            'a backslash before the address, native' => [
+                'http://attacker.example\\@127.0.0.1/callback',
+                'native',
+                false,
+            ],
+            'userinfo, native' => ['http://wallet@127.0.0.1:61234/callback', 'native', false],
+            'a backslash in the path, native' => ['http://127.0.0.1:61234/a\\b', 'native', false],
+            // A browser removes the tab, and goes to 127.0.0.1.attacker.example.
+            'a tab after the address, native' => ["http://127.0.0.1\t.attacker.example/callback", 'native', false],
+            // A browser strips the space, and takes the URI for an http one.
+            'a space before a host name, web' => [' http://wallet.example.org/callback', 'web', false],
+            'https, web' => ['https://wallet.example.org/callback', 'web', true],
+            'a custom scheme, native' => ['eu.example.wallet://callback', 'native', true],
+        ];
+    }
+
+
+    /**
+     * A request which is not an issuance one following HAIP keeps the `http` redirect URI its client registered.
+     */
+    public function testTakesAnHttpRedirectUriForARequestWhichIsNotAnIssuanceOneFollowingHaip(): void
+    {
+        $this->resolverReturns('http://rp.example.org/callback');
+        $this->requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->willReturn(false);
+
+        $this->assertSame(
+            'http://rp.example.org/callback',
+            $this->check($this->resultBagFor($this->client(['http://rp.example.org/callback'])))?->getValue(),
+        );
+    }
+
+
+    /**
+     * A wallet admitted by a prefix is held to the same rule, having no application type of its own.
+     */
+    public function testHoldsAWalletAdmittedByPrefixToTheRuleForIssuanceFollowingHaip(): void
+    {
+        $this->enableUnregisteredWallets(['http://'], 'http://127.0.0.1:61234/callback');
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(true);
+
+        $this->assertRefusedWithoutARedirect($this->resultBagFor($this->genericClient()));
+    }
+
+
+    private function assertRefusedWithoutARedirect(ResultBag $resultBag): void
+    {
+        $this->loggerServiceMock->expects($this->once())->method('warning')->with(
+            'Request rejected: credential issuance following HAIP takes no http redirect URI but the loopback one ' .
+            'of a native client.',
+            $this->anything(),
+        );
+
+        try {
+            $this->check($resultBag);
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertFalse($exception->hasRedirect());
+
+            return;
+        }
+
+        $this->fail('The redirect URI was not refused.');
+    }
+
+
     private function resolverReturns(?string $redirectUri): void
     {
         $this->requestParamsResolverMock->method('getAsStringBasedOnAllowedMethods')->willReturn($redirectUri);
@@ -282,11 +397,13 @@ class ClientRedirectUriRuleTest extends TestCase
     private function client(
         array|string $registeredRedirectUri,
         bool $isGeneric = false,
+        ?string $applicationType = null,
     ): ClientEntityInterface&MockObject {
         $client = $this->createMock(ClientEntityInterface::class);
         $client->method('getRedirectUri')->willReturn($registeredRedirectUri);
         $client->method('getIdentifier')->willReturn('client-id');
         $client->method('isGeneric')->willReturn($isGeneric);
+        $client->method('getApplicationType')->willReturn($applicationType);
 
         return $client;
     }

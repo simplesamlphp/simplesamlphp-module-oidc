@@ -209,7 +209,10 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($enabledRow);
         $this->assertSame('Yes', $enabledRow->getValue());
         $this->assertStringContainsString('have to be pushed (PAR)', (string)$enabledRow->getNote());
-        $this->assertStringContainsString('OpenID Connect requests are not affected.', (string)$enabledRow->getNote());
+        $this->assertStringContainsString(
+            'The authorization endpoint allows no CORS and redirects with 303, for OpenID Connect requests too.',
+            (string)$enabledRow->getNote(),
+        );
 
         $issuanceOffRow = $this->findRowForOption(
             $this->buildVciOverviewBuilder(

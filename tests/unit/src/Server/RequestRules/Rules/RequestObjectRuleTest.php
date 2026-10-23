@@ -25,9 +25,11 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\RequestObject;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Jar\RequestObject as JarRequestObject;
 use SimpleSAML\OpenID\RequestObject\RequestObjectBag;
 use Stringable;
@@ -388,6 +390,135 @@ class RequestObjectRuleTest extends TestCase
         $this->assertInstanceOf(Result::class, $result);
         $this->assertIsArray($result->getValue());
         $this->assertNotEmpty($result->getValue());
+    }
+
+
+    /**
+     * While issuance follows HAIP, the Request Object of an issuance request is verified without the client's RSA
+     * keys shorter than 2048 bits (FAPI 2.0 section 5.4.1), a JAR one as an OpenID Connect one; that of another
+     * request with every key of the client.
+     *
+     * @param list<string> $verifiedKeyIds
+     */
+    #[DataProvider('requestObjectVerificationKeysProvider')]
+    public function testVerifiesTheRequestObjectOfAnIssuanceRequestWithoutShortRsaKeysWhileIssuanceFollowsHaip(
+        bool $isJar,
+        bool $isVciHaipIssuanceRequest,
+        array $verifiedKeyIds,
+    ): void {
+        if ($isJar) {
+            $this->jarRequestObjectMock->method('getClientId')->willReturn('client123');
+            $this->prepareOAuth2Request($this->jarRequestObjectMock);
+            $requestObjectMock = $this->jarRequestObjectMock;
+        } else {
+            $this->prepareOidcRequest();
+            $this->requestObjectMock->method('isProtected')->willReturn(true);
+            $requestObjectMock = $this->requestObjectMock;
+        }
+
+        $this->requestParamsResolverMock->expects($this->once())->method('isVciHaipIssuanceRequest')
+            ->with($this->requestStub, [HttpMethodsEnum::GET])
+            ->willReturn($isVciHaipIssuanceRequest);
+        $this->jwksResolverMock->method('forClient')->with($this->clientStub)
+            ->willReturn(['keys' => [self::rsaJwk(2047, 'short'), self::rsaJwk(2048, 'long')]]);
+        $verifications = [];
+        $requestObjectMock->expects($this->once())->method('verifyWithKeySet')->willReturnCallback(
+            static function (array $jwks) use (&$verifications): void {
+                /** @var array{keys: list<array<string,string>>} $jwks */
+                $verifications[] = array_column($jwks['keys'], 'kid');
+            },
+        );
+
+        $this->assertInstanceOf(
+            Result::class,
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $this->resultBagStub,
+                $this->loggerServiceMock,
+                [],
+                $this->responseModeStub,
+            ),
+        );
+        $this->assertSame([$verifiedKeyIds], $verifications);
+    }
+
+
+    public static function requestObjectVerificationKeysProvider(): array
+    {
+        return [
+            'OpenID Connect, an issuance request, HAIP' => [false, true, ['long']],
+            'OpenID Connect, another request' => [false, false, ['short', 'long']],
+            'JAR, an issuance request, HAIP' => [true, true, ['long']],
+            'JAR, another request' => [true, false, ['short', 'long']],
+        ];
+    }
+
+
+    /**
+     * A Request Object which does not verify without the short keys is refused, saying they were left out; one
+     * which does not verify with every key, as before.
+     */
+    #[DataProvider('requestObjectRefusalProvider')]
+    public function testSaysShortRsaKeysWereLeftOutWhenTheRequestObjectDoesNotVerify(
+        bool $isVciHaipIssuanceRequest,
+        string $hint,
+    ): void {
+        $this->prepareOidcRequest();
+        $this->requestObjectMock->method('isProtected')->willReturn(true);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn($isVciHaipIssuanceRequest);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => [self::rsaJwk(1024, 'short')]]);
+        $this->requestObjectMock->method('verifyWithKeySet')
+            ->willThrowException(new JwsException('Could not verify JWS signature.'));
+
+        try {
+            $this->sut()->checkRule(
+                $this->requestStub,
+                $this->resultBagStub,
+                $this->loggerServiceMock,
+                [],
+                $this->responseModeStub,
+            );
+        } catch (OidcServerException $exception) {
+            $this->assertSame('access_denied', $exception->getErrorType());
+            $this->assertSame($hint, $exception->getHint());
+
+            return;
+        }
+
+        $this->fail('The Request Object was not refused.');
+    }
+
+
+    public static function requestObjectRefusalProvider(): array
+    {
+        return [
+            'an issuance request, HAIP' => [
+                true,
+                'request object validation failed: Could not verify JWS signature. RSA keys of the client shorter ' .
+                'than 2048 bits were left out, as credential issuance following HAIP requires.',
+            ],
+            'another request' => [false, 'request object validation failed: Could not verify JWS signature.'],
+        ];
+    }
+
+
+    /**
+     * A public RSA key whose modulus has the given length: its most significant bit followed by ones. Only the length
+     * is read.
+     *
+     * @return array<string,string>
+     */
+    protected static function rsaJwk(int $modulusBits, string $keyId): array
+    {
+        $octets = intdiv($modulusBits + 7, 8);
+        $modulus = chr(1 << ($modulusBits - ($octets - 1) * 8 - 1)) . str_repeat("\xFF", $octets - 1);
+
+        return [
+            'kty' => 'RSA',
+            'kid' => $keyId,
+            'n' => rtrim(strtr(base64_encode($modulus), '+/', '-_'), '='),
+            'e' => 'AQAB',
+        ];
     }
 
 

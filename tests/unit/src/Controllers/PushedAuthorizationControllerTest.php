@@ -163,8 +163,9 @@ class PushedAuthorizationControllerTest extends TestCase
 
     protected function prepareAuthenticatedClient(
         ClientAuthenticationMethodsEnum $method = ClientAuthenticationMethodsEnum::ClientSecretPost,
+        bool $isSignedWithAShortRsaKey = false,
     ): void {
-        $resolvedAuth = new ResolvedClientAuthenticationMethod($this->clientMock, $method);
+        $resolvedAuth = new ResolvedClientAuthenticationMethod($this->clientMock, $method, $isSignedWithAShortRsaKey);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn($resolvedAuth);
     }
 
@@ -529,6 +530,47 @@ class PushedAuthorizationControllerTest extends TestCase
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
 
         $this->assertRefusedAsInvalidClient();
+    }
+
+
+    /**
+     * While issuance follows HAIP, nor can a client which authenticates by a client assertion signed with an RSA key
+     * shorter than 2048 bits (FAPI 2.0 section 5.4.1).
+     */
+    public function testRefusesAnAssertionSignedWithAShortRsaKeyForAnIssuanceRequestWhileIssuanceFollowsHaip(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'scope' => 'credential-a'], null);
+        $this->authenticatedOAuth2ClientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
+        $this->prepareAuthenticatedClient(ClientAuthenticationMethodsEnum::PrivateKeyJwt, true);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(true);
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->never())->method('persist');
+        $this->loggerMock->expects($this->once())->method('warning')->with(
+            'Pushed authorization request rejected: credential issuance following HAIP requires RSA keys of ' .
+            '2048 bits at least, and the client assertion is signed with a shorter one.',
+            ['client_id' => 'client123'],
+        );
+
+        $this->assertRefusedAsInvalidClient();
+    }
+
+
+    /**
+     * The same client pushes a request which is not for issuance as before.
+     */
+    public function testLetsAnAssertionSignedWithAShortRsaKeyPushARequestWhichIsNotForIssuance(): void
+    {
+        $this->preparePushedRequest(['response_type' => 'code', 'scope' => 'openid'], null);
+        $this->authenticatedOAuth2ClientResolverMock = $this->createMock(AuthenticatedOAuth2ClientResolver::class);
+        $this->prepareAuthenticatedClient(ClientAuthenticationMethodsEnum::PrivateKeyJwt, true);
+        $this->requestParamsResolverMock->method('isVciHaipIssuanceRequest')->willReturn(false);
+        $this->pushedAuthorizationRequestEntityFactoryMock->expects($this->once())->method('fromData')
+            ->with('client123', $this->anything(), null, null)
+            ->willReturn($this->parEntityMock);
+        $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())->method('persist');
+
+        $this->sut()->__invoke($this->serverRequestMock);
     }
 
 

@@ -21,6 +21,7 @@ use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ClientAuthenticationMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Core\ClientAssertion;
 use SimpleSAML\OpenID\Decorators\DateIntervalDecorator;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
@@ -666,6 +667,11 @@ class AuthenticatedOAuth2ClientResolver
             );
         }
 
+        // Whether a key FAPI 2.0 lets sign with made the signature (section 5.4.1: an RSA key of 2048 bits at least),
+        // which an issuance request requires while issuance follows HAIP: found out here, where the key set is at
+        // hand, and refused where the request is known to be one.
+        $isSignedWithAShortRsaKey = $this->isSignedWithAShortRsaKey($clientAssertion, $jwks);
+
         // Check if the Client Assertion token has already been used. Only applicable with a protocol cache which
         // keeps entries from one request to the next.
         $reuseCheckCache = $this->clientAssertionReuseCheckCache();
@@ -713,7 +719,33 @@ class AuthenticatedOAuth2ClientResolver
         return new ResolvedClientAuthenticationMethod(
             $client,
             ClientAuthenticationMethodsEnum::PrivateKeyJwt,
+            $isSignedWithAShortRsaKey,
         );
+    }
+
+
+    /**
+     * Whether a client assertion which verified with the key set verifies only with one of its RSA keys shorter
+     * than 2048 bits (Helpers\Jwks::withoutShortRsaKeys()): verified again without them, which costs only for a key
+     * set which holds one.
+     *
+     * @param array<array-key,mixed> $jwks
+     */
+    protected function isSignedWithAShortRsaKey(ClientAssertion $clientAssertion, array $jwks): bool
+    {
+        $jwksWithoutShortRsaKeys = $this->helpers->jwks()->withoutShortRsaKeys($jwks);
+
+        if ($jwksWithoutShortRsaKeys === $jwks) {
+            return false;
+        }
+
+        try {
+            $clientAssertion->verifyWithKeySet($jwksWithoutShortRsaKeys);
+        } catch (Throwable) {
+            return true;
+        }
+
+        return false;
     }
 
 

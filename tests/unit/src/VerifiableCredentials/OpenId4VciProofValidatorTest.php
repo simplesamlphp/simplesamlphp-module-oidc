@@ -117,6 +117,9 @@ class OpenId4VciProofValidatorTest extends TestCase
     /** The library's own facade, which builds and parses key proofs as a wallet and this issuer do. */
     protected static ?VerifiableCredentialsService $realVerifiableCredentials = null;
 
+    /** @var array<int,array<string,mixed>> Public RSA keys by modulus length, generated once. */
+    protected static array $rsaPublicKeys = [];
+
 
     protected function setUp(): void
     {
@@ -818,6 +821,132 @@ class OpenId4VciProofValidatorTest extends TestCase
             'invalid_proof',
             $this->requestWith(['getKeyId' => null, 'getX509CertificateChain' => ['cert']]),
         );
+    }
+
+
+    /**
+     * The module configuration of setUp(), with RS256 advertised beside ES256, and issuance following HAIP or not.
+     */
+    protected function issuanceFollowingHaip(bool $isVciHaipEnabled): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
+        $this->moduleConfigMock->method('getSupportedAlgorithms')->willReturn(
+            new SupportedAlgorithms(
+                new SignatureAlgorithmBag(SignatureAlgorithmEnum::ES256, SignatureAlgorithmEnum::RS256),
+            ),
+        );
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturn($isVciHaipEnabled);
+    }
+
+
+    /**
+     * @return array<string,mixed>
+     */
+    protected static function rsaPublicKey(int $modulusBits): array
+    {
+        return self::$rsaPublicKeys[$modulusBits] ??= JWKFactory::createRSAKey($modulusBits)->toPublic()->all();
+    }
+
+
+    /**
+     * While issuance follows HAIP, the key of an RS256 proof is an RSA key of 2048 bits at least (FAPI 2.0 section
+     * 5.4.1), whether the proof carries it inline or names a verification method: a shorter one is refused. Without
+     * HAIP it is accepted as before.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('rsaProofKeyProvider')]
+    public function testRefusesAnRsaProofKeyShorterThan2048BitsWhileIssuanceFollowsHaip(
+        int $modulusBits,
+        bool $isInline,
+        bool $isVciHaipEnabled,
+        bool $isRefused,
+    ): void {
+        $this->issuanceFollowingHaip($isVciHaipEnabled);
+        $key = self::rsaPublicKey($modulusBits);
+        $overrides = ['getAlgorithm' => SignatureAlgorithmEnum::RS256->value];
+
+        if ($isInline) {
+            $overrides += ['getKeyId' => null, 'getJsonWebKey' => $key];
+        } else {
+            $this->resolvedKeys[self::HOLDER_DID_URL] = $key;
+        }
+
+        if ($isRefused) {
+            $this->assertRefusedWith(
+                'invalid_proof',
+                $this->requestWith($overrides),
+                expectedMessageFragment: 'credential issuance following HAIP takes RSA keys of 2048 bits at least',
+            );
+
+            return;
+        }
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith($overrides),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame((new JWK($key))->thumbprint('sha256'), $validatedProofs[0]->getKeyThumbprint());
+    }
+
+
+    public static function rsaProofKeyProvider(): array
+    {
+        return [
+            '1024 bits, inline, HAIP' => [1024, true, true, true],
+            '1024 bits, a verification method, HAIP' => [1024, false, true, true],
+            '2048 bits, inline, HAIP' => [2048, true, true, false],
+            '2048 bits, a verification method, HAIP' => [2048, false, true, false],
+            '1024 bits, inline, no HAIP' => [1024, true, false, false],
+            '1024 bits, a verification method, no HAIP' => [1024, false, false, false],
+        ];
+    }
+
+
+    /**
+     * While issuance follows HAIP, the credential names the key itself (`cnf.jwk`, HAIP 1.0 section 6.1), the key a
+     * verification method names too, by the members which define the key rather than those the DID document gives
+     * it; a key sent inline is named as it was sent, its `use` included. Without HAIP a verification method is named
+     * by its id.
+     *
+     * @param array<string,mixed> $confirmation
+     * @throws \Throwable
+     */
+    #[DataProvider('confirmationProvider')]
+    public function testNamesTheKeyItselfWhileIssuanceFollowsHaip(
+        bool $isInline,
+        bool $isVciHaipEnabled,
+        array $confirmation,
+    ): void {
+        $this->issuanceFollowingHaip($isVciHaipEnabled);
+        $this->resolvedKeys[self::HOLDER_DID_URL] = self::OTHER_PUBLIC_EC_JWK + ['kid' => '#key-1', 'use' => 'sig'];
+
+        $inlineKey = self::PUBLIC_EC_JWK + ['use' => 'sig'];
+
+        $validatedProofs = $this->sut()->validateRequest(
+            $this->requestWith($isInline ? ['getKeyId' => null, 'getJsonWebKey' => $inlineKey] : []),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+
+        $this->assertNotNull($validatedProofs[0]);
+        $this->assertSame($confirmation, $validatedProofs[0]->getConfirmation());
+        $this->assertSame($isInline ? null : self::HOLDER_DID_URL, $validatedProofs[0]->getKeyId());
+    }
+
+
+    public static function confirmationProvider(): array
+    {
+        return [
+            'a verification method, HAIP' => [false, true, [ClaimsEnum::Jwk->value => self::OTHER_PUBLIC_EC_JWK]],
+            'a verification method, no HAIP' => [false, false, [ClaimsEnum::Kid->value => self::HOLDER_DID_URL]],
+            'inline, HAIP' => [true, true, [ClaimsEnum::Jwk->value => self::PUBLIC_EC_JWK + ['use' => 'sig']]],
+            'inline, no HAIP' => [true, false, [ClaimsEnum::Jwk->value => self::PUBLIC_EC_JWK + ['use' => 'sig']]],
+        ];
     }
 
 

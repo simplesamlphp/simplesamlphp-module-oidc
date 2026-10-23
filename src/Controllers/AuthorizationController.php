@@ -125,16 +125,36 @@ class AuthorizationController
                 $this->__invoke($this->psrHttpBridge->getPsrHttpFactory()->createRequest($request)),
             );
 
-            // If not already handled, allow CORS (for JS clients).
-            if (!$response->headers->has('Access-Control-Allow-Origin')) {
+            // If not already handled, allow CORS (for JS clients), unless issuance follows HAIP: FAPI 2.0 section 5.2.3
+            // has an authorization server support no CORS at its authorization endpoint, which goes for every request
+            // (D30 (a) of the HAIP plan). Read from the option as it is set (ModuleConfig::isVciHaipOptionOn()), so
+            // that a configuration which does not meet HAIP fails issuance requests only.
+            if (!$this->moduleConfig->isVciHaipOptionOn() && !$response->headers->has('Access-Control-Allow-Origin')) {
                 $response->headers->set('Access-Control-Allow-Origin', '*');
             }
 
-            return $response;
+            return $this->withTheRedirectStatusOfTheProfile($response);
         } catch (OAuthServerException $exception) {
             $this->addIssuerToRedirectedError($exception);
-            return $this->errorResponder->forException($exception);
+            return $this->withTheRedirectStatusOfTheProfile($this->errorResponder->forException($exception));
         }
+    }
+
+
+    /**
+     * While issuance follows HAIP, a redirect is a 303 (FAPI 2.0 section 5.3.2.2: an authorization server "should use
+     * the HTTP 303 status code when redirecting the user agent using status codes"), an authorization response and an
+     * error redirected to the client alike, for every request the endpoint answers: after a login, or a cancel, the
+     * endpoint knows the request by the authentication state alone, and a browser follows a 302 and a 303 alike, with
+     * a GET, so an OpenID Connect client is redirected as before. The option is read as for CORS above.
+     */
+    protected function withTheRedirectStatusOfTheProfile(Response $response): Response
+    {
+        if ($response->getStatusCode() === Response::HTTP_FOUND && $this->moduleConfig->isVciHaipOptionOn()) {
+            $response->setStatusCode(Response::HTTP_SEE_OTHER);
+        }
+
+        return $response;
     }
 
 

@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Helpers\Http;
+use SimpleSAML\Module\oidc\Helpers\Jwks;
 use SimpleSAML\Module\oidc\Helpers\Random;
 use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Helpers\Str;
@@ -25,6 +26,7 @@ use SimpleSAML\Module\oidc\Helpers\Str;
 #[UsesClass(Arr::class)]
 #[UsesClass(Random::class)]
 #[UsesClass(Scope::class)]
+#[UsesClass(Jwks::class)]
 #[AllowMockObjectsWithoutExpectations]
 class HelpersTest extends TestCase
 {
@@ -43,5 +45,6 @@ class HelpersTest extends TestCase
         $this->assertInstanceOf(Arr::class, $this->sut()->arr());
         $this->assertInstanceOf(Random::class, $this->sut()->random());
         $this->assertInstanceOf(Scope::class, $this->sut()->scope());
+        $this->assertInstanceOf(Jwks::class, $this->sut()->jwks());
     }
 }

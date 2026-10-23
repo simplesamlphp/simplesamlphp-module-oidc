@@ -142,6 +142,16 @@ class PreAuthorizedCodeClientRule extends AbstractRule
                 throw OidcServerException::invalidClient($request);
             }
 
+            // Nor with a signature of an RSA key shorter than 2048 bits (FAPI 2.0 section 5.4.1).
+            if ($isVciHaipEnabled && $resolved->isSignedWithAShortRsaKey()) {
+                $loggerService->warning(
+                    'Token request rejected: credential issuance following HAIP requires RSA keys of 2048 bits at ' .
+                    'least, and the client assertion is signed with a shorter one.',
+                    ['client_id' => $resolvedClientId],
+                );
+                throw OidcServerException::invalidClient($request);
+            }
+
             $loggerService->debug(
                 'PreAuthorizedCodeClientRule: client resolved.',
                 [

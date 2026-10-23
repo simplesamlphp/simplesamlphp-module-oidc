@@ -186,4 +186,22 @@ enum VciCredentialBindingPolicyEnum: string
 
         return $bindingMethods;
     }
+
+
+    /**
+     * The value of `cryptographic_binding_methods_supported` while issuance follows HAIP, which binds a credential
+     * to the holder's key itself (`cnf.jwk`, HAIP 1.0 section 6.1) whichever way a proof names the key: `jwk` alone,
+     * since the field says how the credential is bound, not how a proof may name its key. Null where the policy
+     * binds nothing.
+     *
+     * The DIIP policy, which refuses a key sent inline, is no policy of a configuration which follows HAIP
+     * (ModuleConfig::findVciHaipConfigurationFaults()); asked anyway, it answers what its credentials would be bound
+     * by.
+     *
+     * @return ?list<string>
+     */
+    public function bindingMethodsUnderHaip(): ?array
+    {
+        return $this->requiresKeyProof() ? [self::BINDING_METHOD_JWK] : null;
+    }
 }

@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\DidResolutionBudget;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
+use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\VerificationRelationshipEnum;
 use SimpleSAML\OpenID\Did;
@@ -218,6 +219,10 @@ class OpenId4VciProofValidator
             self::MAX_NETWORK_RESOLVED_DIDS,
         );
 
+        // Asked once, outside the validation of a proof, which takes whatever goes wrong in it for the proof's
+        // fault.
+        $isVciHaipEnabled = $this->moduleConfig->getVciHaipEnabled();
+
         $validatedProofs = [];
         $provenKeyThumbprints = [];
         foreach ($proofJwts as $proofJwt) {
@@ -226,6 +231,7 @@ class OpenId4VciProofValidator
                 $accessToken,
                 $bindingPolicy,
                 $didResolutionBudget,
+                $isVciHaipEnabled,
             );
 
             // OpenID4VCI 1.0 section 8.3: "Each key provided by the Wallet is used to bind to, at most, one
@@ -360,6 +366,7 @@ class OpenId4VciProofValidator
         AccessTokenEntity $accessToken,
         VciCredentialBindingPolicyEnum $bindingPolicy,
         DidResolutionBudget $didResolutionBudget,
+        bool $isVciHaipEnabled = false,
     ): ValidatedOpenId4VciProof {
         try {
             $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
@@ -384,6 +391,12 @@ class OpenId4VciProofValidator
 
             $jwk = $this->enforceCanonicalPublicKey($jwk);
 
+            // While issuance follows HAIP, the key is one FAPI 2.0 lets sign with (section 5.4.1): an RSA key of 2048
+            // bits at least. Asked before the signature, which a key that does not fit is not trusted to verify.
+            if ($isVciHaipEnabled) {
+                $this->enforceKeyFitsTheAlgorithm($proof, $jwk);
+            }
+
             try {
                 $proof->verifyWithKey($jwk);
             } catch (Throwable $throwable) {
@@ -402,7 +415,21 @@ class OpenId4VciProofValidator
             // was written down or found.
             $keyThumbprint = (new JWK($jwk))->thumbprint('sha256');
 
-            $validatedProof = new ValidatedOpenId4VciProof($proof, $subject, $keyId, $holderJwk, $keyThumbprint);
+            // While issuance follows HAIP, the credential names the key itself (`cnf.jwk`, HAIP 1.0 section 6.1), the
+            // key a verification method names too: by the members RFC 7638 has define the key, not the DID
+            // document's members about it. A key sent inline is named by the `jwk` header as it was sent.
+            $confirmationJwk = $isVciHaipEnabled && $keyId !== null ?
+            $this->verifiableCredentials->helpers()->jwk()->getRequiredMembers($jwk) :
+            null;
+
+            $validatedProof = new ValidatedOpenId4VciProof(
+                $proof,
+                $subject,
+                $keyId,
+                $holderJwk,
+                $keyThumbprint,
+                $confirmationJwk,
+            );
 
             $this->loggerService->debug(
                 'Key proof validated.',
@@ -1013,6 +1040,36 @@ class OpenId4VciProofValidator
                 'invalid_proof',
                 'The key the proof is to be verified with is not a public key in the representation RFC 7518 ' .
                 'defines for it.',
+            );
+        }
+    }
+
+
+    /**
+     * Enforces that the proof's key is one its algorithm can be used with, as the library has it
+     * (Helpers\Jwk::enforceKeyFitsSignatureAlgorithm()): for an RSA algorithm, an RSA key of 2048 bits at least.
+     *
+     * @param array<string,mixed> $jwk
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     */
+    protected function enforceKeyFitsTheAlgorithm(OpenId4VciProof $proof, array $jwk): void
+    {
+        try {
+            $this->verifiableCredentials->helpers()->jwk()->enforceKeyFitsSignatureAlgorithm(
+                $jwk,
+                SignatureAlgorithmEnum::from($proof->getAlgorithm()),
+                'key proof',
+            );
+        } catch (Throwable $throwable) {
+            $this->loggerService->warning(
+                'Key proof key can not be used with the algorithm of the proof.',
+                ['error' => $throwable->getMessage()],
+            );
+
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The key the proof is to be verified with is not one its algorithm can be used with: credential ' .
+                'issuance following HAIP takes RSA keys of 2048 bits at least.',
             );
         }
     }

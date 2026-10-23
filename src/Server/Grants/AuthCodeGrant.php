@@ -577,6 +577,16 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 );
                 throw OidcServerException::invalidClient($request);
             }
+
+            // Nor with a signature of an RSA key shorter than 2048 bits (FAPI 2.0 section 5.4.1).
+            if ($isVciHaipCode && $resolvedClientAuthenticationMethod->isSignedWithAShortRsaKey()) {
+                $this->loggerService->warning(
+                    'Token request rejected: credential issuance following HAIP requires RSA keys of 2048 bits at ' .
+                    'least, and the client assertion is signed with a shorter one.',
+                    ['client_id' => $authenticatedClientId, 'auth_code_id' => $authCodePayload->auth_code_id],
+                );
+                throw OidcServerException::invalidClient($request);
+            }
         } else {
             // A wallet which is not registered has nothing to authenticate with. Such a code was issued before
             // issuance followed HAIP: since, an issuance request has to be pushed, and the PAR endpoint refuses a

@@ -133,6 +133,16 @@ class PushedAuthorizationController
             throw OidcServerException::invalidClient($request);
         }
 
+        // Nor with a signature of an RSA key shorter than 2048 bits (FAPI 2.0 section 5.4.1).
+        if ($isVciHaipIssuanceRequest && $resolvedAuth->isSignedWithAShortRsaKey()) {
+            $this->logger->warning(
+                'Pushed authorization request rejected: credential issuance following HAIP requires RSA keys of ' .
+                '2048 bits at least, and the client assertion is signed with a shorter one.',
+                ['client_id' => $client->getIdentifier()],
+            );
+            throw OidcServerException::invalidClient($request);
+        }
+
         // Issuance runs in the authorization code flow only, and while it follows HAIP a request for any other
         // response type is refused (FAPI 2.0 section 5.3.2.2), one asking for an ID token besides included. That is
         // judged before the rules, some of which judge a request by its response type, and before the DPoP proof is

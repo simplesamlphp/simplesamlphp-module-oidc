@@ -90,6 +90,8 @@ class CredentialIssuerMetadataServiceTest extends TestCase
 
     protected ?string $logoUri;
 
+    protected bool $isVciHaipEnabled = false;
+
 
     protected function setUp(): void
     {
@@ -115,6 +117,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         // the issuer display has no such member.
         $this->moduleConfigMock->method('getDescription')->willReturn('Example credentials');
         $this->moduleConfigMock->method('getLogoUri')->willReturnCallback(fn(): ?string => $this->logoUri);
+        $this->moduleConfigMock->method('getVciHaipEnabled')->willReturnCallback(fn(): bool => $this->isVciHaipEnabled);
         $this->moduleConfigMock->method('getVciCredentialConfigurationsSupported')
             ->willReturn($this->credentialConfigurations());
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
@@ -483,6 +486,40 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->assertSame(
             ['did:jwk', 'did:web'],
             $configurations[self::CONFIGURATION_ID][ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+    }
+
+
+    /**
+     * While issuance follows HAIP, a credential is bound to the key itself (`cnf.jwk`, HAIP 1.0 section 6.1), so a
+     * proof-bound configuration advertises `jwk` alone, with its proof types, and the DID registry is not asked; a
+     * proofless one still advertises no binding.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     * @throws \JsonException
+     */
+    public function testAdvertisesTheKeyItselfAsTheBindingMethodWhileIssuanceFollowsHaip(): void
+    {
+        $this->isVciHaipEnabled = true;
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->publishedMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertSame(
+            [VciCredentialBindingPolicyEnum::BINDING_METHOD_JWK],
+            $configurations[self::CONFIGURATION_ID][ClaimsEnum::CryptographicBindingMethodsSupported->value],
+        );
+        $this->assertArrayHasKey(ClaimsEnum::ProofTypesSupported->value, $configurations[self::CONFIGURATION_ID]);
+
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::Proofless;
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->publishedMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertArrayNotHasKey(
+            ClaimsEnum::CryptographicBindingMethodsSupported->value,
+            $configurations[self::CONFIGURATION_ID],
         );
     }
 

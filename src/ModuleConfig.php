@@ -43,6 +43,7 @@ use SimpleSAML\OpenID\Decorators\DateIntervalDecorator;
 use SimpleSAML\OpenID\Decorators\HttpClientDecorator;
 use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
+use SimpleSAML\OpenID\Helpers\Jwk;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
@@ -2118,9 +2119,9 @@ class ModuleConfig
      * naming what to set; empty when nothing. Answered whether or not the option is on. A malformed option among
      * those read throws as its own getter does.
      *
-     * Each is a read of the configuration. Whether the signing key's certificate chain validates is for
-     * VciCertificateChainResolver, at every signature and in the Credential Issuer metadata, and what a credential
-     * configuration lacks on its own is for validateVciCredentialConfigurations().
+     * Each is a read of the configuration, the public keys of the key pairs included. Whether the signing key's
+     * certificate chain validates is for VciCertificateChainResolver, at every signature and in the Credential Issuer
+     * metadata, and what a credential configuration lacks on its own is for validateVciCredentialConfigurations().
      *
      * @return list<string>
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -2256,6 +2257,28 @@ class ModuleConfig
             );
         }
 
+        // RSA keys of 2048 bits at least (FAPI 2.0 section 5.4.1), in every key pair which signs for issuance: the
+        // protocol ones (access tokens, ID tokens) and the Verifiable Credential ones (credentials, Status List Tokens,
+        // nonces). Every key pair is published, and verifies whether or not it is the one which signs, so one kept for
+        // a rollover counts too. The federation key pairs sign nothing of issuance.
+        $shortRsaKeyPairs = array_merge(
+            $this->describeShortRsaKeyPairs(
+                $this->getProtocolSignatureKeyPairBag(),
+                self::OPTION_PROTOCOL_SIGNATURE_KEY_PAIRS,
+            ),
+            $this->describeShortRsaKeyPairs($this->getVciSignatureKeyPairBag(), self::OPTION_VCI_SIGNATURE_KEY_PAIRS),
+        );
+
+        if ($shortRsaKeyPairs !== []) {
+            $faults[] = sprintf(
+                'RSA key pairs shorter than the %d bits FAPI 2.0 requires: %s. Replace them with keys of %d bits or ' .
+                'more.',
+                Jwk::MIN_RSA_MODULUS_BITS,
+                implode(', ', $shortRsaKeyPairs),
+                Jwk::MIN_RSA_MODULUS_BITS,
+            );
+        }
+
         // The issuer named by the Credential Issuer URL, which its certificate can name (D32 (b) of the HAIP plan).
         $issuerIdentifierMode = $this->getVciIssuerIdentifierMode();
 
@@ -2305,6 +2328,41 @@ class ModuleConfig
         }
 
         return $this->vciHaipConfigurationFaults = $faults;
+    }
+
+
+    /**
+     * The RSA key pairs of a bag whose modulus is shorter than FAPI 2.0 allows (section 5.4.1: 2048 bits), each
+     * described by its key ID, the option it is configured under and its length.
+     *
+     * @return list<string>
+     * @throws \SimpleSAML\OpenID\Exceptions\InvalidValueException
+     */
+    protected function describeShortRsaKeyPairs(SignatureKeyPairBag $signatureKeyPairBag, string $option): array
+    {
+        $descriptions = [];
+
+        foreach ($signatureKeyPairBag->getAll() as $signatureKeyPair) {
+            $publicJwk = $signatureKeyPair->getKeyPair()->getPublicKey()->jwk()->all();
+
+            if (($publicJwk['kty'] ?? null) !== 'RSA') {
+                continue;
+            }
+
+            /** @var array<string,mixed> $publicJwk */
+            $modulusBits = $this->openIdHelpers->jwk()->getRsaModulusBitLength($publicJwk);
+
+            if ($modulusBits < Jwk::MIN_RSA_MODULUS_BITS) {
+                $descriptions[] = sprintf(
+                    '"%s" under "%s" (%d bits)',
+                    $signatureKeyPair->getKeyPair()->getKeyId(),
+                    $option,
+                    $modulusBits,
+                );
+            }
+        }
+
+        return $descriptions;
     }
 
 

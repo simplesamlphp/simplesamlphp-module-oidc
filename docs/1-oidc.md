@@ -198,20 +198,20 @@ with the OP as its Authorization Server. What that covers:
   [HAIP 1.0](3-oidc-configuration.md#haip-10-vci_haip)): pushed, in the
   authorization code flow, with PKCE `S256`, from a wallet which authenticates
   at the PAR and token endpoints (with a Wallet Attestation, for wallets
-  registered for it), and with 60-second codes; and nothing is issued under a
-  configuration the profile can not work with (DPoP not required, a credential
-  configuration without a `scope`, a signing key without a certificate chain,
-  and the like). Credentials and Status List Tokens can carry X.509 (`x5c`)
-  certificate chains. Among what HAIP requires of an issuer and the module
-  lacks: the holder's key in `cnf.jwk` whatever the proof named it by; and the
-  other FAPI 2.0 provisions
-  (no CORS at the authorization endpoint, no `http` redirect URIs but native
-  loopback ones, 303 redirects, RSA key lengths). Nor does the module evaluate
-  the key attestations HAIP leaves to ecosystems to require. The same
-  document lists all of these as gaps H-G1 to H-G11. The OpenID Foundation
-  certifies OpenID4VCI issuers through its HAIP issuer test plan, so the module
-  can not be certified as it stands; CI runs the foundation's base 1.0 issuer
-  plan instead (see [Conformance testing](#conformance-testing)).
+  registered for it), with `http` redirect URIs only from native clients at a
+  loopback address and RSA keys of 2048 bits at least, and with 60-second
+  codes; credentials name the holder's key in `cnf.jwk`; the authorization
+  endpoint allows no CORS and redirects with 303, for every request; and
+  nothing is issued under a configuration the profile can not work with (DPoP
+  not required, a credential configuration without a `scope`, a signing key
+  without a certificate chain, an RSA key pair shorter than 2048 bits, and the
+  like). Credentials and Status List Tokens can carry X.509 (`x5c`)
+  certificate chains. The module does not evaluate the key attestations HAIP
+  leaves to ecosystems to require, and the same document lists what else it
+  lacks, gaps H-G1 to H-G11. The OpenID Foundation certifies OpenID4VCI
+  issuers through its HAIP issuer test plan, which the module has not been run
+  against yet; CI runs the foundation's base 1.0 issuer plan instead (see
+  [Conformance testing](#conformance-testing)).
 - **Drafts underneath.** `dc+sd-jwt` credentials follow the IETF SD-JWT VC
   draft, as OpenID4VCI 1.0 Appendix A.3 does, and credential status follows
   the IETF Token Status List draft; `vc+sd-jwt` is an extension rather than a

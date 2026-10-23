@@ -8,6 +8,7 @@ use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Client;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
 use SimpleSAML\Module\oidc\Helpers\Http;
+use SimpleSAML\Module\oidc\Helpers\Jwks;
 use SimpleSAML\Module\oidc\Helpers\Random;
 use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\Helpers\Str;
@@ -27,6 +28,8 @@ class Helpers
     protected static ?Random $random = null;
 
     protected static ?Scope $scope = null;
+
+    protected static ?Jwks $jwks = null;
 
 
     public function http(): Http
@@ -70,5 +73,11 @@ class Helpers
     public function scope(): Scope
     {
         return static::$scope ??= new Scope();
+    }
+
+
+    public function jwks(): Jwks
+    {
+        return static::$jwks ??= new Jwks();
     }
 }

@@ -1198,19 +1198,24 @@ $config = [
      * (optional) Whether credential issuance follows HAIP 1.0, the OpenID4VC
      * High Assurance Interoperability Profile, with the FAPI 2.0 provisions it
      * applies. Defaults to false, and has no effect while issuance is
-     * disabled. It holds for issuance requests only, OpenID Connect requests
-     * being not affected: an issuance request has to be pushed (PAR), use the
-     * authorization code flow and PKCE with S256, and the wallet has to
-     * authenticate at the PAR and token endpoints (none is refused, for a
-     * pre-authorized code too, whatever
-     * OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS says). An issuance code
-     * lives 60 seconds, and a pushed issuance request 5 minutes, at most.
+     * disabled. It holds for issuance requests, OpenID Connect requests being
+     * affected only at the authorization endpoint: an issuance request has to
+     * be pushed (PAR), use the authorization code flow and PKCE with S256, and
+     * an http redirect URI only of a native client at a loopback address
+     * (127.0.0.1 or [::1]), and the wallet has to authenticate at the PAR and
+     * token endpoints (none is refused, for a pre-authorized code too, whatever
+     * OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS says), with RSA keys of
+     * 2048 bits at least, as for Request Objects and key proofs. An issuance
+     * code lives 60 seconds, and a pushed issuance request 5 minutes, at most,
+     * and credentials name the holder's key in cnf.jwk. The authorization
+     * endpoint allows no CORS, and redirects with 303, for every request.
      * With it on, nothing is issued while the rest of the configuration does
      * not meet the profile, which needs: OPTION_VCI_REQUIRE_DPOP on; a
      * protocol cache kept across requests (OPTION_PROTOCOL_CACHE_ADAPTER, not
      * ArrayAdapter or NullAdapter); OPTION_VCI_ALLOW_NON_REGISTERED_CLIENTS
      * and OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS off;
-     * OPTION_TIMESTAMP_VALIDATION_LEEWAY from 10 to 60 seconds; a scope in
+     * OPTION_TIMESTAMP_VALIDATION_LEEWAY from 10 to 60 seconds; RSA key pairs
+     * of 2048 bits at least among the protocol and VCI key pairs; a scope in
      * every credential configuration, and a dc+sd-jwt one among them; none
      * under the diip_proof_bound binding policy; a certificate chain on the
      * key pair which signs, and OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME; the

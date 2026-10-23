@@ -489,6 +489,55 @@ class AuthCodeGrantTest extends TestCase
 
 
     /**
+     * While issuance follows HAIP, a client whose assertion is signed with an RSA key shorter than 2048 bits (FAPI 2.0
+     * section 5.4.1) is refused for a code of the issuance flow; a code of another flow, or one redeemed while
+     * issuance does not follow HAIP, is redeemed as before.
+     */
+    #[DataProvider('redemptionWithAnAssertionSignedWithAShortRsaKeyProvider')]
+    public function testRefusesAnAssertionSignedWithAShortRsaKeyForAnIssuanceCodeWhileIssuanceFollowsHaip(
+        FlowTypeEnum $flowType,
+        bool $isVciHaipEnabled,
+        bool $isRefused,
+    ): void {
+        $this->vciHaipEnabled = $isVciHaipEnabled;
+        $this->storedAuthCode(flowType: $flowType);
+        $this->rulesReturn(
+            codeVerifier: self::CODE_VERIFIER,
+            authenticationMethod: ClientAuthenticationMethodsEnum::PrivateKeyJwt,
+            isSignedWithAShortRsaKey: true,
+        );
+        $request = $this->requestFor($this->payloadWithChallenge(), ['code_verifier' => self::CODE_VERIFIER]);
+
+        if (!$isRefused) {
+            $this->expectAccessTokenToBeIssued();
+            $this->sut()->respondToAccessTokenRequest($request, $this->responseType(), new DateInterval('PT5M'));
+
+            return;
+        }
+
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        $this->assertRejects('invalid_client', $request);
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: credential issuance following HAIP requires RSA keys of 2048 bits at least, ' .
+            'and the client assertion is signed with a shorter one.',
+            ['client_id' => self::CLIENT_ID, 'auth_code_id' => self::AUTH_CODE_ID],
+        );
+    }
+
+
+    public static function redemptionWithAnAssertionSignedWithAShortRsaKeyProvider(): array
+    {
+        return [
+            'an issuance code, HAIP' => [FlowTypeEnum::VciAuthorizationCode, true, true],
+            'an issuance code, no HAIP' => [FlowTypeEnum::VciAuthorizationCode, false, false],
+            'an OpenID Connect code, HAIP' => [FlowTypeEnum::OidcAuthorizationCode, true, false],
+        ];
+    }
+
+
+    /**
      * Redeeming a code of the issuance flow asks whether issuance follows HAIP whichever way the client authenticates,
      * so a configuration which does not meet the profile, which asking refuses (ModuleConfig::getVciHaipEnabled()),
      * refuses every such redemption; a code of another flow is redeemed as before.
@@ -3252,6 +3301,7 @@ class AuthCodeGrantTest extends TestCase
         ?string $codeVerifier = null,
         ClientAuthenticationMethodsEnum $authenticationMethod = ClientAuthenticationMethodsEnum::ClientSecretBasic,
         string $authenticatedClientId = self::CLIENT_ID,
+        bool $isSignedWithAShortRsaKey = false,
     ): void {
         $authenticatedClient = $this->createMock(ClientEntity::class);
         $authenticatedClient->method('getIdentifier')->willReturn($authenticatedClientId);
@@ -3260,7 +3310,11 @@ class AuthCodeGrantTest extends TestCase
             CodeVerifierRule::class => new Result(CodeVerifierRule::class, $codeVerifier),
             ClientAuthenticationRule::class => new Result(
                 ClientAuthenticationRule::class,
-                new ResolvedClientAuthenticationMethod($authenticatedClient, $authenticationMethod),
+                new ResolvedClientAuthenticationMethod(
+                    $authenticatedClient,
+                    $authenticationMethod,
+                    $isSignedWithAShortRsaKey,
+                ),
             ),
         ];
 

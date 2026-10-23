@@ -55,4 +55,20 @@ class ResolvedClientAuthenticationMethodTest extends TestCase
         $this->assertSame($this->clientMock, $sut->getClient());
         $this->assertSame(ClientAuthenticationMethodsEnum::ClientSecretPost, $sut->getClientAuthenticationMethod());
     }
+
+
+    /**
+     * Only a client assertion says it was signed with a short RSA key, and only when the resolver found it was.
+     */
+    public function testIsSignedWithAShortRsaKeyOnlyWhenTheResolverFoundSo(): void
+    {
+        $this->assertFalse($this->sut()->isSignedWithAShortRsaKey());
+        $this->assertTrue(
+            (new ResolvedClientAuthenticationMethod(
+                $this->clientMock,
+                ClientAuthenticationMethodsEnum::PrivateKeyJwt,
+                true,
+            ))->isSignedWithAShortRsaKey(),
+        );
+    }
 }

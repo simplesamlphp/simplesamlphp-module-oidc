@@ -574,6 +574,76 @@ class AuthorizationControllerTest extends TestCase
     }
 
 
+    /**
+     * While issuance follows HAIP, the authorization endpoint answers no request with CORS (FAPI 2.0 section 5.2.3,
+     * D30 (a) of the HAIP plan), an OpenID Connect one included.
+     */
+    public function testAllowsNoCorsWhileIssuanceFollowsHaip(): void
+    {
+        $this->moduleConfigStub->method('isVciHaipOptionOn')->willReturn(true);
+        $this->authorizationServerStub
+            ->method('completeAuthorizationRequest')
+            ->willReturn($this->responseStub);
+
+        $this->responseHeaderBagMock->expects($this->never())->method('set');
+
+        $this->mock()->authorization($this->symfonyRequestMock);
+    }
+
+
+    /**
+     * While issuance follows HAIP, every redirect of the authorization endpoint is a 303 (FAPI 2.0 section 5.3.2.2),
+     * an authorization response and an error redirected to the client alike; a response which is no redirect keeps
+     * its status, and without HAIP a redirect stays a 302.
+     */
+    #[DataProvider('redirectStatusProvider')]
+    public function testRedirectsWithASeeOtherWhileIssuanceFollowsHaip(
+        bool $isVciHaipOptionOn,
+        bool $isError,
+        int $status,
+        int $expectedStatus,
+    ): void {
+        $this->moduleConfigStub->method('isVciHaipOptionOn')->willReturn($isVciHaipOptionOn);
+        $builtResponse = new Response(
+            '',
+            $status,
+            $status === Response::HTTP_FOUND ? ['Location' => 'https://rp.example.org/cb?code=the-code'] : [],
+        );
+        $psrHttpBridge = null;
+
+        if ($isError) {
+            $this->authorizationServerStub->method('validateAuthorizationRequest')->willThrowException(
+                OidcServerException::accessDenied('denied', 'https://rp.example.org/cb'),
+            );
+            $this->errorResponderMock->method('forException')->willReturn($builtResponse);
+        } else {
+            $this->authorizationServerStub->method('completeAuthorizationRequest')->willReturn($this->responseStub);
+            $httpFoundationFactoryStub = $this->createStub(HttpFoundationFactory::class);
+            $httpFoundationFactoryStub->method('createResponse')->willReturn($builtResponse);
+            $psrHttpBridge = $this->createStub(PsrHttpBridge::class);
+            $psrHttpBridge->method('getHttpFoundationFactory')->willReturn($httpFoundationFactoryStub);
+        }
+
+        $response = $this->mock(psrHttpBridge: $psrHttpBridge)->authorization($this->symfonyRequestMock);
+
+        $this->assertSame($builtResponse, $response);
+        $this->assertSame($expectedStatus, $response->getStatusCode());
+    }
+
+
+    public static function redirectStatusProvider(): array
+    {
+        return [
+            'HAIP, an authorization response' => [true, false, Response::HTTP_FOUND, Response::HTTP_SEE_OTHER],
+            'HAIP, an error redirected to the client' => [true, true, Response::HTTP_FOUND, Response::HTTP_SEE_OTHER],
+            'HAIP, a form post' => [true, false, Response::HTTP_OK, Response::HTTP_OK],
+            'HAIP, an error to the user agent' => [true, true, Response::HTTP_BAD_REQUEST, Response::HTTP_BAD_REQUEST],
+            'no HAIP, an authorization response' => [false, false, Response::HTTP_FOUND, Response::HTTP_FOUND],
+            'no HAIP, an error redirected to the client' => [false, true, Response::HTTP_FOUND, Response::HTTP_FOUND],
+        ];
+    }
+
+
     public static function redirectedErrorProvider(): array
     {
         return [

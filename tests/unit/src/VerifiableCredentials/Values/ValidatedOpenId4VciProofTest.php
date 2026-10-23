@@ -44,6 +44,27 @@ class ValidatedOpenId4VciProofTest extends TestCase
 
 
     /**
+     * A key the validator has the credential name by value (HAIP 1.0 section 6.1) is what `cnf` carries, though the
+     * proof named a verification method, which stays the one it named.
+     */
+    public function testConfirmsTheKeyByValueWhereTheValidatorAsksForThat(): void
+    {
+        $validatedProof = new ValidatedOpenId4VciProof(
+            $this->createMock(OpenId4VciProof::class),
+            self::HOLDER_DID,
+            self::HOLDER_DID . '#key-1',
+            null,
+            'thumbprint',
+            self::HOLDER_JWK,
+        );
+
+        $this->assertSame([ClaimsEnum::Jwk->value => self::HOLDER_JWK], $validatedProof->getConfirmation());
+        $this->assertSame(self::HOLDER_DID . '#key-1', $validatedProof->getKeyId());
+        $this->assertNull($validatedProof->getHolderJwk());
+    }
+
+
+    /**
      * An inline key names no verification method, so the key itself is what there is to confirm.
      * Manufacturing a verification method id for it would be inventing an identifier the wallet never
      * published.

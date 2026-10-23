@@ -289,6 +289,42 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
     }
 
 
+    /**
+     * While issuance follows HAIP, a client whose assertion is signed with an RSA key shorter than 2048 bits (FAPI 2.0
+     * section 5.4.1) is refused; while it does not, the client is accepted as before.
+     */
+    #[DataProvider('haipProvider')]
+    public function testRefusesAnAssertionSignedWithAShortRsaKeyWhileIssuanceFollowsHaip(bool $isVciHaipEnabled): void
+    {
+        $this->isVciHaipEnabled = $isVciHaipEnabled;
+        $this->withClientId(self::CLIENT_ID);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(true);
+        $this->withRegisteredClient(isEnabled: true, isExpired: false);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
+            ->willReturn($this->resolved(ClientAuthenticationMethodsEnum::PrivateKeyJwt, true));
+
+        if (!$isVciHaipEnabled) {
+            $this->assertResolvedToTheRegisteredClient($this->check());
+
+            return;
+        }
+
+        $this->assertRefused();
+        $this->assertLogged(
+            'warning',
+            'Token request rejected: credential issuance following HAIP requires RSA keys of 2048 bits at least, ' .
+            'and the client assertion is signed with a shorter one.',
+            ['client_id' => self::CLIENT_ID],
+        );
+    }
+
+
+    public static function haipProvider(): array
+    {
+        return ['HAIP' => [true], 'no HAIP' => [false]];
+    }
+
+
     public function testAClientIdNamingNoRegisteredClientIsTakenAsTheSelfDeclaredIdentifier(): void
     {
         $this->withClientId(self::CLIENT_ID);
@@ -525,9 +561,11 @@ class PreAuthorizedCodeClientRuleTest extends TestCase
     }
 
 
-    private function resolved(ClientAuthenticationMethodsEnum $method): ResolvedClientAuthenticationMethod
-    {
-        return new ResolvedClientAuthenticationMethod($this->clientMock, $method);
+    private function resolved(
+        ClientAuthenticationMethodsEnum $method,
+        bool $isSignedWithAShortRsaKey = false,
+    ): ResolvedClientAuthenticationMethod {
+        return new ResolvedClientAuthenticationMethod($this->clientMock, $method, $isSignedWithAShortRsaKey);
     }
 
 

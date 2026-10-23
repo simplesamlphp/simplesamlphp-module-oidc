@@ -24,6 +24,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Helpers\DateTime;
+use SimpleSAML\Module\oidc\Helpers\Jwks;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Validators\ClientAttestationVerifier;
@@ -140,6 +141,7 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->dateTimeHelperMock = $this->createMock(DateTime::class);
         $this->helpersMock = $this->createMock(Helpers::class);
         $this->helpersMock->method('dateTime')->willReturn($this->dateTimeHelperMock);
+        $this->helpersMock->method('jwks')->willReturn(new Jwks());
         $this->protocolCacheStub = $this->createStub(ProtocolCache::class);
 
         $this->serverRequestMock = $this->createMock(ServerRequestInterface::class);
@@ -1072,6 +1074,85 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
             ClientAuthenticationMethodsEnum::PrivateKeyJwt,
             $result->getClientAuthenticationMethod(),
         );
+    }
+
+
+    /**
+     * An assertion which verifies only with an RSA key of the client shorter than 2048 bits (FAPI 2.0 section 5.4.1)
+     * is told apart, by verifying it again without the short keys; one a longer key made is not, and a key set
+     * without short keys is verified once.
+     *
+     * @param list<array<string,string>> $keys
+     * @param list<list<string>> $verifiedWith
+     */
+    #[DataProvider('assertionSigningKeyProvider')]
+    public function testForPrivateKeyJwtTellsWhetherTheAssertionIsSignedWithAShortRsaKey(
+        array $keys,
+        string $signingKeyId,
+        bool $isSignedWithAShortRsaKey,
+        array $verifiedWith,
+    ): void {
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnOnConsecutiveCalls('some-assertion-token', ClientAssertionTypesEnum::JwtBaerer->value);
+        $this->requestParamsResolverMock->method('parseClientAssertionToken')
+            ->willReturn($this->clientAssertionMock);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $this->jwksResolverMock->method('forClient')->willReturn(['keys' => $keys]);
+        $this->dateTimeHelperMock->method('getSecondsToExpirationTime')->willReturn(60);
+        $verifications = [];
+        $this->clientAssertionMock->method('verifyWithKeySet')->willReturnCallback(
+            static function (array $jwks) use ($signingKeyId, &$verifications): void {
+                /** @var array{keys: list<array<string,string>>} $jwks */
+                $keyIds = array_column($jwks['keys'], 'kid');
+                $verifications[] = $keyIds;
+
+                if (!in_array($signingKeyId, $keyIds, true)) {
+                    throw new JwsException('Could not verify JWS signature.');
+                }
+            },
+        );
+
+        $result = $this->sut()->forPrivateKeyJwt($this->serverRequestMock);
+
+        $this->assertInstanceOf(ResolvedClientAuthenticationMethod::class, $result);
+        $this->assertSame($isSignedWithAShortRsaKey, $result->isSignedWithAShortRsaKey());
+        $this->assertSame($verifiedWith, $verifications);
+    }
+
+
+    public static function assertionSigningKeyProvider(): array
+    {
+        $short = self::rsaJwk(2047, 'short');
+        $long = self::rsaJwk(2048, 'long');
+        $ec = ['kty' => 'EC', 'kid' => 'ec', 'crv' => 'P-256', 'x' => 'x', 'y' => 'y'];
+        $verifiedTwice = [['short', 'long'], ['long']];
+
+        return [
+            'signed with a short key beside a long one' => [[$short, $long], 'short', true, $verifiedTwice],
+            'signed with a long key beside a short one' => [[$short, $long], 'long', false, $verifiedTwice],
+            'signed with the only key, a short one' => [[$short], 'short', true, [['short'], []]],
+            'no short key' => [[$long, $ec], 'ec', false, [['long', 'ec']]],
+        ];
+    }
+
+
+    /**
+     * A public RSA key whose modulus has the given length: its most significant bit followed by ones. Only the length
+     * is read.
+     *
+     * @return array<string,string>
+     */
+    protected static function rsaJwk(int $modulusBits, string $keyId): array
+    {
+        $octets = intdiv($modulusBits + 7, 8);
+        $modulus = chr(1 << ($modulusBits - ($octets - 1) * 8 - 1)) . str_repeat("\xFF", $octets - 1);
+
+        return [
+            'kty' => 'RSA',
+            'kid' => $keyId,
+            'n' => rtrim(strtr(base64_encode($modulus), '+/', '-_'), '='),
+            'e' => 'AQAB',
+        ];
     }
 
 

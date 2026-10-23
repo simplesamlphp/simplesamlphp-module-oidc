@@ -24,6 +24,8 @@ class ValidatedOpenId4VciProof
      * a verification method instead.
      * @param string $keyThumbprint The JWK SHA-256 Thumbprint (RFC 7638) of the key the proof was verified
      * with: the key the credential is bound to, however the proof named it.
+     * @param ?array<array-key,mixed> $confirmationJwk The key the credential's `cnf` names by value in place of the
+     * verification method the proof named, as HAIP 1.0 section 6.1 has it, or null to name it as the proof did.
      */
     public function __construct(
         protected readonly OpenId4VciProof $proof,
@@ -31,6 +33,7 @@ class ValidatedOpenId4VciProof
         protected readonly ?string $keyId,
         protected readonly ?array $holderJwk,
         protected readonly string $keyThumbprint,
+        protected readonly ?array $confirmationJwk = null,
     ) {
     }
 
@@ -83,7 +86,7 @@ class ValidatedOpenId4VciProof
 
     /**
      * The `cnf` claim stating which key this credential is held by, in whichever way the proof stated
-     * it.
+     * it, or by the key itself where the validator asks for that (HAIP 1.0 section 6.1).
      *
      * Built here rather than in each of the three format branches which emit it. All three have to say
      * the same thing about the same proof, and the way that goes wrong is one branch being written
@@ -95,6 +98,10 @@ class ValidatedOpenId4VciProof
      */
     public function getConfirmation(): ?array
     {
+        if (is_array($this->confirmationJwk)) {
+            return [ClaimsEnum::Jwk->value => $this->confirmationJwk];
+        }
+
         if (is_string($this->keyId)) {
             return [ClaimsEnum::Kid->value => $this->keyId];
         }
