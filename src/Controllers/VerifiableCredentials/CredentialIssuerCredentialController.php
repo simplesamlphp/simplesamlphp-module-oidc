@@ -459,8 +459,9 @@ class CredentialIssuerCredentialController
             );
         }
 
-        // A configuration which could not be published as it stands is not issued under either. Discovery and the
-        // Credential Issuer metadata already refuse it, but a token issued before it changed may still name it.
+        // A configuration which could not be granted or published as it stands is not issued under either.
+        // Discovery and the Credential Issuer metadata already refuse it, but a token issued before it changed may
+        // still name it: one granting a standard scope a configuration has since been named after, say.
         $configurationFault = $this->moduleConfig->findFaultInVciCredentialConfiguration(
             $resolvedCredentialIdentifier,
             $resolvedCredentialConfiguration,

@@ -1126,9 +1126,11 @@ Since the id is the scope a credential is granted under, a credential
 configuration's optional `scope`, which the Credential Issuer metadata
 publishes for wallets to request, is either left out or equal to the id. A
 configuration stating another scope (even one OpenID4VCI would allow, such as
-a scope shared by several configurations) is refused when the scopes are read,
-like an id outside that grammar, rather than advertised and then refused at
-authorization.
+a scope shared by several configurations) is refused, like an id outside that
+grammar, wherever the configurations are checked: when the scopes are read,
+before the Credential Issuer metadata is published and before a credential
+offer is made. So it is never advertised and then refused at authorization,
+and the Credential Endpoint does not issue under it either.
 
 A configuration which leaves its `scope` out is requested through
 `authorization_details` only (OpenID4VCI 1.0 section 12.2.4): its id is

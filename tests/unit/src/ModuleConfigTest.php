@@ -3584,8 +3584,10 @@ class ModuleConfigTest extends TestCase
     ): void {
         $sut = $this->sut(overrides: array_merge(
             $this->withCredentialConfigurations([
-                'FineCredential' => [ClaimsEnum::Scope->value => 'FineCredential'],
-                'TestCredential' => [ClaimsEnum::Scope->value => $scope],
+                'FineCredential' => $this->issuableCredentialConfiguration([
+                    ClaimsEnum::Scope->value => 'FineCredential',
+                ]),
+                'TestCredential' => $this->issuableCredentialConfiguration([ClaimsEnum::Scope->value => $scope]),
             ]),
             [ModuleConfig::OPTION_VCI_ENABLED => true],
         ));
@@ -4244,6 +4246,73 @@ class ModuleConfigTest extends TestCase
         $this->expectExceptionMessage('Verifiable Credential configuration [OtherCredential] has no vct');
 
         $sut->validateVciCredentialConfigurations();
+    }
+
+
+    /**
+     * A configuration whose id could not be a scope, or which states a scope other than its id, is a fault of the
+     * configuration (findFaultInVciCredentialConfiguration()), which the Credential Endpoint and the configuration
+     * overview ask for, so the check the Credential Issuer metadata and offers ask for on its own refuses it as
+     * discovery does, rather than advertising a scope which authorization then refuses. (Found in passing: the
+     * metadata published such a scope.)
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('configurationWhichCanNotBeGrantedProvider')]
+    public function testRefusesAConfigurationWhichCanNotBeGrantedWhereverTheConfigurationsAreChecked(
+        string $id,
+        array $parameters,
+        string $fault,
+    ): void {
+        $configuration = $this->issuableCredentialConfiguration($parameters);
+        $sut = $this->sut(overrides: $this->withCredentialConfigurations([
+            'FineCredential' => $this->issuableCredentialConfiguration(),
+            $id => $configuration,
+        ]));
+
+        $this->assertSame($fault, $sut->findFaultInVciCredentialConfiguration($id, $configuration));
+        $this->assertNull(
+            $sut->findFaultInVciCredentialConfiguration('FineCredential', $this->issuableCredentialConfiguration()),
+        );
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($fault);
+
+        $sut->validateVciCredentialConfigurations();
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: array, 2: string}>
+     */
+    public static function configurationWhichCanNotBeGrantedProvider(): array
+    {
+        return [
+            'a standard scope name' => [
+                ScopesEnum::OpenId->value,
+                [],
+                'Verifiable Credential configuration id can not take a protected scope name: openid',
+            ],
+            'not a scope-token' => [
+                'Test Credential',
+                [],
+                'Verifiable Credential configuration id [Test Credential] is not a scope-token (RFC 6749 section ' .
+                '3.3): printable ASCII without space, double quote or backslash.',
+            ],
+            'another scope' => [
+                'TestCredential',
+                [ClaimsEnum::Scope->value => 'OtherScope'],
+                'Verifiable Credential configuration [TestCredential] states the scope [OtherScope], but its scope ' .
+                'is its id: leave the scope out or make it equal to the id.',
+            ],
+            // The metadata would publish a number, while the scope is the string the id was written as.
+            'a number for a numeric id' => [
+                '123',
+                [ClaimsEnum::Scope->value => 123],
+                'Verifiable Credential configuration [123] states the scope [int], but its scope is its id: leave ' .
+                'the scope out or make it equal to the id.',
+            ],
+        ];
     }
 
 

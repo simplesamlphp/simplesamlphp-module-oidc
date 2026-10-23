@@ -90,8 +90,9 @@ class CredentialIssuerMetadataService
     {
         $signatureKeyPair = $this->moduleConfig->getActiveVciSignatureKeyPair();
 
-        // Nothing is advertised which could not be issued as it stands, so a malformed configuration fails the
-        // whole document, as it fails discovery (ModuleConfig::getVciScopes()).
+        // Nothing is advertised which could not be granted and issued as it stands, a scope other than the
+        // configuration's id included, so a malformed configuration fails the whole document, as it fails discovery
+        // (ModuleConfig::getVciScopes()).
         $this->moduleConfig->validateVciCredentialConfigurations();
 
         // Nor while issuance is set to follow HAIP 1.0 under a configuration which does not meet it, which fails the

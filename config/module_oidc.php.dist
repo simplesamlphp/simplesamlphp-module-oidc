@@ -1420,10 +1420,11 @@ $config = [
      * descriptions as OpenID4VCI 1.0 Appendix B has them (each `path` a claims
      * path pointer, no claim described twice). `claims` and `display` belong in
      * `credential_metadata`, not at the top level of the configuration. A
-     * configuration which is not issuable is refused, and with it the whole
-     * scope list and the Credential Issuer metadata, so discovery,
-     * registration, authorization, credential offers and issuance fail until
-     * it is corrected; the configuration overview names the fault.
+     * configuration which is not issuable, or breaks a rule of the paragraph
+     * above, is refused, and with it the whole scope list and the Credential
+     * Issuer metadata, so discovery, registration, authorization, credential
+     * offers and issuance fail until it is corrected; the configuration
+     * overview names the fault.
      *
      * A claim marked `mandatory` is one the issuer always includes. So a
      * configuration with one that nothing writes, neither the issuer itself

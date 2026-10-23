@@ -23,7 +23,6 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
-use SimpleSAML\OpenID\Codebooks\ScopesEnum;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use SimpleSAML\OpenID\Did\DidWebResolver;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
@@ -1135,19 +1134,6 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             // Deliberately generic about why a mapping is ineffective, since there are two distinct
             // reasons and each one is named on the mapping itself.
             $error = match (true) {
-                $this->hasProtectedScopeName($credentialConfigurations) => Translate::noop(
-                    'At least one credential configuration is named after a standard OpenID Connect ' .
-                    'scope (openid, offline_access, profile, email, address, phone). Such a name is ' .
-                    'refused, and with it the whole scope list, so discovery, registration and ' .
-                    'authorization fail until it is renamed.',
-                ),
-                $this->hasScopeOtherThanItsId($credentialConfigurations) => Translate::noop(
-                    'At least one credential configuration states a scope other than its own id. The id ' .
-                    'is the scope a credential is granted under, so the stated one would be advertised and ' .
-                    'then refused. Such a configuration is refused, and with it the whole scope list, so ' .
-                    'discovery, registration and authorization fail until the scope is left out or made ' .
-                    'equal to the id.',
-                ),
                 $this->hasFault($credentialConfigurations) => Translate::noop(
                     'At least one credential configuration can not be issued as it stands, for the reason ' .
                     'marked above. Such a configuration is refused, and with it the whole scope list and ' .
@@ -1943,7 +1929,6 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
      *     vct: ?string,
      *     isVctAUri: bool,
      *     scope: ?string,
-     *     isScopeItsId: bool,
      *     displayNames: string[],
      *     claimPaths: string[],
      *     attributeMappings: array<array{
@@ -1984,14 +1969,12 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $configurations[] = [
                 'id' => $id,
                 'format' => $format,
-                // What ModuleConfig::getVciScopes() refuses the configuration for, so the overview does not
-                // mirror the checks.
+                // What ModuleConfig::getVciScopes() refuses the configuration for (a name or a stated scope it
+                // can not be granted under included), so the overview does not mirror the checks.
                 'fault' => $this->moduleConfig->findFaultInVciCredentialConfiguration($id, $configuration),
                 'vct' => $vct,
                 'isVctAUri' => $vct === null || preg_match(ModuleConfig::URI_PATTERN, $vct) === 1,
                 'scope' => is_string($scope) ? $scope : null,
-                // Mirrors ModuleConfig::getVciScopes(), which refuses a stated scope other than the id.
-                'isScopeItsId' => !array_key_exists(ClaimsEnum::Scope->value, $configuration) || $scope === $id,
                 'displayNames' => $this->buildDisplayNames($configuration),
                 'claimPaths' => $this->buildClaimPaths($validClaimPaths),
                 'attributeMappings' => $this->buildAttributeMappings(
@@ -2079,44 +2062,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
 
 
     /**
-     * A credential configuration becomes a scope of the same name, so ModuleConfig::getVciScopes() refuses
-     * one named after a standard scope; this row is where the administrator sees which option that is.
-     */
-    protected function hasProtectedScopeName(array $credentialConfigurations): bool
-    {
-        $protectedNames = array_map(fn(ScopesEnum $scope): string => $scope->value, ScopesEnum::cases());
-
-        /** @var mixed $configuration */
-        foreach ($credentialConfigurations as $configuration) {
-            if (is_array($configuration) && in_array($configuration['id'] ?? null, $protectedNames, true)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-
-    /**
-     * ModuleConfig::getVciScopes() refuses a configuration stating a scope other than its id; this row is where
-     * the administrator sees which option that is.
-     */
-    protected function hasScopeOtherThanItsId(array $credentialConfigurations): bool
-    {
-        /** @var mixed $configuration */
-        foreach ($credentialConfigurations as $configuration) {
-            if (is_array($configuration) && ($configuration['isScopeItsId'] ?? true) === false) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-
-    /**
-     * Whether any credential configuration can not be issued as it stands, which ModuleConfig::getVciScopes()
-     * refuses.
+     * Whether any credential configuration can not be granted, published or issued as it stands, which
+     * ModuleConfig::getVciScopes() refuses, and the Credential Issuer metadata with it.
      */
     protected function hasFault(array $credentialConfigurations): bool
     {

@@ -671,7 +671,8 @@ class VciOverviewBuilderTest extends TestCase
 
     /**
      * ModuleConfig::getVciScopes() refuses a configuration named after a standard scope, which the protocol
-     * overview reports on its scope list; this row names the option actually at fault.
+     * overview reports on its scope list; this row marks the configuration at fault with the reason ModuleConfig
+     * gives, and says what the refusal stops.
      */
     public function testFlagsACredentialConfigurationNamedAfterAStandardScope(): void
     {
@@ -687,19 +688,27 @@ class VciOverviewBuilderTest extends TestCase
         );
 
         $this->assertNotNull($row);
-        $this->assertCount(2, (array)$row->getValue());
-        $this->assertStringContainsString('standard OpenID Connect scope', (string)$row->getWarning());
+
+        $configurations = $row->getValue();
+        $this->assertIsArray($configurations);
+        $this->assertCount(2, $configurations);
+        $this->assertSame(
+            'Verifiable Credential configuration id can not take a protected scope name: offline_access',
+            $configurations[0]['fault'],
+        );
+        $this->assertNull($configurations[1]['fault']);
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
         $this->assertNull($row->getNote());
     }
 
 
     /**
      * ModuleConfig::getVciScopes() refuses a configuration stating a scope other than its id, which takes the
-     * scope list down; this row names the option at fault. A scope which is not a string is shown as none, and
-     * is flagged all the same.
+     * scope list and the Credential Issuer metadata down; this row marks the configuration with the reason. A
+     * scope which is not a string is shown as none, and is marked all the same.
      */
     #[DataProvider('scopeOtherThanTheIdProvider')]
-    public function testFlagsACredentialConfigurationStatingAScopeOtherThanItsId(mixed $scope): void
+    public function testFlagsACredentialConfigurationStatingAScopeOtherThanItsId(mixed $scope, string $shownAs): void
     {
         $row = $this->findRowForOption(
             $this->buildVciOverviewBuilder([
@@ -717,23 +726,28 @@ class VciOverviewBuilderTest extends TestCase
 
         $configurations = $row->getValue();
         $this->assertIsArray($configurations);
-        $this->assertTrue($configurations[0]['isScopeItsId']);
-        $this->assertTrue($configurations[1]['isScopeItsId']);
-        $this->assertFalse($configurations[2]['isScopeItsId']);
+        $this->assertNull($configurations[0]['fault']);
+        $this->assertNull($configurations[1]['fault']);
+        $this->assertSame(
+            'Verifiable Credential configuration [Stated] states the scope [' . $shownAs . '], but its scope is ' .
+            'its id: leave the scope out or make it equal to the id.',
+            $configurations[2]['fault'],
+        );
+        $this->assertSame(is_string($scope) ? $scope : null, $configurations[2]['scope']);
 
-        $this->assertStringContainsString('states a scope other than its own id', (string)$row->getWarning());
+        $this->assertStringContainsString('can not be issued as it stands', (string)$row->getWarning());
     }
 
 
     /**
-     * @return array<string, array{0: mixed}>
+     * @return array<string, array{0: mixed, 1: string}>
      */
     public static function scopeOtherThanTheIdProvider(): array
     {
         return [
-            'another name' => ['Other'],
-            'not a string' => [['Stated']],
-            'null' => [null],
+            'another name' => ['Other', 'Other'],
+            'not a string' => [['Stated'], 'array'],
+            'null' => [null, 'null'],
         ];
     }
 

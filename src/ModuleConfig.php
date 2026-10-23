@@ -164,8 +164,9 @@ class ModuleConfig
      * without space, double quote or backslash. Every granted scope goes into the "scope" claim of the JWT
      * access token (RFC 9068 section 2.2.3, which takes the RFC 8693 section 4.2 form: scope-tokens separated by
      * single spaces), and the library refuses to mint a token whose "scope" does not follow that grammar; so a
-     * private scope name (validate()) and a Verifiable Credential configuration id (getVciScopes()) are held to
-     * it at configuration time, where the fault can be reported, rather than at the token endpoint.
+     * private scope name (validate()) and a Verifiable Credential configuration id
+     * (findFaultInVciCredentialConfiguration()) are held to it at configuration time, where the fault can be
+     * reported, rather than at the token endpoint.
      */
     final public const string SCOPE_TOKEN_PATTERN = '/^[\x21\x23-\x5B\x5D-\x7E]+\z/';
 
@@ -3490,6 +3491,7 @@ class ModuleConfig
      * Returns an empty array if VCI is not enabled.
      *
      * @return array<string, array<string, string>>
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function getVciScopes(): array
     {
@@ -3497,61 +3499,27 @@ class ModuleConfig
             return [];
         }
 
+        // Each id becomes a scope, so a configuration whose id could not be one, or which states another scope, is
+        // refused, and so is one which could not be issued as it stands, since what is advertised has to be issuable
+        // too (findFaultInVciCredentialConfiguration()). Refused here rather than in validate(), like a malformed
+        // value of any other Verifiable Credential option, so the configuration overview can still show the failure.
+        $this->validateVciCredentialConfigurations();
+
         $vciScopes = [];
-        /** @psalm-suppress MixedAssignment */
-        foreach ($this->getVciCredentialConfigurationsSupported() as $credentialConfigurationId => $configuration) {
-            $credentialConfigurationId = (string)$credentialConfigurationId;
-            // These are merged after the standard scopes (getScopes()), so a name taken from OpenID Connect Core
-            // would silently replace the standard scope -- and 'offline_access' would come back after the refresh
-            // token grant took it out. Refused here rather than in validate(), like a malformed value of any
-            // other Verifiable Credential option, so the configuration overview can still show the failure.
-            if (in_array($credentialConfigurationId, array_keys(self::$standardScopes), true)) {
-                throw new ConfigurationError(
-                    'Verifiable Credential configuration id can not take a protected scope name: ' .
-                    $credentialConfigurationId,
-                    self::DEFAULT_FILE_NAME,
-                );
-            }
-            // The id is a scope, so it is a scope-token (SCOPE_TOKEN_PATTERN), or the access token granting it
-            // could not be minted.
-            if (preg_match(self::SCOPE_TOKEN_PATTERN, $credentialConfigurationId) !== 1) {
-                throw new ConfigurationError(
-                    'Verifiable Credential configuration id [' . $credentialConfigurationId . '] is not a ' .
-                    'scope-token (RFC 6749 section 3.3): printable ASCII without space, double quote or backslash.',
-                    self::DEFAULT_FILE_NAME,
-                );
-            }
-            // The metadata publishes the configuration's `scope` as written, and a wallet asks for that one, but
-            // the scope this configuration is granted under is its id. One which differs would be advertised
-            // and then refused at authorization. Left out, the configuration is simply not advertised by scope.
-            if (is_array($configuration) && array_key_exists(ClaimsEnum::Scope->value, $configuration)) {
-                /** @psalm-suppress MixedAssignment */
-                $scope = $configuration[ClaimsEnum::Scope->value];
-                if ($scope !== $credentialConfigurationId) {
-                    throw new ConfigurationError(
-                        'Verifiable Credential configuration [' . $credentialConfigurationId . '] states the ' .
-                        'scope [' . (is_string($scope) ? $scope : get_debug_type($scope)) . '], but its scope ' .
-                        'is its id: leave the scope out or make it equal to the id.',
-                        self::DEFAULT_FILE_NAME,
-                    );
-                }
-            }
+        foreach ($this->getVciCredentialConfigurationIdsSupported() as $credentialConfigurationId) {
             $vciScopes[$credentialConfigurationId] = ['description' => $credentialConfigurationId];
         }
-
-        // What is advertised has to be issuable too, so a malformed configuration fails here as well, after the
-        // checks of its name and scope above.
-        $this->validateVciCredentialConfigurations();
 
         return $vciScopes;
     }
 
 
     /**
-     * Refuse the credential configurations if any of them can not be published and issued as it stands
+     * Refuse the credential configurations if any of them can not be granted, published and issued as it stands
      * (findFaultInVciCredentialConfiguration()). Called where the configurations become scopes (getVciScopes()),
      * so that discovery, registration and authorization fail on a malformed one, before the Credential Issuer
-     * metadata publishes them, and before an offer is made (CredentialOfferUriFactory).
+     * metadata publishes them (CredentialIssuerMetadataService), and before an offer is made
+     * (CredentialOfferUriFactory), so that none of them advertises or offers what the others refuse.
      *
      * @throws \SimpleSAML\Error\ConfigurationError
      */
@@ -3569,8 +3537,10 @@ class ModuleConfig
 
 
     /**
-     * Why a credential configuration can not be published and issued as it stands, or null when it can: its format
-     * is one this issuer issues, with what that format requires (OpenID4VCI 1.0 Appendix A: a `vct` for
+     * Why a credential configuration can not be granted, published and issued as it stands, or null when it can:
+     * its id is a scope this issuer can grant (getVciScopes()), so neither the name of a standard scope nor outside
+     * the scope-token grammar, and the `scope` it states, if any, is that id; its format is one this issuer issues,
+     * with what that format requires (OpenID4VCI 1.0 Appendix A: a `vct` for
      * `dc+sd-jwt`, a `credential_definition.type` for `jwt_vc_json`, and the same for `vc+sd-jwt`, which issues
      * it as the W3C data model's `type`), and its `credential_metadata`, if it has one, is a non-empty object
      * whose `display` has one object with a name for each language (section 12.2.4) and whose `claims` are claims
@@ -3588,10 +3558,39 @@ class ModuleConfig
         string $credentialConfigurationId,
         mixed $configuration,
     ): ?string {
+        // The id becomes a scope (getVciScopes()), merged after the standard scopes (getScopes()), so a name taken
+        // from OpenID Connect Core would silently replace the standard scope -- and 'offline_access' would come back
+        // after the refresh token grant took it out -- and a token granting the standard scope would grant the
+        // credential as well.
+        if (in_array($credentialConfigurationId, array_keys(self::$standardScopes), true)) {
+            return 'Verifiable Credential configuration id can not take a protected scope name: ' .
+            $credentialConfigurationId;
+        }
+
+        // The id is a scope, so it is a scope-token (SCOPE_TOKEN_PATTERN), or the access token granting it could not
+        // be minted.
+        if (preg_match(self::SCOPE_TOKEN_PATTERN, $credentialConfigurationId) !== 1) {
+            return 'Verifiable Credential configuration id [' . $credentialConfigurationId . '] is not a ' .
+            'scope-token (RFC 6749 section 3.3): printable ASCII without space, double quote or backslash.';
+        }
+
         $of = 'Verifiable Credential configuration [' . $credentialConfigurationId . ']';
 
         if (! $this->claimsDescriptionValidator->isJsonObject($configuration)) {
             return $of . ' is not an object of credential configuration parameters.';
+        }
+
+        // The metadata publishes the configuration's `scope` as written, and a wallet asks for that one, but the
+        // scope this configuration is granted under is its id. One which differs would be advertised and then
+        // refused at authorization. Left out, the configuration is simply not advertised by scope.
+        if (array_key_exists(ClaimsEnum::Scope->value, $configuration)) {
+            /** @psalm-suppress MixedAssignment */
+            $scope = $configuration[ClaimsEnum::Scope->value];
+
+            if ($scope !== $credentialConfigurationId) {
+                return $of . ' states the scope [' . (is_string($scope) ? $scope : get_debug_type($scope)) . '], ' .
+                'but its scope is its id: leave the scope out or make it equal to the id.';
+            }
         }
 
         /** @psalm-suppress MixedAssignment */
