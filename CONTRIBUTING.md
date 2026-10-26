@@ -41,10 +41,11 @@ Please do not report security vulnerabilities in public issues or pull requests.
 
 We welcome the responsible use of Large Language Models (LLMs) and AI coding assistants, provided that **human accountability** and **transparency** are maintained.
 
-### 1. Human Accountability
+### 1. Human Review & Ownership
 
-* **You are the author:** The human contributor bears 100% responsibility for the correctness, licensing compliance, and security of the submitted code.
-* **Understand what you submit:** Because this module implements security-critical authentication and authorization protocols (OAuth 2.0 / OpenID Connect), you must personally review, test, and understand every line of code in your contribution. Unverified or unreviewed AI-generated pull requests will be closed.
+* **You own what you submit:** AI tools are assistants, not authors; you are the author of your contribution and remain accountable for it. Before opening a Pull Request, you are expected to personally review, test, and understand the changes you submit, and be prepared to explain or revise them during code review. Unreviewed AI-generated pull requests will be closed.
+* **Security & protocol care:** Because this module implements security-critical authentication and authorization protocols (OAuth 2.0 / OpenID Connect), please pay extra attention to edge cases, cryptographic handling, and specification compliance when verifying AI-assisted code.
+* **Licensing:** Contributions are accepted under the project's [MIT License](LICENSE). AI tools can reproduce existing code verbatim, so make sure everything you submit, whether written by hand or with a tool's help, is compatible with that license.
 
 ### 2. Mandatory Disclosure
 
