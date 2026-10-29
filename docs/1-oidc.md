@@ -101,8 +101,8 @@ OAuth 2.0:
 OpenID for Verifiable Credentials:
 
 - [OpenID for Verifiable Credential Issuance 1.0, OpenID4VCI](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html)
-  — the Credential Issuer, with the OP as its Authorization Server; the HAIP
-  1.0 profile is not supported. See the
+  — the Credential Issuer, with the OP as its Authorization Server, and the
+  HAIP 1.0 profile for `dc+sd-jwt` credentials with `vci_haip` on. See the
   [OpenID4VCI note](#note-on-openid-for-verifiable-credential-issuance-openid4vci-support)
   below
 
@@ -192,9 +192,9 @@ with the OP as its Authorization Server. What that covers:
   `ldp_vc` and `jwt_vc_json-ld` formats; the `di_vp` and `attestation` proof
   types, and the `x5c` header of `jwt` proofs (a key proof naming its key by a
   certificate is refused); key attestations.
-- **The OpenID4VC High Assurance Interoperability Profile (HAIP 1.0) is not
-  supported as a whole.** With `vci_haip`, issuance requests are held to its
-  request rules (see
+- **The OpenID4VC High Assurance Interoperability Profile (HAIP 1.0) is
+  supported with `vci_haip` on, for `dc+sd-jwt` credentials.** With the option,
+  issuance requests are held to its request rules (see
   [HAIP 1.0](3-oidc-configuration.md#haip-10-vci_haip)): pushed, in the
   authorization code flow, with PKCE `S256`, from a wallet which authenticates
   at the PAR and token endpoints (with a Wallet Attestation, for wallets
@@ -205,13 +205,19 @@ with the OP as its Authorization Server. What that covers:
   nothing is issued under a configuration the profile can not work with (DPoP
   not required, a credential configuration without a `scope`, a signing key
   without a certificate chain, an RSA key pair shorter than 2048 bits, and the
-  like). Credentials and Status List Tokens can carry X.509 (`x5c`)
-  certificate chains. The module does not evaluate the key attestations HAIP
-  leaves to ecosystems to require, and the same document lists what else it
-  lacks, gaps H-G1 to H-G11. The OpenID Foundation certifies OpenID4VCI
-  issuers through its HAIP issuer test plan, which the module has not been run
-  against yet; CI runs the foundation's base 1.0 issuer plan instead (see
-  [Conformance testing](#conformance-testing)).
+  like). Credentials and Status List Tokens carry X.509 (`x5c`) certificate
+  chains. The OpenID Foundation certifies OpenID4VCI issuers through its HAIP
+  issuer test plan, and CI runs it against the conformance image with HAIP on,
+  in both its flows; every test which runs passes (see
+  [Conformance testing](#conformance-testing)), which is a test result, not a
+  certification. What stays with the deployment: the option and what it
+  requires, the web server's TLS (FAPI 2.0 section 5.2, which HAIP applies), and
+  limiting a credential's validity, which HAIP recommends (credential lifetimes,
+  status lists). Not implemented: the key attestations HAIP leaves to
+  ecosystems to require, the `mso_mdoc` profile (an issuer needs one of the
+  two), signed metadata and the `haip-vci://` scheme, and the refresh tokens
+  HAIP recommends for credential refresh. The same document lists the gaps,
+  H-G1 to H-G11, most of them closed by the option.
 - **Drafts underneath.** `dc+sd-jwt` credentials follow the IETF SD-JWT VC
   draft, as OpenID4VCI 1.0 Appendix A.3 does, and credential status follows
   the IETF Token Status List draft; `vc+sd-jwt` is an extension rather than a
@@ -518,6 +524,13 @@ code flow, the authorization code flow started by a Credential Offer, and the
 pre-authorized code flow, each issuing the `dc+sd-jwt` credential. See
 [OpenID4VCI issuer plan](5-oidc-conformance.md#openid4vci-issuer-plan) for the
 variants and what the runs leave out.
+
+And CI runs the OpenID4VCI 1.0 issuer HAIP test plan
+(`oid4vci-1_0-issuer-haip-test-plan`), through which the foundation certifies
+issuers, against the conformance image with HAIP 1.0 on (`vci_haip`), in its
+wallet-initiated and offer-started flows, the wallets authenticating with Wallet
+Attestations. See
+[OpenID4VCI issuer HAIP plan](5-oidc-conformance.md#openid4vci-issuer-haip-plan).
 
 Some specifications are not covered by these OpenID Connect certification
 profiles. In particular, PAR (RFC 9126) and the `request` / `request_uri`

@@ -9,9 +9,12 @@ RUN apt-get update && apt-get --no-install-recommends install -y sqlite3
 # Prepopulate the DB with items needed for testing
 ADD docker/conformance.sql /tmp/
 ADD docker/conformance-vci.sql /tmp/
+# The wallets of the HAIP conformance runs, written by docker/generate-dev-certs.sh.
+ADD docker/conformance-vci-haip.sql /tmp/
 # Preload some clients
 RUN sqlite3 /var/simplesamlphp/data/mydb.sq3  < /tmp/conformance.sql \
     && sqlite3 /var/simplesamlphp/data/mydb.sq3 < /tmp/conformance-vci.sql \
+    && sqlite3 /var/simplesamlphp/data/mydb.sq3 < /tmp/conformance-vci-haip.sql \
     && chown www-data /var/simplesamlphp/data/mydb.sq3
 
 # --build-arg OIDC_VERSION

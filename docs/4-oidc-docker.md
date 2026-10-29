@@ -38,10 +38,13 @@ Actions conformance job runs this same script.
 
 ## Generate development certificates
 
-Every example below needs three locally generated key pairs: the TLS certificate
-`nginx-proxy` serves the OP with, the RSA key pair the module signs tokens with,
-and the EC key pair it signs verifiable credentials with. None is kept in Git, so
-a release archive never contains a private key.
+Every example below needs locally generated keys and certificates: the TLS
+certificate `nginx-proxy` serves the OP with, the RSA key pair the module signs
+tokens with, the EC key pair it signs verifiable credentials with and that key's
+certificate chain under a development CA, and a development wallet provider,
+whose two wallets the OpenID4VCI issuer HAIP conformance runs authenticate as
+(`docker/conformance-vci-haip.sql`, which the image is built with). None is kept
+in Git, so a release archive never contains a private key.
 Run this once in a fresh checkout:
 
 ```bash
@@ -49,7 +52,9 @@ Run this once in a fresh checkout:
 ```
 
 Existing files are left alone; pass `--force` to replace them once the
-certificate expires. The TLS certificate is self-signed, so browsers warn on the
+certificate expires. The OP image is built with them, so rebuild it
+(`up --build`) whenever the script has issued anything new. The TLS
+certificate is self-signed, so browsers warn on the
 local OP — see [docker/nginx-certs/README.md](../docker/nginx-certs/README.md)
 if you would rather use a locally trusted certificate.
 
@@ -72,6 +77,8 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module.key",target=/var/simplesamlphp/cert/oidc_module.key,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.pub",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.pub,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.key",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.key,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.chain.pem",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.chain.pem,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_trust_anchors.pem",target=/var/simplesamlphp/cert/oidc_module_vci_trust_anchors.pem,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
   -p 443:443 ssp-base:v2.5.3.1
 ```

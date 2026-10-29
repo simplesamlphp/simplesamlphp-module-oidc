@@ -1,0 +1,44 @@
+[
+    {
+        "comment": "Optional feature not supported: signed credential issuer metadata (signed_metadata). The issuer serves its metadata as plain application/json, so the suite skips this test.",
+        "test-name": "oid4vci-1_0-issuer-metadata-test-signed*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": "*"
+    },
+    {
+        "comment": "Optional feature not supported: key attestations. The credential configuration takes the jwt proof type without key_attestations_required, so the suite skips this test.",
+        "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": "*"
+    },
+    {
+        "comment": "Optional feature not supported: encrypted Credential Requests and Responses. The issuer metadata offers neither credential_request_encryption nor credential_response_encryption, so the suite skips the plan's encrypted entry.",
+        "test-name": "oid4vci-1_0-issuer-happy-flow*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": {
+            "vci_credential_encryption": "encrypted"
+        }
+    },
+    {
+        "comment": "Optional feature not supported: encrypted Credential Requests and Responses. The issuer metadata offers neither credential_request_encryption nor credential_response_encryption, so the suite skips the plan's encrypted entry.",
+        "test-name": "oid4vci-1_0-issuer-fail-unknown-credential-configuration*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": {
+            "vci_credential_encryption": "encrypted"
+        }
+    },
+    {
+        "comment": "Optional feature not supported: encrypted Credential Requests and Responses. The issuer metadata offers neither credential_request_encryption nor credential_response_encryption, so the suite skips the plan's encrypted entry.",
+        "test-name": "oid4vci-1_0-issuer-fail-unsupported-encryption-algorithm*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": {
+            "vci_credential_encryption": "encrypted"
+        }
+    },
+    {
+        "comment": "No refresh token is issued to a wallet which authenticates with a Wallet Attestation, in any flow: OAuth 2.0 Attestation-Based Client Authentication (draft 07) section 10.3 would bind it to the client instance key, and HAIP 1.0 section 4.4 only recommends refresh tokens. The suite skips the refresh token test when the token response carries none.",
+        "test-name": "fapi2-security-profile-final-refresh-token*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": "*"
+    }
+]

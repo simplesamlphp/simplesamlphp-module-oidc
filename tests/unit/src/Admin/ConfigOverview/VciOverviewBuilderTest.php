@@ -177,7 +177,7 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertNotNull($enabledRow);
         $note = (string)$enabledRow->getNote();
         $this->assertStringContainsString('OpenID4VCI 1.0', $note);
-        $this->assertStringContainsString('The HAIP 1.0 profile is not supported as a whole', $note);
+        $this->assertStringContainsString('as HAIP 1.0 has it while the row below is on', $note);
         $this->assertNull($enabledRow->getWarning());
     }
 

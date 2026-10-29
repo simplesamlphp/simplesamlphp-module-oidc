@@ -41,6 +41,27 @@ vci_trust_anchors="$docker_dir/ssp/oidc_module_vci_trust_anchors.pem"
 # The OP's issuer, which docker/ssp/module_oidc.php leaves to be derived from the host docker-compose.yml publishes
 # it as. The key's certificate names it, as a URI and by its host.
 vci_issuer_host='op.local.stack-dev.cirrusidentity.com'
+# The wallet provider which attests the two wallets of the HAIP conformance run (HAIP 1.0 section 4.3.1,
+# attestation-based client authentication): a root CA, an issuing CA, and the attester's key and certificate,
+# which names the attester's identifier as a URI. conformance-vci-haip.sql registers the two wallets with that
+# root as their trust anchor, the issuing CA's key and the attester's identity, and
+# conformance-tests/vci-haip-config.py gives the suite the attester's key and chain. All of it stays in vci-pki/
+# but the SQL, which the image is built with.
+wallet_root_key="$vci_pki_dir/wallet-provider-root-ca.key"
+wallet_root_certificate="$vci_pki_dir/wallet-provider-root-ca.crt"
+wallet_issuing_key="$vci_pki_dir/wallet-provider-issuing-ca.key"
+wallet_issuing_certificate="$vci_pki_dir/wallet-provider-issuing-ca.crt"
+wallet_attester_key="$vci_pki_dir/wallet-attester.key"
+wallet_attester_certificate="$vci_pki_dir/wallet-attester.crt"
+wallet_attester='https://wallet-provider.example.org'
+haip_clients_sql="$docker_dir/conformance-vci-haip.sql"
+# The suite configuration conformance-tests/vci-haip-config.py writes from what this script issues.
+haip_suite_configuration="$(dirname -- "$docker_dir")/conformance-tests/conformance-vci-issuer-haip.json"
+# The wallets' client IDs, as conformance-tests/conformance-vci-issuer-haip.template.json names them, and the
+# suite alias their redirect URIs are under.
+haip_client_id='_7ff937efbab1adc7dc52218bf73fd657af340f28fe'
+haip_client2_id='_33c54116b858fb21ac5d743080d7619f201a84142b'
+haip_alias='simplesamlphp-module-oidc-vci-haip'
 
 # docker-compose.yml publishes the OP as op.local.stack-dev.cirrusidentity.com
 # with CERT_NAME=default, so the certificate has to cover that name.
@@ -110,8 +131,10 @@ generate_module_key_pair() {
 generate_vci_key_pair() {
     if [ ! -f "$vci_key" ] || [ "$force" = true ]; then
         echo 'Generating verifiable credential signing key (EC P-256) ...'
-        # A new key needs a certificate of its own.
+        # A new key needs a certificate of its own. The chain goes before the key is replaced, so that a run which
+        # stops in between leaves it to the next run to issue.
         vci_key_replaced=true
+        rm -f "$vci_certificate_chain"
 
         # Same commands as docs/2-oidc-installation.md gives for this key.
         openssl ecparam -genkey -name prime256v1 -noout -out "$vci_key" >/dev/null 2>&1
@@ -140,21 +163,25 @@ issue_certificate() {
 
 issue_vci_certificate_chain() {
     mkdir -p "$vci_pki_dir"
+    # What depends on what is replaced below goes first, so that a run which stops half way leaves it to the next
+    # run to issue rather than out of step: the chain, and the HAIP suite configuration, which trusts the root.
+    rm -f "$vci_certificate_chain"
+    retire_haip_suite_configuration
 
     if [ ! -f "$vci_root_key" ] || [ ! -f "$vci_root_certificate" ] || [ "$force" = true ]; then
         echo 'Creating the verifiable credential root CA ...'
+        # A new root issues the issuing CA anew.
+        rm -f "$vci_root_certificate" "$vci_issuing_certificate"
         openssl ecparam -genkey -name prime256v1 -noout -out "$vci_root_key" >/dev/null 2>&1
         openssl req -x509 -new -sha256 -days 3650 -key "$vci_root_key" -out "$vci_root_certificate" \
             -subj '/CN=OIDC module development credential root CA' \
             -addext 'basicConstraints=critical,CA:TRUE' \
             -addext 'keyUsage=critical,keyCertSign,cRLSign' >/dev/null 2>&1
-        # A new root issues the issuing CA anew.
-        rm -f "$vci_issuing_certificate"
     fi
 
     if [ ! -f "$vci_issuing_key" ] || [ "$force" = true ]; then
-        openssl ecparam -genkey -name prime256v1 -noout -out "$vci_issuing_key" >/dev/null 2>&1
         rm -f "$vci_issuing_certificate"
+        openssl ecparam -genkey -name prime256v1 -noout -out "$vci_issuing_key" >/dev/null 2>&1
     fi
 
     if [ ! -f "$vci_issuing_certificate" ]; then
@@ -180,8 +207,123 @@ issue_vci_certificate_chain() {
         "$vci_certificate_chain" "$vci_trust_anchors"
 }
 
+issue_wallet_provider_pki() {
+    mkdir -p "$vci_pki_dir"
+    # What depends on what is replaced below goes first, so that a run which stops half way leaves it to the next
+    # run to issue rather than out of step: the wallets' SQL, and the HAIP suite configuration, which hold this PKI;
+    # below, each certificate before the key or certificate it is issued under.
+    rm -f "$haip_clients_sql"
+    retire_haip_suite_configuration
+
+    if [ ! -f "$wallet_root_key" ] || [ ! -f "$wallet_root_certificate" ] || [ "$force" = true ]; then
+        echo 'Creating the wallet provider root CA ...'
+        # A new root issues the issuing CA, and so the attester's certificate, anew.
+        rm -f "$wallet_root_certificate" "$wallet_issuing_certificate" "$wallet_attester_certificate"
+        openssl ecparam -genkey -name prime256v1 -noout -out "$wallet_root_key" >/dev/null 2>&1
+        openssl req -x509 -new -sha256 -days 3650 -key "$wallet_root_key" -out "$wallet_root_certificate" \
+            -subj '/CN=OIDC module development wallet provider root CA' \
+            -addext 'basicConstraints=critical,CA:TRUE' \
+            -addext 'keyUsage=critical,keyCertSign,cRLSign' >/dev/null 2>&1
+    fi
+
+    if [ ! -f "$wallet_issuing_key" ] || [ "$force" = true ]; then
+        rm -f "$wallet_issuing_certificate" "$wallet_attester_certificate"
+        openssl ecparam -genkey -name prime256v1 -noout -out "$wallet_issuing_key" >/dev/null 2>&1
+    fi
+
+    if [ ! -f "$wallet_issuing_certificate" ]; then
+        echo 'Issuing the wallet provider issuing CA ...'
+        # A new issuing CA issues the attester's certificate anew.
+        rm -f "$wallet_attester_certificate"
+        issue_certificate "$wallet_issuing_key" '/CN=OIDC module development wallet provider issuing CA' \
+            "$wallet_root_certificate" "$wallet_root_key" \
+            'basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always' \
+            1825 "$wallet_issuing_certificate"
+    fi
+
+    if [ ! -f "$wallet_attester_key" ] || [ "$force" = true ]; then
+        echo 'Generating the wallet attester key (EC P-256) ...'
+        rm -f "$wallet_attester_certificate"
+        openssl ecparam -genkey -name prime256v1 -noout -out "$wallet_attester_key" >/dev/null 2>&1
+    fi
+
+    if [ ! -f "$wallet_attester_certificate" ]; then
+        echo "Issuing the wallet attester's certificate for $wallet_attester ..."
+        issue_certificate "$wallet_attester_key" '/CN=OIDC module development wallet attester' \
+            "$wallet_issuing_certificate" "$wallet_issuing_key" \
+            "basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nsubjectAltName=URI:$wallet_attester\nsubjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always" \
+            825 "$wallet_attester_certificate"
+    fi
+
+    chmod 600 "$wallet_root_key" "$wallet_issuing_key" "$wallet_attester_key"
+    chmod 644 "$wallet_root_certificate" "$wallet_issuing_certificate" "$wallet_attester_certificate"
+}
+
+# The redirect URIs of a HAIP wallet as a JSON array: the suite's callback, locally and on the certification
+# server, each also with the query string the suite adds to the second client's callback (see
+# conformance-vci.sql).
+haip_redirect_uris() {
+    local base uris=()
+
+    for base in 'https://localhost.emobix.co.uk:8443' 'https://www.certification.openid.net'; do
+        uris+=("\"$base/test/a/$haip_alias/callback\"")
+        if [ "$1" = client2 ]; then
+            uris+=("\"$base/test/a/$haip_alias/callback?dummy1=lorem&dummy2=ipsum\"")
+        fi
+    done
+
+    local IFS=,
+    printf '[%s]' "${uris[*]}"
+}
+
+# Registers the two wallets of the HAIP run, for attestation-based client authentication, with the wallet
+# provider's trust: its root as the trust anchor, its issuing CA by the SHA-256 digest of that CA's public key
+# (base64url), and the attester by the URI its certificate names. The secret only satisfies the schema, and is
+# random so that no secret of a client which authenticates otherwise is kept anywhere.
+write_haip_clients_sql() {
+    local anchors issuing_ca_digest extra_metadata
+
+    echo "Writing the HAIP conformance wallets to ${haip_clients_sql##*/} ..."
+
+    # A PEM file holds only base64, dashes and spaces, so escaping its line ends makes it a JSON string.
+    anchors="$(awk '{ printf "%s\\n", $0 }' "$wallet_root_certificate")"
+    issuing_ca_digest="$(openssl x509 -in "$wallet_issuing_certificate" -noout -pubkey |
+        openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | openssl base64 -A |
+        tr '+/' '-_' | tr -d '=')"
+    extra_metadata="{\"token_endpoint_auth_method\":\"attest_jwt_client_auth\",\"client_attestation\":{\"attester\":\"$wallet_attester\",\"issuing_ca_public_key_sha256\":\"$issuing_ca_digest\",\"attester_identity\":{\"type\":\"san_uri\",\"value\":\"$wallet_attester\"},\"trust_anchors\":\"$anchors\"}}"
+
+    {
+        echo '-- The two wallets of the OpenID4VCI issuer HAIP test plan (oid4vci-1_0-issuer-haip-test-plan), loaded'
+        echo '-- after conformance-vci.sql. Written by docker/generate-dev-certs.sh from the wallet provider PKI it'
+        echo '-- issues in docker/vci-pki/; not kept in Git.'
+        for client in client client2; do
+            local id="$haip_client_id" name='VCI HAIP Conformance Wallet 1'
+            if [ "$client" = client2 ]; then
+                id="$haip_client2_id"
+                name='VCI HAIP Conformance Wallet 2'
+            fi
+            echo 'INSERT INTO oidc_client (id, secret, name, description, auth_source, redirect_uri, scopes, is_enabled, is_confidential, registration_type, extra_metadata)'
+            echo "VALUES ('$id', '_$(openssl rand -hex 21)', '$name', 'A wallet of the OpenID4VCI issuer HAIP test plan, attested by its wallet provider', 'example-userpass', '$(haip_redirect_uris "$client")', '[\"ResearchAndScholarshipCredentialDcSdJwt\"]', 1, 1, 'manual', '$extra_metadata');"
+        done
+    } > "$haip_clients_sql.tmp"
+
+    chmod 644 "$haip_clients_sql.tmp"
+    mv -f "$haip_clients_sql.tmp" "$haip_clients_sql"
+}
+
+# The suite configuration holds the attester's key and chain and the issuer's trust anchor. Once either PKI is
+# issued anew it no longer matches, so it goes, and the HAIP plan can not run with it unnoticed.
+retire_haip_suite_configuration() {
+    if [ -f "$haip_suite_configuration" ]; then
+        rm -f "$haip_suite_configuration"
+        echo 'Removed conformance-tests/conformance-vci-issuer-haip.json, which no longer matches; write it' \
+            'again with conformance-tests/vci-haip-config.py.'
+    fi
+}
+
 generated=false
 vci_key_replaced=false
+wallet_provider_issued=false
 
 if needs_generating "$tls_key" || needs_generating "$tls_certificate"; then
     issue_tls_certificate
@@ -201,6 +343,19 @@ fi
 if needs_generating "$vci_certificate_chain" || needs_generating "$vci_trust_anchors" ||
     [ "$vci_key_replaced" = true ]; then
     issue_vci_certificate_chain
+    generated=true
+fi
+
+if needs_generating "$wallet_root_key" || needs_generating "$wallet_root_certificate" ||
+    needs_generating "$wallet_issuing_key" || needs_generating "$wallet_issuing_certificate" ||
+    needs_generating "$wallet_attester_key" || needs_generating "$wallet_attester_certificate"; then
+    issue_wallet_provider_pki
+    wallet_provider_issued=true
+    generated=true
+fi
+
+if needs_generating "$haip_clients_sql" || [ "$wallet_provider_issued" = true ]; then
+    write_haip_clients_sql
     generated=true
 fi
 

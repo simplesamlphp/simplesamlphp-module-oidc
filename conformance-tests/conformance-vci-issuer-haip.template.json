@@ -1,0 +1,396 @@
+{
+    "alias": "simplesamlphp-module-oidc-vci-haip",
+    "description": "OpenID4VCI 1.0 issuer HAIP test plan (oid4vci-1_0-issuer-haip-test-plan) against the local conformance OP, with HAIP on. The template of conformance-vci-issuer-haip.json, which conformance-tests/vci-haip-config.py writes from it.",
+    "vci": {
+        "credential_issuer_url": "https://op.local.stack-dev.cirrusidentity.com",
+        "credential_configuration_id": "ResearchAndScholarshipCredentialDcSdJwt"
+    },
+    "client": {
+        "client_id": "_7ff937efbab1adc7dc52218bf73fd657af340f28fe"
+    },
+    "client2": {
+        "client_id": "_33c54116b858fb21ac5d743080d7619f201a84142b"
+    },
+    "client_attestation": {
+        "issuer": "https://wallet-provider.example.org",
+        "attester_jwks": "set by vci-haip-config.py: the attester key of docker/vci-pki/ with its x5c"
+    },
+    "credential": {
+        "trust_anchor_pem": "set by vci-haip-config.py: docker/ssp/oidc_module_vci_trust_anchors.pem",
+        "status_list_trust_anchor_pem": "set by vci-haip-config.py: docker/ssp/oidc_module_vci_trust_anchors.pem"
+    },
+    "browser": [
+        {
+            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+            "tasks": [
+                {
+                    "task": "Login",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                    "commands": [
+                        [
+                            "text",
+                            "name",
+                            "username",
+                            "student",
+                            "optional"
+                        ],
+                        [
+                            "text",
+                            "name",
+                            "password",
+                            "studentpass",
+                            "optional"
+                        ],
+                        [
+                            "click",
+                            "id",
+                            "submit_button"
+                        ]
+                    ]
+                },
+                {
+                    "task": "Consent",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                    "commands": [
+                        [
+                            "click",
+                            "id",
+                            "submit_button"
+                        ]
+                    ]
+                },
+                {
+                    "task": "Post Login Redirect",
+                    "optional": true,
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/postredirect*",
+                    "commands": [
+                        [
+                            "wait",
+                            "id",
+                            "submission_complete",
+                            10
+                        ]
+                    ]
+                },
+                {
+                    "task": "Verify Complete",
+                    "match": "*/test/a/simplesamlphp-module-oidc-vci-haip/callback*",
+                    "commands": [
+                        [
+                            "wait",
+                            "id",
+                            "submission_complete",
+                            10
+                        ]
+                    ]
+                }
+            ]
+        }
+    ],
+    "override": {
+        "fapi2-security-profile-final-user-rejects-authentication": {
+            "browser": [
+                {
+                    "comment": "logging in as cancel raises UserAborted (docker/ssp/modules/oidcconformance), which the OP answers with access_denied",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Cancel at the login page",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "name",
+                                    "username",
+                                    "cancel"
+                                ],
+                                [
+                                    "text",
+                                    "name",
+                                    "password",
+                                    "cancel"
+                                ],
+                                [
+                                    "click",
+                                    "id",
+                                    "submit_button"
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Verify Complete",
+                            "match": "*/test/a/simplesamlphp-module-oidc-vci-haip/callback*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "id",
+                                    "submission_complete",
+                                    10
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "fapi2-security-profile-final-ensure-unsigned-authorization-request-without-using-par-fails": {
+            "browser": [
+                {
+                    "comment": "expect an immediate error page: an issuance request has to be pushed",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Expect the PAR required error page",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "xpath",
+                                    "//*",
+                                    10,
+                                    "Pushed Authorization Request \\(PAR\\) is required",
+                                    "update-image-placeholder"
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "fapi2-security-profile-final-par-attempt-reuse-request_uri": {
+            "browser": [
+                {
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Login",
+                            "optional": true,
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "name",
+                                    "username",
+                                    "student",
+                                    "optional"
+                                ],
+                                [
+                                    "text",
+                                    "name",
+                                    "password",
+                                    "studentpass",
+                                    "optional"
+                                ],
+                                [
+                                    "click",
+                                    "id",
+                                    "submit_button"
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Consent",
+                            "optional": true,
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                            "commands": [
+                                [
+                                    "click",
+                                    "id",
+                                    "submit_button"
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Post Login Redirect",
+                            "optional": true,
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/postredirect*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "id",
+                                    "submission_complete",
+                                    10
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Verify Complete",
+                            "match": "*/test/a/simplesamlphp-module-oidc-vci-haip/callback*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "id",
+                                    "submission_complete",
+                                    10
+                                ]
+                            ]
+                        }
+                    ],
+                    "match-limit": 1
+                },
+                {
+                    "comment": "the second visit with the same request_uri, after the first one was answered, expects an error page",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Expect the used request_uri error page",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "xpath",
+                                    "//*",
+                                    10,
+                                    "Pushed authorization request has already been used",
+                                    "update-image-placeholder"
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "fapi2-security-profile-final-par-attempt-to-use-request_uri-for-different-client": {
+            "browser": [
+                {
+                    "comment": "expect an immediate error page: client 2 presents client 1's request_uri",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Expect the request_uri bound to another client error page",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "xpath",
+                                    "//*",
+                                    10,
+                                    "Pushed authorization request is bound to different client",
+                                    "update-image-placeholder"
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "fapi2-security-profile-final-par-attempt-to-use-expired-request_uri": {
+            "browser": [
+                {
+                    "comment": "expect an immediate error page: the request_uri has expired (or has been removed since)",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Expect the expired request_uri error page",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "xpath",
+                                    "//*",
+                                    10,
+                                    "Pushed authorization request (has expired|not found)",
+                                    "update-image-placeholder"
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        "fapi2-security-profile-final-par-ensure-reused-request-uri-prior-to-auth-completion-succeeds": {
+            "browser": [
+                {
+                    "comment": "the first visit only reaches the login page: the user must not log in until the second visit",
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "match-limit": 1,
+                    "tasks": [
+                        {
+                            "task": "Reach the login page",
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "xpath",
+                                    "//*",
+                                    10,
+                                    "Enter your username and password"
+                                ]
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/oidc/authorization*",
+                    "tasks": [
+                        {
+                            "task": "Login",
+                            "optional": true,
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                            "commands": [
+                                [
+                                    "text",
+                                    "name",
+                                    "username",
+                                    "student",
+                                    "optional"
+                                ],
+                                [
+                                    "text",
+                                    "name",
+                                    "password",
+                                    "studentpass",
+                                    "optional"
+                                ],
+                                [
+                                    "click",
+                                    "id",
+                                    "submit_button"
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Consent",
+                            "optional": true,
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/loginuserpass*",
+                            "commands": [
+                                [
+                                    "click",
+                                    "id",
+                                    "submit_button"
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Post Login Redirect",
+                            "optional": true,
+                            "match": "https://op.local.stack-dev.cirrusidentity.com/simplesaml/module.php/core/postredirect*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "id",
+                                    "submission_complete",
+                                    10
+                                ]
+                            ]
+                        },
+                        {
+                            "task": "Verify Complete",
+                            "match": "*/test/a/simplesamlphp-module-oidc-vci-haip/callback*",
+                            "commands": [
+                                [
+                                    "wait",
+                                    "id",
+                                    "submission_complete",
+                                    10
+                                ]
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -278,3 +281,23 @@ $config = [
         ],
     ],
 ];
+
+// HAIP 1.0, for the OpenID4VCI issuer HAIP test plan, when the container is started with
+// OIDC_CONFORMANCE_VCI_HAIP=1 (docker/docker-compose.yml). The rest of what a HAIP configuration needs is set above
+// already: DPoP required, a protocol cache kept across requests, no wallets which are not registered, a leeway
+// within 10 to 60 seconds, a scope for the dc+sd-jwt configuration, the signing key's certificate chain and trust
+// anchors, and an RSA protocol key of 3072 bits (docker/generate-dev-certs.sh). The plan's two wallets are seeded
+// by docker/conformance-vci-haip.sql whether or not this is on.
+if (getenv('OIDC_CONFORMANCE_VCI_HAIP') === '1') {
+    $config[ModuleConfig::OPTION_VCI_HAIP] = true;
+    // Pushed requests live two minutes (issuance ones at most five under HAIP). The plan's expired request_uri test
+    // sleeps for the whole lifetime the PAR response gives, and the suite's plan runner waits for a test to finish
+    // for four minutes at most.
+    $config[ModuleConfig::OPTION_PAR_REQUEST_URI_TTL] = 'PT2M';
+    $config[ModuleConfig::OPTION_VCI_ALLOW_ANONYMOUS_PRE_AUTHORIZED_ACCESS] = false;
+    // The Credential Issuer URL as the issuer, which the signing key's certificate names.
+    $config[ModuleConfig::OPTION_VCI_ISSUER_IDENTIFIER_MODE] = VciIssuerIdentifierModeEnum::Https->value;
+    // Status List Tokens carrying the signing key's certificate chain, which the suite verifies under HAIP.
+    $config[ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS]['conformance'][StatusListPool::KEY_KEY_PROFILE] =
+        StatusListKeyProfileEnum::X509->value;
+}

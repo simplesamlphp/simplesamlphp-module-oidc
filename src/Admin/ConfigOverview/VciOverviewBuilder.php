@@ -466,8 +466,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                         // switched it on is looking.
                         $isEnabled ? Translate::noop(
                             'Credentials are issued as OpenID4VCI 1.0 has it, with this OP as the ' .
-                            'Authorization Server. The HAIP 1.0 profile is not supported as a whole: see the ' .
-                            'row below. The module documentation describes what is supported.',
+                            'Authorization Server, and as HAIP 1.0 has it while the row below is on. The module ' .
+                            'documentation describes what is supported.',
                         ) : Translate::noop(
                             'All Verifiable Credential capabilities are off, and the credential ' .
                             'issuer endpoints are not served. The settings below are inert until ' .

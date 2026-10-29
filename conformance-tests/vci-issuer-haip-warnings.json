@@ -1,0 +1,11 @@
+[
+    {
+        "comment": "The discovery document lists the refresh_token grant, which OpenID Connect clients of the same OP use, while no refresh token is issued to a wallet which authenticates with a Wallet Attestation (see vci-issuer-haip-skips.json). The suite warns about the difference before it skips the refresh token test.",
+        "test-name": "fapi2-security-profile-final-refresh-token*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": "*",
+        "current-block": "*",
+        "condition": "FAPIEnsureServerConfigurationDoesNotSupportRefreshToken",
+        "expected-result": "warning"
+    }
+]

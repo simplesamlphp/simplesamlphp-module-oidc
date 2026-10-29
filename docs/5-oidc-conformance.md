@@ -17,7 +17,7 @@ Clone, build, and run the conformance test suite:
 ```bash
 git clone https://gitlab.com/openid/conformance-suite.git
 cd conformance-suite
-git checkout release-v5.3.3
+git checkout release-v5.3.4
 MAVEN_CACHE=./m2 docker compose -f builder-compose.yml run builder
 docker compose up
 ```
@@ -121,6 +121,27 @@ conformance-suite/scripts/run-test-plan.py \
   "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=pre_authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer.json
 kill %1
+
+# OpenID4VCI issuer HAIP (see "OpenID4VCI issuer HAIP plan" below): the OP container
+# created anew with OIDC_CONFORMANCE_VCI_HAIP=1 (=0 to go back to the default), and
+# the suite configuration written first
+OIDC_CONFORMANCE_VCI_HAIP=1 OIDC_VERSION=@dev docker compose \
+  -f ${OIDC_MODULE_FOLDER}/docker/docker-compose.yml \
+  --project-directory ${OIDC_MODULE_FOLDER} up -d --no-build --force-recreate oidc-op
+python3 ${OIDC_MODULE_FOLDER}/conformance-tests/vci-haip-config.py
+conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json \
+  "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer-haip.json
+
+python3 ${OIDC_MODULE_FOLDER}/conformance-tests/vci-offer-driver.py --alias simplesamlphp-module-oidc-vci-haip &
+conformance-suite/scripts/run-test-plan.py \
+  --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-warnings.json \
+  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json \
+  "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated]" \
+  ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer-haip.json
+kill %1
 ```
 
 ### Dynamic Client Registration notes
@@ -219,11 +240,11 @@ flow, but the plan is no substitute for the checklist.
 ## OpenID4VCI issuer plan
 
 CI also runs the OpenID Foundation's OpenID4VCI 1.0 issuer test plan,
-`oid4vci-1_0-issuer-test-plan`. At the suite release CI uses (`release-v5.3.3`)
+`oid4vci-1_0-issuer-test-plan`. At the suite release CI uses (`release-v5.3.4`)
 the suite labels this plan alpha and outside its certification programme:
-certification goes through the HAIP issuer plan, which needs HAIP 1.0, and this
-module does not support HAIP as a whole. A passing run is a test result, not a
-certification.
+certification goes through the HAIP issuer plan, which CI runs as well (see
+[OpenID4VCI issuer HAIP plan](#openid4vci-issuer-haip-plan) below). A passing
+run is a test result, not a certification.
 
 The runs use the two clients seeded by `docker/conformance-vci.sql` and the suite
 configuration in `conformance-tests/conformance-vci-issuer.json`. CI runs the plan
@@ -327,3 +348,81 @@ What the run leaves out:
   covers are in [OIDC Module](1-oidc.md#note-on-the-diip-profile); the readings
   this module makes of individual profile requirements are in
   [Configuration](3-oidc-configuration.md#three-interpretations-this-module-makes).
+
+## OpenID4VCI issuer HAIP plan
+
+CI also runs `oid4vci-1_0-issuer-haip-test-plan`, the plan through which the
+OpenID Foundation certifies OpenID4VCI issuers, for `credential_format=sd_jwt_vc`
+in both its flows (`vci_authorization_code_flow_variant` `wallet_initiated` and
+`issuer_initiated`, the second with the offer driver, as above). The plan fixes
+its other variants: the authorization code grant, pushed and unsigned requests
+asking for the credential by its scope, DPoP, and wallets which authenticate
+with Wallet Attestations (`client_auth_type=client_attestation`). It runs the
+issuer plan's tests under HAIP's rules and adds the FAPI 2.0 Security Profile
+tests HAIP applies. A passing run is a test result, not a certification, which
+is the foundation's to grant.
+
+The plan runs against the conformance image with HAIP on, every other plan
+against the image's default configuration. Started with
+`OIDC_CONFORMANCE_VCI_HAIP=1` (`docker/docker-compose.yml`), the OP adds the
+HAIP 1.0 configuration at the end of `docker/ssp/module_oidc.php`: `vci_haip`,
+no anonymous pre-authorized access, the Credential Issuer URL as the issuer
+identifier, Status List Tokens carrying the signing key's certificate chain, and
+pushed requests which live two minutes (the plan's expired `request_uri` test
+sleeps through the whole lifetime, and the suite's plan runner waits four
+minutes at most for a test). CI runs the other plans first, then creates the OP
+container anew with the variable set.
+
+The plan's two wallets are registered for attestation-based client
+authentication by `docker/conformance-vci-haip.sql`, which
+`docker/generate-dev-certs.sh` writes together with a development wallet
+provider: a root CA, an issuing CA, and the attester's key and certificate, all
+issued anew for each checkout and kept out of Git. Each wallet trusts that root,
+the issuing CA by its key, and the attester by the URI its certificate names.
+The suite needs the attester's private key and chain, and the trust anchor of
+the issuer's certificates, so its configuration,
+`conformance-tests/conformance-vci-issuer-haip.json`, is written by
+`conformance-tests/vci-haip-config.py` from
+`conformance-tests/conformance-vci-issuer-haip.template.json`; run it after
+`generate-dev-certs.sh`.
+
+Every test which runs passes. The suite checks, among the rest:
+
+- the Wallet Attestation and its proof of possession at the PAR and token
+  endpoints, and the refusal of each of its six faulty variants (a bad signature
+  on either, an expired attestation, one without `sub`, a proof for another
+  audience, a proof signed by another key);
+- the `x5c` chain of every credential and of the Status List Token, validated
+  against the issuer's trust anchor, and the holder's key in `cnf.jwk`;
+- the FAPI 2.0 provisions: pushed requests required and bound to their client,
+  PKCE `S256` required, codes refused after 60 seconds and bound to their client
+  and their DPoP key, `iss` in the authorization response, other response types
+  refused, and the user cancelling at the login page answered with
+  `access_denied`.
+
+The suite skips the tests for optional features the module does not offer, and
+`conformance-tests/vci-issuer-haip-skips.json` lists them: signed credential
+issuer metadata, key attestations, the plan's encrypted entry (encrypted
+Credential Requests and Responses), and refresh tokens, which are not issued to
+a wallet authenticating with a Wallet Attestation. Before skipping the refresh
+token test the suite warns that the metadata lists the `refresh_token` grant,
+which the OP's OpenID Connect clients use; `conformance-tests/vci-issuer-haip-warnings.json`
+records that warning.
+
+Several tests expect the OP to refuse a request at its authorization endpoint,
+and accept either an error redirected to the client or an error page, captured
+for the test's log. The OP shows its error page for a request which was not
+pushed and for a `request_uri` already used, expired or pushed by another client,
+so the suite configuration's `override` section waits for each page's message.
+It also scripts the user cancelling at the login page (logging in as `cancel`,
+see `docker/ssp/modules/oidcconformance`), and the first of two visits with one
+`request_uri` which only reaches the login page.
+
+What the run leaves out, beyond what the issuer plan above leaves out:
+
+- The `mso_mdoc` format (`credential_format=mso_mdoc`), which the module does
+  not issue. HAIP needs an issuer to issue one of its two credential profiles,
+  not both.
+- Key attestations, which HAIP leaves to ecosystems to require.
+- The pre-authorized code grant and `authorization_details`, which the plan does
+  not test under HAIP; the issuer plan above runs them.

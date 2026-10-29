@@ -1181,8 +1181,8 @@ $config = [
      * not set, OpenID Verifiable Credential capabilities will be disabled.
      *
      * The module is a Credential Issuer of OpenID4VCI 1.0, with the OP as its
-     * Authorization Server; the HAIP 1.0 profile is not supported as a whole
-     * (see OPTION_VCI_HAIP below). What is
+     * Authorization Server, and of the HAIP 1.0 profile for dc+sd-jwt
+     * credentials with OPTION_VCI_HAIP on (below). What is
      * supported, and which requirements depend on the options below, is
      * described in the module documentation, under "Note on OpenID for
      * Verifiable Credential Issuance (OpenID4VCI) support" (docs/1-oidc.md).

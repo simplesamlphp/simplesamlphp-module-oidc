@@ -223,7 +223,7 @@ jobs:
         ssp-composer-version: ["v2.5.3.1"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-      VERSION: release-v5.3.3
+      VERSION: release-v5.3.4
     steps:
       - uses: actions/checkout@v6
         with:
@@ -259,7 +259,15 @@ jobs:
         working-directory: ./main
         # The TLS certificate nginx-proxy serves the OP with, and the OIDC module
         # signing key pairs, are generated per run instead of being kept in Git.
+        # So is the wallet provider which attests the HAIP plan's two wallets,
+        # and the SQL registering them, which the OP image is built with.
         run: ./docker/generate-dev-certs.sh
+      - name: Write the HAIP conformance configuration
+        working-directory: ./main
+        # The suite configuration of the HAIP plan holds what the step above
+        # issued: the attester's key and certificate chain, and the trust anchor
+        # of the issuer's certificates.
+        run: python3 ./conformance-tests/vci-haip-config.py
       - name: Start SSP docker
         working-directory: ./main
         # Must run after conformance suite since they share a docker network.
@@ -328,6 +336,38 @@ jobs:
           DRIVER=$!
           STATUS=0
           ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-skips.json "oid4vci-1_0-issuer-test-plan[sender_constrain=dpop][client_auth_type=private_key_jwt][credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated][authorization_request_type=simple][openid=plain_oauth][fapi_request_method=unsigned][vci_grant_type=pre_authorization_code][vci_credential_encryption=plain][fapi_profile=vci][fapi_response_mode=plain_response]" ./main/conformance-tests/conformance-vci-issuer.json || STATUS=$?
+          kill $DRIVER || true
+          exit $STATUS
+      - name: Restart SSP with HAIP on
+        working-directory: ./main
+        # The HAIP plan runs against the HAIP 1.0 configuration at the end of
+        # docker/ssp/module_oidc.php, every plan above against the default one.
+        # The container is created anew from the image built above, so its
+        # database and protocol cache start as they were built.
+        run: |
+          SSP_IMAGE=ssp-base:${{ matrix.ssp-composer-version }} OIDC_VERSION=@dev OIDC_CONFORMANCE_VCI_HAIP=1 docker compose -f docker/docker-compose.yml --project-directory . up -d --no-build --force-recreate oidc-op
+          sleep 30
+      - name: Run VCI issuer HAIP conformance tests
+        # The OpenID4VCI 1.0 issuer HAIP test plan, through which the foundation
+        # certifies issuers: the wallet-initiated authorization code flow, the
+        # two wallets authenticating with Wallet Attestations, the plan's FAPI 2.0
+        # Security Profile tests among its own. The tests the suite skips for
+        # optional features the module does not offer are listed in
+        # conformance-tests/vci-issuer-haip-skips.json, and the one warning in
+        # conformance-tests/vci-issuer-haip-warnings.json, so this step is a
+        # blocking gate. See docs/5-oidc-conformance.md.
+        timeout-minutes: 30
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-haip-skips.json "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip.json
+      - name: Run VCI issuer HAIP conformance tests (credential offer)
+        # The same plan with the flow started by a Credential Offer, which the
+        # driver gets from the OP's credential offer API, as for the plan above.
+        timeout-minutes: 30
+        run: |
+          python3 ./main/conformance-tests/vci-offer-driver.py --alias simplesamlphp-module-oidc-vci-haip &
+          DRIVER=$!
+          STATUS=0
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-haip-skips.json "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip.json || STATUS=$?
           kill $DRIVER || true
           exit $STATUS
       - name: Dump OP logs
