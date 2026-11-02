@@ -330,9 +330,32 @@ class AuthenticationServiceTest extends TestCase
      */
     public function testItAuthenticates(): void
     {
-        $this->authSimpleMock->expects($this->once())->method('login')->with([]);
+        $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ENTITY['id']);
+        $this->authSimpleMock->expects($this->once())->method('login')->with([
+            'Source' => ['entityid' => self::OIDC_OP_METADATA['issuer']],
+            'Destination' => ['entityid' => self::CLIENT_ENTITY['id']],
+        ]);
 
         $this->mock()->authenticate($this->clientEntityMock);
+    }
+
+    /**
+     * @return void
+     * @throws \JsonException
+     * @throws \SimpleSAML\Error\BadRequest
+     * @throws \SimpleSAML\Error\NotFound
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testItAuthenticatesWithLoginParams(): void
+    {
+        $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ENTITY['id']);
+        $this->authSimpleMock->expects($this->once())->method('login')->with([
+            'ReturnTo' => self::URI,
+            'Source' => ['entityid' => self::OIDC_OP_METADATA['issuer']],
+            'Destination' => ['entityid' => self::CLIENT_ENTITY['id']],
+        ]);
+
+        $this->mock()->authenticate($this->clientEntityMock, ['ReturnTo' => self::URI]);
     }
 
     /**

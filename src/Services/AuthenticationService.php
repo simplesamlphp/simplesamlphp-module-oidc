@@ -283,6 +283,12 @@ class AuthenticationService
         $this->sessionService->setIsCookieBasedAuthn(false);
         $this->sessionService->setIsAuthnPerformedInPreviousRequest(true);
 
+        // Source and destination entity IDs are also given to the auth source, so it can use them before
+        // authentication completes, e.g. for F-ticks logging of failed logins. Values are the same as in
+        // prepareStateArray().
+        $loginParams['Source'] = ['entityid' => $this->opMetadataService->getMetadata()['issuer']];
+        $loginParams['Destination'] = ['entityid' => $clientEntity->getIdentifier()];
+
         $authSimple->login($loginParams);
     }
 

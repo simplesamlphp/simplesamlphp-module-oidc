@@ -178,6 +178,10 @@ Source and Destination entity IDs correspond to OP issuer and Client ID:
 - \['Source'\]\['entityid'\]      → OP issuer ID
 - \['Destination'\]\['entityid'\] → RP (client) ID
 
+The same two keys are also set in the state given to the authentication
+source when the module starts a login, so the authentication source can use
+them before authentication completes (for example, to log failed logins).
+
 Additional OIDC data in the state:
 
 - \['Oidc'\]\['OpenIdProviderMetadata'\]
