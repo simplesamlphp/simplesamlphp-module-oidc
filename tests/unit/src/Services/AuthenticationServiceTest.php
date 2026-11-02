@@ -465,13 +465,17 @@ class AuthenticationServiceTest extends TestCase
         $this->routesMock->method('getModuleUrl')
             ->with(RoutesEnum::Authorization->value)
             ->willReturn(self::AUTHORIZATION_URL);
+        $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ENTITY['id']);
 
         // An exception the authentication source raises comes back to the authorization endpoint, which finds the
-        // redirect to answer the client at in the state the login parameters go into.
+        // redirect to answer the client at in the state the login parameters go into. Source and Destination are
+        // there for the authentication source, as prepareStateArray() sets them after the login.
         $this->authSimpleMock->expects($this->once())->method('login')->with([
             'core:username' => 'user',
             'ErrorURL' => self::AUTHORIZATION_URL,
             AuthenticationService::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT => $authorizationErrorRedirect,
+            'Source' => ['entityid' => self::OIDC_OP_METADATA['issuer']],
+            'Destination' => ['entityid' => self::CLIENT_ENTITY['id']],
         ]);
 
         $this->mock()->authenticateForClient(
@@ -491,9 +495,19 @@ class AuthenticationServiceTest extends TestCase
     public function testALoginWithNoRedirectGetsNoErrorUrl(): void
     {
         $this->routesMock->expects($this->never())->method('getModuleUrl');
-        $this->authSimpleMock->expects($this->once())->method('login')->with(['core:username' => 'user']);
+        $this->clientEntityMock->method('getIdentifier')->willReturn(self::CLIENT_ENTITY['id']);
+        $this->authSimpleMock->expects($this->once())->method('login')->with([
+            'core:username' => 'user',
+            'Source' => ['entityid' => self::OIDC_OP_METADATA['issuer']],
+            'Destination' => ['entityid' => self::CLIENT_ENTITY['id']],
+        ]);
 
-        $this->mock()->authenticate($this->authSimpleMock, null, ['core:username' => 'user']);
+        $this->mock()->authenticate(
+            $this->authSimpleMock,
+            $this->clientEntityMock,
+            null,
+            ['core:username' => 'user'],
+        );
     }
 
 
@@ -775,6 +789,7 @@ class AuthenticationServiceTest extends TestCase
             ->method('authenticate')
             ->with(
                 $this->authSimpleMock,
+                $this->clientEntityMock,
                 new AuthorizationErrorRedirect(self::REDIRECT_URI, 'the-state'),
                 ['core:username' => 'user@example.org'],
             );

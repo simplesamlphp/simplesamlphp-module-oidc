@@ -115,6 +115,7 @@ class AuthenticationService
         if (! $authSimple->isAuthenticated()) {
             $this->authenticate(
                 $authSimple,
+                $oidcClient,
                 $this->resolveAuthorizationErrorRedirect($authorizationRequest),
                 $this->resolveLoginParams($authorizationRequest),
             );
@@ -407,6 +408,7 @@ class AuthenticationService
      */
     public function authenticate(
         Simple $authSimple,
+        OAuth2ClientEntityInterface $client,
         ?AuthorizationErrorRedirect $authorizationErrorRedirect,
         array $loginParams = [],
     ): void {
@@ -417,6 +419,12 @@ class AuthenticationService
             $loginParams['ErrorURL'] = $this->routes->getModuleUrl(RoutesEnum::Authorization->value);
             $loginParams[self::STATE_KEY_AUTHORIZATION_ERROR_REDIRECT] = $authorizationErrorRedirect;
         }
+
+        // Source and destination entity IDs are also given to the auth source, so it can use them before
+        // authentication completes, e.g. for F-ticks logging of failed logins. Values are the same as in
+        // prepareStateArray().
+        $loginParams['Source'] = ['entityid' => $this->opMetadataService->getMetadata()['issuer']];
+        $loginParams['Destination'] = ['entityid' => $client->getIdentifier()];
 
         $authSimple->login($loginParams);
     }
@@ -433,7 +441,12 @@ class AuthenticationService
         AuthorizationErrorRedirect $authorizationErrorRedirect,
         array $loginParams = [],
     ): void {
-        $this->authenticate($this->authSimpleFactory->build($clientEntity), $authorizationErrorRedirect, $loginParams);
+        $this->authenticate(
+            $this->authSimpleFactory->build($clientEntity),
+            $clientEntity,
+            $authorizationErrorRedirect,
+            $loginParams,
+        );
     }
 
 
