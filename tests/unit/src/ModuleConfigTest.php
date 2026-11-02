@@ -23,11 +23,14 @@ use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
@@ -1663,6 +1666,304 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * A configuration which binds its credentials and sets no proof types of its own takes jwt proofs without key
+     * attestations, as every one did before the option.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialConfigurationsTakeJwtProofsWithoutKeyAttestationsUnlessConfiguredOtherwise(): void
+    {
+        $sut = $this->sut();
+
+        $this->assertSame([], $sut->getVciCredentialProofTypes());
+        $this->assertEquals(VciCredentialProofTypes::jwtOnly(), $sut->getVciCredentialProofTypesFor('TestCredential'));
+        $this->assertFalse($sut->isVciKeyAttestationTrustNeeded());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testResolvesTheConfiguredProofTypes(): void
+    {
+        $sut = $this->sut(overrides: $this->withCredentialProofTypes([
+            'jwt' => [
+                'key_attestations_required' => [
+                    'key_storage' => ['iso_18045_high'],
+                    'user_authentication' => ['iso_18045_moderate', 'iso_18045_high'],
+                ],
+            ],
+            'attestation' => ['key_attestations_required' => []],
+        ]));
+
+        $this->assertEquals(
+            [
+                'TestCredential' => new VciCredentialProofTypes([
+                    'jwt' => new VciKeyAttestationRequirements(
+                        ['iso_18045_high'],
+                        ['iso_18045_moderate', 'iso_18045_high'],
+                    ),
+                    'attestation' => new VciKeyAttestationRequirements(),
+                ]),
+            ],
+            $sut->getVciCredentialProofTypes(),
+        );
+        $this->assertTrue($sut->isVciKeyAttestationTrustNeeded());
+        // Configurations which are not listed keep the default.
+        $this->assertEquals(VciCredentialProofTypes::jwtOnly(), $sut->getVciCredentialProofTypesFor('SomethingElse'));
+    }
+
+
+    /**
+     * Only what requires a key attestation needs trust anchors for one: a jwt proof type without
+     * key_attestations_required does not, an attestation proof type always does.
+     *
+     * @throws \Exception
+     */
+    public function testNeedsKeyAttestationTrustOnlyWhereAProofTypeTakesAKeyAttestation(): void
+    {
+        $jwtOnly = $this->sut(overrides: $this->withCredentialProofTypes(['jwt' => []]));
+
+        $this->assertEquals(
+            VciCredentialProofTypes::jwtOnly(),
+            $jwtOnly->getVciCredentialProofTypesFor('TestCredential'),
+        );
+        $this->assertFalse($jwtOnly->isVciKeyAttestationTrustNeeded());
+
+        $attestation = $this->sut(overrides: $this->withCredentialProofTypes(['attestation' => []]));
+
+        $this->assertEquals(
+            new VciCredentialProofTypes(['attestation' => null]),
+            $attestation->getVciCredentialProofTypesFor('TestCredential'),
+        );
+        $this->assertTrue($attestation->isVciKeyAttestationTrustNeeded());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    #[DataProvider('malformedCredentialProofTypesProvider')]
+    public function testRefusesMalformedCredentialProofTypes(mixed $proofTypes, string $message): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($message);
+
+        $this->sut(overrides: $this->withCredentialProofTypes($proofTypes))->getVciCredentialProofTypes();
+    }
+
+
+    /**
+     * @return array<string,array{mixed,string}>
+     */
+    public static function malformedCredentialProofTypesProvider(): array
+    {
+        $notAMap = 'for the credential configuration "TestCredential" is not a non-empty map of proof types to ' .
+        'their settings.';
+        $requirementsNotAMap = 'a "key_attestations_required" which is not a map of at most "key_storage" and ' .
+        '"user_authentication".';
+
+        return [
+            'a proof type name' => ['jwt', $notAMap],
+            'an empty map' => [[], $notAMap],
+            'a list of proof types' => [['jwt', 'attestation'], $notAMap],
+            'a proof type this issuer does not verify' => [
+                ['di_vp' => []],
+                'names the proof type "di_vp", which is not one of: jwt, attestation.',
+            ],
+            'settings which are not a map' => [
+                ['jwt' => true],
+                'gives the proof type "jwt" settings which are not a map.',
+            ],
+            'a setting the module publishes' => [
+                ['jwt' => ['proof_signing_alg_values_supported' => ['ES256']]],
+                'gives the proof type "jwt" the setting "proof_signing_alg_values_supported"; the one setting a ' .
+                'proof type takes is "key_attestations_required"',
+            ],
+            'requirements which are not a map' => [
+                ['jwt' => ['key_attestations_required' => true]],
+                $requirementsNotAMap,
+            ],
+            'requirements which are a list of values' => [
+                ['jwt' => ['key_attestations_required' => ['iso_18045_high']]],
+                $requirementsNotAMap,
+            ],
+            'a component OpenID4VCI does not define' => [
+                ['attestation' => ['key_attestations_required' => ['certification' => ['https://cert.example']]]],
+                'gives the proof type "attestation" ' . $requirementsNotAMap,
+            ],
+            'no values' => [
+                ['jwt' => ['key_attestations_required' => ['key_storage' => []]]],
+                'whose "key_storage" is not a non-empty list of the values it accepts.',
+            ],
+            'an empty value' => [
+                ['jwt' => ['key_attestations_required' => ['user_authentication' => ['iso_18045_high', '']]]],
+                'whose "user_authentication" is not a non-empty list of the values it accepts.',
+            ],
+            'values in a map' => [
+                ['jwt' => ['key_attestations_required' => ['key_storage' => ['level' => 'iso_18045_high']]]],
+                'whose "key_storage" is not a non-empty list of the values it accepts.',
+            ],
+            'a value which is not a string' => [
+                ['jwt' => ['key_attestations_required' => ['key_storage' => [4]]]],
+                'whose "key_storage" is not a non-empty list of the values it accepts.',
+            ],
+            'one value rather than a list' => [
+                ['jwt' => ['key_attestations_required' => ['key_storage' => 'iso_18045_high']]],
+                'whose "key_storage" is not a non-empty list of the values it accepts.',
+            ],
+        ];
+    }
+
+
+    /**
+     * An option which is not an array is the configuration's fault, refused as every malformed entry is, so that the
+     * Credential Endpoint answers it as its own server error.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesCredentialProofTypesWhichAreNotAMap(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Option "' . ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES . '" is not a map of credential ' .
+            'configuration ids to their proof types.',
+        );
+
+        $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES, 'jwt'))
+            ->getVciCredentialProofTypes();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testCredentialProofTypesRejectAnUnknownCredentialConfiguration(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'for the credential configuration "NoSuchCredential" names a configuration which is not declared',
+        );
+
+        $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => ['NoSuchCredential' => ['jwt' => []]],
+            ],
+        ))->getVciCredentialProofTypes();
+    }
+
+
+    /**
+     * Proof types for a configuration which takes no key proof would be published nowhere and honoured never.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialProofTypesRejectAConfigurationWhichTakesNoKeyProof(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('sets proof types, but its binding policy under "' .
+            ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES . '", "proofless", takes no key proof.');
+
+        $this->sut(overrides: $this->withCredentialProofTypes(
+            ['jwt' => []],
+            [ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['TestCredential' => 'proofless']],
+        ))->getVciCredentialProofTypes();
+    }
+
+
+    /**
+     * The keys an attestation proof attests are carried as keys, which the DIIP policy does not bind credentials to;
+     * a key attestation in the header of a jwt proof naming a DID verification method is another matter.
+     *
+     * @throws \Exception
+     */
+    public function testCredentialProofTypesRejectTheAttestationProofTypeWhereNoInlineKeyIsAccepted(): void
+    {
+        $diip = [ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['TestCredential' => 'diip_proof_bound']];
+
+        $this->assertTrue(
+            $this->sut(overrides: $this->withCredentialProofTypes(
+                ['jwt' => ['key_attestations_required' => []]],
+                $diip,
+            ))->getVciCredentialProofTypesFor('TestCredential')->requiresKeyAttestation(VciProofTypeEnum::Jwt),
+        );
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('offers the "attestation" proof type, whose attested keys are carried as ' .
+            'keys, but its binding policy under "' . ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES . '", ' .
+            '"diip_proof_bound", accepts no key carried inline.');
+
+        $this->sut(overrides: $this->withCredentialProofTypes(['jwt' => [], 'attestation' => []], $diip))
+            ->getVciCredentialProofTypes();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testKeyAttestationTrustAnchorsAreNotConfiguredByDefault(): void
+    {
+        $this->assertNull($this->sut()->getVciKeyAttestationTrustAnchorsFilename());
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testKeyAttestationTrustAnchorsAreReadFromTheCertificateDirectory(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+            'oidc_module.crt',
+        ));
+
+        $this->assertSame(
+            dirname(__DIR__, 2) . '/cert/oidc_module.crt',
+            $sut->getVciKeyAttestationTrustAnchorsFilename(),
+        );
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testKeyAttestationTrustAnchorsMustBeAnExistingFile(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+            'missing.pem',
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'The file of option "' . ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME .
+            '" does not exist',
+        );
+
+        $sut->getVciKeyAttestationTrustAnchorsFilename();
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testKeyAttestationTrustAnchorsMustBeAFileName(): void
+    {
+        $sut = $this->sut(overrides: $this->withOption(
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+            ['oidc_module.crt'],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Expected a non-empty string');
+
+        $sut->getVciKeyAttestationTrustAnchorsFilename();
+    }
+
+
+    /**
      * The shape this option has always had, which has to go on working.
      *
      * @throws \Exception
@@ -2328,6 +2629,28 @@ class ModuleConfigTest extends TestCase
                 ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['TestCredential' => []],
                 ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES => ['TestCredential' => $bindingPolicy],
             ],
+        );
+    }
+
+
+    /**
+     * The proof types of one credential configuration, beside another which sets none.
+     *
+     * @param array<string,mixed> $more
+     * @return array<string,mixed>
+     */
+    protected function withCredentialProofTypes(mixed $proofTypes, array $more = []): array
+    {
+        return array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'TestCredential' => [],
+                    'SomethingElse' => [],
+                ],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => ['TestCredential' => $proofTypes],
+            ],
+            $more,
         );
     }
 

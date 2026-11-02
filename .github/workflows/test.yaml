@@ -259,14 +259,15 @@ jobs:
         working-directory: ./main
         # The TLS certificate nginx-proxy serves the OP with, and the OIDC module
         # signing key pairs, are generated per run instead of being kept in Git.
-        # So is the wallet provider which attests the HAIP plan's two wallets,
-        # and the SQL registering them, which the OP image is built with.
+        # So is the wallet provider which attests the HAIP plan's two wallets
+        # and their keys, the SQL registering them and the key attestation trust
+        # anchors, which the OP image is built with.
         run: ./docker/generate-dev-certs.sh
       - name: Write the HAIP conformance configuration
         working-directory: ./main
-        # The suite configuration of the HAIP plan holds what the step above
-        # issued: the attester's key and certificate chain, and the trust anchor
-        # of the issuer's certificates.
+        # The suite configurations of the HAIP plan's runs hold what the step
+        # above issued: the attesters' keys and certificate chains, and the
+        # trust anchor of the issuer's certificates.
         run: python3 ./conformance-tests/vci-haip-config.py
       - name: Start SSP docker
         working-directory: ./main
@@ -353,12 +354,14 @@ jobs:
         # two wallets authenticating with Wallet Attestations, the plan's FAPI 2.0
         # Security Profile tests among its own. The tests the suite skips for
         # optional features the module does not offer are listed in
-        # conformance-tests/vci-issuer-haip-skips.json, and the one warning in
+        # conformance-tests/vci-issuer-haip-skips.json, with the key attestation
+        # test, which the credential configuration of this run takes none for,
+        # in vci-issuer-haip-unattested-skips.json, and the one warning in
         # conformance-tests/vci-issuer-haip-warnings.json, so this step is a
         # blocking gate. See docs/5-oidc-conformance.md.
         timeout-minutes: 30
         run: |
-          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-haip-skips.json "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip.json
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file "./main/conformance-tests/vci-issuer-haip-skips.json|./main/conformance-tests/vci-issuer-haip-unattested-skips.json" "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip.json
       - name: Run VCI issuer HAIP conformance tests (credential offer)
         # The same plan with the flow started by a Credential Offer, which the
         # driver gets from the OP's credential offer API, as for the plan above.
@@ -367,9 +370,22 @@ jobs:
           python3 ./main/conformance-tests/vci-offer-driver.py --alias simplesamlphp-module-oidc-vci-haip &
           DRIVER=$!
           STATUS=0
-          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-haip-skips.json "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip.json || STATUS=$?
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file "./main/conformance-tests/vci-issuer-haip-skips.json|./main/conformance-tests/vci-issuer-haip-unattested-skips.json" "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip.json || STATUS=$?
           kill $DRIVER || true
           exit $STATUS
+      - name: Run VCI issuer HAIP conformance tests (key attestations, jwt)
+        # The plan again, selecting a credential configuration whose jwt proofs
+        # each carry a key attestation in their key_attestation header, so that
+        # every credential request carries one and the key attestation test runs.
+        timeout-minutes: 30
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-haip-skips.json "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip-key-attestation.json
+      - name: Run VCI issuer HAIP conformance tests (key attestations, attestation)
+        # And selecting one which takes attestation proofs, a key attestation
+        # without a proof of possession, which the plan's tests then send.
+        timeout-minutes: 30
+        run: |
+          ./conformance-suite/scripts/run-test-plan.py  --expected-failures-file ./main/conformance-tests/vci-issuer-haip-warnings.json --expected-skips-file ./main/conformance-tests/vci-issuer-haip-skips.json "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" ./main/conformance-tests/conformance-vci-issuer-haip-attestation.json
       - name: Dump OP logs
         if: failure()
         working-directory: ./main

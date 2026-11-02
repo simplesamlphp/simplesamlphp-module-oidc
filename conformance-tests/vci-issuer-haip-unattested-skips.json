@@ -1,0 +1,8 @@
+[
+    {
+        "comment": "The credential configuration of this run takes the jwt proof type without key_attestations_required, so the suite skips this test; the runs with conformance-vci-issuer-haip-key-attestation.json and conformance-vci-issuer-haip-attestation.json select configurations which take key attestations, and run it.",
+        "test-name": "oid4vci-1_0-issuer-fail-invalid-key-attestation-signature*",
+        "configuration-filename": "*conformance-vci-issuer-haip.json",
+        "variant": "*"
+    }
+]

@@ -2958,3 +2958,40 @@ msgstr ""
 
 msgid "not a URI, so possibly not a collision-resistant name"
 msgstr ""
+
+msgid "Credential Proof Types"
+msgstr ""
+
+msgid "Every configuration takes jwt proofs without key attestations"
+msgstr ""
+
+msgid ""
+"Every credential configuration which binds its credentials to a key takes "
+"key proofs of the jwt type, and requires no key attestation, which is the "
+"default."
+msgstr ""
+
+msgid ""
+"Only the configurations which set their own proof types are listed; every "
+"other one which binds its credentials takes jwt proofs without key "
+"attestations. A key attestation is verified against the key attestation "
+"trust anchors, and has to state one of the values listed for each component "
+"listed. A jwt proof which has to carry one gets one credential, bound to "
+"its own key; an attestation proof gets one for each key it attests."
+msgstr ""
+
+msgid "Key Attestation Trust Anchors"
+msgstr ""
+
+msgid ""
+"The root certificates key attestations are validated against: those of the "
+"wallet providers and key storage components whose statements about keys are "
+"accepted. Required as soon as a credential configuration takes key "
+"attestations."
+msgstr ""
+
+msgid ""
+"A credential configuration takes key attestations, but there are no trust "
+"anchors to verify them against, so the Credential Issuer metadata is "
+"refused, and so is every Credential Request needing a key attestation."
+msgstr ""

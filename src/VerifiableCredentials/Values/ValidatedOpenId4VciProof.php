@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\VerifiableCredentials\Values;
 
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
-use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
+use SimpleSAML\OpenID\Jws\ParsedJws;
 
 /**
  * A Key Proof which passed every check, together with what issuance is to bind the credential to.
@@ -17,18 +17,20 @@ use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 class ValidatedOpenId4VciProof
 {
     /**
+     * @param \SimpleSAML\OpenID\Jws\ParsedJws $proof The proof: a jwt proof (OpenId4VciProof), or for a key
+     * attested by an attestation proof the key attestation (KeyAttestation).
      * @param string $subject The holder identifier the credential is issued to.
      * @param ?string $keyId The verification method the proof named, or null when the proof carried its
      * key inline in a `jwk` header and so named no verification method at all.
-     * @param ?array<array-key,mixed> $holderJwk The key the proof carried inline, or null when it named
-     * a verification method instead.
+     * @param ?array<array-key,mixed> $holderJwk The key the proof carried inline, or the attested key, or null when
+     * the proof named a verification method instead.
      * @param string $keyThumbprint The JWK SHA-256 Thumbprint (RFC 7638) of the key the proof was verified
-     * with: the key the credential is bound to, however the proof named it.
+     * with, or of the attested key: the key the credential is bound to, however the proof named it.
      * @param ?array<array-key,mixed> $confirmationJwk The key the credential's `cnf` names by value in place of the
      * verification method the proof named, as HAIP 1.0 section 6.1 has it, or null to name it as the proof did.
      */
     public function __construct(
-        protected readonly OpenId4VciProof $proof,
+        protected readonly ParsedJws $proof,
         protected readonly string $subject,
         protected readonly ?string $keyId,
         protected readonly ?array $holderJwk,
@@ -38,7 +40,7 @@ class ValidatedOpenId4VciProof
     }
 
 
-    public function getProof(): OpenId4VciProof
+    public function getProof(): ParsedJws
     {
         return $this->proof;
     }

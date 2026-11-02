@@ -42,6 +42,7 @@ use SimpleSAML\OpenID\Codebooks\CredentialTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\TermsOfUseTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
+use SimpleSAML\OpenID\Exceptions\X509TrustStoreException;
 use SimpleSAML\OpenID\TokenStatusList\StatusClaim;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use Symfony\Component\HttpFoundation\Request;
@@ -525,7 +526,17 @@ class CredentialIssuerCredentialController
                 $requestData,
                 $this->moduleConfig->getVciCredentialBindingPolicyFor($resolvedCredentialIdentifier),
                 $accessToken,
+                $this->moduleConfig->getVciCredentialProofTypesFor($resolvedCredentialIdentifier),
             );
+        } catch (ConfigurationError | X509TrustStoreException $exception) {
+            // What the proofs are validated under can not be used: the binding policy or the proof types of the
+            // configuration, the trust anchors of key attestations, or the temporary files a certificate path is
+            // validated with. The issuer's fault, not the wallet's.
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: The key proofs could not be validated.',
+                ['credentialConfigurationId' => $resolvedCredentialIdentifier, 'error' => $exception->getMessage()],
+            );
+            throw OidcServerException::serverError('The key proofs of the request could not be validated.');
         } catch (CredentialRequestException $credentialRequestException) {
             $this->loggerService->warning(
                 'Credential request refused.',

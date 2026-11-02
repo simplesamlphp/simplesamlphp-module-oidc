@@ -586,6 +586,81 @@ granularity is given in weeks, days, hours, minutes or seconds; a month or a
 year has no fixed length to round on and is refused. `PT0S` turns rounding off,
 and credentials then state their times to the second.
 
+## Key attestations
+
+A key attestation is a wallet provider's, or a key storage component's, signed
+statement about keys and how they are kept (OpenID4VCI 1.0 Appendix D). A
+credential configuration which binds its credentials can require one, with the
+levels of key storage and user authentication it accepts, in either of two
+ways, each a proof type of its own:
+
+```php
+ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => [
+    'PidCredential' => [
+        // Every jwt proof carries a key attestation of its own key.
+        'jwt' => [
+            'key_attestations_required' => [
+                'key_storage' => ['iso_18045_high', 'iso_18045_moderate'],
+                'user_authentication' => ['iso_18045_high', 'iso_18045_moderate'],
+            ],
+        ],
+        // Or the key attestation is the proof.
+        'attestation' => [
+            'key_attestations_required' => [
+                'key_storage' => ['iso_18045_high', 'iso_18045_moderate'],
+            ],
+        ],
+    ],
+],
+ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME =>
+    'oidc_module_vci_key_attestation_trust_anchors.pem',
+```
+
+The configuration's metadata publishes the proof types as
+`proof_types_supported`, each with `key_attestations_required` as written and
+with the signature algorithms this issuer verifies. A configuration which is not
+listed takes `jwt` proofs without key attestations, as before the option.
+
+- **`jwt`** with `key_attestations_required`: every proof carries a key
+  attestation in its `key_attestation` header, with an `exp`, and the proof has
+  to be signed with one of the keys it attests (Appendix D.1). One credential is
+  issued per proof, bound to the proof's key, as for any `jwt` proof. Appendix
+  F.1 has an issuer issue one for each attested key; this module does not for a
+  `jwt` proof, since the proof proves possession of its own key only, and a
+  batch of proofs commonly carries one attestation of all their keys.
+- **`attestation`**: the key attestation itself is the proof (Appendix F.3),
+  without a proof of possession, and one credential is issued for each key it
+  attests, at most the batch size, each key once. Each is bound as a key sent
+  inline is (`cnf.jwk`), so a configuration under the `DiipProofBound` policy can
+  not take this proof type, and one which takes no other advertises `jwk` as its
+  only binding method.
+
+For each of `key_storage` and `user_authentication` the configuration names, a
+key attestation has to state at least one of the values it accepts; a component
+it does not name is not looked at, and with neither, a key attestation is
+required without further constraint. The values are matched as written: the
+four ISO/IEC 18045 levels of Appendix D.2 are ordered, an ecosystem's own values
+need not be, so a configuration accepting a level "or better" lists each level
+it accepts.
+
+A key attestation is verified against the trust anchors of
+`vci_key_attestation_trust_anchors_filename`, self-signed roots of the wallet
+providers and key storage components whose statements this issuer accepts, at
+least one of them valid now: the certificate chain of its signing key in `x5c`
+(a JSON array), without the trust anchor and with a first certificate which is
+not self-signed (HAIP 1.0 section 4.5.1), then its signature; one trusted any
+other way (a `kid`, a `trust_chain`) is refused. It
+has to carry a `nonce` which is a `c_nonce` this issuer gave, as the proof does
+(Appendices F.1 and F.3); a missing one is `invalid_proof`, a stale one
+`invalid_nonce`. Revocation is not checked, of the certificates or through the
+attestation's `status`: to distrust a wallet provider, remove its root from the
+file.
+
+Until the trust anchors are set, or while they can not be used, the Credential
+Issuer metadata is refused, and the Credential Endpoint answers a request needing
+a key attestation with `server_error`. Where nothing requires one, a `jwt`
+proof's `key_attestation` header is checked for its signing algorithm only.
+
 ## Enabled grant types (flows)
 
 The module implements the authorization code, implicit and refresh token

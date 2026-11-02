@@ -6,8 +6,10 @@ namespace SimpleSAML\Module\oidc\VerifiableCredentials;
 
 use Jose\Component\Core\JWK;
 use JsonException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
@@ -17,6 +19,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\DidResolutionBudget;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\VerificationRelationshipEnum;
@@ -24,8 +28,11 @@ use SimpleSAML\OpenID\Did;
 use SimpleSAML\OpenID\Did\DidDocument;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
+use SimpleSAML\OpenID\Exceptions\X509TrustStoreException;
+use SimpleSAML\OpenID\Helpers\Jwk as JwkHelper;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\VerifiableCredentials;
+use SimpleSAML\OpenID\VerifiableCredentials\KeyAttestation;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use stdClass;
 use Throwable;
@@ -50,15 +57,15 @@ use Throwable;
  * `DiipProofBound` - per configuration, because DIIP's requirements are additive and a deployment may
  * offer conformant configurations alongside ones which accept inline keys or `did:key` holders.
  *
+ * Two proof types, each where the credential configuration offers it (ModuleConfig::getVciCredentialProofTypesFor()):
+ * `jwt` (Appendix F.1), one credential per proof, which carries a key attestation of its key where the
+ * configuration requires one; and `attestation` (Appendix F.3), a key attestation without a proof of possession, one
+ * credential per attested key. A key attestation is verified by KeyAttestationVerifier.
+ *
  * @see \SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\OpenId4VciProofValidatorTest
  */
 class OpenId4VciProofValidator
 {
-    /**
-     * The only Key Proof type this issuer accepts, and the only one its metadata advertises.
-     */
-    final public const string PROOF_TYPE_JWT = 'jwt';
-
     /**
      * How many distinct DIDs one Credential Request may send this deployment out to fetch.
      *
@@ -160,6 +167,7 @@ class OpenId4VciProofValidator
         protected readonly DidFactory $didFactory,
         protected readonly NonceService $nonceService,
         protected readonly LoggerService $loggerService,
+        protected readonly KeyAttestationVerifier $keyAttestationVerifier,
     ) {
     }
 
@@ -186,18 +194,24 @@ class OpenId4VciProofValidator
      * Validate everything a Credential Request says about holder binding.
      *
      * @param array<array-key,mixed> $requestData
+     * @param ?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes $proofTypes The proof
+     * types the credential configuration takes, or null for `jwt` proofs without key attestations.
      * @return list<?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof> One
-     * entry per credential the request is to be issued, in the order the proofs arrived. A null entry
-     * means an unbound credential, which only a proofless configuration produces.
+     * entry per credential the request is to be issued, in the order the proofs arrived, or the order an
+     * attestation proof lists its keys in. A null entry means an unbound credential, which only a proofless
+     * configuration produces.
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException When the request is refused.
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
-     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\Error\ConfigurationError Also when the trust anchors of key attestations can not be used.
+     * @throws \SimpleSAML\OpenID\Exceptions\X509TrustStoreException When a key attestation's certificate path can
+     * not be validated for want of its temporary files.
      * @throws \JsonException
      */
     public function validateRequest(
         array $requestData,
         VciCredentialBindingPolicyEnum $bindingPolicy,
         AccessTokenEntity $accessToken,
+        ?VciCredentialProofTypes $proofTypes = null,
     ): array {
         if (!$bindingPolicy->requiresKeyProof()) {
             $this->refuseSuppliedProofs($requestData);
@@ -205,11 +219,17 @@ class OpenId4VciProofValidator
             return [null];
         }
 
-        $proofJwts = $this->extractProofJwts($requestData);
+        $proofTypes ??= VciCredentialProofTypes::jwtOnly();
+
+        [$proofType, $proofJwts] = $this->extractProofJwts($requestData, $proofTypes);
 
         $this->loggerService->debug(
             'Validating key proofs before issuing anything.',
-            ['count' => count($proofJwts), 'bindingPolicy' => $bindingPolicy->value],
+            [
+                'count' => count($proofJwts),
+                'proofType' => $proofType->value,
+                'bindingPolicy' => $bindingPolicy->value,
+            ],
         );
 
         // Shared by every proof in the request, so that what one request may spend on resolving DIDs is
@@ -223,31 +243,51 @@ class OpenId4VciProofValidator
         // fault.
         $isVciHaipEnabled = $this->moduleConfig->getVciHaipEnabled();
 
+        // So are the trust anchors of key attestations: when they can not be used, the fault is this issuer's.
+        if ($proofTypes->requiresKeyAttestation($proofType)) {
+            $this->keyAttestationVerifier->getTrustAnchors();
+        }
+
         $validatedProofs = [];
         $provenKeyThumbprints = [];
         foreach ($proofJwts as $proofJwt) {
-            $validatedProof = $this->validateProof(
+            $validatedProofsOfJwt = $proofType === VciProofTypeEnum::Attestation ?
+            $this->validateAttestationProof(
                 $proofJwt,
-                $accessToken,
                 $bindingPolicy,
-                $didResolutionBudget,
+                $proofTypes->getKeyAttestationRequirementsFor($proofType),
                 $isVciHaipEnabled,
-            );
+            ) :
+            [
+                $this->validateProof(
+                    $proofJwt,
+                    $accessToken,
+                    $bindingPolicy,
+                    $didResolutionBudget,
+                    $isVciHaipEnabled,
+                    $proofTypes,
+                ),
+            ];
 
-            // OpenID4VCI 1.0 section 8.3: "Each key provided by the Wallet is used to bind to, at most, one
-            // Credential". Compared by thumbprint, so the same key named twice in two ways (inline and by a
-            // verification method, or under two DID URLs) is still one key. Refused rather than issued one
-            // credential for: a wallet repeating a key has made a mistake which a shorter batch would hide,
-            // and credentials bound to one key are linkable by it.
-            if (isset($provenKeyThumbprints[$validatedProof->getKeyThumbprint()])) {
-                throw new CredentialRequestException(
-                    'invalid_proof',
-                    'Each key proof must prove a different key, and two of them prove the same one.',
-                );
+            foreach ($validatedProofsOfJwt as $validatedProof) {
+                // OpenID4VCI 1.0 section 8.3: "Each key provided by the Wallet is used to bind to, at most, one
+                // Credential". Compared by thumbprint, so the same key named twice in two ways (inline and by a
+                // verification method, or under two DID URLs) is still one key. Refused rather than issued one
+                // credential for: a wallet repeating a key has made a mistake which a shorter batch would hide,
+                // and credentials bound to one key are linkable by it. The keys of an attestation proof as well.
+                if (isset($provenKeyThumbprints[$validatedProof->getKeyThumbprint()])) {
+                    throw new CredentialRequestException(
+                        'invalid_proof',
+                        $proofType === VciProofTypeEnum::Attestation ?
+                        'Each key the key attestation attests must be a different key, and two of them are the same ' .
+                        'one.' :
+                        'Each key proof must prove a different key, and two of them prove the same one.',
+                    );
+                }
+
+                $provenKeyThumbprints[$validatedProof->getKeyThumbprint()] = true;
+                $validatedProofs[] = $validatedProof;
             }
-
-            $provenKeyThumbprints[$validatedProof->getKeyThumbprint()] = true;
-            $validatedProofs[] = $validatedProof;
         }
 
         return $validatedProofs;
@@ -282,10 +322,11 @@ class OpenId4VciProofValidator
 
     /**
      * @param array<array-key,mixed> $requestData
-     * @return list<non-empty-string>
+     * @return array{0: \SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum, 1: non-empty-list<non-empty-string>}
+     * The proof type the request uses, and its proofs.
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
      */
-    protected function extractProofJwts(array $requestData): array
+    protected function extractProofJwts(array $requestData, VciCredentialProofTypes $proofTypes): array
     {
         // Only `proofs` is read. The pre-final singular `proof` is not an OpenID4VCI 1.0 parameter, and
         // section 8.2 has an issuer ignore the parameters it does not recognize: a request carrying both is
@@ -307,10 +348,22 @@ class OpenId4VciProofValidator
             );
         }
 
-        if ((string)array_key_first($proofs) !== self::PROOF_TYPE_JWT) {
+        $proofType = VciProofTypeEnum::tryFrom((string)array_key_first($proofs));
+
+        // The configuration's own proof types, which its metadata advertises; not every type this issuer verifies.
+        if ($proofType === null || !$proofTypes->offers($proofType)) {
             throw new CredentialRequestException(
                 'invalid_proof',
-                sprintf('The only supported proof type is %s.', self::PROOF_TYPE_JWT),
+                sprintf(
+                    'This credential configuration takes key proofs of the type %s only.',
+                    implode(
+                        ' or ',
+                        array_map(
+                            static fn(VciProofTypeEnum $offered): string => $offered->value,
+                            $proofTypes->getOffered(),
+                        ),
+                    ),
+                ),
             );
         }
 
@@ -321,6 +374,15 @@ class OpenId4VciProofValidator
             throw new CredentialRequestException(
                 'invalid_proof',
                 'The proofs parameter must carry a non-empty array of key proofs.',
+            );
+        }
+
+        // Appendix F: an attestation proof is "an array that contains exactly one JWT". The keys it attests are
+        // capped as proofs are (validateAttestationProof()).
+        if ($proofType === VciProofTypeEnum::Attestation && count($proofValues) !== 1) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The proofs parameter must carry exactly one key attestation for the attestation proof type.',
             );
         }
 
@@ -351,15 +413,18 @@ class OpenId4VciProofValidator
             $proofJwts[] = $proofValue;
         }
 
-        return $proofJwts;
+        return [$proofType, $proofJwts];
     }
 
 
     /**
      * @param non-empty-string $proofJwt
+     * @param ?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes $proofTypes Whether the
+     * proof has to carry a key attestation, and what is required of it; null for `jwt` proofs without one.
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\X509TrustStoreException
      */
     protected function validateProof(
         string $proofJwt,
@@ -367,6 +432,7 @@ class OpenId4VciProofValidator
         VciCredentialBindingPolicyEnum $bindingPolicy,
         DidResolutionBudget $didResolutionBudget,
         bool $isVciHaipEnabled = false,
+        ?VciCredentialProofTypes $proofTypes = null,
     ): ValidatedOpenId4VciProof {
         try {
             $proof = $this->verifiableCredentials->openId4VciProofFactory()->fromToken($proofJwt);
@@ -408,8 +474,22 @@ class OpenId4VciProofValidator
                 throw new CredentialRequestException('invalid_proof', 'Key proof signature could not be verified.');
             }
 
+            // Appendix F.1, where the configuration requires a key attestation of a jwt proof: one which holds, of
+            // the key the proof was just verified with.
+            $keyAttestation = $proofTypes !== null && $proofTypes->requiresKeyAttestation(VciProofTypeEnum::Jwt) ?
+            $this->verifyKeyAttestationOfProof(
+                $proof,
+                $jwk,
+                $proofTypes->getKeyAttestationRequirementsFor(VciProofTypeEnum::Jwt),
+            ) :
+            null;
+
             // After the signature, so a nonce is only ever reported on a proof which is otherwise sound.
             $this->validateNonce($proof);
+
+            if ($keyAttestation instanceof KeyAttestation) {
+                $this->validateKeyAttestationNonce($keyAttestation);
+            }
 
             // RFC 7638: computed over the members which define the key, so it is the same however the key
             // was written down or found.
@@ -437,8 +517,10 @@ class OpenId4VciProofValidator
             );
 
             return $validatedProof;
-        } catch (CredentialRequestException $credentialRequestException) {
-            throw $credentialRequestException;
+        } catch (CredentialRequestException | ConfigurationError | X509TrustStoreException $exception) {
+            // A configuration which can not be used, or a trust store which can not be set up, is this issuer's fault,
+            // not the proof's: the Credential Endpoint answers it with a server error, and issues nothing.
+            throw $exception;
         } catch (Throwable $throwable) {
             // Whatever else went wrong here went wrong about a proof, and a proof this issuer can not
             // make sense of is refused rather than allowed to surface as a server error - which would
@@ -449,6 +531,182 @@ class OpenId4VciProofValidator
             );
 
             throw new CredentialRequestException('invalid_proof', 'Key proof could not be validated.');
+        }
+    }
+
+
+    /**
+     * The key attestation a jwt proof carries in its `key_attestation` header, verified (KeyAttestationVerifier), of
+     * the key the proof was verified with: Appendix D.1 has "the Credential Issuer MUST validate that the JWT used as a
+     * proof is signed by a key contained in the attestation in the JOSE Header".
+     *
+     * One credential is issued for the proof, bound to its key, not one for each key the attestation attests, which
+     * Appendix F.1 has as a SHOULD: the proof proves possession of its own key only, a batch of proofs commonly carries
+     * one attestation of all their keys (HAIP 1.0 section 4.5.1), and the attestation proof type is the way to ask for
+     * a credential for each attested key.
+     *
+     * @param array<string,mixed> $jwk The key the proof was verified with.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\X509TrustStoreException
+     * @throws \SimpleSAML\OpenID\Exceptions\JwsException
+     */
+    protected function verifyKeyAttestationOfProof(
+        OpenId4VciProof $proof,
+        array $jwk,
+        ?VciKeyAttestationRequirements $requirements,
+    ): KeyAttestation {
+        /** @psalm-suppress MixedAssignment */
+        $keyAttestationJwt = $proof->hasHeaderClaim(self::HEADER_KEY_ATTESTATION) ?
+        $proof->getHeaderClaim(self::HEADER_KEY_ATTESTATION) :
+        null;
+
+        if ($keyAttestationJwt === null) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'This credential configuration requires every key proof to carry a key attestation in its ' .
+                'key_attestation header.',
+            );
+        }
+
+        // A JWT whose alg is advertised, which validateAttachedJwsAlgorithms() asked of a header carrying one.
+        if (!is_string($keyAttestationJwt) || $keyAttestationJwt === '') {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The key_attestation header parameter of the key proof must be a JWT.',
+            );
+        }
+
+        $keyAttestation = $this->keyAttestationVerifier->verify(
+            $keyAttestationJwt,
+            VciProofTypeEnum::Jwt,
+            $requirements,
+        );
+
+        if (!$keyAttestation->hasAttestedKey($jwk)) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The key proof is not signed with a key its key attestation attests.',
+            );
+        }
+
+        return $keyAttestation;
+    }
+
+
+    /**
+     * An attestation proof (Appendix F.3): a key attestation without a proof of possession, verified
+     * (KeyAttestationVerifier), whose attested keys each get a credential bound to them, as F.3 has it ("SHOULD issue
+     * a Credential for each cryptographic public key specified in the attested_keys claim").
+     *
+     * Each attested key is bound as a key sent inline is: the credential's subject is the `did:jwk` made from it, and
+     * its `cnf` names the key itself. More keys than the batch size are refused, as more proofs are.
+     *
+     * @param non-empty-string $keyAttestationJwt
+     * @return non-empty-list<\SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof> One
+     * per attested key, in the order the attestation lists them.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     * @throws \SimpleSAML\Error\ConfigurationError
+     * @throws \SimpleSAML\OpenID\Exceptions\X509TrustStoreException
+     */
+    protected function validateAttestationProof(
+        string $keyAttestationJwt,
+        VciCredentialBindingPolicyEnum $bindingPolicy,
+        ?VciKeyAttestationRequirements $requirements,
+        bool $isVciHaipEnabled,
+    ): array {
+        // ModuleConfig refuses the attestation proof type for such a configuration; refused here too, since the keys
+        // an attestation carries can be bound no other way.
+        if (!$bindingPolicy->acceptsInlineKey()) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'This credential configuration does not take key attestations as proofs.',
+            );
+        }
+
+        try {
+            // Appendix F.3: "the value of the alg JWT header of the key attestation MUST match one of the entries in
+            // the proof_signing_alg_values_supported metadata parameter".
+            $this->assertSignedWithAnAdvertisedAlgorithm($keyAttestationJwt, VciProofTypeEnum::Attestation->value);
+
+            $keyAttestation = $this->keyAttestationVerifier->verify(
+                $keyAttestationJwt,
+                VciProofTypeEnum::Attestation,
+                $requirements,
+            );
+
+            $attestedKeys = $keyAttestation->getAttestedKeys();
+
+            if (count($attestedKeys) > ModuleConfig::VCI_BATCH_SIZE) {
+                throw new CredentialRequestException(
+                    'invalid_proof',
+                    sprintf(
+                        'The key attestation attests more keys than the advertised batch size of %d.',
+                        ModuleConfig::VCI_BATCH_SIZE,
+                    ),
+                );
+            }
+
+            $validatedProofs = [];
+            $attestedKeyThumbprints = [];
+
+            // Each held to the members of a public key of an asymmetric type, in their canonical representation, as
+            // the library reads them (Helpers\Jwk::enforcePublicKey()), which is what a key sent inline is held to.
+            foreach ($attestedKeys as $attestedKey) {
+                // While issuance follows HAIP, an RSA key of 2048 bits at least (FAPI 2.0 section 5.4.1), as of a key
+                // a jwt proof is verified with. An attested key signs nothing here, so it is asked of the key alone.
+                if (
+                    $isVciHaipEnabled &&
+                    ($attestedKey['kty'] ?? null) === 'RSA' &&
+                    $this->verifiableCredentials->helpers()->jwk()->getRsaModulusBitLength($attestedKey) <
+                    JwkHelper::MIN_RSA_MODULUS_BITS
+                ) {
+                    throw new CredentialRequestException(
+                        'invalid_proof',
+                        'An attested key is not one credential issuance following HAIP binds to: it takes RSA keys ' .
+                        'of 2048 bits at least.',
+                    );
+                }
+
+                // Section 8.3, as validateRequest() has it for proofs, asked here as well so that it comes before
+                // the nonce: a wallet is not sent for a fresh nonce for an attestation which stays refused.
+                $thumbprint = (new JWK($attestedKey))->thumbprint('sha256');
+
+                if (isset($attestedKeyThumbprints[$thumbprint])) {
+                    throw new CredentialRequestException(
+                        'invalid_proof',
+                        'Each key the key attestation attests must be a different key, and two of them are the same ' .
+                        'one.',
+                    );
+                }
+
+                $attestedKeyThumbprints[$thumbprint] = true;
+
+                $validatedProofs[] = new ValidatedOpenId4VciProof(
+                    $keyAttestation,
+                    $this->didFactory->didJwkResolver()->generateDidJwkFromJwk($attestedKey),
+                    null,
+                    $attestedKey,
+                    $thumbprint,
+                );
+            }
+
+            // Last, so a nonce is only ever reported on an attestation which is otherwise sound.
+            $this->validateKeyAttestationNonce($keyAttestation);
+
+            $this->loggerService->debug('Attestation proof validated.', ['attestedKeys' => count($validatedProofs)]);
+
+            return $validatedProofs;
+        } catch (CredentialRequestException | ConfigurationError | X509TrustStoreException $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            // As for a jwt proof (validateProof()): what this issuer can not make sense of is refused.
+            $this->loggerService->warning(
+                'Attestation proof could not be validated.',
+                ['error' => $throwable->getMessage()],
+            );
+
+            throw new CredentialRequestException('invalid_proof', 'Attestation proof could not be validated.');
         }
     }
 
@@ -519,11 +777,12 @@ class OpenId4VciProofValidator
      * both key_attestation and trust_chain, MUST match one of the values listed in the
      * proof_signing_alg_values_supported metadata parameter".
      *
-     * That is all that is checked of them. This issuer evaluates no key attestation and reads no trust chain
-     * (left for the HAIP plan, H-G4), so a proof carrying either is otherwise taken as a proof carrying neither:
-     * its key is the one its `kid` or `jwk` header names, and that is the key its signature is verified with.
-     * Neither is verified here, so the `alg` is read from a protected header nothing has checked; what holds
-     * is that a wallet sending one was told the algorithms to sign it with.
+     * That is all that is checked of them here. A key attestation is verified where the credential configuration
+     * requires one of a jwt proof (verifyKeyAttestationOfProof()), and nowhere else; a trust chain is never read. So
+     * a proof carrying either, where nothing requires it, is otherwise taken as a proof carrying neither: its key is
+     * the one its `kid` or `jwk` header names, and that is the key its signature is verified with. The `alg` is read
+     * from a protected header nothing has checked yet; what holds is that a wallet sending one was told the
+     * algorithms to sign it with.
      *
      * @param non-empty-string $proofJwt The proof as it was sent, whose header says what JSON type a member is.
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
@@ -597,7 +856,8 @@ class OpenId4VciProofValidator
      * header does not carry the unencoded payload option of RFC 7797 (`b64`), which the openid library refuses
      * of every JWT it parses.
      *
-     * @param non-empty-string $headerParameter The header parameter of the proof which carries it, for the refusal.
+     * @param non-empty-string $headerParameter The header parameter of the proof which carries it, or the attestation
+     * proof type for a key attestation which is the proof, for the refusal.
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
      */
     protected function assertSignedWithAnAdvertisedAlgorithm(mixed $jwt, string $headerParameter): void
@@ -636,10 +896,13 @@ class OpenId4VciProofValidator
             throw new CredentialRequestException(
                 'invalid_proof',
                 sprintf(
-                    'The %s header parameter of the key proof must %s signed with an algorithm this issuer ' .
-                    'advertises for key proofs.',
-                    $headerParameter,
-                    $headerParameter === ClaimsEnum::TrustChain->value ? 'hold JWTs' : 'be a JWT',
+                    '%s signed with an algorithm this issuer advertises for key proofs.',
+                    match ($headerParameter) {
+                        ClaimsEnum::TrustChain->value =>
+                        'The trust_chain header parameter of the key proof must hold JWTs',
+                        VciProofTypeEnum::Attestation->value => 'An attestation proof must be a JWT',
+                        default => sprintf('The %s header parameter of the key proof must be a JWT', $headerParameter),
+                    },
                 ),
             );
         }
@@ -783,7 +1046,8 @@ class OpenId4VciProofValidator
             $this->assertPublicJwk($headerJwk);
 
             try {
-                $subject = $this->did()->didJwkResolver()->generateDidJwkFromJwk($headerJwk);
+                // A local operation on a key in hand, which needs none of the DID resolution settings.
+                $subject = $this->didFactory->didJwkResolver()->generateDidJwkFromJwk($headerJwk);
             } catch (JsonException) {
                 throw new CredentialRequestException(
                     'invalid_proof',
@@ -1140,6 +1404,34 @@ class OpenId4VciProofValidator
             // Deliberately its own error code, so a wallet knows to ask for a fresh nonce and retry
             // rather than to go looking for a fault in the proof it built.
             throw new CredentialRequestException('invalid_nonce', 'c_nonce is invalid or expired.');
+        }
+    }
+
+
+    /**
+     * A key attestation's nonce, which KeyAttestationVerifier required, has to be a c_nonce this issuer gave
+     * (Appendices F.1, F.3). Not necessarily the one of the proof carrying it: each is a nonce this issuer gave, and
+     * each lives as long as a nonce does.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException
+     * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
+     */
+    protected function validateKeyAttestationNonce(KeyAttestation $keyAttestation): void
+    {
+        $nonce = $keyAttestation->getNonce();
+
+        if ($nonce === null) {
+            throw new CredentialRequestException(
+                'invalid_proof',
+                'The key attestation must carry a nonce claim obtained from the Nonce Endpoint.',
+            );
+        }
+
+        if (!$this->nonceService->validateNonce($nonce)) {
+            throw new CredentialRequestException(
+                'invalid_nonce',
+                'The c_nonce of the key attestation is invalid or expired.',
+            );
         }
     }
 }

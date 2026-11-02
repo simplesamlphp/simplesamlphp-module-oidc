@@ -1,6 +1,8 @@
 # The build context of docker/Dockerfile is the checkout. The development CAs' private keys of
 # docker/generate-dev-certs.sh stay out of the image; it takes only their certificates, from docker/ssp.
 docker/vci-pki
-# The suite configuration of the HAIP plan, which holds the wallet attester's private key
-# (conformance-tests/vci-haip-config.py writes it): the OP never needs it.
+# The suite configurations of the HAIP plan, which hold the wallet provider's attesters' private keys
+# (conformance-tests/vci-haip-config.py writes them): the OP never needs them.
 conformance-tests/conformance-vci-issuer-haip.json
+conformance-tests/conformance-vci-issuer-haip-key-attestation.json
+conformance-tests/conformance-vci-issuer-haip-attestation.json

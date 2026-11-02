@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
+use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -3225,6 +3226,238 @@ class VciOverviewBuilderTest extends TestCase
         );
 
         $this->assertNotNull($row);
+        $this->assertNotNull($row->getWarning());
+        $this->assertStringNotContainsString('not a root', (string)$row->getWarning());
+    }
+
+
+    /*****************************************************************************************************************
+     * Proof types and key attestations.
+     ****************************************************************************************************************/
+
+    public function testSaysEveryCredentialConfigurationTakesJwtProofsWithoutKeyAttestations(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['DefaultOne' => []],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('Every configuration takes jwt proofs without key attestations', $row->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $row->getValueType());
+        $this->assertStringContainsString('which is the default', (string)$row->getNote());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * Only the configurations which set their own, each proof type with what it requires of key attestations, in the
+     * words of the metadata.
+     */
+    public function testListsTheProofTypesOfEachConfigurationWhichSetsItsOwn(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
+                    'DefaultOne' => [],
+                    'KeyAttestedOne' => [],
+                    'AttestingOne' => [],
+                ],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => [
+                    'KeyAttestedOne' => [
+                        'jwt' => [
+                            'key_attestations_required' => [
+                                'key_storage' => ['iso_18045_high', 'iso_18045_moderate'],
+                                'user_authentication' => ['iso_18045_moderate'],
+                            ],
+                        ],
+                    ],
+                    'AttestingOne' => [
+                        'jwt' => [],
+                        'attestation' => [],
+                    ],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringMap, $row->getValueType());
+        $this->assertSame(
+            [
+                'KeyAttestedOne' => [
+                    'jwt, key attestation required (key_storage: iso_18045_high, iso_18045_moderate; ' .
+                    'user_authentication: iso_18045_moderate)',
+                ],
+                'AttestingOne' => ['jwt', 'attestation, key attestation required'],
+            ],
+            $row->getValue(),
+        );
+        $this->assertStringContainsString(
+            'an attestation proof gets one for each key it attests',
+            (string)$row->getNote(),
+        );
+    }
+
+
+    public function testListsAKeyAttestationRequiredWithoutConstraints(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['KeyAttestedOne' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => [
+                    'KeyAttestedOne' => ['jwt' => ['key_attestations_required' => []]],
+                ],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(['KeyAttestedOne' => ['jwt, key attestation required']], $row->getValue());
+    }
+
+
+    public function testReportsProofTypesWhichCanNotBeReadInPlace(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['DefaultOne' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => ['NoSuchOne' => ['jwt' => []]],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertNotNull($row->getWarning());
+        $this->assertStringNotContainsString('NoSuchOne', (string)$row->getWarning());
+    }
+
+
+    public function testShowsNoKeyAttestationTrustAnchorsByDefault(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder()->build(),
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * A configuration taking key attestations without anchors to verify them against has its credentials refused,
+     * and the Credential Issuer metadata with them.
+     *
+     * @param array<string,mixed> $proofTypes
+     */
+    #[DataProvider('keyAttestationTakingProofTypesProvider')]
+    public function testWarnsAboutAConfigurationTakingKeyAttestationsWithoutTrustAnchors(array $proofTypes): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['KeyAttestedOne' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => ['KeyAttestedOne' => $proofTypes],
+            ])->build(),
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertStringContainsString(
+            'there are no trust anchors to verify them against',
+            (string)$row->getWarning(),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{array<string,mixed>}>
+     */
+    public static function keyAttestationTakingProofTypesProvider(): array
+    {
+        return [
+            'jwt proofs carrying one' => [['jwt' => ['key_attestations_required' => []]]],
+            'attestation proofs' => [['jwt' => [], 'attestation' => []]],
+        ];
+    }
+
+
+    /**
+     * Proof types which take no key attestation need no anchors, and proof types which can not be read are the proof
+     * types row's to report, not this one's.
+     *
+     * @param array<string,mixed> $proofTypes
+     */
+    #[DataProvider('noKeyAttestationTrustNeededProvider')]
+    public function testDoesNotWarnAboutMissingTrustAnchorsNothingNeeds(array $proofTypes): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => ['DefaultOne' => []],
+                ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => $proofTypes,
+            ])->build(),
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * @return array<string,array{array<string,mixed>}>
+     */
+    public static function noKeyAttestationTrustNeededProvider(): array
+    {
+        return [
+            'jwt proofs without key attestations' => [['DefaultOne' => ['jwt' => []]]],
+            'proof types which can not be read' => [['NoSuchOne' => ['attestation' => []]]],
+        ];
+    }
+
+
+    public function testShowsEachKeyAttestationTrustAnchorByItsSubjectAndExpiry(): void
+    {
+        $root = (new X509())->certificateFactory()->fromDer(CertificateBuilder::root(CertificateBuilder::ecKey()));
+        $verifierMock = $this->createMock(KeyAttestationVerifier::class);
+        $verifierMock->method('getTrustAnchors')->willReturn([$root]);
+
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME => 'oidc_module.crt'],
+                keyAttestationVerifier: $verifierMock,
+            )->build(),
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringList, $row->getValueType());
+        $this->assertSame([$this->described($root)], $row->getValue());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    public function testReportsKeyAttestationTrustAnchorsWhichCanNotBeUsedInPlace(): void
+    {
+        $verifierMock = $this->createMock(KeyAttestationVerifier::class);
+        $verifierMock->method('getTrustAnchors')->willThrowException(new RuntimeException('not a root'));
+
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder(
+                [ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME => 'oidc_module.crt'],
+                keyAttestationVerifier: $verifierMock,
+            )->build(),
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('N/A', $row->getValue());
         $this->assertNotNull($row->getWarning());
         $this->assertStringNotContainsString('not a root', (string)$row->getWarning());
     }

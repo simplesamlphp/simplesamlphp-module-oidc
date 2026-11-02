@@ -43,7 +43,9 @@ certificate `nginx-proxy` serves the OP with, the RSA key pair the module signs
 tokens with, the EC key pair it signs verifiable credentials with and that key's
 certificate chain under a development CA, and a development wallet provider,
 whose two wallets the OpenID4VCI issuer HAIP conformance runs authenticate as
-(`docker/conformance-vci-haip.sql`, which the image is built with). None is kept
+(`docker/conformance-vci-haip.sql`, which the image is built with) and whose
+key attester signs the key attestations of those runs (the OP trusts its root,
+`docker/ssp/oidc_module_vci_key_attestation_trust_anchors.pem`). None is kept
 in Git, so a release archive never contains a private key.
 Run this once in a fresh checkout:
 
@@ -79,6 +81,7 @@ docker run --name ssp-oidc-dev \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.key",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.key,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_ec_p256_01.chain.pem",target=/var/simplesamlphp/cert/oidc_module_vci_ec_p256_01.chain.pem,readonly \
   --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_trust_anchors.pem",target=/var/simplesamlphp/cert/oidc_module_vci_trust_anchors.pem,readonly \
+  --mount type=bind,source="$(pwd)/docker/ssp/oidc_module_vci_key_attestation_trust_anchors.pem",target=/var/simplesamlphp/cert/oidc_module_vci_key_attestation_trust_anchors.pem,readonly \
   --mount type=bind,source="$(pwd)/docker/apache-override.cf",target=/etc/apache2/sites-enabled/ssp-override.cf,readonly \
   -p 443:443 ssp-base:v2.5.3.1
 ```

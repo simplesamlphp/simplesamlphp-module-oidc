@@ -11,12 +11,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\CredentialIssuerMetadataService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
-use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
@@ -75,7 +78,13 @@ class CredentialIssuerMetadataServiceTest extends TestCase
 
     protected MockObject $vciCertificateChainResolverMock;
 
+    protected MockObject $keyAttestationVerifierMock;
+
     protected SignatureKeyPairBag $vciSignatureKeyPairBag;
+
+    protected VciCredentialProofTypes $proofTypes;
+
+    protected bool $isKeyAttestationTrustNeeded = false;
 
     protected VciCredentialBindingPolicyEnum $bindingPolicy;
 
@@ -96,6 +105,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
     protected function setUp(): void
     {
         $this->bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound;
+        $this->proofTypes = VciCredentialProofTypes::jwtOnly();
         $this->resolvableDidMethods = ['did:jwk', 'did:key', 'did:web'];
         $this->organizationName = 'Example University';
         $this->logoUri = 'https://issuer.com/logo.png';
@@ -105,6 +115,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->didMock = $this->createMock(Did::class);
         $this->didFactoryMock = $this->createMock(DidFactory::class);
         $this->vciCertificateChainResolverMock = $this->createMock(VciCertificateChainResolver::class);
+        $this->keyAttestationVerifierMock = $this->createMock(KeyAttestationVerifier::class);
 
         $this->didMock->method('supportedMethods')
             ->willReturnCallback(fn(): array => $this->resolvableDidMethods);
@@ -122,6 +133,10 @@ class CredentialIssuerMetadataServiceTest extends TestCase
             ->willReturn($this->credentialConfigurations());
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
             ->willReturnCallback(fn(): VciCredentialBindingPolicyEnum => $this->bindingPolicy);
+        $this->moduleConfigMock->method('getVciCredentialProofTypesFor')
+            ->willReturnCallback(fn(): VciCredentialProofTypes => $this->proofTypes);
+        $this->moduleConfigMock->method('isVciKeyAttestationTrustNeeded')
+            ->willReturnCallback(fn(): bool => $this->isKeyAttestationTrustNeeded);
 
         // Two pairs differing in algorithm, so that an assertion on the advertised algorithm can tell
         // the active signing key apart from merely "one of the configured ones".
@@ -183,6 +198,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
             $this->vciContextResolverMock,
             $this->didFactoryMock,
             $this->vciCertificateChainResolverMock,
+            $this->keyAttestationVerifierMock,
         );
     }
 
@@ -412,7 +428,7 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         // configured algorithms, once each, rather than the active key's alone.
         $this->assertSame(
             [
-                OpenId4VciProofValidator::PROOF_TYPE_JWT => [
+                VciProofTypeEnum::Jwt->value => [
                     ClaimsEnum::ProofSigningAlgValuesSupported->value => [
                         SignatureAlgorithmEnum::ES256->value,
                         SignatureAlgorithmEnum::RS256->value,
@@ -554,6 +570,8 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
             ->willReturn(VciCredentialBindingPolicyEnum::ProofBound);
+        $this->moduleConfigMock->method('getVciCredentialProofTypesFor')
+            ->willReturn(VciCredentialProofTypes::jwtOnly());
         $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')
             ->willReturnCallback(fn(): SignatureKeyPair => $this->vciSignatureKeyPairBag->getFirstOrFail());
         $this->moduleConfigMock->method('getVciCredentialConfigurationsSupported')->willReturn([
@@ -770,6 +788,8 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->vciContextResolverMock->expects($this->never())->method($this->anything());
         $this->didFactoryMock = $this->createMock(DidFactory::class);
         $this->didFactoryMock->expects($this->never())->method($this->anything());
+        $this->keyAttestationVerifierMock = $this->createMock(KeyAttestationVerifier::class);
+        $this->keyAttestationVerifierMock->expects($this->never())->method($this->anything());
 
         $this->sut();
     }
@@ -787,6 +807,8 @@ class CredentialIssuerMetadataServiceTest extends TestCase
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         $this->moduleConfigMock->method('getVciCredentialBindingPolicyFor')
             ->willReturn(VciCredentialBindingPolicyEnum::ProofBound);
+        $this->moduleConfigMock->method('getVciCredentialProofTypesFor')
+            ->willReturn(VciCredentialProofTypes::jwtOnly());
         $this->moduleConfigMock->method('getActiveVciSignatureKeyPair')
             ->willReturn($this->vciSignatureKeyPairBag->getFirstOrFail());
         $this->moduleConfigMock->expects($this->once())->method('getVciCredentialConfigurationsSupported')
@@ -848,6 +870,109 @@ class CredentialIssuerMetadataServiceTest extends TestCase
 
         $this->expectException(ConfigurationError::class);
         $this->expectExceptionMessage('The certificate chain has expired.');
+
+        $this->sut()->getMetadata();
+    }
+
+
+    /**
+     * Each proof type the configuration takes, with the algorithms a proof and a key attestation may be signed with,
+     * and what it requires of key attestations: an empty requirement published as the empty object section 12.2.4
+     * has for "a key attestation is needed without additional constraints".
+     *
+     * @throws \JsonException
+     */
+    public function testDescribesTheKeyAttestationsEachProofTypeRequires(): void
+    {
+        $this->proofTypes = new VciCredentialProofTypes([
+            'jwt' => new VciKeyAttestationRequirements(['iso_18045_high'], ['iso_18045_moderate']),
+            'attestation' => new VciKeyAttestationRequirements(),
+        ]);
+        $this->isKeyAttestationTrustNeeded = true;
+        $this->moduleConfigMock->expects($this->once())->method('getVciCredentialProofTypesFor')
+            ->with(self::CONFIGURATION_ID);
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->sut()->getMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertSame(
+            '{"jwt":{"proof_signing_alg_values_supported":["ES256","RS256"],"key_attestations_required":' .
+            '{"key_storage":["iso_18045_high"],"user_authentication":["iso_18045_moderate"]}},' .
+            '"attestation":{"proof_signing_alg_values_supported":["ES256","RS256"],"key_attestations_required":{}}}',
+            json_encode(
+                $configurations[self::CONFIGURATION_ID][ClaimsEnum::ProofTypesSupported->value],
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+    }
+
+
+    /**
+     * A configuration which takes no key proof has no proof types to ask about.
+     */
+    public function testAsksNoProofTypesOfAConfigurationWhichTakesNoKeyProof(): void
+    {
+        $this->bindingPolicy = VciCredentialBindingPolicyEnum::Proofless;
+        $this->moduleConfigMock->expects($this->never())->method('getVciCredentialProofTypesFor');
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->sut()->getMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $this->assertArrayNotHasKey(
+            ClaimsEnum::ProofTypesSupported->value,
+            $configurations[self::CONFIGURATION_ID],
+        );
+    }
+
+
+    /**
+     * While a configuration takes key attestations, their trust anchors are loaded, so that ones which can not be
+     * used fail the document as they fail the Credential Request; while none does, they are not looked at.
+     */
+    public function testLoadsTheKeyAttestationTrustAnchorsOnlyWhileAConfigurationTakesKeyAttestations(): void
+    {
+        $this->keyAttestationVerifierMock->expects($this->never())->method('getTrustAnchors');
+        $this->sut()->getMetadata();
+
+        $this->isKeyAttestationTrustNeeded = true;
+        $this->keyAttestationVerifierMock = $this->createMock(KeyAttestationVerifier::class);
+        $this->keyAttestationVerifierMock->expects($this->once())->method('getTrustAnchors');
+        $this->sut()->getMetadata();
+    }
+
+
+    /**
+     * A configuration which takes attestation proofs only binds to keys carried as keys (cnf.jwk), as a key sent inline
+     * is, and no proof of it names a DID: it advertises jwk alone, without the DID facade being built to ask which DID
+     * methods could be resolved.
+     *
+     * @throws \JsonException
+     */
+    public function testAdvertisesTheKeyAsTheOnlyBindingMethodOfAConfigurationTakingAttestationProofsOnly(): void
+    {
+        $this->proofTypes = new VciCredentialProofTypes(['attestation' => null]);
+        $this->didFactoryMock->expects($this->never())->method('build');
+
+        /** @var array<string,array<string,mixed>> $configurations */
+        $configurations = $this->publishedMetadata()[ClaimsEnum::CredentialConfigurationsSupported->value];
+
+        $configuration = $configurations[self::CONFIGURATION_ID];
+
+        $this->assertSame(['jwk'], $configuration[ClaimsEnum::CryptographicBindingMethodsSupported->value]);
+        /** @var array<string,mixed> $proofTypes */
+        $proofTypes = $configuration[ClaimsEnum::ProofTypesSupported->value];
+        $this->assertSame(['attestation'], array_keys($proofTypes));
+    }
+
+
+    public function testPublishesNothingWhileTheKeyAttestationTrustAnchorsCanNotBeUsed(): void
+    {
+        $this->isKeyAttestationTrustNeeded = true;
+        $this->keyAttestationVerifierMock->method('getTrustAnchors')
+            ->willThrowException(new ConfigurationError('No key attestation trust anchors.'));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('No key attestation trust anchors.');
 
         $this->sut()->getMetadata();
     }

@@ -11,8 +11,10 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
@@ -20,7 +22,11 @@ use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Services\NonceService;
+use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -32,6 +38,7 @@ use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
 use SimpleSAML\OpenID\Exceptions\DidException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
+use SimpleSAML\OpenID\Exceptions\X509TrustStoreException;
 use SimpleSAML\OpenID\Helpers;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\Serializers\JwsSerializerBag;
@@ -40,6 +47,7 @@ use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\SupportedSerializers;
 use SimpleSAML\OpenID\VerifiableCredentials as VerifiableCredentialsService;
 use SimpleSAML\OpenID\VerifiableCredentials\Factories\OpenId4VciProofFactory;
+use SimpleSAML\OpenID\VerifiableCredentials\KeyAttestation;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use Stringable;
 
@@ -56,6 +64,9 @@ use Stringable;
 class OpenId4VciProofValidatorTest extends TestCase
 {
     protected const string ISSUER = 'https://issuer.com';
+
+    /** The nonce of a key attestation, told apart from the proof's own (`nonce-value`). */
+    protected const string KEY_ATTESTATION_NONCE = 'key-attestation-nonce';
 
     protected const string CLIENT_ID = 'https://wallet.example.org';
 
@@ -103,6 +114,8 @@ class OpenId4VciProofValidatorTest extends TestCase
 
     protected MockObject $accessTokenMock;
 
+    protected MockObject $keyAttestationVerifierMock;
+
     /** How many times the request under test sent this issuer out to resolve a DID document. */
     protected int $documentResolutions = 0;
 
@@ -129,6 +142,7 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->didMock = $this->freshDidMock();
         $this->nonceServiceMock = $this->createMock(NonceService::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
+        $this->keyAttestationVerifierMock = $this->createMock(KeyAttestationVerifier::class);
 
         $this->moduleConfigMock->method('getIssuer')->willReturn(self::ISSUER);
         // One advertised algorithm, so a proof signed with any other is unadvertised rather than merely
@@ -304,6 +318,7 @@ class OpenId4VciProofValidatorTest extends TestCase
             $didFactoryMock,
             $this->nonceServiceMock,
             $this->loggerServiceMock,
+            $this->keyAttestationVerifierMock,
         );
 
         // Nor does a configuration which validates no proof at all, though it goes the whole way
@@ -322,6 +337,9 @@ class OpenId4VciProofValidatorTest extends TestCase
         // Resolved when the validator asks rather than when this is wired up, since a test which
         // replaces the facade mock to steer one call does so before reaching for the subject.
         $didFactoryMock->method('build')->willReturnCallback(fn(): Did => $this->didMock);
+        $didFactoryMock->method('didJwkResolver')->willReturnCallback(
+            fn(): DidJwkResolver => $this->didJwkResolverMock,
+        );
 
         return new OpenId4VciProofValidator(
             $this->moduleConfigMock,
@@ -329,6 +347,7 @@ class OpenId4VciProofValidatorTest extends TestCase
             $didFactoryMock,
             $this->nonceServiceMock,
             $this->loggerServiceMock,
+            $this->keyAttestationVerifierMock,
         );
     }
 
@@ -561,9 +580,10 @@ class OpenId4VciProofValidatorTest extends TestCase
         array $requestData,
         VciCredentialBindingPolicyEnum $bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound,
         ?string $expectedMessageFragment = null,
+        ?VciCredentialProofTypes $proofTypes = null,
     ): void {
         try {
-            $this->sut()->validateRequest($requestData, $bindingPolicy, $this->accessTokenMock);
+            $this->sut()->validateRequest($requestData, $bindingPolicy, $this->accessTokenMock, $proofTypes);
         } catch (CredentialRequestException $credentialRequestException) {
             $this->assertSame($expectedErrorCode, $credentialRequestException->getErrorCode());
             // The message is the error_description, which holds printable ASCII without the double quote and the
@@ -2182,6 +2202,780 @@ class OpenId4VciProofValidatorTest extends TestCase
                 ],
             ]),
             expectedMessageFragment: 'not a public key in the representation RFC 7518 defines',
+        );
+    }
+
+    /*****************************************************************************************************
+     * Key attestations (OpenID4VCI 1.0 Appendices D, F.1, F.3). What is verified of an attestation on its
+     * own is KeyAttestationVerifierTest's; here the verifier hands back what the library parsed.
+     ****************************************************************************************************/
+
+    /**
+     * A key attestation as a wallet provider signs one, attesting the keys given, with a nonce of its own.
+     *
+     * @param list<array<string,mixed>> $attestedKeys
+     * @param array<string,mixed> $claims A claim given as null is left out.
+     * @return non-empty-string
+     */
+    protected static function keyAttestationJwt(
+        array $attestedKeys,
+        array $claims = [],
+        SignatureAlgorithmEnum $algorithm = SignatureAlgorithmEnum::ES256,
+    ): string {
+        $now = time();
+
+        /** @var array<non-empty-string,mixed> $payload */
+        $payload = array_filter(
+            [
+                'iat' => $now,
+                'exp' => $now + 300,
+                'attested_keys' => $attestedKeys,
+                'nonce' => self::KEY_ATTESTATION_NONCE,
+                ...$claims,
+            ],
+            static fn(mixed $value): bool => $value !== null,
+        );
+
+        /** @var non-empty-string */
+        return self::signedJwt(
+            ['typ' => 'key-attestation+jwt'],
+            $payload,
+            $algorithm === SignatureAlgorithmEnum::ES384 ? JWKFactory::createECKey('P-384') : null,
+            $algorithm,
+        );
+    }
+
+
+    /**
+     * Has the key attestation verifier accept whatever it is given, parsed by the library, and record how it was
+     * asked.
+     *
+     * @param mixed[] $calls Each call's arguments: the key attestation, the proof type and the requirements.
+     */
+    protected function verifierAccepts(array &$calls = []): void
+    {
+        $this->keyAttestationVerifierMock->method('verify')->willReturnCallback(
+            static function (
+                string $jwt,
+                VciProofTypeEnum $proofType,
+                ?VciKeyAttestationRequirements $requirements,
+            ) use (&$calls): KeyAttestation {
+                $calls[] = [$jwt, $proofType, $requirements];
+
+                return self::realVerifiableCredentials()->keyAttestationFactory()->fromToken($jwt);
+            },
+        );
+    }
+
+
+    /**
+     * A nonce service which takes every nonce but those given.
+     */
+    protected function noncesRefused(string ...$refusedNonces): void
+    {
+        $this->nonceServiceMock = $this->createMock(NonceService::class);
+        $this->nonceServiceMock->method('validateNonce')->willReturnCallback(
+            static fn(string $nonce): bool => !in_array($nonce, $refusedNonces, true),
+        );
+    }
+
+
+    protected static function jwtRequiringKeyAttestations(
+        ?VciKeyAttestationRequirements $requirements = null,
+    ): VciCredentialProofTypes {
+        return new VciCredentialProofTypes(['jwt' => $requirements ?? new VciKeyAttestationRequirements()]);
+    }
+
+
+    /**
+     * @param array<array-key,mixed> $requestData
+     * @return list<?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof>
+     * @throws \Throwable
+     */
+    protected function validateWith(
+        array $requestData,
+        VciCredentialProofTypes $proofTypes,
+        VciCredentialBindingPolicyEnum $bindingPolicy = VciCredentialBindingPolicyEnum::ProofBound,
+    ): array {
+        return $this->sut()->validateRequest($requestData, $bindingPolicy, $this->accessTokenMock, $proofTypes);
+    }
+
+
+    /**
+     * Appendix F.1 and D.1: a jwt proof carrying a key attestation of the key it is signed with. One credential, for
+     * the proof's own key; the attestation is asked of the verifier for the jwt proof type, with the configuration's
+     * requirements, after the trust anchors were loaded.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsAJwtProofCarryingAKeyAttestationOfItsKey(): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $keyAttestation = self::keyAttestationJwt([$key->toPublic()->all(), self::OTHER_PUBLIC_EC_JWK]);
+        $requirements = new VciKeyAttestationRequirements(['iso_18045_high']);
+        $calls = [];
+        $this->verifierAccepts($calls);
+        $this->keyAttestationVerifierMock->expects($this->once())->method('getTrustAnchors');
+
+        $validatedProofs = $this->validateWith(
+            $this->requestWithRealProofs([$this->realProof(['key_attestation' => $keyAttestation], key: $key)]),
+            self::jwtRequiringKeyAttestations($requirements),
+        );
+
+        $this->assertCount(1, $validatedProofs);
+        $this->assertSame($key->thumbprint('sha256'), $validatedProofs[0]?->getKeyThumbprint());
+        $this->assertSame(self::HOLDER_DID_URL, $validatedProofs[0]?->getKeyId());
+        $this->assertInstanceOf(OpenId4VciProof::class, $validatedProofs[0]?->getProof());
+        $this->assertSame([[$keyAttestation, VciProofTypeEnum::Jwt, $requirements]], $calls);
+    }
+
+
+    /**
+     * A batch of jwt proofs which carry one attestation of all their keys, as HAIP 1.0 section 4.5.1 has a wallet do,
+     * gets one credential per proof, not one per proof for each attested key.
+     *
+     * @throws \Throwable
+     */
+    public function testIssuesOneCredentialPerJwtProofWhenTheyShareAKeyAttestation(): void
+    {
+        $keys = [JWKFactory::createECKey('P-256'), JWKFactory::createECKey('P-256')];
+        $keyAttestation = self::keyAttestationJwt(
+            array_map(static fn(JWK $key): array => $key->toPublic()->all(), $keys),
+        );
+        $this->verifierAccepts();
+        $proofs = [];
+
+        foreach ($keys as $index => $key) {
+            $proofs[] = self::signedJwt(
+                [
+                    'typ' => 'openid4vci-proof+jwt',
+                    'jwk' => $key->toPublic()->all(),
+                    'key_attestation' => $keyAttestation,
+                ],
+                ['iss' => self::CLIENT_ID, 'aud' => self::ISSUER, 'iat' => time(), 'nonce' => 'nonce-' . $index],
+                $key,
+            );
+        }
+
+        $validatedProofs = $this->validateWith(
+            $this->requestWithRealProofs($proofs),
+            self::jwtRequiringKeyAttestations(),
+        );
+
+        $this->assertSame(
+            array_map(static fn(JWK $key): string => $key->thumbprint('sha256'), $keys),
+            array_map(
+                static fn(?ValidatedOpenId4VciProof $proof): ?string => $proof?->getKeyThumbprint(),
+                $validatedProofs,
+            ),
+        );
+    }
+
+
+    public function testRefusesAJwtProofWithoutTheKeyAttestationItsConfigurationRequires(): void
+    {
+        $this->keyAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof()]),
+            expectedMessageFragment: 'requires every key proof to carry a key attestation in its ' .
+            'key_attestation header',
+            proofTypes: self::jwtRequiringKeyAttestations(),
+        );
+    }
+
+
+    /**
+     * Appendix D.1: "the Credential Issuer MUST validate that the JWT used as a proof is signed by a key contained in
+     * the attestation".
+     */
+    public function testRefusesAJwtProofWhoseKeyAttestationDoesNotAttestItsKey(): void
+    {
+        $this->verifierAccepts();
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([
+                $this->realProof(['key_attestation' => self::keyAttestationJwt([self::OTHER_PUBLIC_EC_JWK])]),
+            ]),
+            expectedMessageFragment: 'The key proof is not signed with a key its key attestation attests.',
+            proofTypes: self::jwtRequiringKeyAttestations(),
+        );
+    }
+
+
+    /**
+     * The refusal of the verifier reaches the wallet as it was made: the suite's test of an attestation with a broken
+     * signature expects invalid_proof.
+     */
+    #[DataProvider('proofTypeProvider')]
+    public function testRefusesAKeyAttestationTheVerifierRefuses(VciProofTypeEnum $proofType): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $keyAttestation = self::keyAttestationJwt([$key->toPublic()->all()]);
+        $this->keyAttestationVerifierMock->method('verify')->willThrowException(
+            new CredentialRequestException('invalid_proof', 'The key attestation signature could not be verified.'),
+        );
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $proofType === VciProofTypeEnum::Jwt ?
+            $this->requestWithRealProofs([$this->realProof(['key_attestation' => $keyAttestation], key: $key)]) :
+            ['proofs' => ['attestation' => [$keyAttestation]]],
+            expectedMessageFragment: 'The key attestation signature could not be verified.',
+            proofTypes: new VciCredentialProofTypes([$proofType->value => new VciKeyAttestationRequirements()]),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{\SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum}>
+     */
+    public static function proofTypeProvider(): array
+    {
+        return [
+            'a jwt proof' => [VciProofTypeEnum::Jwt],
+            'an attestation proof' => [VciProofTypeEnum::Attestation],
+        ];
+    }
+
+
+    /**
+     * Appendices F.1 and F.3: the nonce of a key attestation is a c_nonce this issuer gave, and one it did not give,
+     * or which has expired, is answered as section 8.3.1.2 has it, so the wallet asks for a fresh one.
+     */
+    #[DataProvider('proofTypeProvider')]
+    public function testAnswersAStaleKeyAttestationNonceWithInvalidNonce(VciProofTypeEnum $proofType): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $keyAttestation = self::keyAttestationJwt([$key->toPublic()->all()]);
+        $this->verifierAccepts();
+        $this->noncesRefused(self::KEY_ATTESTATION_NONCE);
+
+        $this->assertRefusedWith(
+            'invalid_nonce',
+            $proofType === VciProofTypeEnum::Jwt ?
+            $this->requestWithRealProofs([$this->realProof(['key_attestation' => $keyAttestation], key: $key)]) :
+            ['proofs' => ['attestation' => [$keyAttestation]]],
+            expectedMessageFragment: 'The c_nonce of the key attestation is invalid or expired.',
+            proofTypes: new VciCredentialProofTypes([$proofType->value => new VciKeyAttestationRequirements()]),
+        );
+    }
+
+
+    /**
+     * A nonce is only ever reported on a proof which is otherwise sound: invalid_nonce sends the wallet for a fresh
+     * nonce, which would not mend anything else.
+     */
+    public function testReportsAKeyAttestationNonceOnlyOnceEverythingElseHolds(): void
+    {
+        $this->verifierAccepts();
+        $this->noncesRefused(self::KEY_ATTESTATION_NONCE);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([
+                $this->realProof(['key_attestation' => self::keyAttestationJwt([self::OTHER_PUBLIC_EC_JWK])]),
+            ]),
+            expectedMessageFragment: 'not signed with a key its key attestation attests',
+            proofTypes: self::jwtRequiringKeyAttestations(),
+        );
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [self::keyAttestationJwt(array_fill(0, 9, self::PUBLIC_EC_JWK))]]],
+            expectedMessageFragment: 'attests more keys than the advertised batch size',
+            proofTypes: new VciCredentialProofTypes(['attestation' => null]),
+        );
+    }
+
+
+    /**
+     * The proof's own nonce is asked first, so a request whose nonces are both stale is told about the proof's.
+     */
+    public function testReportsTheProofNonceBeforeTheKeyAttestationNonce(): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $this->verifierAccepts();
+        $this->noncesRefused('nonce-value', self::KEY_ATTESTATION_NONCE);
+
+        $this->assertRefusedWith(
+            'invalid_nonce',
+            $this->requestWithRealProofs([
+                $this->realProof(['key_attestation' => self::keyAttestationJwt([$key->toPublic()->all()])], key: $key),
+            ]),
+            expectedMessageFragment: 'c_nonce is invalid or expired.',
+            proofTypes: self::jwtRequiringKeyAttestations(),
+        );
+    }
+
+
+    /**
+     * Where the configuration requires no key attestation, one a proof carries is checked for its alg only, as before:
+     * nothing is verified of it, and no trust anchors are needed for it.
+     *
+     * @throws \Throwable
+     */
+    public function testLeavesAKeyAttestationNoConfigurationRequiresUnverified(): void
+    {
+        $this->keyAttestationVerifierMock->expects($this->never())->method('verify');
+        $this->keyAttestationVerifierMock->expects($this->never())->method('getTrustAnchors');
+
+        $validatedProofs = $this->validateWith(
+            $this->requestWithRealProofs([
+                $this->realProof(['key_attestation' => self::keyAttestationJwt([self::OTHER_PUBLIC_EC_JWK])]),
+            ]),
+            new VciCredentialProofTypes(['jwt' => null, 'attestation' => null]),
+        );
+
+        $this->assertCount(1, $validatedProofs);
+    }
+
+
+    /**
+     * Trust anchors which can not be used are this issuer's fault, answered as a server error by the Credential
+     * Endpoint, not the wallet's: refused before any proof is read.
+     */
+    #[DataProvider('proofTypeProvider')]
+    public function testLeavesUnusableKeyAttestationTrustAnchorsToTheCaller(VciProofTypeEnum $proofType): void
+    {
+        $this->keyAttestationVerifierMock->method('getTrustAnchors')
+            ->willThrowException(new ConfigurationError('No trust anchors.'));
+        $this->proofFactoryMock->expects($this->never())->method('fromToken');
+        $this->keyAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->expectException(ConfigurationError::class);
+
+        $this->validateWith(
+            ['proofs' => [$proofType->value => [self::keyAttestationJwt([self::PUBLIC_EC_JWK])]]],
+            new VciCredentialProofTypes([$proofType->value => new VciKeyAttestationRequirements()]),
+        );
+    }
+
+
+    /**
+     * So is a trust store which can not be set up for a path validation.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('proofTypeProvider')]
+    public function testLeavesATrustStoreWhichCanNotBeSetUpToTheCaller(VciProofTypeEnum $proofType): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $keyAttestation = self::keyAttestationJwt([$key->toPublic()->all()]);
+        $this->keyAttestationVerifierMock->method('verify')
+            ->willThrowException(new X509TrustStoreException('No temporary directory.'));
+
+        $this->expectException(X509TrustStoreException::class);
+
+        $this->validateWith(
+            $proofType === VciProofTypeEnum::Jwt ?
+            $this->requestWithRealProofs([$this->realProof(['key_attestation' => $keyAttestation], key: $key)]) :
+            ['proofs' => ['attestation' => [$keyAttestation]]],
+            new VciCredentialProofTypes([$proofType->value => new VciKeyAttestationRequirements()]),
+        );
+    }
+
+
+    /**
+     * The proof types a configuration takes are its own, not every one this issuer verifies.
+     *
+     * @param array<string,mixed> $proofs
+     */
+    #[DataProvider('proofTypeNotOfferedProvider')]
+    public function testRefusesAProofTypeTheConfigurationDoesNotOffer(
+        VciCredentialProofTypes $proofTypes,
+        array $proofs,
+        string $message,
+    ): void {
+        $this->keyAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => $proofs],
+            expectedMessageFragment: $message,
+            proofTypes: $proofTypes,
+        );
+    }
+
+
+    /**
+     * @return array<string,array{0:object,1:array<string,mixed>,2:string}> The proof types, the proofs, the refusal.
+     */
+    public static function proofTypeNotOfferedProvider(): array
+    {
+        return [
+            'an attestation proof for jwt proofs only' => [
+                VciCredentialProofTypes::jwtOnly(),
+                ['attestation' => ['a.b.c']],
+                'This credential configuration takes key proofs of the type jwt only.',
+            ],
+            'a jwt proof for attestation proofs only' => [
+                new VciCredentialProofTypes(['attestation' => null]),
+                ['jwt' => ['a.b.c']],
+                'This credential configuration takes key proofs of the type attestation only.',
+            ],
+            'a proof type this issuer does not verify' => [
+                new VciCredentialProofTypes(['jwt' => null, 'attestation' => null]),
+                ['di_vp' => ['a.b.c']],
+                'This credential configuration takes key proofs of the type jwt or attestation only.',
+            ],
+        ];
+    }
+
+
+    /**
+     * Appendix F.3: one credential for each key the attestation attests, each bound as a key sent inline is, its
+     * subject the did:jwk of the key and its cnf the key itself. Asked of the verifier for the attestation proof type,
+     * with the configuration's requirements.
+     *
+     * @throws \Throwable
+     */
+    public function testIssuesACredentialForEachKeyAnAttestationProofAttests(): void
+    {
+        $attestedKeys = [self::PUBLIC_EC_JWK + ['kid' => 'key-1'], self::OTHER_PUBLIC_EC_JWK];
+        $keyAttestation = self::keyAttestationJwt($attestedKeys);
+        $requirements = new VciKeyAttestationRequirements(null, ['iso_18045_moderate']);
+        $calls = [];
+        $this->verifierAccepts($calls);
+        $this->keyAttestationVerifierMock->expects($this->once())->method('getTrustAnchors');
+        // Nothing of a jwt proof is asked of an attestation proof.
+        $this->proofFactoryMock->expects($this->never())->method('fromToken');
+        $didKeys = [];
+        $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
+        $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturnCallback(
+            static function (array $jwk) use (&$didKeys): string {
+                $didKeys[] = $jwk;
+
+                return self::HOLDER_DID;
+            },
+        );
+        $this->didMock = $this->freshDidMock();
+
+        $validatedProofs = $this->validateWith(
+            ['proofs' => ['attestation' => [$keyAttestation]]],
+            new VciCredentialProofTypes(['jwt' => null, 'attestation' => $requirements]),
+        );
+
+        $this->assertSame([[$keyAttestation, VciProofTypeEnum::Attestation, $requirements]], $calls);
+        $this->assertSame($attestedKeys, $didKeys);
+        $this->assertCount(2, $validatedProofs);
+
+        foreach ($attestedKeys as $index => $attestedKey) {
+            $validatedProof = $validatedProofs[$index];
+            $this->assertNotNull($validatedProof);
+            $this->assertSame(self::HOLDER_DID, $validatedProof->getSubject());
+            $this->assertNull($validatedProof->getKeyId());
+            $this->assertSame($attestedKey, $validatedProof->getHolderJwk());
+            $this->assertSame((new JWK($attestedKey))->thumbprint('sha256'), $validatedProof->getKeyThumbprint());
+            $this->assertSame([ClaimsEnum::Jwk->value => $attestedKey], $validatedProof->getConfirmation());
+            $this->assertInstanceOf(KeyAttestation::class, $validatedProof->getProof());
+        }
+    }
+
+
+    /**
+     * Appendix F: an attestation proof is "an array that contains exactly one JWT".
+     */
+    public function testRefusesAnAttestationProofOfOtherThanOneKeyAttestation(): void
+    {
+        $this->verifierAccepts();
+        $keyAttestation = self::keyAttestationJwt([self::PUBLIC_EC_JWK]);
+        $proofTypes = new VciCredentialProofTypes(['attestation' => null]);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [$keyAttestation, self::keyAttestationJwt([self::OTHER_PUBLIC_EC_JWK])]]],
+            expectedMessageFragment: 'must carry exactly one key attestation for the attestation proof type',
+            proofTypes: $proofTypes,
+        );
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => []]],
+            expectedMessageFragment: 'must carry a non-empty array of key proofs',
+            proofTypes: $proofTypes,
+        );
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => $keyAttestation]],
+            expectedMessageFragment: 'must carry a non-empty array of key proofs',
+            proofTypes: $proofTypes,
+        );
+    }
+
+
+    /**
+     * Each attested key issues a credential and claims a Status List entry, as each jwt proof does, so they are
+     * capped by the same advertised batch size.
+     *
+     * @throws \Throwable
+     */
+    public function testCapsTheKeysOfAnAttestationProofAtTheBatchSize(): void
+    {
+        $this->verifierAccepts();
+        $keys = array_map(
+            static fn(): array => JWKFactory::createECKey('P-256')->toPublic()->all(),
+            range(1, ModuleConfig::VCI_BATCH_SIZE + 1),
+        );
+        $proofTypes = new VciCredentialProofTypes(['attestation' => null]);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [self::keyAttestationJwt($keys)]]],
+            expectedMessageFragment: sprintf(
+                'The key attestation attests more keys than the advertised batch size of %d.',
+                ModuleConfig::VCI_BATCH_SIZE,
+            ),
+            proofTypes: $proofTypes,
+        );
+
+        $this->assertCount(
+            ModuleConfig::VCI_BATCH_SIZE,
+            $this->validateWith(
+                ['proofs' => ['attestation' => [self::keyAttestationJwt(array_slice($keys, 1))]]],
+                $proofTypes,
+            ),
+        );
+    }
+
+
+    /**
+     * Section 8.3: each key binds at most one credential, so a key attested twice, however its members are written,
+     * is refused.
+     */
+    public function testRefusesAnAttestationProofAttestingOneKeyTwice(): void
+    {
+        $this->verifierAccepts();
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            [
+                'proofs' => [
+                    'attestation' => [
+                        self::keyAttestationJwt([self::PUBLIC_EC_JWK, self::PUBLIC_EC_JWK + ['kid' => 'again']]),
+                    ],
+                ],
+            ],
+            expectedMessageFragment: 'Each key the key attestation attests must be a different key',
+            proofTypes: new VciCredentialProofTypes(['attestation' => null]),
+        );
+    }
+
+
+    /**
+     * Before its nonce, as everything about an attestation is: a wallet told invalid_nonce asks for a fresh nonce, and
+     * would send the same keys again.
+     */
+    public function testRefusesAKeyAttestedTwiceBeforeTheNonce(): void
+    {
+        $this->verifierAccepts();
+        $this->noncesRefused(self::KEY_ATTESTATION_NONCE);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            [
+                'proofs' => [
+                    'attestation' => [
+                        self::keyAttestationJwt([self::PUBLIC_EC_JWK, self::OTHER_PUBLIC_EC_JWK, self::PUBLIC_EC_JWK]),
+                    ],
+                ],
+            ],
+            expectedMessageFragment: 'Each key the key attestation attests must be a different key',
+            proofTypes: new VciCredentialProofTypes(['attestation' => null]),
+        );
+    }
+
+
+    /**
+     * A key in hand, sent inline or attested, is made a did:jwk locally: the DID facade, which reads the DID
+     * resolution settings and can fail on them, is not built for it.
+     *
+     * @throws \Throwable
+     */
+    public function testBuildsNoDidFacadeForAKeyInHand(): void
+    {
+        $this->verifierAccepts();
+        $didFactoryMock = $this->createMock(DidFactory::class);
+        $didFactoryMock->expects($this->never())->method('build');
+        $didFactoryMock->method('didJwkResolver')->willReturn($this->didJwkResolverMock);
+        $key = JWKFactory::createECKey('P-256');
+        $validator = new OpenId4VciProofValidator(
+            $this->moduleConfigMock,
+            $this->verifiableCredentialsMock,
+            $didFactoryMock,
+            $this->nonceServiceMock,
+            $this->loggerServiceMock,
+            $this->keyAttestationVerifierMock,
+        );
+
+        $this->assertCount(2, $validator->validateRequest(
+            [
+                'proofs' => [
+                    'attestation' => [self::keyAttestationJwt([self::PUBLIC_EC_JWK, self::OTHER_PUBLIC_EC_JWK])],
+                ],
+            ],
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+            new VciCredentialProofTypes(['attestation' => null]),
+        ));
+        $this->assertCount(1, $validator->validateRequest(
+            $this->requestWithRealProofs([
+                $this->realProof(['jwk' => $key->toPublic()->all()], without: ['kid'], key: $key),
+            ]),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        ));
+    }
+
+
+    /**
+     * A configuration which can not be used, met while a proof is validated, is this issuer's fault: it reaches the
+     * Credential Endpoint as it was raised, and is not answered as the wallet's invalid_proof.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('proofTypeProvider')]
+    public function testLeavesAConfigurationFaultToTheCaller(VciProofTypeEnum $proofType): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $keyAttestation = self::keyAttestationJwt([$key->toPublic()->all()]);
+        $this->keyAttestationVerifierMock->method('verify')
+            ->willThrowException(new ConfigurationError('Option "vci_key_attestation_trust_anchors_filename".'));
+
+        $this->expectException(ConfigurationError::class);
+
+        $this->validateWith(
+            $proofType === VciProofTypeEnum::Jwt ?
+            $this->requestWithRealProofs([$this->realProof(['key_attestation' => $keyAttestation], key: $key)]) :
+            ['proofs' => ['attestation' => [$keyAttestation]]],
+            new VciCredentialProofTypes([$proofType->value => new VciKeyAttestationRequirements()]),
+        );
+    }
+
+
+    /**
+     * Appendix F.3: the alg of the key attestation is one of proof_signing_alg_values_supported; and it is a JWT,
+     * asked before the verifier sees it.
+     */
+    #[DataProvider('attestationProofNotSignedAsAdvertisedProvider')]
+    public function testRefusesAnAttestationProofNotSignedWithAnAdvertisedAlgorithm(callable $attestation): void
+    {
+        $this->keyAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [$attestation()]]],
+            expectedMessageFragment: 'An attestation proof must be a JWT signed with an algorithm this issuer ' .
+            'advertises for key proofs.',
+            proofTypes: new VciCredentialProofTypes(['attestation' => null]),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{callable(): string}>
+     */
+    public static function attestationProofNotSignedAsAdvertisedProvider(): array
+    {
+        return [
+            'an algorithm not advertised' => [
+                static fn(): string => self::keyAttestationJwt(
+                    [self::PUBLIC_EC_JWK],
+                    [],
+                    SignatureAlgorithmEnum::ES384,
+                ),
+            ],
+            'not a JWT' => [static fn(): string => 'not-a-jwt'],
+            'in JSON serialization' => [
+                static fn(): string => self::signedJwt(
+                    ['typ' => 'key-attestation+jwt'],
+                    ['iat' => time(), 'attested_keys' => [self::PUBLIC_EC_JWK]],
+                    serialization: JwsSerializerEnum::JsonFlattened,
+                ),
+            ],
+        ];
+    }
+
+
+    /**
+     * The keys an attestation attests are carried as keys, which a policy accepting none inline does not bind to;
+     * ModuleConfig refuses such a configuration, and so does the validator.
+     */
+    public function testRefusesAnAttestationProofUnderAPolicyWhichTakesNoInlineKey(): void
+    {
+        $this->keyAttestationVerifierMock->expects($this->never())->method('verify');
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [self::keyAttestationJwt([self::PUBLIC_EC_JWK])]]],
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            'This credential configuration does not take key attestations as proofs.',
+            new VciCredentialProofTypes(['attestation' => null]),
+        );
+    }
+
+
+    /**
+     * While issuance follows HAIP, an attested RSA key of fewer than 2048 bits is refused, as the key of a jwt proof
+     * is; without HAIP it is bound as before.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('attestedRsaKeyProvider')]
+    public function testRefusesAnAttestedRsaKeyShorterThan2048BitsWhileIssuanceFollowsHaip(
+        int $modulusBits,
+        bool $isVciHaipEnabled,
+        bool $isRefused,
+    ): void {
+        $this->issuanceFollowingHaip($isVciHaipEnabled);
+        $this->verifierAccepts();
+        $key = self::rsaPublicKey($modulusBits);
+        $request = ['proofs' => ['attestation' => [self::keyAttestationJwt([self::PUBLIC_EC_JWK, $key])]]];
+        $proofTypes = new VciCredentialProofTypes(['attestation' => null]);
+
+        if ($isRefused) {
+            $this->assertRefusedWith(
+                'invalid_proof',
+                $request,
+                expectedMessageFragment: 'An attested key is not one credential issuance following HAIP binds to',
+                proofTypes: $proofTypes,
+            );
+
+            return;
+        }
+
+        $this->assertCount(2, $this->validateWith($request, $proofTypes));
+    }
+
+
+    /**
+     * @return array<string,array{int,bool,bool}>
+     */
+    public static function attestedRsaKeyProvider(): array
+    {
+        return [
+            '1024 bits, HAIP' => [1024, true, true],
+            '2048 bits, HAIP' => [2048, true, false],
+            '1024 bits, no HAIP' => [1024, false, false],
+        ];
+    }
+
+
+    /**
+     * What the library refuses of an attestation it has to read, once the verifier took it, is the proof's fault.
+     */
+    public function testRefusesAnAttestationProofWhichCanNotBeRead(): void
+    {
+        $keyAttestationMock = $this->createMock(KeyAttestation::class);
+        $keyAttestationMock->method('getAttestedKeys')->willThrowException(new JwsException('Not a key.'));
+        $this->keyAttestationVerifierMock->method('verify')->willReturn($keyAttestationMock);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [self::keyAttestationJwt([self::PUBLIC_EC_JWK])]]],
+            expectedMessageFragment: 'Attestation proof could not be validated.',
+            proofTypes: new VciCredentialProofTypes(['attestation' => null]),
         );
     }
 }

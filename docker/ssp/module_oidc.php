@@ -10,6 +10,57 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 
+// The Research and Scholarship credential as an SD-JWT VC, under the id given, which is its scope and display name
+// too: the configuration every plan runs with, and the two of the same credential which take key attestations, for
+// the HAIP plan's runs with them (ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES below).
+$researchAndScholarshipCredential = static fn(string $id): array => [
+    ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
+    ClaimsEnum::Scope->value => $id,
+    ClaimsEnum::CredentialMetadata->value => [
+        ClaimsEnum::Display->value => [
+            [
+                ClaimsEnum::Name->value => $id,
+                ClaimsEnum::Locale->value => 'en-US',
+                ClaimsEnum::Description->value => 'Research and Scholarship Credential',
+            ],
+        ],
+        ClaimsEnum::Claims->value => [
+            [
+                ClaimsEnum::Path->value => ['eduPersonPrincipalName'],
+                ClaimsEnum::Mandatory->value => false,
+                ClaimsEnum::Display->value => [
+                    [
+                        ClaimsEnum::Name->value => 'Principal Name',
+                        ClaimsEnum::Locale->value => 'en-US',
+                    ],
+                ],
+            ],
+            [
+                ClaimsEnum::Path->value => ['displayName'],
+                ClaimsEnum::Mandatory->value => false,
+                ClaimsEnum::Display->value => [
+                    [
+                        ClaimsEnum::Name->value => 'Display Name',
+                        ClaimsEnum::Locale->value => 'en-US',
+                    ],
+                ],
+            ],
+            [
+                ClaimsEnum::Path->value => ['mail'],
+                ClaimsEnum::Mandatory->value => false,
+                ClaimsEnum::Display->value => [
+                    [
+                        ClaimsEnum::Name->value => 'Email Address',
+                        ClaimsEnum::Locale->value => 'en-US',
+                    ],
+                ],
+            ],
+        ],
+    ],
+    // A URN rather than an https URL, which the conformance suite would try to fetch type metadata from.
+    ClaimsEnum::Vct->value => 'urn:example:ResearchAndScholarshipCredential',
+];
+
 $config = [
     // The conformance suite is reached under two names, and the OP makes outbound requests to both.
     //
@@ -213,79 +264,72 @@ $config = [
     // The development root CA the chain above is validated against.
     ModuleConfig::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME => 'oidc_module_vci_trust_anchors.pem',
     ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => [
-        'ResearchAndScholarshipCredentialDcSdJwt' => [
-            ClaimsEnum::Format->value => CredentialFormatIdentifiersEnum::DcSdJwt->value,
-            ClaimsEnum::Scope->value => 'ResearchAndScholarshipCredentialDcSdJwt',
-            ClaimsEnum::CredentialMetadata->value => [
-                ClaimsEnum::Display->value => [
-                    [
-                        ClaimsEnum::Name->value => 'ResearchAndScholarshipCredentialDcSdJwt',
-                        ClaimsEnum::Locale->value => 'en-US',
-                        ClaimsEnum::Description->value => 'Research and Scholarship Credential',
-                    ],
-                ],
-                ClaimsEnum::Claims->value => [
-                    [
-                        ClaimsEnum::Path->value => ['eduPersonPrincipalName'],
-                        ClaimsEnum::Mandatory->value => false,
-                        ClaimsEnum::Display->value => [
-                            [
-                                ClaimsEnum::Name->value => 'Principal Name',
-                                ClaimsEnum::Locale->value => 'en-US',
-                            ],
-                        ],
-                    ],
-                    [
-                        ClaimsEnum::Path->value => ['displayName'],
-                        ClaimsEnum::Mandatory->value => false,
-                        ClaimsEnum::Display->value => [
-                            [
-                                ClaimsEnum::Name->value => 'Display Name',
-                                ClaimsEnum::Locale->value => 'en-US',
-                            ],
-                        ],
-                    ],
-                    [
-                        ClaimsEnum::Path->value => ['mail'],
-                        ClaimsEnum::Mandatory->value => false,
-                        ClaimsEnum::Display->value => [
-                            [
-                                ClaimsEnum::Name->value => 'Email Address',
-                                ClaimsEnum::Locale->value => 'en-US',
-                            ],
-                        ],
-                    ],
+        'ResearchAndScholarshipCredentialDcSdJwt' =>
+            $researchAndScholarshipCredential('ResearchAndScholarshipCredentialDcSdJwt'),
+        'ResearchAndScholarshipCredentialDcSdJwtKeyAttested' =>
+            $researchAndScholarshipCredential('ResearchAndScholarshipCredentialDcSdJwtKeyAttested'),
+        'ResearchAndScholarshipCredentialDcSdJwtAttestation' =>
+            $researchAndScholarshipCredential('ResearchAndScholarshipCredentialDcSdJwtAttestation'),
+    ],
+    // Key attestations (OpenID4VCI 1.0 Appendix D): every jwt proof carries one in its key_attestation header, or the
+    // key attestation is the proof. The levels are those the suite's attestations state, which it copies from
+    // key_attestations_required.
+    ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => [
+        'ResearchAndScholarshipCredentialDcSdJwtKeyAttested' => [
+            'jwt' => [
+                'key_attestations_required' => [
+                    'key_storage' => ['iso_18045_high', 'iso_18045_moderate'],
+                    'user_authentication' => ['iso_18045_high', 'iso_18045_moderate'],
                 ],
             ],
-            // A URN rather than an https URL, which the conformance suite would try to fetch type metadata from.
-            ClaimsEnum::Vct->value => 'urn:example:ResearchAndScholarshipCredential',
+        ],
+        'ResearchAndScholarshipCredentialDcSdJwtAttestation' => [
+            'jwt' => [],
+            'attestation' => [
+                'key_attestations_required' => [
+                    'key_storage' => ['iso_18045_moderate'],
+                ],
+            ],
         ],
     ],
+    // The development wallet provider's root, under which its key attester's certificate is issued
+    // (docker/generate-dev-certs.sh).
+    ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME =>
+        'oidc_module_vci_key_attestation_trust_anchors.pem',
     // Token Status Lists, so that the plan's status checks run: without them a credential carries no `status`
     // claim and the suite skips every check of it. On the default key profile (did:jwk), whose token signature
     // the suite can not verify; conformance-tests/vci-issuer-warnings.json records that.
     ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => true,
     ModuleConfig::OPTION_VCI_STATUS_LIST_POOLS => [
         'conformance' => [
-            'credential_configurations' => ['ResearchAndScholarshipCredentialDcSdJwt'],
+            'credential_configurations' => [
+                'ResearchAndScholarshipCredentialDcSdJwt',
+                'ResearchAndScholarshipCredentialDcSdJwtKeyAttested',
+                'ResearchAndScholarshipCredentialDcSdJwtAttestation',
+            ],
         ],
     ],
     // Require DPoP for credential issuance. The plan runs with sender_constrain=dpop, so every token request it
     // makes carries a proof, and a run shows that each of its flows gets through the module's enforcement.
     ModuleConfig::OPTION_VCI_REQUIRE_DPOP => true,
-    ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => [
-        'ResearchAndScholarshipCredentialDcSdJwt' => [
+    ModuleConfig::OPTION_VCI_USER_ATTRIBUTE_TO_CREDENTIAL_CLAIM_PATH_MAP => array_fill_keys(
+        [
+            'ResearchAndScholarshipCredentialDcSdJwt',
+            'ResearchAndScholarshipCredentialDcSdJwtKeyAttested',
+            'ResearchAndScholarshipCredentialDcSdJwtAttestation',
+        ],
+        [
             ['uid' => ['eduPersonPrincipalName']],
             ['displayName' => ['displayName']],
             ['mail' => ['mail']],
         ],
-    ],
+    ),
 ];
 
 // HAIP 1.0, for the OpenID4VCI issuer HAIP test plan, when the container is started with
 // OIDC_CONFORMANCE_VCI_HAIP=1 (docker/docker-compose.yml). The rest of what a HAIP configuration needs is set above
 // already: DPoP required, a protocol cache kept across requests, no wallets which are not registered, a leeway
-// within 10 to 60 seconds, a scope for the dc+sd-jwt configuration, the signing key's certificate chain and trust
+// within 10 to 60 seconds, a scope for each dc+sd-jwt configuration, the signing key's certificate chain and trust
 // anchors, and an RSA protocol key of 3072 bits (docker/generate-dev-certs.sh). The plan's two wallets are seeded
 // by docker/conformance-vci-haip.sql whether or not this is on.
 if (getenv('OIDC_CONFORMANCE_VCI_HAIP') === '1') {

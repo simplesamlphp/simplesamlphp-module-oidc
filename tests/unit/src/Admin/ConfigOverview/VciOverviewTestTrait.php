@@ -10,6 +10,7 @@ use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\ValueAbstracts;
 use Throwable;
@@ -37,6 +38,8 @@ trait VciOverviewTestTrait
      *                                                            decides which there are.
      * @param ?\SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver $vciCertificateChainResolver
      *        What the key pairs' certificate chains resolve to; none by default.
+     * @param ?\SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier $keyAttestationVerifier What the
+     *        key attestation trust anchors resolve to; none by default.
      * @throws \Exception
      */
     protected function buildVciOverviewBuilder(
@@ -47,6 +50,7 @@ trait VciOverviewTestTrait
         array $routeUrls = [],
         ?ValueAbstracts $valueAbstracts = null,
         ?VciCertificateChainResolver $vciCertificateChainResolver = null,
+        ?KeyAttestationVerifier $keyAttestationVerifier = null,
     ): VciOverviewBuilder {
         $vciIssuerIdentityRepository = $this->createMock(VciIssuerIdentityRepository::class);
         $vciIssuerIdentityRepository->method('getAllUsed')->willReturn($usedIssuerIdentities);
@@ -75,6 +79,7 @@ trait VciOverviewTestTrait
             $vciIssuerIdentityRepository,
             $statusListRepository,
             $vciCertificateChainResolver ?? $this->createMock(VciCertificateChainResolver::class),
+            $keyAttestationVerifier ?? $this->createMock(KeyAttestationVerifier::class),
         );
     }
 }

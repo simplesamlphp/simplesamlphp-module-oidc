@@ -52,6 +52,7 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
@@ -64,6 +65,7 @@ use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
 use SimpleSAML\OpenID\Codebooks\TermsOfUseTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
+use SimpleSAML\OpenID\Exceptions\X509TrustStoreException;
 use SimpleSAML\OpenID\Helpers as VcHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
@@ -227,6 +229,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected array $validatedProofs = [];
 
     protected ?Throwable $proofValidationException = null;
+
+    /** @var list<mixed> What the proof validator was last asked with. */
+    protected array $proofValidationArguments = [];
 
     /** @var array<string,mixed> */
     protected array $userClaims = [];
@@ -432,7 +437,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         // What a key proof has to satisfy to get this far is OpenId4VciProofValidatorTest's subject.
         $this->openId4VciProofValidatorMock->method('validateRequest')->willReturnCallback(
-            function (): array {
+            function (mixed ...$arguments): array {
+                $this->proofValidationArguments = $arguments;
+
                 if ($this->proofValidationException !== null) {
                     throw $this->proofValidationException;
                 }
@@ -1489,6 +1496,64 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->assertRefusedWith('invalid_nonce', 400);
         $this->assertSame([], $this->jsonResponses);
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * The proofs are validated under the proof types of the configuration asked for: which ones it takes, and what it
+     * requires of key attestations.
+     */
+    public function testValidatesTheProofsUnderTheProofTypesOfTheConfiguration(): void
+    {
+        $proofTypes = new VciCredentialProofTypes(['attestation' => null]);
+        $this->moduleConfigMock->expects($this->once())->method('getVciCredentialProofTypesFor')
+            ->with(self::CONFIGURATION_ID)
+            ->willReturn($proofTypes);
+        $this->validatedProofs = [$this->validatedProof()];
+
+        $this->dispatch();
+
+        $this->assertSame($proofTypes, $this->proofValidationArguments[3] ?? null);
+        $this->assertCount(1, $this->signedPayloads);
+    }
+
+
+    /**
+     * What the proofs are validated under which can not be used is this issuer's fault, not the wallet's: answered as
+     * a server error, the reason in the log only, and nothing issued.
+     */
+    #[DataProvider('proofValidationFaultProvider')]
+    public function testAnswersProofsWhichCanNotBeValidatedForWantOfTheIssuersOwnSetupAsAServerError(
+        Throwable $fault,
+    ): void {
+        $logged = $this->captureLog();
+        $this->proofValidationException = $fault;
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame(
+            [[
+                'CredentialIssuerCredentialController::credential: The key proofs could not be validated.',
+                ['credentialConfigurationId' => self::CONFIGURATION_ID, 'error' => $fault->getMessage()],
+            ]],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{\Throwable}>
+     */
+    public static function proofValidationFaultProvider(): array
+    {
+        return [
+            'key attestation trust anchors which can not be used' => [
+                new ConfigurationError('No key attestation trust anchors.'),
+            ],
+            'a trust store which can not be set up' => [new X509TrustStoreException('No temporary directory.')],
+        ];
     }
 
 

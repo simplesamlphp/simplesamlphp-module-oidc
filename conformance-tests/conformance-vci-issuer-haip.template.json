@@ -1,6 +1,6 @@
 {
     "alias": "simplesamlphp-module-oidc-vci-haip",
-    "description": "OpenID4VCI 1.0 issuer HAIP test plan (oid4vci-1_0-issuer-haip-test-plan) against the local conformance OP, with HAIP on. The template of conformance-vci-issuer-haip.json, which conformance-tests/vci-haip-config.py writes from it.",
+    "description": "OpenID4VCI 1.0 issuer HAIP test plan (oid4vci-1_0-issuer-haip-test-plan) against the local conformance OP, with HAIP on. The template of conformance-vci-issuer-haip.json and the configurations of the plan's runs with key attestations, which conformance-tests/vci-haip-config.py writes from it.",
     "vci": {
         "credential_issuer_url": "https://op.local.stack-dev.cirrusidentity.com",
         "credential_configuration_id": "ResearchAndScholarshipCredentialDcSdJwt"
@@ -13,7 +13,8 @@
     },
     "client_attestation": {
         "issuer": "https://wallet-provider.example.org",
-        "attester_jwks": "set by vci-haip-config.py: the attester key of docker/vci-pki/ with its x5c"
+        "attester_jwks": "set by vci-haip-config.py: the attester key of docker/vci-pki/ with its x5c",
+        "key_attestation_jwks": "set by vci-haip-config.py: the key attester key of docker/vci-pki/ with its x5c"
     },
     "credential": {
         "trust_anchor_pem": "set by vci-haip-config.py: docker/ssp/oidc_module_vci_trust_anchors.pem",

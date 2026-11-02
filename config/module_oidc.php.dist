@@ -2091,6 +2091,76 @@ $config = [
 //    ],
 
     /**
+     * (optional) The key proof types each credential configuration takes, and
+     * what it requires of key attestations (OpenID4VCI 1.0 section 12.2.4,
+     * Appendices D and F). A configuration which binds its credentials and is
+     * not listed here takes `jwt` proofs without key attestations, which is the
+     * default; a configuration whose binding policy takes no key proof can not
+     * be listed.
+     *
+     * Each entry maps a proof type to its settings, published as the
+     * configuration's `proof_types_supported` with the signature algorithms
+     * this issuer verifies (`proof_signing_alg_values_supported`, which is the
+     * module's to publish):
+     *
+     *  - 'jwt': a proof of possession of the key the credential is bound to
+     *    (Appendix F.1), one credential per proof. With
+     *    'key_attestations_required' set, every proof has to carry a key
+     *    attestation of its key in its `key_attestation` header, with an `exp`;
+     *    without it, a key attestation a proof carries is checked for its `alg`
+     *    only.
+     *  - 'attestation': a key attestation on its own, without a proof of
+     *    possession (Appendix F.3), one credential per key it attests, at most
+     *    the batch size. It carries the keys as keys, so a configuration under
+     *    the 'diip_proof_bound' binding policy can not take it.
+     *
+     * 'key_attestations_required' may name 'key_storage' and
+     * 'user_authentication', each with the values it accepts (Appendix D.2, or
+     * an ecosystem's own): a key attestation has to state at least one of them
+     * for each component named. The values are matched as written, so to accept
+     * a level "or better" list every level accepted. Empty, a key attestation
+     * is required without further constraint.
+     *
+     * A key attestation is verified against
+     * OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME: its signing key's
+     * certificate chain in `x5c`, without the trust anchor and not self-signed
+     * (HAIP 1.0 section 4.5.1); its signature; and its `nonce`, which has to be
+     * a c_nonce this issuer gave. Revocation, of the certificates or through the
+     * attestation's `status`, is not checked.
+     */
+//    ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES => [
+//        'PidCredential' => [
+//            'jwt' => [
+//                'key_attestations_required' => [
+//                    'key_storage' => ['iso_18045_high', 'iso_18045_moderate'],
+//                    'user_authentication' => ['iso_18045_high', 'iso_18045_moderate'],
+//                ],
+//            ],
+//            'attestation' => [
+//                'key_attestations_required' => [
+//                    'key_storage' => ['iso_18045_high', 'iso_18045_moderate'],
+//                ],
+//            ],
+//        ],
+//    ],
+
+    /**
+     * (optional) The PEM file of the trust anchors key attestations are
+     * validated against: the self-signed root certificates of the wallet
+     * providers and key storage components whose statements about keys this
+     * issuer accepts. Relative to SimpleSAMLphp's certificate directory unless
+     * absolute. Required as soon as a credential configuration takes key
+     * attestations (OPTION_VCI_CREDENTIAL_PROOF_TYPES): until it is set, or
+     * while it can not be used, the Credential Issuer metadata is refused, and
+     * so is every Credential Request needing a key attestation.
+     *
+     * To distrust a wallet provider or key storage component, for example
+     * after a compromise, remove its root from the file.
+     */
+//    ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME =>
+//        'oidc_module_vci_key_attestation_trust_anchors.pem',
+
+    /**
      * (optional) Dedicated cache adapter for the Verifiable Credential Issuance
      * layer. If set to null (the default), no VCI caching is performed.
      *

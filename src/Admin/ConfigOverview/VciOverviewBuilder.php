@@ -11,6 +11,7 @@ use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
@@ -19,6 +20,8 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\Utils\DateIntervalFormatter;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Codebooks\AddressPinningModeEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
@@ -63,6 +66,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
         protected readonly VciIssuerIdentityRepository $vciIssuerIdentityRepository,
         protected readonly StatusListRepository $statusListRepository,
         protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
+        protected readonly KeyAttestationVerifier $keyAttestationVerifier,
     ) {
         parent::__construct($moduleConfig, $routes, $dateIntervalFormatter, $logger);
     }
@@ -1239,6 +1243,8 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     );
                 },
             ),
+            $this->buildProofTypesRow(),
+            $this->buildKeyAttestationTrustAnchorsRow(),
             new Row(
                 Translate::noop('Attribute to Claim Path Mappings'),
                 $attributeMap,
@@ -1260,6 +1266,143 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                 ) : null,
                 $jsonLdContextError,
             ),
+        );
+    }
+
+
+    /**
+     * The key proof types of the credential configurations which set their own, each with what it requires of key
+     * attestations. Like the binding policies, only the exceptions are listed: every other configuration which binds
+     * its credentials takes `jwt` proofs without key attestations.
+     */
+    protected function buildProofTypesRow(): Row
+    {
+        $label = Translate::noop('Credential Proof Types');
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+            function () use ($label): Row {
+                $proofTypesByConfiguration = $this->moduleConfig->getVciCredentialProofTypes();
+
+                if ($proofTypesByConfiguration === []) {
+                    return new Row(
+                        $label,
+                        Translate::noop('Every configuration takes jwt proofs without key attestations'),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+                        Translate::noop(
+                            'Every credential configuration which binds its credentials to a key takes key proofs ' .
+                            'of the jwt type, and requires no key attestation, which is the default.',
+                        ),
+                    );
+                }
+
+                $listed = [];
+
+                foreach ($proofTypesByConfiguration as $credentialConfigurationId => $proofTypes) {
+                    $listed[$credentialConfigurationId] = array_map(
+                        fn(VciProofTypeEnum $proofType): string => $this->describeProofType($proofTypes, $proofType),
+                        $proofTypes->getOffered(),
+                    );
+                }
+
+                return new Row(
+                    $label,
+                    $listed,
+                    ConfigOverviewValueTypeEnum::StringMap,
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+                    Translate::noop(
+                        'Only the configurations which set their own proof types are listed; every other one ' .
+                        'which binds its credentials takes jwt proofs without key attestations. A key attestation ' .
+                        'is verified against the key attestation trust anchors, and has to state one of the values ' .
+                        'listed for each component listed. A jwt proof which has to carry one gets one credential, ' .
+                        'bound to its own key; an attestation proof gets one for each key it attests.',
+                    ),
+                );
+            },
+        );
+    }
+
+
+    /**
+     * One proof type a credential configuration takes, as it is listed: its name, and what it requires of key
+     * attestations, in the words of the metadata.
+     */
+    protected function describeProofType(VciCredentialProofTypes $proofTypes, VciProofTypeEnum $proofType): string
+    {
+        if (!$proofTypes->requiresKeyAttestation($proofType)) {
+            return $proofType->value;
+        }
+
+        $requirements = $proofTypes->getKeyAttestationRequirementsFor($proofType);
+        $levels = [];
+
+        foreach (
+            [
+                ClaimsEnum::KeyStorage->value => $requirements?->getKeyStorage(),
+                ClaimsEnum::UserAuthentication->value => $requirements?->getUserAuthentication(),
+            ] as $component => $accepted
+        ) {
+            if ($accepted !== null) {
+                $levels[] = sprintf('%s: %s', $component, implode(', ', $accepted));
+            }
+        }
+
+        return sprintf(
+            '%s, key attestation required%s',
+            $proofType->value,
+            $levels === [] ? '' : ' (' . implode('; ', $levels) . ')',
+        );
+    }
+
+
+    /**
+     * The trust anchors key attestations are validated against, each by its subject and the end of its validity.
+     */
+    protected function buildKeyAttestationTrustAnchorsRow(): Row
+    {
+        $label = Translate::noop('Key Attestation Trust Anchors');
+        $note = Translate::noop(
+            'The root certificates key attestations are validated against: those of the wallet providers and key ' .
+            'storage components whose statements about keys are accepted. Required as soon as a credential ' .
+            'configuration takes key attestations.',
+        );
+
+        return $this->guardRow(
+            $label,
+            ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+            function () use ($label, $note): Row {
+                if ($this->moduleConfig->getVciKeyAttestationTrustAnchorsFilename() === null) {
+                    // The proof types row reports an option it can not read; it is not this row's to blame.
+                    try {
+                        $isTrustNeeded = $this->moduleConfig->isVciKeyAttestationTrustNeeded();
+                    } catch (Throwable) {
+                        $isTrustNeeded = false;
+                    }
+
+                    return new Row(
+                        $label,
+                        Translate::noop('None configured'),
+                        ConfigOverviewValueTypeEnum::Text,
+                        ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+                        $note,
+                        $isTrustNeeded ? Translate::noop(
+                            'A credential configuration takes key attestations, but there are no trust anchors to ' .
+                            'verify them against, so the Credential Issuer metadata is refused, and so is every ' .
+                            'Credential Request needing a key attestation.',
+                        ) : null,
+                    );
+                }
+
+                return new Row(
+                    $label,
+                    array_map($this->describeCertificate(...), $this->keyAttestationVerifier->getTrustAnchors()),
+                    ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME,
+                    $note,
+                );
+            },
         );
     }
 

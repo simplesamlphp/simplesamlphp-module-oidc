@@ -124,24 +124,34 @@ kill %1
 
 # OpenID4VCI issuer HAIP (see "OpenID4VCI issuer HAIP plan" below): the OP container
 # created anew with OIDC_CONFORMANCE_VCI_HAIP=1 (=0 to go back to the default), and
-# the suite configuration written first
+# the suite configurations written first
 OIDC_CONFORMANCE_VCI_HAIP=1 OIDC_VERSION=@dev docker compose \
   -f ${OIDC_MODULE_FOLDER}/docker/docker-compose.yml \
   --project-directory ${OIDC_MODULE_FOLDER} up -d --no-build --force-recreate oidc-op
 python3 ${OIDC_MODULE_FOLDER}/conformance-tests/vci-haip-config.py
 conformance-suite/scripts/run-test-plan.py \
   --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-warnings.json \
-  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json \
+  --expected-skips-file "${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json|${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-unattested-skips.json" \
   "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer-haip.json
 
 python3 ${OIDC_MODULE_FOLDER}/conformance-tests/vci-offer-driver.py --alias simplesamlphp-module-oidc-vci-haip &
 conformance-suite/scripts/run-test-plan.py \
   --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-warnings.json \
-  --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json \
+  --expected-skips-file "${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json|${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-unattested-skips.json" \
   "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=issuer_initiated]" \
   ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer-haip.json
 kill %1
+
+# The same plan with key attestations: a configuration whose jwt proofs carry them,
+# then one taking attestation proofs
+for run in key-attestation attestation; do
+  conformance-suite/scripts/run-test-plan.py \
+    --expected-failures-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-warnings.json \
+    --expected-skips-file ${OIDC_MODULE_FOLDER}/conformance-tests/vci-issuer-haip-skips.json \
+    "oid4vci-1_0-issuer-haip-test-plan[credential_format=sd_jwt_vc][vci_authorization_code_flow_variant=wallet_initiated]" \
+    ${OIDC_MODULE_FOLDER}/conformance-tests/conformance-vci-issuer-haip-$run.json
+done
 ```
 
 ### Dynamic Client Registration notes
@@ -376,15 +386,31 @@ container anew with the variable set.
 The plan's two wallets are registered for attestation-based client
 authentication by `docker/conformance-vci-haip.sql`, which
 `docker/generate-dev-certs.sh` writes together with a development wallet
-provider: a root CA, an issuing CA, and the attester's key and certificate, all
-issued anew for each checkout and kept out of Git. Each wallet trusts that root,
-the issuing CA by its key, and the attester by the URI its certificate names.
-The suite needs the attester's private key and chain, and the trust anchor of
-the issuer's certificates, so its configuration,
-`conformance-tests/conformance-vci-issuer-haip.json`, is written by
+provider: a root CA, an issuing CA, the attester's key and certificate, and a
+key attester's, which signs key attestations, all issued anew for each checkout
+and kept out of Git. Each wallet trusts that root, the issuing CA by its key,
+and the attester by the URI its certificate names; the OP trusts the same root
+for key attestations (`docker/ssp/oidc_module_vci_key_attestation_trust_anchors.pem`).
+The suite needs the attesters' private keys and chains, and the trust anchor of
+the issuer's certificates, so its configurations are written by
 `conformance-tests/vci-haip-config.py` from
-`conformance-tests/conformance-vci-issuer-haip.template.json`; run it after
-`generate-dev-certs.sh`.
+`conformance-tests/conformance-vci-issuer-haip.template.json`, one for each run;
+run it after `generate-dev-certs.sh`.
+
+The plan tests the credential configuration its configuration names. CI runs it
+four times: in both flows with `conformance-vci-issuer-haip.json`, whose
+configuration takes `jwt` proofs without key attestations, as most deployments'
+will; and in the wallet-initiated flow with
+`conformance-vci-issuer-haip-key-attestation.json`, whose configuration requires
+a key attestation in every `jwt` proof's `key_attestation` header, and with
+`conformance-vci-issuer-haip-attestation.json`, whose configuration takes
+`attestation` proofs as well, which the run prefers. The plan's key attestation
+test prefers the `attestation` proof type wherever it is offered, so the header
+needs a configuration offering `jwt` alone. In those two runs every credential
+request carries a key attestation, at the levels the configuration requires, and
+the key attestation test, which sends one with a broken signature, runs; the
+batch issuance test of the second asks for a credential for each of eight
+attested keys.
 
 Every test which runs passes. The suite checks, among the rest:
 
@@ -402,9 +428,11 @@ Every test which runs passes. The suite checks, among the rest:
 
 The suite skips the tests for optional features the module does not offer, and
 `conformance-tests/vci-issuer-haip-skips.json` lists them: signed credential
-issuer metadata, key attestations, the plan's encrypted entry (encrypted
-Credential Requests and Responses), and refresh tokens, which are not issued to
-a wallet authenticating with a Wallet Attestation. Before skipping the refresh
+issuer metadata, the plan's encrypted entry (encrypted Credential Requests and
+Responses), and refresh tokens, which are not issued to a wallet authenticating
+with a Wallet Attestation. In the runs whose configuration takes no key
+attestation it skips the key attestation test too, which
+`conformance-tests/vci-issuer-haip-unattested-skips.json` lists. Before skipping the refresh
 token test the suite warns that the metadata lists the `refresh_token` grant,
 which the OP's OpenID Connect clients use; `conformance-tests/vci-issuer-haip-warnings.json`
 records that warning.
@@ -423,6 +451,7 @@ What the run leaves out, beyond what the issuer plan above leaves out:
 - The `mso_mdoc` format (`credential_format=mso_mdoc`), which the module does
   not issue. HAIP needs an issuer to issue one of its two credential profiles,
   not both.
-- Key attestations, which HAIP leaves to ecosystems to require.
+- Key attestations in the issuer-initiated flow, which takes the same proofs
+  as the wallet-initiated one.
 - The pre-authorized code grant and `authorization_details`, which the plan does
   not test under HAIP; the issuer plan above runs them.

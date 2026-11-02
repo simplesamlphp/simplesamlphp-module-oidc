@@ -16,7 +16,10 @@
 /docker/ssp/oidc_module_vci_ec_p256_01.pub
 /docker/ssp/oidc_module_vci_ec_p256_01.chain.pem
 /docker/ssp/oidc_module_vci_trust_anchors.pem
+/docker/ssp/oidc_module_vci_key_attestation_trust_anchors.pem
 /docker/vci-pki/
 /docker/conformance-vci-haip.sql*
-# The HAIP plan's suite configuration, written by conformance-tests/vci-haip-config.py.
+# The HAIP plan's suite configurations, written by conformance-tests/vci-haip-config.py.
 /conformance-tests/conformance-vci-issuer-haip.json
+/conformance-tests/conformance-vci-issuer-haip-key-attestation.json
+/conformance-tests/conformance-vci-issuer-haip-attestation.json

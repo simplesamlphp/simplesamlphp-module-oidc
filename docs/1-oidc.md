@@ -176,10 +176,8 @@ with the OP as its Authorization Server. What that covers:
   as not implemented. Where the module falls short, that document says so: it
   shows no consent screen of its own describing what a credential will contain
   and why (section 15.1, a SHOULD, left to SimpleSAMLphp authentication
-  processing filters), it does not evaluate key attestations (a key proof's
-  `key_attestation` and `trust_chain` headers are checked for their signing
-  algorithm only), and it meets the FAPI 2.0 provisions only in part (see HAIP
-  below).
+  processing filters), and it meets the FAPI 2.0 provisions only in part (see
+  HAIP below).
 - **Configuration matters.** Some requirements are met only with the right
   settings, DPoP for issuance (`vci_require_dpop`) and the transaction code
   attempt limit (a protocol cache) among them. The same document marks those
@@ -189,9 +187,10 @@ with the OP as its Authorization Server. What that covers:
   `credential_offer_endpoint`; deferred issuance; the Notification Endpoint;
   encrypted Credential Requests and Responses; DPoP nonces; signed Credential
   Issuer Metadata, and language negotiation of the metadata; the `mso_mdoc`,
-  `ldp_vc` and `jwt_vc_json-ld` formats; the `di_vp` and `attestation` proof
-  types, and the `x5c` header of `jwt` proofs (a key proof naming its key by a
-  certificate is refused); key attestations.
+  `ldp_vc` and `jwt_vc_json-ld` formats; the `di_vp` proof type, and the
+  `x5c` header of `jwt` proofs (a key proof naming its key by a certificate is
+  refused); a key proof's `trust_chain` header (checked for its signing
+  algorithm only).
 - **The OpenID4VC High Assurance Interoperability Profile (HAIP 1.0) is
   supported with `vci_haip` on, for `dc+sd-jwt` credentials.** With the option,
   issuance requests are held to its request rules (see
@@ -206,16 +205,21 @@ with the OP as its Authorization Server. What that covers:
   not required, a credential configuration without a `scope`, a signing key
   without a certificate chain, an RSA key pair shorter than 2048 bits, and the
   like). Credentials and Status List Tokens carry X.509 (`x5c`) certificate
-  chains. The OpenID Foundation certifies OpenID4VCI issuers through its HAIP
-  issuer test plan, and CI runs it against the conformance image with HAIP on,
-  in both its flows; every test which runs passes (see
+  chains. Key attestations, which HAIP leaves to ecosystems to require, can be
+  required per credential configuration, in a `jwt` proof's `key_attestation`
+  header or as an `attestation` proof, with X.509 chains as HAIP section 4.5.1
+  has them (see [Key attestations](3-oidc-configuration.md#key-attestations)).
+  The OpenID Foundation certifies OpenID4VCI issuers through its HAIP issuer
+  test plan, and CI runs it against the conformance image with HAIP on, in both
+  its flows, and again with credential configurations requiring key
+  attestations of each proof type; every test which runs passes (see
   [Conformance testing](#conformance-testing)), which is a test result, not a
   certification. What stays with the deployment: the option and what it
   requires, the web server's TLS (FAPI 2.0 section 5.2, which HAIP applies), and
   limiting a credential's validity, which HAIP recommends (credential lifetimes,
-  status lists). Not implemented: the key attestations HAIP leaves to
-  ecosystems to require, the `mso_mdoc` profile (an issuer needs one of the
-  two), signed metadata and the `haip-vci://` scheme, and the refresh tokens
+  status lists), and whether a credential configuration requires key
+  attestations. Not implemented: the `mso_mdoc` profile (an issuer needs one of
+  the two), signed metadata and the `haip-vci://` scheme, and the refresh tokens
   HAIP recommends for credential refresh. The same document lists the gaps,
   H-G1 to H-G11, most of them closed by the option.
 - **Drafts underneath.** `dc+sd-jwt` credentials follow the IETF SD-JWT VC
@@ -312,7 +316,9 @@ Currently implemented OpenID4VCI features:
   refused the same way, and a user whose attributes leave one out is refused
   the credential with `credential_request_denied`.
 - Proof of Possession & Binding
-  - Proof Type: `jwt` (JSON Web Token proofs).
+  - Proof Types: `jwt` (JSON Web Token proofs), and `attestation` (a key
+  attestation without a proof of possession, one credential per attested key)
+  for a configuration which takes it.
   - Cryptographic Binding Methods:
     - `did:key`: Supported for proof validation and subject binding.
     - `did:jwk`: Supported for proof validation and subject binding.
@@ -325,10 +331,17 @@ Currently implemented OpenID4VCI features:
   `c_nonce` is a JWS of a type of its own (`c-nonce+jwt`), so nothing else this
   issuer signs with the same key, a credential or a Status List Token, passes as
   one.
-  - A key proof's `key_attestation` and `trust_chain` headers are accepted when
-  signed with an algorithm advertised for key proofs
-  (`proof_signing_alg_values_supported`). What they attest is not evaluated,
-  so neither changes the key a credential is bound to.
+  - Key attestations (Appendix D): a credential configuration can require one
+  in every `jwt` proof's `key_attestation` header, or take `attestation`
+  proofs, with the levels of key storage and user authentication it accepts.
+  A key attestation is verified by the `x5c` chain of its signing key against
+  trust anchors of its own, and its `nonce` has to be a `c_nonce` this issuer
+  gave. See [Configuration](3-oidc-configuration.md#key-attestations).
+  - Where nothing requires a key attestation, a key proof's `key_attestation`
+  header, like its `trust_chain` header, is accepted when signed with an
+  algorithm advertised for key proofs (`proof_signing_alg_values_supported`).
+  What it attests is then not evaluated, so it does not change the key a
+  credential is bound to.
   - Holder binding is stated in a `cnf` claim, in every credential format.
   - Each credential configuration decides for itself whether a key proof is
   required and which identifier rules apply to it. See

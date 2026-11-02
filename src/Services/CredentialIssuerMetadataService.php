@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Services;
 
+use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
-use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\CredentialFormatIdentifiersEnum;
@@ -54,6 +56,7 @@ class CredentialIssuerMetadataService
         // adapter, which only a credential configuration that binds a holder key has any use for.
         protected readonly DidFactory $didFactory,
         protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
+        protected readonly KeyAttestationVerifier $keyAttestationVerifier,
     ) {
     }
 
@@ -104,6 +107,12 @@ class CredentialIssuerMetadataService
         // one, say) fails the document as it fails issuance.
         $this->vciCertificateChainResolver->resolveFor($signatureKeyPair);
 
+        // Nor while a configuration takes key attestations which could not be verified: trust anchors which can not
+        // be used fail the document as they fail the Credential Request.
+        if ($this->moduleConfig->isVciKeyAttestationTrustNeeded()) {
+            $this->keyAttestationVerifier->getTrustAnchors();
+        }
+
         $credentialConfigurationsSupported = $this->moduleConfig->getVciCredentialConfigurationsSupported();
 
         $isAnyConfigurationProofBound = false;
@@ -133,26 +142,32 @@ class CredentialIssuerMetadataService
                 // building the DID facade to ask for it: a deployment issuing nothing but proofless
                 // credentials publishes this document without its DID settings ever being read. Nor does
                 // one which follows HAIP, which binds a credential to the key itself however a proof names
-                // it.
+                // it, nor one which takes no jwt proof: an attestation proof carries its keys as keys, bound
+                // as a key sent inline is, and names no DID.
+                $proofTypes = $bindingPolicy->requiresKeyProof() ?
+                $this->moduleConfig->getVciCredentialProofTypesFor($credentialConfigurationId) :
+                null;
                 $bindingMethods = match (true) {
-                    !$bindingPolicy->requiresKeyProof() => null,
+                    $proofTypes === null => null,
                     $isVciHaipEnabled => $bindingPolicy->bindingMethodsUnderHaip(),
+                    !$proofTypes->offers(VciProofTypeEnum::Jwt) => [VciCredentialBindingPolicyEnum::BINDING_METHOD_JWK],
                     default => $bindingPolicy->bindingMethodsFrom($this->resolvableDidMethods()),
                 };
 
-                if ($bindingMethods !== null) {
+                if ($proofTypes !== null && $bindingMethods !== null) {
                     $isAnyConfigurationProofBound = true;
 
                     $credentialConfiguration[ClaimsEnum::CryptographicBindingMethodsSupported->value] =
                     $bindingMethods;
-                    $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = [
-                        OpenId4VciProofValidator::PROOF_TYPE_JWT => [
-                            ClaimsEnum::ProofSigningAlgValuesSupported->value => $this->moduleConfig
-                                ->getSupportedAlgorithms()
-                                ->getSignatureAlgorithmBag()
-                                ->getAllNamesUnique(),
-                        ],
-                    ];
+                    // The proof types the configuration takes, each with the algorithms a proof, and a key
+                    // attestation, may be signed with (OpenId4VciProofValidator), and what it requires of key
+                    // attestations.
+                    $credentialConfiguration[ClaimsEnum::ProofTypesSupported->value] = $proofTypes->toMetadata(
+                        $this->moduleConfig
+                            ->getSupportedAlgorithms()
+                            ->getSignatureAlgorithmBag()
+                            ->getAllNamesUnique(),
+                    );
                 } else {
                     // Both fields go, not just one. OpenID4VCI requires `proof_types_supported` wherever
                     // `cryptographic_binding_methods_supported` appears, and requires a `proofs`

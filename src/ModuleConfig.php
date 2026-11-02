@@ -17,6 +17,7 @@ use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
+use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPool;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
@@ -25,7 +26,9 @@ use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 use SimpleSAML\Module\oidc\ValueAbstracts\IntrospectionUpstream;
 use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentifier;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\AccessTokenTypesEnum;
@@ -432,6 +435,11 @@ class ModuleConfig
 
     final public const string OPTION_VCI_CREDENTIAL_BINDING_POLICIES = 'vci_credential_binding_policies';
 
+    final public const string OPTION_VCI_CREDENTIAL_PROOF_TYPES = 'vci_credential_proof_types';
+
+    final public const string OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME =
+    'vci_key_attestation_trust_anchors_filename';
+
     final public const string OPTION_VCI_CACHE_ADAPTER = 'vci_cache_adapter';
 
     final public const string OPTION_VCI_CACHE_ADAPTER_ARGUMENTS = 'vci_cache_adapter_arguments';
@@ -537,6 +545,12 @@ class ModuleConfig
      * configuration ID to whether its credentials are bound to a holder key.
      */
     protected ?array $vciCredentialBindingPolicies = null;
+
+    /**
+     * @var ?array<string,\SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes> Credential
+     * configuration ID to the key proof types it takes, for those which set them.
+     */
+    protected ?array $vciCredentialProofTypes = null;
 
     /**
      * @var ?list<string> What the configuration lacks for HAIP 1.0 (findVciHaipConfigurationFaults()).
@@ -3030,6 +3044,271 @@ class ModuleConfig
 
 
     /**
+     * The key proof types of each credential configuration which sets its own, and for each what it requires of key
+     * attestations (OpenID4VCI 1.0 section 12.2.4, Appendices D and F).
+     *
+     * A top-level option, as the binding policies are, rather than `proof_types_supported` written among the
+     * credential configurations: those are published as written, and this module writes `proof_types_supported`
+     * itself (CredentialIssuerMetadataService), with the signature algorithms it verifies. A configuration which
+     * binds its credentials and sets none takes `jwt` proofs without key attestations
+     * (getVciCredentialProofTypesFor()).
+     *
+     * Refused: a configuration which is not declared, or whose binding policy takes no key proof; a proof type other
+     * than `jwt` and `attestation`; `attestation` under a binding policy which accepts no key carried inline, since an
+     * attestation proof carries the keys it attests that way; and any setting of a proof type but
+     * `key_attestations_required`, with `key_storage` and `user_authentication` each a non-empty list of values.
+     *
+     * @return array<string,\SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes>
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialProofTypes(): array
+    {
+        if (is_array($this->vciCredentialProofTypes)) {
+            return $this->vciCredentialProofTypes;
+        }
+
+        $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
+        $proofTypesByConfiguration = [];
+
+        // Read as a value, so that one which is not an array is refused as the configuration's fault, as everything
+        // else here is, and not by SimpleSAMLphp's assertion.
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_CREDENTIAL_PROOF_TYPES, []);
+
+        if (!is_array($configured)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Option "%s" is not a map of credential configuration ids to their proof types.',
+                    self::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        /** @var mixed $value */
+        foreach ($configured as $key => $value) {
+            $credentialConfigurationId = (string)$key;
+            $of = sprintf(
+                'Option "%s" for the credential configuration "%s"',
+                self::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+                $credentialConfigurationId,
+            );
+
+            if (!in_array($credentialConfigurationId, $supportedIds, true)) {
+                throw new ConfigurationError(
+                    sprintf(
+                        '%s names a configuration which is not declared under "%s".',
+                        $of,
+                        self::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $bindingPolicy = $this->getVciCredentialBindingPolicyFor($credentialConfigurationId);
+
+            if (!$bindingPolicy->requiresKeyProof()) {
+                throw new ConfigurationError(
+                    sprintf(
+                        '%s sets proof types, but its binding policy under "%s", "%s", takes no key proof.',
+                        $of,
+                        self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                        $bindingPolicy->value,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            if (!is_array($value) || $value === [] || array_is_list($value)) {
+                throw new ConfigurationError(
+                    sprintf('%s is not a non-empty map of proof types to their settings.', $of),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $proofTypes = [];
+
+            /** @var mixed $settings */
+            foreach ($value as $proofTypeValue => $settings) {
+                $proofType = VciProofTypeEnum::tryFrom((string)$proofTypeValue);
+
+                if ($proofType === null) {
+                    throw new ConfigurationError(
+                        sprintf(
+                            '%s names the proof type "%s", which is not one of: %s.',
+                            $of,
+                            (string)$proofTypeValue,
+                            implode(
+                                ', ',
+                                array_map(
+                                    static fn(VciProofTypeEnum $case): string => $case->value,
+                                    VciProofTypeEnum::cases(),
+                                ),
+                            ),
+                        ),
+                        self::DEFAULT_FILE_NAME,
+                    );
+                }
+
+                if ($proofType === VciProofTypeEnum::Attestation && !$bindingPolicy->acceptsInlineKey()) {
+                    throw new ConfigurationError(
+                        sprintf(
+                            '%s offers the "%s" proof type, whose attested keys are carried as keys, but its binding ' .
+                            'policy under "%s", "%s", accepts no key carried inline.',
+                            $of,
+                            $proofType->value,
+                            self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+                            $bindingPolicy->value,
+                        ),
+                        self::DEFAULT_FILE_NAME,
+                    );
+                }
+
+                $proofTypes[$proofType->value] = $this->resolveKeyAttestationRequirements($of, $proofType, $settings);
+            }
+
+            /** @var non-empty-array<string,?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements> $proofTypes */
+            $proofTypesByConfiguration[$credentialConfigurationId] = new VciCredentialProofTypes($proofTypes);
+        }
+
+        return $this->vciCredentialProofTypes = $proofTypesByConfiguration;
+    }
+
+
+    /**
+     * What one proof type of a credential configuration requires of key attestations: its `key_attestations_required`,
+     * or null when it sets none.
+     *
+     * @param string $of The option and configuration, for the error.
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function resolveKeyAttestationRequirements(
+        string $of,
+        VciProofTypeEnum $proofType,
+        mixed $settings,
+    ): ?VciKeyAttestationRequirements {
+        $keyAttestationsRequired = ClaimsEnum::KeyAttestationsRequired->value;
+
+        if (!is_array($settings)) {
+            throw new ConfigurationError(
+                sprintf('%s gives the proof type "%s" settings which are not a map.', $of, $proofType->value),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        $otherSettings = array_diff(array_map(strval(...), array_keys($settings)), [$keyAttestationsRequired]);
+
+        if ($otherSettings !== []) {
+            throw new ConfigurationError(
+                sprintf(
+                    '%s gives the proof type "%s" the setting "%s"; the one setting a proof type takes is "%s", and ' .
+                    'its "%s" is published by the module.',
+                    $of,
+                    $proofType->value,
+                    reset($otherSettings),
+                    $keyAttestationsRequired,
+                    ClaimsEnum::ProofSigningAlgValuesSupported->value,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        if (!array_key_exists($keyAttestationsRequired, $settings)) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $requirements = $settings[$keyAttestationsRequired];
+        $components = [ClaimsEnum::KeyStorage->value, ClaimsEnum::UserAuthentication->value];
+        $notAMap = new ConfigurationError(
+            sprintf(
+                '%s gives the proof type "%s" a "%s" which is not a map of at most "%s" and "%s".',
+                $of,
+                $proofType->value,
+                $keyAttestationsRequired,
+                ...$components,
+            ),
+            self::DEFAULT_FILE_NAME,
+        );
+
+        if (!is_array($requirements)) {
+            throw $notAMap;
+        }
+
+        // An empty array stands for the empty object, a key attestation required "without additional constraints"
+        // (section 12.2.4); a list which is not empty is not an object at all.
+        if (
+            ($requirements !== [] && array_is_list($requirements)) ||
+            array_diff(array_map(strval(...), array_keys($requirements)), $components) !== []
+        ) {
+            throw $notAMap;
+        }
+
+        $accepted = [ClaimsEnum::KeyStorage->value => null, ClaimsEnum::UserAuthentication->value => null];
+
+        foreach ($components as $component) {
+            if (!array_key_exists($component, $requirements)) {
+                continue;
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $values = $requirements[$component];
+
+            if (!$this->isNonEmptyListOfNonEmptyStrings($values)) {
+                throw new ConfigurationError(
+                    sprintf(
+                        '%s gives the proof type "%s" a "%s" whose "%s" is not a non-empty list of the values it ' .
+                        'accepts.',
+                        $of,
+                        $proofType->value,
+                        $keyAttestationsRequired,
+                        $component,
+                    ),
+                    self::DEFAULT_FILE_NAME,
+                );
+            }
+
+            $accepted[$component] = $values;
+        }
+
+        return new VciKeyAttestationRequirements(
+            $accepted[ClaimsEnum::KeyStorage->value],
+            $accepted[ClaimsEnum::UserAuthentication->value],
+        );
+    }
+
+
+    /**
+     * The key proof types the credential configuration takes: its own (getVciCredentialProofTypes()), or `jwt` proofs
+     * without key attestations. Asked only of a configuration whose binding policy takes a key proof.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciCredentialProofTypesFor(string $credentialConfigurationId): VciCredentialProofTypes
+    {
+        return $this->getVciCredentialProofTypes()[$credentialConfigurationId] ?? VciCredentialProofTypes::jwtOnly();
+    }
+
+
+    /**
+     * Whether any credential configuration takes a proof which is, or carries, a key attestation, which is then
+     * verified against the trust anchors of OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function isVciKeyAttestationTrustNeeded(): bool
+    {
+        foreach ($this->getVciCredentialProofTypes() as $proofTypes) {
+            if ($proofTypes->requiresAnyKeyAttestation()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+
+    /**
      * Which Status List expiry lanes a pool would currently allocate into.
      *
      * Both, if some of the pool's credential configurations have a lifetime and others do not; otherwise
@@ -3346,6 +3625,31 @@ class ModuleConfig
         return $this->resolveCertificateFilename(
             $configured,
             sprintf('option "%s"', self::OPTION_VCI_ISSUER_TRUST_ANCHORS_FILENAME),
+        );
+    }
+
+
+    /**
+     * The PEM file of the trust anchors key attestations are validated against (OpenID4VCI 1.0 Appendix D, HAIP 1.0
+     * section 4.5.1): self-signed root certificates of the wallet providers and key storage components whose
+     * statements about keys this issuer accepts. Null when not configured, which KeyAttestationVerifier refuses as
+     * soon as a credential configuration takes a key attestation (isVciKeyAttestationTrustNeeded()).
+     *
+     * @return ?non-empty-string
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    public function getVciKeyAttestationTrustAnchorsFilename(): ?string
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME, null);
+
+        if ($configured === null) {
+            return null;
+        }
+
+        return $this->resolveCertificateFilename(
+            $configured,
+            sprintf('option "%s"', self::OPTION_VCI_KEY_ATTESTATION_TRUST_ANCHORS_FILENAME),
         );
     }
 
