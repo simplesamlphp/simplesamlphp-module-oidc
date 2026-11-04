@@ -214,7 +214,7 @@ jobs:
         ssp-version: ["v2.5.0"]
     env:
       SUITE_BASE_URL: https://localhost.emobix.co.uk:8443
-      VERSION: release-v5.1.39
+      VERSION: release-v5.3.4
     steps:
       - uses: actions/checkout@v6
         with:
@@ -259,6 +259,15 @@ jobs:
       - name: Run RP backchannel
         run: |
           ./conformance-suite/scripts/run-test-plan.py     "oidcc-backchannel-rp-initiated-logout-certification-test-plan[response_type=code][client_registration=static_client]" ./main/conformance-tests/conformance-back-channel-logout-ci.json
+      - name: Dump OP logs
+        if: failure()
+        working-directory: ./main
+        # What the suite reports is only its own side of the exchange, and some failures say nothing there:
+        # a request the OP never sent reads as a test waiting for a callback until it times out, with no
+        # failed check anywhere. The reason is in the OP's log, which otherwise leaves with the container.
+        # Same compose invocation as "Start SSP docker", so this addresses the project that step created.
+        run: |
+          docker compose -f docker/docker-compose.yml --project-directory . logs --no-color --tail 2000 oidc-op || true
       - name: Stop SSP
         working-directory: ./main
         run: |
