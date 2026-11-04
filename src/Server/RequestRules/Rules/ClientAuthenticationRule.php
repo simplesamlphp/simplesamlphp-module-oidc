@@ -57,8 +57,11 @@ class ClientAuthenticationRule extends AbstractRule
 
         // The refusal of a client which does not authenticate (RFC 6749 section 5.2, RFC 7521 section 4.2.1):
         // invalid_client, HTTP 401, with a WWW-Authenticate challenge when the request used the Authorization header.
-        // The answer does not say why, the log does.
+        // The answer does not say why, the log does. A reason can quote what the request sent, before anything about
+        // the request has been verified: the library's answer to an unknown algorithm quotes the alg header. So the
+        // reason is kept to printable ASCII of bounded length, which leaves it no line break of any kind.
         $refuse = static function (string $reason) use ($client, $request, $loggerService): OidcServerException {
+            $reason = (string)preg_replace('/[^\x20-\x7E]+/', ' ', substr($reason, 0, 1000));
             $loggerService->warning(
                 'Client authentication failed: ' . $reason,
                 ['client_id' => $client->getIdentifier()],

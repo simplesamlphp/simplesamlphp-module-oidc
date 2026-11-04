@@ -10,10 +10,12 @@ use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use OpenSSLAsymmetricKey;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Configuration;
 use SimpleSAML\Kernel;
+use SimpleSAML\Logger;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\ClientEntityFactory;
@@ -140,6 +142,8 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     protected function tearDown(): void
     {
         $_SERVER = $this->originalServer;
+        Logger::setCaptureLog(false);
+        Logger::clearCapturedLog();
 
         if (isset($this->client)) {
             $this->clientRepository->delete($this->client);
@@ -260,6 +264,59 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     }
 
 
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function lineBreakProvider(): array
+    {
+        return [
+            'line feed' => ["\n"],
+            'carriage return and line feed' => ["\r\n"],
+            'next line' => ["\u{85}"],
+            'line separator' => ["\u{2028}"],
+            'escape, which starts a terminal sequence' => ["\x1b"],
+        ];
+    }
+
+
+    /**
+     * The library's answer to an unknown algorithm quotes the alg header, which nobody has verified at that point, so a
+     * caller who knows the client_id must not be able to write lines of their own into the log that way.
+     */
+    #[DataProvider('lineBreakProvider')]
+    public function testRefusedClientAssertionCanNotForgeLogLines(string $lineBreak): void
+    {
+        $code = $this->requestAuthorizationCode();
+        $clientKey = self::createRsaKey();
+        $this->clientRepository->update($this->createClient(self::jwksOf($clientKey)));
+
+        Logger::setCaptureLog(true);
+
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            [
+                'code' => $code,
+                ...$this->clientAssertionParams(
+                    $clientKey,
+                    [],
+                    'RS256' . $lineBreak . 'FORGED LINE' . str_repeat('x', 5000),
+                ),
+            ],
+        );
+
+        $logged = array_filter(
+            Logger::getCapturedLog(),
+            static fn(string $entry): bool => str_contains($entry, 'FORGED LINE'),
+        );
+
+        $this->assertNotEmpty($logged, 'The reason for the refusal is not in the log.');
+        foreach ($logged as $entry) {
+            $this->assertStringContainsString('RS256 FORGED LINE', $entry);
+            $this->assertLessThan(1200, strlen($entry));
+        }
+    }
+
+
     protected function createClient(?array $jwks = null): ClientEntityInterface
     {
         return $this->clientEntityFactory->fromData(
@@ -358,11 +415,14 @@ class ConfidentialClientTokenEndpointTest extends TestCase
      * @param array<string,string> $claims Replacing those of an assertion which holds.
      * @return array<string,string>
      */
-    protected function clientAssertionParams(OpenSSLAsymmetricKey $key, array $claims = []): array
-    {
+    protected function clientAssertionParams(
+        OpenSSLAsymmetricKey $key,
+        array $claims = [],
+        string $algorithmHeader = 'RS256',
+    ): array {
         $now = time();
         $signingInput = self::base64Url(json_encode(
-            ['alg' => 'RS256', 'typ' => 'JWT', 'kid' => self::CLIENT_KEY_ID],
+            ['alg' => $algorithmHeader, 'typ' => 'JWT', 'kid' => self::CLIENT_KEY_ID],
             JSON_THROW_ON_ERROR,
         )) . '.' . self::base64Url(json_encode(
             [
