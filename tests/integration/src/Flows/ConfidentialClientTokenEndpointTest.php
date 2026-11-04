@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use OpenSSLAsymmetricKey;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -41,16 +42,14 @@ use Symfony\Component\Filesystem\Filesystem;
 class ConfidentialClientTokenEndpointTest extends TestCase
 {
     /**
-     * The answer to a confidential client which presents no authentication at all.
-     *
-     * RFC 6749 section 5.2 names invalid_client for this, and wip-version-7 answers that, so a merge of this file
-     * into that branch has to change this value.
+     * The answer to a confidential client which does not authenticate: one which presents nothing or a wrong secret
+     * (RFC 6749 section 5.2), or an assertion which does not hold (RFC 7521 section 4.2.1).
      */
-    protected const string ERROR_WITHOUT_CLIENT_AUTHENTICATION = 'access_denied';
-
-    protected const string ERROR_WITH_WRONG_SECRET = 'invalid_client';
+    protected const string ERROR_CLIENT_AUTHENTICATION_FAILED = 'invalid_client';
 
     protected const string CLIENT_ID = 'confidential-token-endpoint-client';
+
+    protected const string CLIENT_KEY_ID = 'confidential-token-endpoint-client-key';
 
     protected const string CLIENT_SECRET = 'my-super-secret-key-12345';
 
@@ -68,6 +67,10 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     protected UserRepository $userRepository;
 
     protected AuthorizationServer $authorizationServer;
+
+    protected ClientEntityFactory $clientEntityFactory;
+
+    protected ModuleConfig $moduleConfig;
 
     protected ClientEntityInterface $client;
 
@@ -118,6 +121,8 @@ class ConfidentialClientTokenEndpointTest extends TestCase
         $this->clientRepository = $container->get(ClientRepository::class);
         $this->userRepository = $container->get(UserRepository::class);
         $this->authorizationServer = $container->get(AuthorizationServer::class);
+        $this->clientEntityFactory = $container->get(ClientEntityFactory::class);
+        $this->moduleConfig = $container->get(ModuleConfig::class);
 
         $this->user = new UserEntity(
             self::USER_ID,
@@ -127,16 +132,7 @@ class ConfidentialClientTokenEndpointTest extends TestCase
         );
         $this->userRepository->add($this->user);
 
-        $this->client = $container->get(ClientEntityFactory::class)->fromData(
-            id: self::CLIENT_ID,
-            secret: self::CLIENT_SECRET,
-            name: 'Confidential Token Endpoint Client',
-            description: 'A confidential client at the token endpoint',
-            redirectUri: [self::REDIRECT_URI],
-            scopes: ['openid', 'profile', 'email'],
-            isEnabled: true,
-            isConfidential: true,
-        );
+        $this->client = $this->createClient();
         $this->clientRepository->add($this->client);
     }
 
@@ -161,7 +157,7 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     public function testConfidentialClientWithPkceRequiresSecretAtTokenEndpoint(): void
     {
         $codeVerifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';
-        $codeChallenge = rtrim(strtr(base64_encode(hash('sha256', $codeVerifier, true)), '+/', '-_'), '=');
+        $codeChallenge = self::base64Url(hash('sha256', $codeVerifier, true));
 
         $code = $this->requestAuthorizationCode([
             'code_challenge' => $codeChallenge,
@@ -169,11 +165,11 @@ class ConfidentialClientTokenEndpointTest extends TestCase
         ]);
 
         $this->assertTokenRequestRefused(
-            self::ERROR_WITHOUT_CLIENT_AUTHENTICATION,
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
             ['code' => $code, 'code_verifier' => $codeVerifier],
         );
         $this->assertTokenRequestRefused(
-            self::ERROR_WITH_WRONG_SECRET,
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
             ['code' => $code, 'code_verifier' => $codeVerifier, 'client_secret' => 'not-the-secret'],
         );
         $this->assertTokenRequestRefused(
@@ -195,13 +191,88 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     {
         $code = $this->requestAuthorizationCode();
 
-        $this->assertTokenRequestRefused(self::ERROR_WITHOUT_CLIENT_AUTHENTICATION, ['code' => $code]);
+        $this->assertTokenRequestRefused(self::ERROR_CLIENT_AUTHENTICATION_FAILED, ['code' => $code]);
         $this->assertTokenRequestRefused(
-            self::ERROR_WITH_WRONG_SECRET,
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
             ['code' => $code, 'client_secret' => 'not-the-secret'],
         );
 
         $this->assertTokensIssued(['code' => $code, 'client_secret' => self::CLIENT_SECRET]);
+    }
+
+
+    /**
+     * A client which tried the Authorization header gets the challenge RFC 6749 section 5.2 requires.
+     */
+    public function testConfidentialClientWithoutSecretInAuthorizationHeaderIsChallenged(): void
+    {
+        $request = $this->tokenRequest(['code' => $this->requestAuthorizationCode()])
+            ->withHeader('Authorization', 'Basic ' . base64_encode(self::CLIENT_ID . ':'));
+
+        try {
+            $this->authorizationServer->respondToAccessTokenRequest($request, new Response());
+        } catch (OAuthServerException $exception) {
+            $this->assertSame(self::ERROR_CLIENT_AUTHENTICATION_FAILED, $exception->getErrorType());
+            $this->assertSame(401, $exception->getHttpStatusCode());
+            $this->assertSame('Basic realm="OAuth"', $exception->getHttpHeaders()['WWW-Authenticate'] ?? null);
+            return;
+        }
+
+        $this->fail('The token endpoint issued tokens.');
+    }
+
+
+    /**
+     * private_key_jwt. Each refused request differs from the last one, which is accepted, only in the one thing wrong
+     * with it, and a refusal does not use up the code. An assertion with a Subject other than its Issuer does not parse
+     * (ClientAssertion), so the Issuer row is the one which reaches the identity checks.
+     */
+    public function testConfidentialClientWithClientAssertionRequiresOneWhichHolds(): void
+    {
+        $code = $this->requestAuthorizationCode();
+        $clientKey = self::createRsaKey();
+
+        // The client has not registered a key yet.
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            ['code' => $code, ...$this->clientAssertionParams($clientKey)],
+        );
+
+        $this->clientRepository->update($this->createClient(self::jwksOf($clientKey)));
+
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            ['code' => $code, ...$this->clientAssertionParams(self::createRsaKey())],
+        );
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            [
+                'code' => $code,
+                ...$this->clientAssertionParams($clientKey, ['iss' => 'another-client', 'sub' => 'another-client']),
+            ],
+        );
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            ['code' => $code, ...$this->clientAssertionParams($clientKey, ['aud' => 'https://another.example.org/'])],
+        );
+
+        $this->assertTokensIssued(['code' => $code, ...$this->clientAssertionParams($clientKey)]);
+    }
+
+
+    protected function createClient(?array $jwks = null): ClientEntityInterface
+    {
+        return $this->clientEntityFactory->fromData(
+            id: self::CLIENT_ID,
+            secret: self::CLIENT_SECRET,
+            name: 'Confidential Token Endpoint Client',
+            description: 'A confidential client at the token endpoint',
+            redirectUri: [self::REDIRECT_URI],
+            scopes: ['openid', 'profile', 'email'],
+            isEnabled: true,
+            isConfidential: true,
+            jwks: $jwks,
+        );
     }
 
 
@@ -281,6 +352,43 @@ class ConfidentialClientTokenEndpointTest extends TestCase
 
 
     /**
+     * The parameters of a client assertion signed with the key, built by hand so that what goes over the wire is
+     * what this test wrote.
+     *
+     * @param array<string,string> $claims Replacing those of an assertion which holds.
+     * @return array<string,string>
+     */
+    protected function clientAssertionParams(OpenSSLAsymmetricKey $key, array $claims = []): array
+    {
+        $now = time();
+        $signingInput = self::base64Url(json_encode(
+            ['alg' => 'RS256', 'typ' => 'JWT', 'kid' => self::CLIENT_KEY_ID],
+            JSON_THROW_ON_ERROR,
+        )) . '.' . self::base64Url(json_encode(
+            [
+                'iss' => self::CLIENT_ID,
+                'sub' => self::CLIENT_ID,
+                'aud' => $this->moduleConfig->getIssuer(),
+                'jti' => bin2hex(random_bytes(16)),
+                'iat' => $now,
+                'exp' => $now + 300,
+                ...$claims,
+            ],
+            JSON_THROW_ON_ERROR,
+        ));
+
+        if (!openssl_sign($signingInput, $signature, $key, OPENSSL_ALGO_SHA256)) {
+            throw new RuntimeException('Could not sign a client assertion.');
+        }
+
+        return [
+            'client_assertion_type' => 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            'client_assertion' => $signingInput . '.' . self::base64Url($signature),
+        ];
+    }
+
+
+    /**
      * The container of the module Kernel, the one the module's routes run in. Its services are private, so the ones
      * this test fetches are made public before they can be inlined or removed.
      */
@@ -293,6 +401,7 @@ class ConfidentialClientTokenEndpointTest extends TestCase
                     AuthorizationServer::class,
                     ClientEntityFactory::class,
                     ClientRepository::class,
+                    ModuleConfig::class,
                     UserRepository::class,
                 ];
 
@@ -307,11 +416,47 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     }
 
 
-    protected static function createSigningKeyPair(string $certDir): void
+    protected static function base64Url(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+
+
+    protected static function createRsaKey(): OpenSSLAsymmetricKey
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
 
-        if (!mkdir($certDir, 0700, true) || $key === false || !openssl_pkey_export($key, $privateKey)) {
+        if ($key === false) {
+            throw new RuntimeException('Could not create an RSA key.');
+        }
+
+        return $key;
+    }
+
+
+    /**
+     * @return array{keys: list<array<string,string>>}
+     */
+    protected static function jwksOf(OpenSSLAsymmetricKey $key): array
+    {
+        $rsa = openssl_pkey_get_details($key)['rsa'];
+
+        return ['keys' => [[
+            'kty' => 'RSA',
+            'use' => 'sig',
+            'alg' => 'RS256',
+            'kid' => self::CLIENT_KEY_ID,
+            'n' => self::base64Url($rsa['n']),
+            'e' => self::base64Url($rsa['e']),
+        ]]];
+    }
+
+
+    protected static function createSigningKeyPair(string $certDir): void
+    {
+        $key = self::createRsaKey();
+
+        if (!mkdir($certDir, 0700, true) || !openssl_pkey_export($key, $privateKey)) {
             throw new RuntimeException('Could not create a signing key pair in ' . $certDir);
         }
 

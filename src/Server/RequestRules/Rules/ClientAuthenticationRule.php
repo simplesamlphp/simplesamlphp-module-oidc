@@ -55,6 +55,18 @@ class ClientAuthenticationRule extends AbstractRule
             return new Result($this->getKey(), null);
         }
 
+        // The refusal of a client which does not authenticate (RFC 6749 section 5.2, RFC 7521 section 4.2.1):
+        // invalid_client, HTTP 401, with a WWW-Authenticate challenge when the request used the Authorization header.
+        // The answer does not say why, the log does.
+        $refuse = static function (string $reason) use ($client, $request, $loggerService): OidcServerException {
+            $loggerService->warning(
+                'Client authentication failed: ' . $reason,
+                ['client_id' => $client->getIdentifier()],
+            );
+
+            return OidcServerException::invalidClient($request);
+        };
+
         // Let's check if client secret is provided.
         /** @var ?string $clientSecret */
         $clientSecret = $this->requestParamsResolver->getFromRequestBasedOnAllowedMethods(
@@ -64,7 +76,7 @@ class ClientAuthenticationRule extends AbstractRule
         ) ?? $request->getServerParams()['PHP_AUTH_PW'] ?? null;
 
         if ($clientSecret) {
-            hash_equals($client->getSecret(), $clientSecret) || throw OidcServerException::invalidClient($request);
+            hash_equals($client->getSecret(), $clientSecret) || throw $refuse('Client secret does not match.');
             return new Result($this->getKey(), ParamsEnum::ClientSecret->value);
         }
 
@@ -77,7 +89,7 @@ class ClientAuthenticationRule extends AbstractRule
         );
 
         if (is_null($clientAssertionParam)) {
-            throw OidcServerException::accessDenied('Not a single client authentication method presented.');
+            throw $refuse('Not a single client authentication method presented.');
         }
 
         // private_key_jwt authentication method is used.
@@ -103,23 +115,21 @@ class ClientAuthenticationRule extends AbstractRule
             );
         }
 
-        ($jwks = $this->jwksResolver->forClient($client)) || throw OidcServerException::accessDenied(
+        ($jwks = $this->jwksResolver->forClient($client)) || throw $refuse(
             'Can not validate Client Assertion, client JWKS not available.',
         );
 
         try {
             $clientAssertion->verifyWithKeySet($jwks);
         } catch (\Throwable $exception) {
-            throw OidcServerException::accessDenied(
-                'Client Assertion validation failed: ' . $exception->getMessage(),
-            );
+            throw $refuse('Client Assertion validation failed: ' . $exception->getMessage());
         }
 
-        ($client->getIdentifier() === $clientAssertion->getIssuer()) || throw OidcServerException::accessDenied(
+        ($client->getIdentifier() === $clientAssertion->getIssuer()) || throw $refuse(
             'Invalid Client Assertion Issuer claim.',
         );
 
-        ($client->getIdentifier() === $clientAssertion->getSubject()) || throw OidcServerException::accessDenied(
+        ($client->getIdentifier() === $clientAssertion->getSubject()) || throw $refuse(
             'Invalid Client Assertion Subject claim.',
         );
 
@@ -133,7 +143,7 @@ class ClientAuthenticationRule extends AbstractRule
         ];
 
         (!empty(array_intersect($expectedAudience, $clientAssertion->getAudience()))) ||
-        throw OidcServerException::accessDenied('Invalid Client Assertion Audience claim.');
+        throw $refuse('Invalid Client Assertion Audience claim.');
 
         // Everything seems ok. Save it in cache so we can check for reuse.
         $this->protocolCache?->set(
