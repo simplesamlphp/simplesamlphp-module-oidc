@@ -2539,6 +2539,15 @@ msgstr ""
 msgid "Grant types"
 msgstr ""
 
+msgid "Implicit Flow Refused for Confidential Clients"
+msgstr ""
+
+msgid ""
+"Whether a confidential client asking for the 'id_token' or 'id_token token' "
+"response type is refused with 'unauthorized_client', whatever response "
+"types it is registered with. Public clients are not affected."
+msgstr ""
+
 msgid "Plain OAuth 2.0 Authorization Code Requests"
 msgstr ""
 

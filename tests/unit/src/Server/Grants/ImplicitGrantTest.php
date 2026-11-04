@@ -534,6 +534,71 @@ class ImplicitGrantTest extends TestCase
 
 
     /**
+     * With ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS on, a confidential client is refused
+     * before any rule runs. No check() has run, so the only response mode there is, and so the one the refusal
+     * has to go back in, is the incoming one.
+     */
+    public function testRefusesAConfidentialClientWhereTheOptionIsOn(): void
+    {
+        $this->moduleConfigMock->method('getDisallowImplicitForConfidentialClients')->willReturn(true);
+        $client = $this->clientMock();
+        $client->method('isConfidential')->willReturn(true);
+        $this->incomingResponseMode = new FragmentResponseMode();
+        $this->checkedResponseMode = new QueryResponseMode();
+
+        $this->requestRulesManagerMock->expects($this->never())->method('check');
+        $this->loggerServiceMock->expects($this->once())
+            ->method('notice')
+            ->with($this->stringContains('confidential clients'), ['client_id' => self::CLIENT_ID]);
+
+        try {
+            $this->validatedAuthorizationRequest(client: $client);
+            $this->fail('The authorization request was accepted.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('unauthorized_client', $exception->getErrorType());
+
+            $location = $exception->generateHttpResponse(new Response())->getHeaderLine('location');
+            $this->assertStringStartsWith(self::REDIRECT_URI . '#', $location);
+
+            $params = $this->paramsIn($location, PHP_URL_FRAGMENT);
+            $this->assertSame('unauthorized_client', $params['error'] ?? null);
+            $this->assertSame(self::STATE, $params['state'] ?? null);
+            $this->assertStringContainsString('Confidential clients', (string)($params['error_description'] ?? ''));
+        }
+    }
+
+
+    /**
+     * The option is about confidential clients: a public one goes on as before.
+     */
+    public function testLetsAPublicClientThroughWhereTheOptionIsOn(): void
+    {
+        $this->moduleConfigMock->method('getDisallowImplicitForConfidentialClients')->willReturn(true);
+        $client = $this->clientMock();
+        $client->method('isConfidential')->willReturn(false);
+
+        $authorizationRequest = $this->validatedAuthorizationRequest(client: $client);
+
+        $this->assertSame('id_token token', $authorizationRequest->getResponseType());
+    }
+
+
+    /**
+     * The option is opt-in: unless it is on, a confidential client goes on as before.
+     */
+    public function testLetsAConfidentialClientThroughWhereTheOptionIsOff(): void
+    {
+        $this->moduleConfigMock->method('getDisallowImplicitForConfidentialClients')->willReturn(false);
+        $client = $this->clientMock();
+        $client->method('isConfidential')->willReturn(true);
+
+        $authorizationRequest = $this->validatedAuthorizationRequest(client: $client);
+
+        $this->assertSame('id_token token', $authorizationRequest->getResponseType());
+    }
+
+
+    /**
      * The response mode is read from both bags: the incoming one decides the mode the rules run under, and
      * the one check() hands back is what the authorization request carries. In production they are the same
      * object, so only two different modes can show that neither read has been wired to the other bag.

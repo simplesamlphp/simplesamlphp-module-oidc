@@ -610,6 +610,30 @@ $config = [
     ModuleConfig::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED => false,
 
     /**
+     * Optional hardening, disabled by default. If enabled, a confidential client
+     * requesting the implicit flow (response_type 'id_token' or 'id_token token')
+     * is refused with the 'unauthorized_client' error, whatever response types it
+     * is registered with, so it can only get tokens through the authorization code
+     * flow, where it authenticates at the token endpoint. Public clients are not
+     * affected, and a confidential client which uses the implicit flow today stops
+     * working once this is on. To refuse the implicit flow for every client, leave
+     * 'implicit' out of ModuleConfig::OPTION_ENABLED_GRANT_TYPES instead.
+     *
+     * Dynamic Client Registration does not take this option into account: a
+     * confidential client can still register with those response types, and its
+     * requests are then refused at the authorization endpoint.
+     *
+     * This goes beyond what the specifications require, as they do not forbid the
+     * flow for confidential clients. OIDC Core says the authorization code flow may
+     * be appropriate for them
+     * (https://openid.net/specs/openid-connect-core-1_0.html#RPMTI), and the OAuth
+     * 2.0 Security BCP advises clients against response types which issue access
+     * tokens in the authorization response, such as 'id_token token'
+     * (https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2).
+     */
+    ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS => false,
+
+    /**
      * Guzzle HTTP client options for the protocol-layer outbound requests made by the underlying `openid`
      * library, such as fetching a client's 'jwks_uri' or a 'request_uri'. The array is passed through verbatim
      * to the Guzzle client; see https://docs.guzzlephp.org/en/stable/request-options.html for the full list.

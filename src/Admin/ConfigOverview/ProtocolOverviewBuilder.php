@@ -201,6 +201,21 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 ),
             ),
             $this->guardRow(
+                Translate::noop('Implicit Flow Refused for Confidential Clients'),
+                ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS,
+                fn(): Row => new Row(
+                    Translate::noop('Implicit Flow Refused for Confidential Clients'),
+                    $this->yesNo($this->moduleConfig->getDisallowImplicitForConfidentialClients()),
+                    ConfigOverviewValueTypeEnum::Text,
+                    ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS,
+                    Translate::noop(
+                        "Whether a confidential client asking for the 'id_token' or 'id_token token' " .
+                        "response type is refused with 'unauthorized_client', whatever response types it " .
+                        'is registered with. Public clients are not affected.',
+                    ),
+                ),
+            ),
+            $this->guardRow(
                 Translate::noop('Plain OAuth 2.0 Authorization Code Requests'),
                 ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED,
                 fn(): Row => new Row(

@@ -183,6 +183,22 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $client = $resultBag->getOrFail(ClientRule::class)->getValue();
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
 
+        // Opt-in hardening, see ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS. The implicit flow
+        // never authenticates the client, which a confidential client could do at the token endpoint.
+        if ($this->moduleConfig->getDisallowImplicitForConfidentialClients() && $client->isConfidential()) {
+            $this->loggerService->notice(
+                'Authorization request rejected: confidential clients are not allowed to use the implicit grant.',
+                ['client_id' => $client->getIdentifier()],
+            );
+            throw OidcServerException::unauthorizedClient(
+                'Confidential clients are not allowed to use the implicit grant.',
+                $redirectUri,
+                null,
+                $state,
+                $responseMode,
+            );
+        }
+
         // Some rules need certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);
         $this->requestRulesManager->setData('scope_delimiter_string', self::SCOPE_DELIMITER_STRING);

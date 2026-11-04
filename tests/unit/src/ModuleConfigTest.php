@@ -794,6 +794,17 @@ class ModuleConfigTest extends TestCase
     }
 
 
+    public function testCanGetDisallowImplicitForConfidentialClients(): void
+    {
+        $this->assertFalse($this->sut()->getDisallowImplicitForConfidentialClients());
+        $this->assertTrue(
+            $this->sut(
+                overrides: [ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS => true],
+            )->getDisallowImplicitForConfidentialClients(),
+        );
+    }
+
+
     public function testCanGetFederationDynamicTrustMarks(): void
     {
         $this->assertNull($this->sut()->getFederationDynamicTrustMarks());

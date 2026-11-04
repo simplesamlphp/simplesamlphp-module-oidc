@@ -289,6 +289,9 @@ class ModuleConfig
     final public const string OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED =
     'protocol_discover_show_claims_supported';
 
+    final public const string OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS =
+    'disallow_implicit_for_confidential_clients';
+
     final public const string OPTION_PROTOCOL_HTTP_CLIENT_OPTIONS = 'protocol_http_client_options';
 
     final public const string OPTION_BACKCHANNEL_LOGOUT_HTTP_CLIENT_OPTIONS =
@@ -1591,6 +1594,19 @@ class ModuleConfig
     {
         return $this->config()->getOptionalBoolean(
             self::OPTION_PROTOCOL_DISCOVERY_SHOW_CLAIMS_SUPPORTED,
+            false,
+        );
+    }
+
+
+    /**
+     * Opt-in hardening: refuse implicit flow requests from confidential clients. See the comment on this option in
+     * config/module_oidc.php.dist.
+     */
+    public function getDisallowImplicitForConfidentialClients(): bool
+    {
+        return $this->config()->getOptionalBoolean(
+            self::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS,
             false,
         );
     }

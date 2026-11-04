@@ -894,6 +894,32 @@ class ProtocolOverviewBuilderTest extends TestCase
 
 
     /**
+     * Off unless configured. The note says what the client gets when it is on.
+     */
+    public function testShowsWhetherTheImplicitFlowIsRefusedForConfidentialClients(): void
+    {
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder()->build(),
+            ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('No', $row->getValue());
+        $this->assertStringContainsString('unauthorized_client', (string)$row->getNote());
+
+        $row = $this->findRowForOption(
+            $this->buildProtocolOverviewBuilder([
+                ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS => true,
+            ])->build(),
+            ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('Yes', $row->getValue());
+    }
+
+
+    /**
      * Both lists are empty unless configured, and shown as such rather than left out: an administrator
      * checking what the access token carries about the user should find the answer here.
      */
