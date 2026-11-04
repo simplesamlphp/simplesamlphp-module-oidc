@@ -107,31 +107,6 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
-     * Unauthorized client error.
-     *
-     * @see https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.2.1
-     *
-     * @param string|null $hint
-     * @param string|null $redirectUri
-     * @param string|null $state
-     * @param bool $useFragment
-     * @return self
-     */
-    public static function unauthorizedClient(
-        ?string $hint = null,
-        ?string $redirectUri = null,
-        ?string $state = null,
-        bool $useFragment = false,
-    ): self {
-        $errorMessage = 'The client is not authorized to request an authorization code or access token ' .
-        'using this method (unauthorized_client).';
-        $e = new self($errorMessage, 4, 'unauthorized_client', 400, $hint, $redirectUri, null, $state);
-        $e->useFragmentInHttpResponses($useFragment);
-
-        return $e;
-    }
-
-    /**
      * Invalid scope error.
      *
      * @param string $scope The bad scope
@@ -199,6 +174,31 @@ class OidcServerException extends OAuthServerException
     ): OidcServerException {
         $e = parent::accessDenied($hint, $redirectUri, $previous);
         $e->setState($state);
+        $e->useFragmentInHttpResponses($useFragment);
+
+        return $e;
+    }
+
+    /**
+     * The client is not authorized to use this response type (RFC 6749 section 4.2.2.1).
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param \Throwable|null $previous
+     * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
+     * @return self
+     */
+    public static function unauthorizedClient(
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
+        bool $useFragment = false,
+    ): OidcServerException {
+        $errorMessage = 'The client is not authorized to request a token using this method.';
+
+        $e = new self($errorMessage, 10, 'unauthorized_client', 400, $hint, $redirectUri, $previous, $state);
         $e->useFragmentInHttpResponses($useFragment);
 
         return $e;

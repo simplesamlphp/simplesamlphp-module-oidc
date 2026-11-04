@@ -15,11 +15,7 @@ declare(strict_types=1);
  */
 
 $projectRoot = dirname(__DIR__);
-if (file_exists($projectRoot . '/vendor/autoload.php')) {
-    require_once $projectRoot . '/vendor/autoload.php';
-} else {
-    require_once dirname(__DIR__, 3) . '/vendor/autoload.php';
-}
+require_once $projectRoot . '/vendor/autoload.php';
 
 // Symlink module into ssp vendor lib so that templates and urls can resolve correctly
 $linkPath = $projectRoot . '/vendor/simplesamlphp/simplesamlphp/modules/oidc';
@@ -28,15 +24,4 @@ if (false === file_exists($linkPath)) {
     symlink($projectRoot, $linkPath);
 } else {
     echo "'$linkPath' linked to '$projectRoot'\n";
-}
-
-$certDir = $projectRoot . '/vendor/simplesamlphp/simplesamlphp/cert';
-$mainCertDir = dirname(__DIR__, 3) . '/cert';
-if (file_exists($mainCertDir) && file_exists($certDir)) {
-    foreach (glob($mainCertDir . '/*') as $certFile) {
-        $dest = $certDir . '/' . basename($certFile);
-        if (!file_exists($dest)) {
-            copy($certFile, $dest);
-        }
-    }
 }

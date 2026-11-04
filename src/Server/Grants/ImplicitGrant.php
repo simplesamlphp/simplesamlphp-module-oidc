@@ -145,16 +145,13 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
 
-        // Opt-in hardening (ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS, default false).
-        // The specs do not forbid confidential clients from using the implicit flow, but the implicit flow never
-        // authenticates the client, and OAuth 2.0 Security BCP advises against it:
-        // https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
-        // OIDC Core notes that confidential clients would normally use the authorization code flow:
-        // https://openid.net/specs/openid-connect-core-1_0.html#RPMTI
+        // Opt-in hardening, see ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS. The implicit flow
+        // never authenticates the client, which a confidential client could do at the token endpoint.
         if ($this->disallowImplicitForConfidentialClients && $client->isConfidential()) {
             throw OidcServerException::unauthorizedClient(
                 'Confidential clients are not allowed to use the implicit grant.',
                 $redirectUri,
+                null,
                 $state,
                 $this->shouldUseFragment(),
             );

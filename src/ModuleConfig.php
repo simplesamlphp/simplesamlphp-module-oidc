@@ -530,10 +530,8 @@ class ModuleConfig
     }
 
     /**
-     * Opt-in hardening: reject implicit flow requests from confidential clients.
-     *
-     * @see https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1.2
-     * @see https://openid.net/specs/openid-connect-core-1_0.html#RPMTI
+     * Opt-in hardening: refuse implicit flow requests from confidential clients. See the comment on this option in
+     * config/module_oidc.php.dist.
      */
     public function getDisallowImplicitForConfidentialClients(): bool
     {
