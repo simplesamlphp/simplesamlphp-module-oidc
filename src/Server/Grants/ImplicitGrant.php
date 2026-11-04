@@ -64,6 +64,7 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         protected RequestParamsResolver $requestParamsResolver,
         protected string $queryDelimiter,
         AccessTokenEntityFactory $accessTokenEntityFactory,
+        protected bool $disallowImplicitForConfidentialClients = false,
     ) {
         parent::__construct($accessTokenTTL, $queryDelimiter);
 
@@ -143,6 +144,18 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         /** @var \SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface $client */
         $client = $resultBag->getOrFail(ClientIdRule::class)->getValue();
+
+        // Opt-in hardening, see ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS. The implicit flow
+        // never authenticates the client, which a confidential client could do at the token endpoint.
+        if ($this->disallowImplicitForConfidentialClients && $client->isConfidential()) {
+            throw OidcServerException::unauthorizedClient(
+                'Confidential clients are not allowed to use the implicit grant.',
+                $redirectUri,
+                null,
+                $state,
+                $this->shouldUseFragment(),
+            );
+        }
 
         // Some rules need certain things available in order to work properly...
         $this->requestRulesManager->setData('default_scope', $this->defaultScope);

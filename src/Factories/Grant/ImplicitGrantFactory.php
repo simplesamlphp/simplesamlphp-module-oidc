@@ -45,6 +45,7 @@ class ImplicitGrantFactory
             $this->requestParamsResolver,
             '#',
             $this->accessTokenEntityFactory,
+            $this->moduleConfig->getDisallowImplicitForConfidentialClients(),
         );
     }
 }

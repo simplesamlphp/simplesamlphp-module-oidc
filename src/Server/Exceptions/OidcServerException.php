@@ -180,6 +180,31 @@ class OidcServerException extends OAuthServerException
     }
 
     /**
+     * The client is not authorized to use this response type (RFC 6749 section 4.2.2.1).
+     *
+     * @param string|null $hint
+     * @param string|null $redirectUri
+     * @param \Throwable|null $previous
+     * @param string|null $state
+     * @param bool $useFragment Use URI fragment to return error parameters
+     * @return self
+     */
+    public static function unauthorizedClient(
+        ?string $hint = null,
+        ?string $redirectUri = null,
+        ?Throwable $previous = null,
+        ?string $state = null,
+        bool $useFragment = false,
+    ): OidcServerException {
+        $errorMessage = 'The client is not authorized to request a token using this method.';
+
+        $e = new self($errorMessage, 10, 'unauthorized_client', 400, $hint, $redirectUri, $previous, $state);
+        $e->useFragmentInHttpResponses($useFragment);
+
+        return $e;
+    }
+
+    /**
      * Prompt none requires that user should be authenticated.
      *
      * @param string|null $hint
