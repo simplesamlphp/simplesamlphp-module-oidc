@@ -416,8 +416,11 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             $utilizedClientAuthenticationParams[] = ParamsEnum::CodeVerifier->value;
         }
 
+        // A client which neither authenticated nor sent a code_verifier: a backstop, since CodeVerifierRule refuses a
+        // client which is not confidential without a code_verifier, and ClientAuthenticationRule a confidential one
+        // which presents no authentication (RFC 6749 section 5.2).
         if (empty($utilizedClientAuthenticationParams)) {
-            throw OidcServerException::accessDenied('Client authentication not performed.');
+            throw OidcServerException::invalidClient($request);
         }
 
         // OAuth2 implementation
