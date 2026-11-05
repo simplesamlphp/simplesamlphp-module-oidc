@@ -246,6 +246,18 @@ class ConfidentialClientTokenEndpointTest extends TestCase
 
         $this->assertTokenRequestRefused(
             self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            ['code' => $code, ...$this->clientAssertionParams($clientKey), 'client_assertion' => 'not-a-jws'],
+        );
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            ['code' => $code, ...$this->clientAssertionParams($clientKey, ['exp' => time() - 3600])],
+        );
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            ['code' => $code, ...$this->clientAssertionParams($clientKey, ['sub' => 'another-client'])],
+        );
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
             ['code' => $code, ...$this->clientAssertionParams(self::createRsaKey())],
         );
         $this->assertTokenRequestRefused(
@@ -304,16 +316,33 @@ class ConfidentialClientTokenEndpointTest extends TestCase
             ],
         );
 
-        $logged = array_filter(
-            Logger::getCapturedLog(),
-            static fn(string $entry): bool => str_contains($entry, 'FORGED LINE'),
+        $this->assertForgedLineLoggedAsPartOfTheReason('RS256 FORGED LINE');
+    }
+
+
+    /**
+     * The library's answer to a claim of the wrong type quotes the claim. This one is the easier way in: the client
+     * needs no JWKS and the signature does not matter, as parsing comes before both.
+     */
+    #[DataProvider('lineBreakProvider')]
+    public function testClientAssertionWhichDoesNotParseCanNotForgeLogLines(string $lineBreak): void
+    {
+        $code = $this->requestAuthorizationCode();
+
+        Logger::setCaptureLog(true);
+
+        $this->assertTokenRequestRefused(
+            self::ERROR_CLIENT_AUTHENTICATION_FAILED,
+            [
+                'code' => $code,
+                ...$this->clientAssertionParams(
+                    self::createRsaKey(),
+                    ['jti' => ['claim' . $lineBreak . 'FORGED LINE' . str_repeat('x', 5000)]],
+                ),
+            ],
         );
 
-        $this->assertNotEmpty($logged, 'The reason for the refusal is not in the log.');
-        foreach ($logged as $entry) {
-            $this->assertStringContainsString('RS256 FORGED LINE', $entry);
-            $this->assertLessThan(1200, strlen($entry));
-        }
+        $this->assertForgedLineLoggedAsPartOfTheReason('claim FORGED LINE');
     }
 
 
@@ -409,10 +438,34 @@ class ConfidentialClientTokenEndpointTest extends TestCase
 
 
     /**
+     * The reason for the refusal is in the log, and what it quotes did not get a line of its own: every entry holding
+     * the text is short, has it joined to what came before it, and has no line break or other control character ahead
+     * of it. The entry may have line breaks after it, as LoggerService writes the context there with var_export().
+     */
+    protected function assertForgedLineLoggedAsPartOfTheReason(string $expectedQuote): void
+    {
+        $logged = array_filter(
+            Logger::getCapturedLog(),
+            static fn(string $entry): bool => str_contains($entry, 'FORGED LINE'),
+        );
+
+        $this->assertNotEmpty($logged, 'The reason for the refusal is not in the log.');
+        foreach ($logged as $entry) {
+            $this->assertStringContainsString($expectedQuote, $entry);
+            $this->assertDoesNotMatchRegularExpression(
+                '/[^\x20-\x7E]/',
+                (string) strstr($entry, 'FORGED LINE', true),
+            );
+            $this->assertLessThan(1200, strlen($entry));
+        }
+    }
+
+
+    /**
      * The parameters of a client assertion signed with the key, built by hand so that what goes over the wire is
      * what this test wrote.
      *
-     * @param array<string,string> $claims Replacing those of an assertion which holds.
+     * @param array<string,mixed> $claims Replacing those of an assertion which holds.
      * @return array<string,string>
      */
     protected function clientAssertionParams(

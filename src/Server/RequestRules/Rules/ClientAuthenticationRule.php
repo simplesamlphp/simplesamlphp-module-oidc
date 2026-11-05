@@ -19,6 +19,7 @@ use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\ClientAssertionTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 
 class ClientAuthenticationRule extends AbstractRule
 {
@@ -58,8 +59,9 @@ class ClientAuthenticationRule extends AbstractRule
         // The refusal of a client which does not authenticate (RFC 6749 section 5.2, RFC 7521 section 4.2.1):
         // invalid_client, HTTP 401, with a WWW-Authenticate challenge when the request used the Authorization header.
         // The answer does not say why, the log does. A reason can quote what the request sent, before anything about
-        // the request has been verified: the library's answer to an unknown algorithm quotes the alg header. So the
-        // reason is kept to printable ASCII of bounded length, which leaves it no line break of any kind.
+        // the request has been verified: the library's answer to an unknown algorithm quotes the alg header, and its
+        // answer to a claim of the wrong type quotes the claim. So the reason is kept to printable ASCII of bounded
+        // length, which leaves it no line break of any kind.
         $refuse = static function (string $reason) use ($client, $request, $loggerService): OidcServerException {
             $reason = (string)preg_replace('/[^\x20-\x7E]+/', ' ', substr($reason, 0, 1000));
             $loggerService->warning(
@@ -107,7 +109,14 @@ class ClientAuthenticationRule extends AbstractRule
             throw OidcServerException::invalidRequest(ParamsEnum::ClientAssertionType->value);
         }
 
-        $clientAssertion = $this->requestParamsResolver->parseClientAssertionToken($clientAssertionParam);
+        // The library answers whatever is wrong with the token itself with a JwsException: a token which does not
+        // parse, a claim which is missing, of the wrong type or expired, or an Issuer other than the Subject. That is
+        // the client's fault. Anything else, such as the parser failing to start, is the OP's and stays an error.
+        try {
+            $clientAssertion = $this->requestParamsResolver->parseClientAssertionToken($clientAssertionParam);
+        } catch (JwsException $exception) {
+            throw $refuse('Client Assertion could not be parsed: ' . $exception->getMessage());
+        }
 
         // Check if the Client Assertion token has already been used. Only applicable if we have cache available.
         if ($this->protocolCache) {
