@@ -12,51 +12,71 @@ use Stringable;
 
 class LoggerService implements LoggerInterface
 {
+    /**
+     * What a line of the log may not hold: control characters, among them the C0 line breaks and U+0085, format
+     * characters, among them the bidirectional overrides which make text read in another order, and the line and
+     * paragraph separators. A run of them gives way to one space.
+     */
+    protected const string NOT_IN_A_LOG_LINE = '/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/u';
+
+    /**
+     * The same for a line which is not valid UTF-8, which the pattern above can not read: only printable ASCII stays.
+     */
+    protected const string NOT_IN_A_LOG_LINE_WHICH_IS_NOT_UTF8 = '/[^\x20-\x7E]+/';
+
+    /**
+     * Text stays readable, and a context which can not be encoded in full is written as far as it can be: a value of
+     * another kind should not cost the whole log entry.
+     */
+    protected const int CONTEXT_ENCODING = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE |
+    JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR;
+
+
     public function emergency(string|Stringable $message, array $context = []): void
     {
-        Logger::emergency((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::emergency($this->asOneLine($message, $context));
     }
 
 
     public function alert(string|Stringable $message, array $context = []): void
     {
-        Logger::alert((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::alert($this->asOneLine($message, $context));
     }
 
 
     public function critical(string|Stringable $message, array $context = []): void
     {
-        Logger::critical((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::critical($this->asOneLine($message, $context));
     }
 
 
     public function error(string|Stringable $message, array $context = []): void
     {
-        Logger::error((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::error($this->asOneLine($message, $context));
     }
 
 
     public function warning(string|Stringable $message, array $context = []): void
     {
-        Logger::warning((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::warning($this->asOneLine($message, $context));
     }
 
 
     public function notice(string|Stringable $message, array $context = []): void
     {
-        Logger::notice((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::notice($this->asOneLine($message, $context));
     }
 
 
     public function info(string|Stringable $message, array $context = []): void
     {
-        Logger::info((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::info($this->asOneLine($message, $context));
     }
 
 
     public function debug(string|Stringable $message, array $context = []): void
     {
-        Logger::debug((string)$message . ($context ? " " . var_export($context, true) : ""));
+        Logger::debug($this->asOneLine($message, $context));
     }
 
 
@@ -79,5 +99,35 @@ class LoggerService implements LoggerInterface
     public static function getInstance(): self
     {
         return new self();
+    }
+
+
+    /**
+     * A message and its context as the one line they are written on. Both often hold what a request sent, whether or
+     * not the request goes on to be accepted, and SimpleSAMLphp's logger writes what it is given, so a line break in
+     * such a value would let the sender add lines of their own to the log. The context is JSON, which writes C0
+     * control characters, U+2028 and U+2029 as escapes, so a value holding those can still be read, and what is left
+     * of the disallowed characters gives way to a space.
+     *
+     * An object in the context is written as var_export() writes it, as text in the JSON: with its private properties
+     * and without running any of its code, where JSON would show its public properties only, or whatever its
+     * jsonSerialize() answers or throws.
+     */
+    protected function asOneLine(string|Stringable $message, array $context): string
+    {
+        $line = (string)$message;
+
+        if ($context !== []) {
+            array_walk_recursive($context, static function (mixed &$value): void {
+                if (is_object($value)) {
+                    $value = var_export($value, true);
+                }
+            });
+
+            $line .= ' ' . (string)json_encode($context, self::CONTEXT_ENCODING);
+        }
+
+        return preg_replace(self::NOT_IN_A_LOG_LINE, ' ', $line) ??
+        (string)preg_replace(self::NOT_IN_A_LOG_LINE_WHICH_IS_NOT_UTF8, ' ', $line);
     }
 }

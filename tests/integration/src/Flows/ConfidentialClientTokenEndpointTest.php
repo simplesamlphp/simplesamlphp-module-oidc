@@ -440,7 +440,7 @@ class ConfidentialClientTokenEndpointTest extends TestCase
     /**
      * The reason for the refusal is in the log, and what it quotes did not get a line of its own: every entry holding
      * the text is short, has it joined to what came before it, and has no line break or other control character ahead
-     * of it. The entry may have line breaks after it, as LoggerService writes the context there with var_export().
+     * of it.
      */
     protected function assertForgedLineLoggedAsPartOfTheReason(string $expectedQuote): void
     {

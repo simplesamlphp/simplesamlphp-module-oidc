@@ -411,6 +411,13 @@ attribute, clients relying on the previously inconsistent value may see a
 changed `sub` in flows where the claims were not released.
 - Logging has been improved for authentication flows. It should now be easier
 to find information about what went wrong by looking at the relevant log entries.
+- Each log entry of the module now stays on one line, so that a value sent in a
+request can not add lines of its own to the log. The context of an entry is
+no longer written in the multi-line `var_export()` format, but as JSON, which
+keeps line breaks in its values as escapes. Anything left which could break the
+line or disguise the text (control characters, format characters such as
+bidirectional overrides) is replaced with a space. If you parse these log
+entries, adjust your parser.
 
 New configuration options:
 
