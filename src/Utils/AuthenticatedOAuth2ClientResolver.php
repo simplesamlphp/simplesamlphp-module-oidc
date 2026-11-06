@@ -82,7 +82,7 @@ class AuthenticatedOAuth2ClientResolver
             return $resolved;
         } catch (AuthorizationException $exception) {
             $this->loggerService->warning(
-                'Client authentication refused: ' . $exception->getMessage(),
+                'Client authentication refused: ' . $this->forLog($exception->getMessage()),
             );
             return null;
         }
@@ -841,12 +841,25 @@ class AuthenticatedOAuth2ClientResolver
 
         if ($client->getIdentifier() !== $clientId) {
             $this->loggerService->error(
-                'Client ID does not match, expected: ' . $clientId . ', actual: ' . $client->getIdentifier(),
+                'Client ID does not match, expected: ' . $this->forLog($clientId) . ', actual: ' .
+                $client->getIdentifier(),
             );
             throw new AuthorizationException('Client ID does not match.');
         }
 
         return $client;
+    }
+
+
+    /**
+     * What the request sent, or a reason which can quote it, made safe to write into a log line. It gets there before
+     * anything about the request has been verified: a client ID is whatever was sent, the library's answer to an
+     * unknown algorithm quotes the alg header, and its answer to a claim of the wrong type quotes the claim. So it is
+     * kept to printable ASCII of bounded length, which leaves it no line break of any kind.
+     */
+    protected function forLog(string $value): string
+    {
+        return (string)preg_replace('/[^\x20-\x7E]+/', ' ', substr($value, 0, 1000));
     }
 
 

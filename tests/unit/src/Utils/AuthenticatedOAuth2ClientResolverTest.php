@@ -1549,6 +1549,67 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
         $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock, $preFetchedClient));
     }
 
+
+    /**
+     * @return array<string,array{string}>
+     */
+    public static function lineBreakProvider(): array
+    {
+        return [
+            'line feed' => ["\n"],
+            'carriage return and line feed' => ["\r\n"],
+            'next line' => ["\u{85}"],
+            'line separator' => ["\u{2028}"],
+            'escape, which starts a terminal sequence' => ["\x1b"],
+        ];
+    }
+
+
+    /**
+     * The line about a mismatch quotes the client ID the request sent, before anything about the request has been
+     * verified. All it takes is a client_id which names a client and another one in the Basic header.
+     */
+    #[DataProvider('lineBreakProvider')]
+    public function testForAnySupportedMethodQuotesASentClientIdWithoutItsLineBreaks(string $lineBreak): void
+    {
+        $preFetchedClient = $this->createMock(ClientEntityInterface::class);
+        $preFetchedClient->method('getIdentifier')->willReturn('different-client-id');
+        $sentClientId = 'sent' . $lineBreak . 'FORGED LINE' . str_repeat('x', 5000);
+        $this->serverRequestMock->method('getHeader')->with('Authorization')
+            ->willReturn(['Basic ' . base64_encode($sentClientId . ':' . self::CLIENT_SECRET)]);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')->willReturn(null);
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->callback(function (string $message): bool {
+                $this->assertStringContainsString('sent FORGED LINE', $message);
+                $this->assertDoesNotMatchRegularExpression('/[^\x20-\x7E]/', $message);
+                $this->assertLessThan(1200, strlen($message));
+                return true;
+            }));
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock, $preFetchedClient));
+    }
+
+
+    /**
+     * The reason a refusal logs can quote what the request sent, so whatever it holds, it stays on its line and has
+     * an end. It is cut before anything is replaced, so what it is cut to does not depend on what it holds.
+     */
+    #[DataProvider('lineBreakProvider')]
+    public function testForAnySupportedMethodLogsARefusalsReasonOnOneBoundedLine(string $lineBreak): void
+    {
+        $this->presentAttestation([ParamsEnum::ClientId->value => self::CLIENT_ID]);
+        $this->clientEntityMock->method('isConfidential')->willReturn(false);
+        $this->clientRepositoryMock->method('findById')->willReturn($this->clientEntityMock);
+        $quoted = 'Quoted' . $lineBreak . 'FORGED LINE';
+        $this->clientAttestationVerifierMock->method('verify')
+            ->willThrowException(new AuthorizationException($quoted . str_repeat('x', 5000)));
+        $this->loggerServiceMock->expects($this->once())->method('warning')->with(
+            'Client authentication refused: Quoted FORGED LINE' . str_repeat('x', 1000 - strlen($quoted)),
+        );
+
+        $this->assertNull($this->sut()->forAnySupportedMethod($this->serverRequestMock));
+    }
+
     // -----------------------------------------------------------------------
     // findActiveClient
     // -----------------------------------------------------------------------

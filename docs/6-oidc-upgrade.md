@@ -746,8 +746,8 @@ which presents no client
 authentication it can be authenticated by, or a confidential client which
 presents none (the `none` method), gets `invalid_client` (HTTP 401, with a
 `WWW-Authenticate: Basic realm="OAuth"` challenge when it sent an
-`Authorization` header), where it got `access_denied` (HTTP 401); the PAR
-endpoint now refuses such a client the same way (RFC 9126 section 2.3). The
+`Authorization` header), where before 6.5 it got `access_denied` (HTTP 401); the
+PAR endpoint now refuses such a client the same way (RFC 9126 section 2.3). The
 client is authenticated from its own credentials, rather than taken from the
 code it presents, so a client which has been disabled, or has expired, since
 its code was issued can no longer redeem it. A client which compares the
@@ -895,6 +895,32 @@ have been removed in favor of `simplesamlphp/openid`.
 favor of `nyholm/psr7` which is already required by SimpleSAMLphp.
 - The requirement on package `laminas/laminas-httphandlerrunner` has been
 removed (a remnant of older SimpleSAMLphp v1 SAPI emitter architecture)
+
+## Version 6.4 to 6.5
+
+New option, disabled by default:
+
+- `ModuleConfig::OPTION_DISALLOW_IMPLICIT_FOR_CONFIDENTIAL_CLIENTS`: if enabled,
+a confidential client requesting the implicit flow is refused with the
+`unauthorized_client` error, so it can only get tokens through the authorization
+code flow. Public clients are not affected.
+
+Changes a client can see at the token endpoint, when it exchanges an
+authorization code as a confidential client:
+
+- A client which presents no client authentication, or a client assertion which
+is refused for having no JWKS to check it with, a signature which does not
+verify, or the wrong Issuer or Audience, now gets `invalid_client`
+(RFC 6749 section 5.2, RFC 7521 section 4.2.1). It got `access_denied`. A client
+which compares the `error` member with the old value needs the new one.
+- A client assertion which can not be parsed, which includes one that has expired,
+lacks a required claim or has a Subject other than its Issuer, gets
+`invalid_client` too. It ended on the SimpleSAMLphp error page, with HTTP 500.
+- All of these answers are HTTP 401, with a `WWW-Authenticate` challenge when the
+request used the `Authorization` header. Their `error_description` does not say
+why the client was refused, which that of `access_denied` did: the reason is in
+the OP log, at `warning` level. A wrong client secret, which already got
+`invalid_client`, is logged the same way.
 
 ## Version 6.4.3 to 6.4.4
 
