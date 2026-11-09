@@ -60,6 +60,11 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * @param string|null $dpopJkt The JWK SHA-256 thumbprint of the DPoP key the token is bound to, written in the
      * JWT as its `cnf` claim (RFC 9449 section 6.1); null for a token bound to no key. Not persisted, for the same
      * reason as the subject: whatever reads the binding reads the JWT.
+     * @param array|null $offerClaims The user attributes the pre-authorized Credential Offer the token was issued
+     * for was made with, copied from its code (PreAuthCodeGrant), so that a code purged after it expires can not
+     * take them from a token which still lives. What the token is about is read from these, never from the user
+     * record. Null for a token of any other flow, and for a pre-authorized one stored before tokens carried them;
+     * an empty array is an offer made with no attributes.
      */
     public function __construct(
         string $id,
@@ -80,6 +85,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly ?string $subject = null,
         protected readonly array $userClaims = [],
         protected readonly ?string $dpopJkt = null,
+        protected readonly ?array $offerClaims = null,
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Access token identifier cannot be empty.');
@@ -171,6 +177,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             'bound_client_id' => $this->boundClientId,
             'bound_redirect_uri' => $this->boundRedirectUri,
             'issuer_state' => $this->issuerState,
+            'offer_claims' => is_array($this->offerClaims) ?
+                json_encode($this->offerClaims, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE) :
+                null,
         ];
     }
 
@@ -301,5 +310,11 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     public function getIssuerState(): ?string
     {
         return $this->issuerState;
+    }
+
+
+    public function getOfferClaims(): ?array
+    {
+        return $this->offerClaims;
     }
 }

@@ -42,7 +42,8 @@ trait IssueAccessTokenTrait
      * The token's subject and user claims are resolved here, once, from the user record as it is now, and
      * travel with the token (AccessTokenEntity::getSubject(), getUserClaims()): the ID token issued alongside
      * and the refresh token payload take the subject from the entity rather than resolving it again. A caller
-     * which already holds the user entity passes it; for the others it is looked up. A caller redeeming a
+     * which already holds the user entity passes it; for the others it is looked up. The pre-authorized code grant
+     * passes one built from its Credential Offer's attributes, never the stored record. A caller redeeming a
      * refresh token passes the subject its payload carries, so the subject stays what it was when the user
      * authenticated (OpenID Connect Core 1.0 section 12.2) and only the claims are read afresh.
      *
@@ -57,6 +58,8 @@ trait IssueAccessTokenTrait
      * @param string|null $subject The subject to carry instead of resolving one (refresh token grant).
      * @param string|null $dpopJkt The thumbprint of the key of the DPoP proof the token request came with, which
      * the token is bound to (RFC 9449 section 5); null for a request without one.
+     * @param array|null $offerClaims The attributes of the pre-authorized Credential Offer the token is issued for,
+     * which the token carries (AccessTokenEntity::getOfferClaims()); null for every other grant.
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -75,6 +78,7 @@ trait IssueAccessTokenTrait
         ?UserEntity $user = null,
         ?string $subject = null,
         ?string $dpopJkt = null,
+        ?array $offerClaims = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -129,6 +133,7 @@ trait IssueAccessTokenTrait
                     subject: $subject,
                     userClaims: $userClaims,
                     dpopJkt: $dpopJkt,
+                    offerClaims: $offerClaims,
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;

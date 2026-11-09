@@ -769,8 +769,11 @@ requires `openid`, since its response types deliver an ID token.
 
 The UserInfo endpoint refuses any access token without the `openid` scope in
 the same way, whatever this option says, so also one a refresh narrowed to
-scopes without it. A token of an OpenID4VCI flow, which need not carry the
-scope, is the exception.
+scopes without it. A token of the OpenID4VCI authorization code flow, which
+need not carry the scope, is the exception. A token of the pre-authorized code
+flow is refused whatever its scopes: no user authenticated for it, and it is
+about the attributes its Credential Offer was made with, not about the user
+record it names.
 
 ## Pushed Authorization Requests (PAR) and Request Objects
 

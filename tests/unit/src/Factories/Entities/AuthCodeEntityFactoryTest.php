@@ -80,6 +80,10 @@ class AuthCodeEntityFactoryTest extends TestCase
         ['type' => 'openid_credential', 'credential_configuration_id' => 'cfg-id'],
     ];
 
+    protected const array OFFER_CLAIMS = ['uid' => ['offered-uid'], 'mail' => ['offered@example.org']];
+
+    protected const string OFFER_CLAIMS_JSON = '{"uid":["offered-uid"],"mail":["offered@example.org"]}';
+
 
     protected MockObject $clientMock;
 
@@ -134,6 +138,7 @@ class AuthCodeEntityFactoryTest extends TestCase
             'boundClientId' => self::BOUND_CLIENT_ID,
             'boundRedirectUri' => self::BOUND_REDIRECT_URI,
             'dpopJkt' => self::DPOP_JKT,
+            'offerClaims' => self::OFFER_CLAIMS,
         ];
     }
 
@@ -164,6 +169,7 @@ class AuthCodeEntityFactoryTest extends TestCase
                 'bound_redirect_uri' => self::BOUND_REDIRECT_URI,
                 'issuer_state' => self::ISSUER_STATE,
                 'dpop_jkt' => self::DPOP_JKT,
+                'offer_claims' => self::OFFER_CLAIMS_JSON,
                 'client' => $this->clientMock,
             ],
             $overrides,
@@ -203,6 +209,7 @@ class AuthCodeEntityFactoryTest extends TestCase
         $this->assertSame(self::BOUND_CLIENT_ID, $entity->getBoundClientId());
         $this->assertSame(self::BOUND_REDIRECT_URI, $entity->getBoundRedirectUri());
         $this->assertSame(self::DPOP_JKT, $entity->getDpopJkt());
+        $this->assertSame(self::OFFER_CLAIMS, $entity->getOfferClaims());
     }
 
 
@@ -290,6 +297,7 @@ class AuthCodeEntityFactoryTest extends TestCase
         $this->assertNull($entity->getBoundClientId());
         $this->assertNull($entity->getBoundRedirectUri());
         $this->assertNull($entity->getDpopJkt());
+        $this->assertNull($entity->getOfferClaims());
     }
 
 
@@ -620,6 +628,7 @@ class AuthCodeEntityFactoryTest extends TestCase
             'bound_client_id' => ['bound_client_id', 'getBoundClientId', null],
             'bound_redirect_uri' => ['bound_redirect_uri', 'getBoundRedirectUri', null],
             'dpop_jkt' => ['dpop_jkt', 'getDpopJkt', null],
+            'offer_claims' => ['offer_claims', 'getOfferClaims', null],
         ];
     }
 
@@ -648,5 +657,68 @@ class AuthCodeEntityFactoryTest extends TestCase
         $this->expectException(JsonException::class);
 
         $this->sut()->fromState($this->row(['authorization_details' => '[{"type":']));
+    }
+
+
+    /**
+     * @return array<string, array{mixed, ?array}>
+     */
+    public static function offerClaimsProvider(): array
+    {
+        return [
+            'NULL, a code which carries none' => [null, null],
+            'an offer made with no attributes stays an empty array' => ['[]', []],
+            'the attributes' => [self::OFFER_CLAIMS_JSON, self::OFFER_CLAIMS],
+        ];
+    }
+
+
+    /**
+     * The credentials a pre-authorized code buys are issued from these, so NULL (the code carries none, and
+     * nothing is issued from it) and an empty array (an offer made with no attributes) must not collapse into
+     * each other.
+     */
+    #[DataProvider('offerClaimsProvider')]
+    public function testFromStateDecodesOfferClaims(mixed $value, ?array $expected): void
+    {
+        $entity = $this->sut()->fromState($this->row(['offer_claims' => $value]));
+
+        $this->assertSame($expected, $entity->getOfferClaims());
+    }
+
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function offerClaimsNotDecodingToAnArrayProvider(): array
+    {
+        return [
+            'a JSON string' => ['"offered-uid"'],
+            'a JSON number' => ['5'],
+            'JSON null' => ['null'],
+            'not a string, so not decoded' => [['uid' => ['offered-uid']]],
+        ];
+    }
+
+
+    /**
+     * Unlike `authorization_details`, a stored value which is not a JSON array is refused rather than read as
+     * none: what a credential says is read from it.
+     */
+    #[DataProvider('offerClaimsNotDecodingToAnArrayProvider')]
+    public function testFromStateRejectsOfferClaimsWhichDoNotDecodeToAnArray(mixed $value): void
+    {
+        $this->assertServerError(
+            'Invalid Auth Code Entity state: offer claims',
+            fn() => $this->sut()->fromState($this->row(['offer_claims' => $value])),
+        );
+    }
+
+
+    public function testFromStateLetsUnparsableOfferClaimsThrow(): void
+    {
+        $this->expectException(JsonException::class);
+
+        $this->sut()->fromState($this->row(['offer_claims' => '{"uid":']));
     }
 }

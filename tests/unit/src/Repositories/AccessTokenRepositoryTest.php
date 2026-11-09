@@ -14,6 +14,7 @@ use SimpleSAML\Configuration;
 use SimpleSAML\Database;
 use SimpleSAML\Error\Error;
 use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
@@ -28,6 +29,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
+use SimpleSAML\OpenID\OAuth2;
 
 #[CoversClass(AccessTokenRepository::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -220,6 +222,56 @@ class AccessTokenRepositoryTest extends TestCase
         $isRevoked = $sut->isAccessTokenRevoked(self::ACCESS_TOKEN_ID);
 
         $this->assertTrue($isRevoked);
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow is stored with the attributes of its Credential Offer, which the
+     * Credential Endpoint reads back from storage, and which an update -- the revocation -- writes again. A token
+     * without them reads back NULL.
+     *
+     * @throws \Exception
+     */
+    public function testStoresTheAttributesOfACredentialOfferAndKeepsThemOnUpdate(): void
+    {
+        $build = fn(string $id, ?array $offerClaims): AccessTokenEntity => new AccessTokenEntity(
+            $id,
+            $this->clientEntityMock,
+            [],
+            new DateTimeImmutable('tomorrow'),
+            $this->createStub(OAuth2::class),
+            $this->moduleConfigMock,
+            self::USER_ID,
+            flowTypeEnum: $offerClaims === null ? null : FlowTypeEnum::VciPreAuthorizedCode,
+            offerClaims: $offerClaims,
+        );
+        $offeredToken = $build('offered-access-token-id', ['uid' => ['offered-uid']]);
+        $plainToken = $build('plain-access-token-id', null);
+
+        $states = [];
+        $accessTokenEntityFactoryMock = $this->createMock(AccessTokenEntityFactory::class);
+        $accessTokenEntityFactoryMock->method('fromState')->willReturnCallback(
+            function (array $state) use (&$states, $offeredToken, $plainToken): AccessTokenEntity {
+                $states[] = $state;
+
+                return $state['id'] === 'offered-access-token-id' ? $offeredToken : $plainToken;
+            },
+        );
+        $sut = $this->sut(accessTokenEntityFactory: $accessTokenEntityFactoryMock);
+
+        $sut->persistNewAccessToken($offeredToken);
+        $sut->persistNewAccessToken($plainToken);
+        $sut->findById('offered-access-token-id');
+        $sut->revokeAccessToken('offered-access-token-id');
+        $sut->findById('offered-access-token-id');
+        $sut->findById('plain-access-token-id');
+
+        $this->assertCount(4, $states);
+        $this->assertSame(
+            ['{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', null],
+            array_column($states, 'offer_claims'),
+        );
+        $this->assertSame(1, (int)$states[2]['is_revoked']);
     }
 
 

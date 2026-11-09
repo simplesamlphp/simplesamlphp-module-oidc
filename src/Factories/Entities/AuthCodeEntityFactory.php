@@ -40,6 +40,7 @@ class AuthCodeEntityFactory
         ?string $boundClientId = null,
         ?string $boundRedirectUri = null,
         ?string $dpopJkt = null,
+        ?array $offerClaims = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             $id,
@@ -57,6 +58,7 @@ class AuthCodeEntityFactory
             $boundRedirectUri,
             $issuerState,
             $dpopJkt,
+            $offerClaims,
         );
     }
 
@@ -112,6 +114,7 @@ class AuthCodeEntityFactory
         $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
         // A state written before codes were bound (a cached one included) has no such entry: bound to nothing.
         $dpopJkt = empty($state['dpop_jkt']) ? null : (string)$state['dpop_jkt'];
+        $offerClaims = $this->offerClaimsFromState($state);
 
         return $this->fromData(
             $id,
@@ -129,6 +132,34 @@ class AuthCodeEntityFactory
             $boundClientId,
             $boundRedirectUri,
             $dpopJkt,
+            $offerClaims,
         );
+    }
+
+
+    /**
+     * The attributes a pre-authorized Credential Offer was made with, or null for a code which carries none: one of
+     * another flow, or a state written before codes carried them (a cached one included), which has no such entry.
+     * An empty JSON array stays an empty array, an offer made with no attributes.
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function offerClaimsFromState(array $state): ?array
+    {
+        if (!isset($state['offer_claims'])) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $offerClaims = is_string($state['offer_claims']) ?
+        json_decode($state['offer_claims'], true, 512, JSON_THROW_ON_ERROR) :
+        null;
+
+        if (!is_array($offerClaims)) {
+            throw OidcServerException::serverError('Invalid Auth Code Entity state: offer claims');
+        }
+
+        return $offerClaims;
     }
 }

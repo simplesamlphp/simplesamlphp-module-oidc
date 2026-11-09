@@ -233,8 +233,24 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /** @var list<mixed> What the proof validator was last asked with. */
     protected array $proofValidationArguments = [];
 
-    /** @var array<string,mixed> */
+    /**
+     * The attributes the credential is issued from: the user record's claims for a token of the authorization code
+     * flow, and the attributes a token of the pre-authorized code flow carries (see $offerClaims).
+     *
+     * @var array<string,mixed>
+     */
     protected array $userClaims = [];
+
+    /**
+     * What a token of the pre-authorized code flow carries in place of $userClaims, for the tests which tell the two
+     * apart; null to carry $userClaims, so that a test which only sets those is issued from them in either flow.
+     *
+     * @var array<string,mixed>|null
+     */
+    protected ?array $offerClaims = null;
+
+    /** Whether the token carries Credential Offer attributes at all: false for one stored before tokens did. */
+    protected bool $tokenCarriesOfferClaims = true;
 
     /** @var array<array-key,mixed> */
     protected array $validClaimPaths = [];
@@ -346,6 +362,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->validatedProofs = [];
         $this->proofValidationException = null;
         $this->userClaims = [];
+        $this->offerClaims = null;
+        $this->tokenCarriesOfferClaims = true;
         $this->validClaimPaths = [];
         $this->attributeToClaimPathMap = [];
         $this->mandatoryClaimPaths = [];
@@ -425,6 +443,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ->willReturnCallback(fn(): ?array => $this->authorizationDetails);
         $this->accessTokenMock->method('getIssuerState')
             ->willReturnCallback(fn(): ?string => $this->issuerState);
+        $this->accessTokenMock->method('getOfferClaims')->willReturnCallback(
+            fn(): ?array => $this->tokenCarriesOfferClaims ? ($this->offerClaims ?? $this->userClaims) : null,
+        );
         $clientMock = $this->createMock(ClientEntityInterface::class);
         $clientMock->method('isGeneric')->willReturnCallback(fn(): bool => $this->clientIsGeneric);
         $this->accessTokenMock->method('getClient')->willReturn($clientMock);
@@ -2934,6 +2955,76 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         // A single valued attribute is stated as the value itself rather than as a list of one.
         $this->assertSame('John', $this->credentialSubjectOfFirstCredential()['given_name'] ?? null);
+    }
+
+
+    /**
+     * A credential bought with a token of the pre-authorized code flow says what its Credential Offer said, which the
+     * token carries, and not what the user record says: that may be an existing user's own claims, or ones a login
+     * wrote after the offer was made. The record's claims are not read at all.
+     */
+    public function testIssuesAPreAuthorizedCredentialFromTheAttributesOfItsOfferNotFromTheUserRecord(): void
+    {
+        $this->validClaimPaths = [[ClaimsEnum::Credential_Subject->value, 'given_name']];
+        $this->attributeToClaimPathMap = [
+            ['givenName' => [ClaimsEnum::Credential_Subject->value, 'given_name']],
+        ];
+        $this->offerClaims = ['givenName' => ['Offered']];
+        $userEntity = $this->createMock(UserEntity::class);
+        $userEntity->expects($this->never())->method('getClaims');
+        $this->userEntity = $userEntity;
+
+        $this->issue();
+
+        $this->assertSame('Offered', $this->credentialSubjectOfFirstCredential()['given_name'] ?? null);
+    }
+
+
+    /**
+     * A token of the authorization code flow is about the user who authenticated, so its credential says what their
+     * record says now, whatever a token of the pre-authorized code flow would carry.
+     */
+    public function testIssuesAnAuthorizationCodeCredentialFromTheUserRecord(): void
+    {
+        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+        $this->validClaimPaths = [[ClaimsEnum::Credential_Subject->value, 'given_name']];
+        $this->attributeToClaimPathMap = [
+            ['givenName' => [ClaimsEnum::Credential_Subject->value, 'given_name']],
+        ];
+        $this->userClaims = ['givenName' => ['Authenticated']];
+        $this->offerClaims = ['givenName' => ['Offered']];
+
+        $this->issue();
+
+        $this->assertSame('Authenticated', $this->credentialSubjectOfFirstCredential()['given_name'] ?? null);
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow which carries no Credential Offer attributes was stored before tokens
+     * carried them. Nothing is issued for it, and the user record is not read in their place: answered as this
+     * issuer's own failure, before any Status List entry is allocated or anything is signed.
+     */
+    public function testRefusesAPreAuthorizedTokenWhichCarriesNoOfferAttributes(): void
+    {
+        $logged = $this->captureLog();
+        $this->tokenCarriesOfferClaims = false;
+        $this->userClaims = ['givenName' => ['Authenticated']];
+        $this->validatedProofs = [$this->validatedProof()];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+        $this->accessTokenMock->method('getIdentifier')->willReturn('token_id');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame(
+            [[
+                'CredentialIssuerCredentialController::credential: Access token of the pre-authorized code flow ' .
+                'carries no Credential Offer attributes (it was stored before tokens carried them).',
+                ['accessTokenId' => 'token_id'],
+            ]],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
     }
 
 

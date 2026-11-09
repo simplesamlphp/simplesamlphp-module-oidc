@@ -302,6 +302,11 @@ class DatabaseMigration
             $this->version20261005000001();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261005000001')");
         }
+
+        if (!in_array('20261109000001', $versions, true)) {
+            $this->version20261109000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261109000001')");
+        }
     }
 
 
@@ -1348,6 +1353,31 @@ EOT
             ADD dpop_jkt VARCHAR(64) NULL
 EOT
             ,);
+    }
+
+
+    /**
+     * A pre-authorized code records the user attributes its Credential Offer was made with, as JSON, and the access
+     * token issued for it a copy, so that the credentials it buys are issued from those rather than from the shared
+     * user record, which the offer no longer writes. A code or token stored before carries none (NULL). TEXT, as the
+     * user record's claims are. Each column is guarded by hasColumn() so that a run interrupted before its version
+     * was recorded can be repeated (see version20260801000004()).
+     */
+    private function version20261109000001(): void
+    {
+        foreach ([AuthCodeRepository::TABLE_NAME, AccessTokenRepository::TABLE_NAME] as $table) {
+            $tableName = $this->database->applyPrefix($table);
+
+            if ($this->hasColumn($tableName, 'offer_claims')) {
+                continue;
+            }
+
+            $this->database->write(<<< EOT
+            ALTER TABLE {$tableName}
+                ADD offer_claims TEXT NULL
+EOT
+                ,);
+        }
     }
 
 

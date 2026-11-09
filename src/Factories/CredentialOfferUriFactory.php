@@ -167,14 +167,13 @@ class CredentialOfferUriFactory
             $this->loggerService->info('Generated user identifier based on credential-offer attributes.');
         }
 
-        $oldUserEntity = $this->userRepository->getUserEntityByIdentifier($userId);
-
-        $userEntity = $this->userEntityFactory->fromData($userId, $userAttributes);
-
-        if ($oldUserEntity instanceof UserEntity) {
-            $this->userRepository->update($userEntity);
-        } else {
-            $this->userRepository->add($userEntity);
+        // The attributes travel with the code, and from it with the access token (PreAuthCodeGrant), and the
+        // credentials the code buys are issued from them. They are never written to the user record: the record of
+        // an existing user holds that user's own claims, which OpenID Connect and the authorization code flow of
+        // credential issuance read, and two offers naming the same identifier would overwrite each other there.
+        // Codes and tokens have to name a stored user, so a record with no claims is added when there is none.
+        if (!$this->userRepository->getUserEntityByIdentifier($userId) instanceof UserEntity) {
+            $this->userRepository->add($this->userEntityFactory->fromData($userId));
         }
 
         $txCode = null;
@@ -201,6 +200,7 @@ class CredentialOfferUriFactory
                     redirectUri: 'openid-credential-offer://',
                     flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
                     txCode: $txCode instanceof TxCode ? $txCode->getCodeAsString() : null,
+                    offerClaims: $userAttributes,
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
                 break;

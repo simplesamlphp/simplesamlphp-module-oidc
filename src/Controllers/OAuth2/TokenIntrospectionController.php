@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\OAuth2;
 
+use DateTimeImmutable;
 use Exception;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
@@ -339,11 +341,12 @@ class TokenIntrospectionController
         // The user claims of the released scopes, and only of those, so that a scope the decision took away can
         // not leave its claims behind. They are read from the resource owner's record as it is now: the claims
         // the UserInfo endpoint releases for the same token, from the same record, so a resource server learns the
-        // same about the user whichever endpoint it asks. The 'claims' request parameter (OpenID Connect Core 1.0
-        // section 5.5) targets the ID token and the UserInfo endpoint and plays no part here, as it plays none in
-        // the access token's own user claims. Nothing is read from the presented token: it is a snapshot taken
-        // when it was minted. A released identity claim which is not a non-empty string throws, and is answered
-        // as the OP's failure.
+        // same about the user whichever endpoint it asks. A token of the pre-authorized code flow, which UserInfo
+        // refuses, releases the attributes of its Credential Offer instead (resolveResourceOwner()). The 'claims'
+        // request parameter (OpenID Connect Core 1.0 section 5.5) targets the ID token and the UserInfo endpoint
+        // and plays no part here, as it plays none in the access token's own user claims. Nothing is read from the
+        // presented token: it is a snapshot taken when it was minted. A released identity claim which is not a
+        // non-empty string throws, and is answered as the OP's failure.
         $userClaims = $resourceOwner instanceof UserEntity ?
         $this->claimTranslatorExtractor->extract($releasedScopes, $resourceOwner->getClaims()) :
         [];
@@ -399,6 +402,11 @@ class TokenIntrospectionController
     /**
      * The resource owner whose user claims an active access token releases, as their record is now.
      *
+     * A token of the pre-authorized code flow is about the attributes its Credential Offer was made with, which it
+     * carries (PreAuthCodeGrant), and never about the claims of the record it names: that may be an existing user's,
+     * holding that user's own. Its resource owner is a user built from the offer's attributes; the record still
+     * decides whether the user exists. A token stored before tokens carried the attributes releases none.
+     *
      * Null for a token issued without a user (a client credentials token, a pre-authorized code with no holder).
      * False when the token is not to be reported as active: its own record is gone, or its resource owner's is. The
      * validator has already looked the token's record up, so the former only happens when the record went between
@@ -449,7 +457,26 @@ class TokenIntrospectionController
             return false;
         }
 
-        return $user;
+        if ($accessTokenEntity->getFlowTypeEnum() !== FlowTypeEnum::VciPreAuthorizedCode) {
+            return $user;
+        }
+
+        $offerClaims = $accessTokenEntity->getOfferClaims();
+
+        if (is_null($offerClaims)) {
+            $this->loggerService->warning(
+                sprintf(
+                    'Access token %s of the pre-authorized code flow carries no Credential Offer attributes (it was ' .
+                    'stored before tokens carried them). It releases no user claims.',
+                    $jti,
+                ),
+            );
+        }
+
+        // A user built from the offer's attributes, which is not stored; the record read above is left as it is.
+        $now = new DateTimeImmutable();
+
+        return new UserEntity($userIdentifier, $now, $now, $offerClaims ?? []);
     }
 
 

@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -124,8 +125,47 @@ class AuthCodeEntityTest extends TestCase
                 'bound_redirect_uri' => null,
                 'issuer_state' => null,
                 'dpop_jkt' => null,
+                'offer_claims' => null,
             ],
         );
+    }
+
+
+    /**
+     * @return array<string, array{?array, ?string}>
+     */
+    public static function offerClaimsProvider(): array
+    {
+        return [
+            'none' => [null, null],
+            'an offer made with no attributes' => [[], '[]'],
+            'the attributes' => [
+                ['uid' => ['offered-uid'], 'mail' => ['offered@example.org']],
+                '{"uid":["offered-uid"],"mail":["offered@example.org"]}',
+            ],
+            // As the user record wrote them (UserEntity::getState()), which held them before.
+            'an attribute which is not UTF-8 is substituted' => [['cn' => ["Jo\xC3"]], '{"cn":["Jo\ufffd"]}'],
+        ];
+    }
+
+
+    /**
+     * A pre-authorized code stores the attributes its Credential Offer was made with, which the credentials it buys
+     * are issued from. None (NULL) and an offer of no attributes are stored apart.
+     */
+    #[DataProvider('offerClaimsProvider')]
+    public function testStoresTheAttributesOfItsCredentialOffer(?array $offerClaims, ?string $expectedState): void
+    {
+        $authCodeEntity = new AuthCodeEntity(
+            $this->id,
+            $this->clientEntityMock,
+            $this->scopes,
+            $this->expiryDateTime,
+            offerClaims: $offerClaims,
+        );
+
+        $this->assertSame($offerClaims, $authCodeEntity->getOfferClaims());
+        $this->assertSame($expectedState, $authCodeEntity->getState()['offer_claims']);
     }
 
 

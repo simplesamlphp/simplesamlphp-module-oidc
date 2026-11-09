@@ -29,6 +29,10 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
      * @param \League\OAuth2\Server\Entities\ScopeEntityInterface[] $scopes
      * @param string|null $dpopJkt The JWK SHA-256 thumbprint of the key the code is bound to (RFC 9449 section 10),
      * which the token request has to bring a DPoP proof by; null for a code bound to none.
+     * @param array|null $offerClaims The user attributes a pre-authorized Credential Offer was made with
+     * (CredentialOfferUriFactory::buildPreAuthorized()), which the credentials it buys are issued from; null for
+     * any other code, and for a pre-authorized one stored before codes carried them. An empty array is an offer
+     * made with no attributes, not the absence of one.
      */
     public function __construct(
         string $id,
@@ -46,6 +50,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?string $boundRedirectUri = null,
         protected readonly ?string $issuerState = null,
         protected readonly ?string $dpopJkt = null,
+        protected readonly ?array $offerClaims = null,
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Authorization code identifier cannot be empty.');
@@ -85,6 +90,10 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'bound_redirect_uri' => $this->boundRedirectUri,
             'issuer_state' => $this->issuerState,
             'dpop_jkt' => $this->dpopJkt,
+            // Encoded as the user record encodes its claims (UserEntity::getState()), which held these before.
+            'offer_claims' => is_array($this->offerClaims) ?
+                json_encode($this->offerClaims, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE) :
+                null,
         ];
     }
 
@@ -134,5 +143,11 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getDpopJkt(): ?string
     {
         return $this->dpopJkt;
+    }
+
+
+    public function getOfferClaims(): ?array
+    {
+        return $this->offerClaims;
     }
 }

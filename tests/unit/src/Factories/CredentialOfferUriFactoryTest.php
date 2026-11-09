@@ -490,6 +490,11 @@ class CredentialOfferUriFactoryTest extends TestCase
     }
 
 
+    /**
+     * The code names the user the attributes resolve to and carries the attributes themselves, which the credentials
+     * it buys are issued from. A user not known yet gets a record, which codes and tokens have to name, with no
+     * claims: the attributes are the offer's, not the user's.
+     */
     public function testBindsThePreAuthorizedCodeToTheResolvedUserAndOffersIt(): void
     {
         $userAttributes = [
@@ -525,7 +530,7 @@ class CredentialOfferUriFactoryTest extends TestCase
 
         $this->assertInstanceOf(UserEntity::class, $written);
         $this->assertSame('user-1', $written->getIdentifier());
-        $this->assertSame($userAttributes, $written->getClaims());
+        $this->assertSame([], $written->getClaims());
 
         $this->assertCount(1, $this->authCodeArguments);
         $arguments = $this->authCodeArguments[0];
@@ -549,9 +554,12 @@ class CredentialOfferUriFactoryTest extends TestCase
             'authorizationDetails' => null,
             'boundClientId' => null,
             'boundRedirectUri' => null,
+            'dpopJkt' => null,
+            'offerClaims' => $userAttributes,
         ], $arguments);
         $this->assertInstanceOf(AuthCodeEntity::class, $persisted);
         $this->assertSame('pre-authorized-code-secret', $persisted->getIdentifier());
+        $this->assertSame($userAttributes, $persisted->getOfferClaims());
 
         $this->assertSame([
             'credential_issuer' => 'https://issuer.example.org',
@@ -568,35 +576,65 @@ class CredentialOfferUriFactoryTest extends TestCase
 
 
     /**
-     * The record written for a user already known is the one just built from the attributes presented,
-     * not the one found; only the choice between add and update depends on the lookup.
+     * The record of a user already known holds that user's own claims, which OpenID Connect and the authorization
+     * code flow of credential issuance read: an offer naming them leaves it as it is, neither updated nor added
+     * again, and its attributes go on the code alone.
      */
-    public function testUpdatesAUserItAlreadyKnowsRatherThanAddingAgain(): void
+    public function testLeavesTheRecordOfAUserItAlreadyKnowsAlone(): void
     {
         $userAttributes = ['uid' => ['user-1'], 'displayName' => ['Renamed User']];
+        $knownClaims = ['uid' => ['user-1'], 'displayName' => ['Example User']];
         $known = new UserEntity(
             'user-1',
             new DateTimeImmutable('-1 day'),
             new DateTimeImmutable('-1 day'),
-            ['uid' => ['user-1'], 'displayName' => ['Example User']],
+            $knownClaims,
         );
         $this->userRepositoryMock->method('getUserEntityByIdentifier')->with('user-1')->willReturn($known);
-        $updated = null;
-        $this->userRepositoryMock->expects($this->once())->method('update')
-            ->willReturnCallback(
-                function (UserEntity $userEntity, ?DateTimeImmutable $updatedAt = null) use (&$updated): void {
-                    $updated = $userEntity;
-                },
-            );
+        $this->userRepositoryMock->expects($this->never())->method('update');
         $this->userRepositoryMock->expects($this->never())->method('add');
+        $this->userRepositoryMock->expects($this->never())->method('delete');
 
         $this->sut()->buildPreAuthorized(['credential-configuration'], $userAttributes);
 
-        $this->assertInstanceOf(UserEntity::class, $updated);
-        $this->assertNotSame($known, $updated);
-        $this->assertSame('user-1', $updated->getIdentifier());
-        $this->assertSame($userAttributes, $updated->getClaims());
+        $this->assertSame($knownClaims, $known->getClaims());
         $this->assertSame('user-1', $this->authCodeArguments[0]['userIdentifier']);
+        $this->assertSame($userAttributes, $this->authCodeArguments[0]['offerClaims']);
+    }
+
+
+    /**
+     * Two offers naming the same user each carry their own attributes, so the credentials one buys can not say what
+     * the other's caller put in.
+     */
+    public function testTwoOffersForTheSameUserEachCarryTheirOwnAttributes(): void
+    {
+        $this->randomMock = $this->createMock(Random::class);
+        $this->randomMock->method('generateID')->willReturnOnConsecutiveCalls('code-1', 'code-2');
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->with('user-1')
+            ->willReturnOnConsecutiveCalls(
+                null,
+                new UserEntity('user-1', new DateTimeImmutable(), new DateTimeImmutable()),
+            );
+        $this->userRepositoryMock->expects($this->once())->method('add');
+        $this->userRepositoryMock->expects($this->never())->method('update');
+        $persisted = [];
+        $this->authCodeRepositoryMock->method('persistNewAuthCode')
+            ->willReturnCallback(function (AuthCodeEntity $authCode) use (&$persisted): void {
+                $persisted[$authCode->getIdentifier()] = $authCode->getOfferClaims();
+            });
+        $sut = $this->sut();
+
+        $sut->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1'], 'title' => ['First']]);
+        $sut->buildPreAuthorized(['other-configuration'], ['uid' => ['user-1'], 'title' => ['Second']]);
+
+        $this->assertSame(
+            [
+                'code-1' => ['uid' => ['user-1'], 'title' => ['First']],
+                'code-2' => ['uid' => ['user-1'], 'title' => ['Second']],
+            ],
+            $persisted,
+        );
     }
 
 
@@ -1022,6 +1060,8 @@ class CredentialOfferUriFactoryTest extends TestCase
         ?array $authorizationDetails = null,
         ?string $boundClientId = null,
         ?string $boundRedirectUri = null,
+        ?string $dpopJkt = null,
+        ?array $offerClaims = null,
     ): AuthCodeEntity {
         $this->authCodeArguments[] = get_defined_vars();
 
@@ -1040,6 +1080,8 @@ class CredentialOfferUriFactoryTest extends TestCase
             $boundClientId,
             $boundRedirectUri,
             $issuerState,
+            $dpopJkt,
+            $offerClaims,
         );
     }
 

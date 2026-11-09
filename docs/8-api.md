@@ -124,7 +124,10 @@ address.
 source, that should be used to determine the user's email address attribute. Used if `users_email_attribute_name` is
 not specified, and transaction code protection is enabled.
 * __user_attributes__ (object, optional, no default): An object containing various user attributes. Used in
-pre-authorized code grant to populate credential data.
+pre-authorized code grant to populate credential data. The offer's pre-authorized code, and the access token issued
+for it, carry these attributes, and the credentials they buy are issued from them. They are not written to the user
+record: an offer naming an existing user leaves what OpenID Connect releases for that user as it was, and two offers
+naming the same user each issue their own attributes.
 
 #### Response
 
@@ -501,8 +504,12 @@ the user record as it is now: the same claims, from the same record, the
 UserInfo endpoint releases for that token, so a resource server which enforces
 its policy on the introspection response (RFC 7662 section 2.2 lets an
 implementation extend it with members of its own) sees what it would see at the
-UserInfo endpoint. Nothing is read from the token itself, which is a snapshot
-taken when it was minted, and the `claims` request parameter plays no part. The
+UserInfo endpoint. An access token of the OpenID4VCI pre-authorized code flow,
+which the UserInfo endpoint refuses, releases the claims of the attributes its
+Credential Offer was made with, which the token's record carries, instead,
+never those of the user record it names. Nothing is read from the token
+itself, which is a snapshot taken when it was minted, and the `claims` request
+parameter plays no part. The
 `sub` reported is the token's own, the subject it was minted with (see [the
 subject](3-oidc-configuration.md#the-subject)); a user claim of the same name
 as a token member does not displace it. (For an access token issued before the

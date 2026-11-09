@@ -37,6 +37,8 @@ class DatabaseMigrationTest extends TestCase
 
     protected const string AUTH_CODE_DPOP_JKT_VERSION = '20261005000001';
 
+    protected const string OFFER_CLAIMS_VERSION = '20261109000001';
+
 
     protected Database $database;
 
@@ -232,6 +234,99 @@ class DatabaseMigrationTest extends TestCase
             ],
             $this->database->read("SELECT id, dpop_jkt FROM $authCodeTableName ORDER BY id")
                 ->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
+
+    /**
+     * A pre-authorized code and the access token issued for it record the attributes of their Credential Offer. A
+     * code or token stored before has NULL there, which the factories read as none. The version adds each column
+     * only when it is missing, so a run interrupted before its version was recorded can be repeated, and the
+     * columns keep what they hold.
+     *
+     * @throws \Exception
+     */
+    public function testAddsTheOfferClaimsToCodesAndTokensOnceAndKeepsThem(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        // SQLite enforces no foreign key unless a connection turns them on, which this one does not, so the rows
+        // need no user or client rows.
+        $authCodeTableName = $this->database->applyPrefix(AuthCodeRepository::TABLE_NAME);
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write(
+            "INSERT INTO $authCodeTableName (id, user_id, client_id, redirect_uri, offer_claims) " .
+            "VALUES ('offer-claims-offered', 'user', 'client', 'openid-credential-offer://', " .
+            "'{\"uid\":[\"offered-uid\"]}')",
+        );
+        $this->database->write(
+            "INSERT INTO $authCodeTableName (id, user_id, client_id, redirect_uri) " .
+            "VALUES ('offer-claims-stored-before', 'user', 'client', 'https://rp.example.org/cb')",
+        );
+        $this->database->write(
+            "INSERT INTO $accessTokenTableName (id, user_id, client_id, offer_claims) " .
+            "VALUES ('offer-claims-offered', 'user', 'client', '[]')",
+        );
+        $this->database->write(
+            "INSERT INTO $accessTokenTableName (id, user_id, client_id) " .
+            "VALUES ('offer-claims-stored-before', 'user', 'client')",
+        );
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::OFFER_CLAIMS_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame(
+            [
+                ['id' => 'offer-claims-offered', 'offer_claims' => '{"uid":["offered-uid"]}'],
+                ['id' => 'offer-claims-stored-before', 'offer_claims' => null],
+            ],
+            $this->database->read(
+                "SELECT id, offer_claims FROM $authCodeTableName WHERE id LIKE 'offer-claims-%' ORDER BY id",
+            )->fetchAll(PDO::FETCH_ASSOC),
+        );
+        $this->assertSame(
+            [
+                ['id' => 'offer-claims-offered', 'offer_claims' => '[]'],
+                ['id' => 'offer-claims-stored-before', 'offer_claims' => null],
+            ],
+            $this->database->read(
+                "SELECT id, offer_claims FROM $accessTokenTableName WHERE id LIKE 'offer-claims-%' ORDER BY id",
+            )->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
+
+    /**
+     * A run interrupted between the two columns left the code's column added and the token's not. Repeating the
+     * version adds the one which is missing; the one already there does not stop it.
+     *
+     * @throws \Exception
+     */
+    public function testAddsTheOfferClaimsColumnAnInterruptedRunLeftOut(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write("ALTER TABLE $accessTokenTableName DROP COLUMN offer_claims");
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::OFFER_CLAIMS_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame(
+            [['name' => 'offer_claims']],
+            $this->database->read(
+                "SELECT name FROM pragma_table_info('$accessTokenTableName') WHERE name = 'offer_claims'",
+            )->fetchAll(PDO::FETCH_ASSOC),
         );
     }
 

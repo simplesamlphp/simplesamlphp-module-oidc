@@ -15,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\OAuth2Bridge;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\IntrospectionCallerRoleEnum;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\TokenIntrospectionController;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
@@ -176,12 +177,19 @@ class TokenIntrospectionControllerTest extends TestCase
 
     /**
      * The access token's own record, as the repository finds it by the token's 'jti'; issued to the given user,
-     * or to no user (a client credentials token, a pre-authorized code with no holder).
+     * or to no user (a client credentials token, a pre-authorized code with no holder), through the given flow,
+     * carrying the attributes of its Credential Offer if it was issued for one.
      */
-    private function givenAccessTokenRecord(string $jti, ?string $userIdentifier = null): void
-    {
+    private function givenAccessTokenRecord(
+        string $jti,
+        ?string $userIdentifier = null,
+        ?FlowTypeEnum $flowType = null,
+        ?array $offerClaims = null,
+    ): void {
         $accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);
         $accessTokenEntityMock->method('getUserIdentifier')->willReturn($userIdentifier);
+        $accessTokenEntityMock->method('getFlowTypeEnum')->willReturn($flowType);
+        $accessTokenEntityMock->method('getOfferClaims')->willReturn($offerClaims);
 
         $this->accessTokenRepositoryMock->method('findById')
             ->with($jti)
@@ -1786,6 +1794,103 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->loggerServiceMock->expects($this->once())
             ->method('warning')
             ->with($this->stringContains('whose record is gone'));
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with(['active' => false])
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow is about the attributes its Credential Offer was made with, and
+     * releases those, under the scopes released as for any token; never the claims of the user record it names,
+     * which may be an existing user's own and are not read at all.
+     */
+    public function testInvokeReleasesTheOfferAttributesOfAPreAuthorizedTokenNotTheUserRecordsClaims(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['ResearchCredential']);
+        $this->givenAccessTokenRecord(
+            'jti1',
+            'user1',
+            FlowTypeEnum::VciPreAuthorizedCode,
+            ['displayName' => ['Offered']],
+        );
+        $userEntityMock = $this->createMock(UserEntity::class);
+        $userEntityMock->expects($this->never())->method('getClaims');
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->with('user1')->willReturn($userEntityMock);
+
+        $this->claimTranslatorExtractorMock->expects($this->once())
+            ->method('extract')
+            ->with(['ResearchCredential'], ['displayName' => ['Offered']])
+            ->willReturn(['name' => 'Offered']);
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(
+                fn(array $data): bool => $data['active'] === true && $data['name'] === 'Offered',
+            ))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow stored before tokens carried their offer's attributes releases no
+     * user claims, and the user record is not read in their place.
+     */
+    public function testInvokeReleasesNoUserClaimsForAPreAuthorizedTokenWithoutOfferAttributes(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['ResearchCredential']);
+        $this->givenAccessTokenRecord('jti1', 'user1', FlowTypeEnum::VciPreAuthorizedCode);
+        $userEntityMock = $this->createMock(UserEntity::class);
+        $userEntityMock->expects($this->never())->method('getClaims');
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->with('user1')->willReturn($userEntityMock);
+
+        $this->claimTranslatorExtractorMock->expects($this->once())
+            ->method('extract')
+            ->with(['ResearchCredential'], [])
+            ->willReturn([]);
+        $this->loggerServiceMock->expects($this->once())
+            ->method('warning')
+            ->with(
+                'Access token jti1 of the pre-authorized code flow carries no Credential Offer attributes (it was ' .
+                'stored before tokens carried them). It releases no user claims.',
+            );
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonResponse')
+            ->with($this->callback(fn(array $data): bool => $data['active'] === true))
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * The user record still decides whether the user of a pre-authorized token exists: one which is gone answers the
+     * token as inactive, as for any other token, whatever attributes the token carries.
+     */
+    public function testInvokeAnswersAPreAuthorizedTokenWhoseUserRecordIsGoneAsInactive(): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->givenIntrospectableAccessToken($requestMock, 'jti1', ['ResearchCredential']);
+        $this->givenAccessTokenRecord(
+            'jti1',
+            'deleted-user',
+            FlowTypeEnum::VciPreAuthorizedCode,
+            ['displayName' => ['Offered']],
+        );
+        $this->userRepositoryMock->method('getUserEntityByIdentifier')->with('deleted-user')->willReturn(null);
+        $this->claimTranslatorExtractorMock->expects($this->never())->method('extract');
 
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())

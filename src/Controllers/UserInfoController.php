@@ -8,6 +8,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Error\UserNotFound;
 use SimpleSAML\Module\oidc\Bridges\PsrHttpBridge;
+use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
@@ -75,16 +76,27 @@ class UserInfoController
         // section 5.3), one granted the 'openid' scope. A plain OAuth 2.0 token
         // (ModuleConfig::OPTION_PLAIN_OAUTH2_AUTHORIZATION_CODE_ENABLED), or one a refresh narrowed to scopes
         // without 'openid', is refused as RFC 6750 section 3.1 has it, under the scheme it was presented under. A
-        // token of an OpenID4VCI flow, which need not carry the scope, is answered as before.
-        if (
-            !in_array(ScopesEnum::OpenId->value, $scopes, true) &&
-            $accessToken->getFlowTypeEnum()?->isVciFlow() !== true
-        ) {
+        // token of the OpenID4VCI authorization code flow, which need not carry the scope, is answered as before: a
+        // user authenticated for it. A token of the pre-authorized code flow is refused whatever its scopes: nobody
+        // authenticated, it is about the attributes its Credential Offer was made with (which it carries for the
+        // Credential Endpoint), and its user record, which may be an existing user's, is not what it is about.
+        $flowType = $accessToken->getFlowTypeEnum();
+        $isGrantedOpenId = in_array(ScopesEnum::OpenId->value, $scopes, true);
+        $refusal = null;
+
+        if ($flowType === FlowTypeEnum::VciPreAuthorizedCode) {
+            $refusal = 'The access token was issued for a pre-authorized Credential Offer, for credential issuance ' .
+            'only.';
+        } elseif (!$isGrantedOpenId && $flowType !== FlowTypeEnum::VciAuthorizationCode) {
+            $refusal = "The access token was not granted the 'openid' scope.";
+        }
+
+        if ($refusal !== null) {
             /** @psalm-suppress MixedAssignment */
             $scheme = $authorization->getAttribute(BearerTokenValidator::ATTRIBUTE_ACCESS_TOKEN_SCHEME);
 
             throw OidcServerException::insufficientScope(
-                "The access token was not granted the 'openid' scope.",
+                $refusal,
                 OidcServerException::buildResourceChallenges(
                     AccessTokenTypesEnum::tryFrom(is_string($scheme) ? $scheme : ''),
                     'insufficient_scope',

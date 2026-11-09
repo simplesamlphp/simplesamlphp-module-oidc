@@ -104,7 +104,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
                 authorization_details,
                 bound_client_id,
                 bound_redirect_uri,
-                issuer_state
+                issuer_state,
+                offer_claims
                 ) "
             . "VALUES (
                           :id,
@@ -119,7 +120,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
                           :authorization_details,
                           :bound_client_id,
                           :bound_redirect_uri,
-                          :issuer_state
+                          :issuer_state,
+                          :offer_claims
                           )",
             $this->getTableName(),
         );
@@ -308,7 +310,8 @@ class AccessTokenRepository extends AbstractDatabaseRepository implements Access
                 . "client_id = :client_id, is_revoked = :is_revoked, auth_code_id = :auth_code_id, "
                 . "requested_claims = :requested_claims, flow_type = :flow_type, " .
             "authorization_details = :authorization_details, bound_client_id = :bound_client_id, " .
-            "bound_redirect_uri = :bound_redirect_uri, issuer_state = :issuer_state WHERE id = :id",
+            "bound_redirect_uri = :bound_redirect_uri, issuer_state = :issuer_state, " .
+            "offer_claims = :offer_claims WHERE id = :id",
             $this->getTableName(),
         );
 

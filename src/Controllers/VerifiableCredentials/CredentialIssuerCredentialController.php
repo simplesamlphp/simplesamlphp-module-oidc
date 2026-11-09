@@ -303,6 +303,24 @@ class CredentialIssuerCredentialController
             );
         }
 
+        // What the credential says about the user. A token of the pre-authorized code flow carries the attributes its
+        // Credential Offer was made with (PreAuthCodeGrant), and the credential is issued from those, never from the
+        // user record: the record of an existing user holds that user's own claims, and a login can rewrite it
+        // between the offer and this request. A token of the authorization code flow is about the user who
+        // authenticated, as their record is now.
+        $userAttributes = $accessToken->getFlowTypeEnum() === FlowTypeEnum::VciPreAuthorizedCode ?
+        $accessToken->getOfferClaims() :
+        $userEntity->getClaims();
+
+        if ($userAttributes === null) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Access token of the pre-authorized code flow ' .
+                'carries no Credential Offer attributes (it was stored before tokens carried them).',
+                ['accessTokenId' => $accessToken->getIdentifier()],
+            );
+            throw OidcServerException::serverError('The access token carries no Credential Offer attributes.');
+        }
+
         // A request names its credential by `credential_identifier` when the token response returned authorization
         // details, by `credential_configuration_id` otherwise, and never by both (OpenID4VCI 1.0 section 8.2).
         // Which members it carries is read by name rather than by value, so a member sent as null still counts as
@@ -599,8 +617,6 @@ class CredentialIssuerCredentialController
             // key to name here, so the subject is one this issuer derives from the authenticated user.
             $sub = $validatedProof?->getSubject() ??
             ($this->moduleConfig->getIssuer() . '/sub/' . $userId);
-
-            $userAttributes = $userEntity->getClaims();
 
         // Get valid claim paths so we can check if the user attribute is allowed to be included in the credential,
         // as per the credential configuration supported configuration.

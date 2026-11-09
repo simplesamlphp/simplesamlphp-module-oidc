@@ -88,6 +88,10 @@ class AccessTokenEntityFactoryTest extends TestCase
         ['type' => 'openid_credential', 'credential_configuration_id' => 'cfg-id'],
     ];
 
+    protected const array OFFER_CLAIMS = ['uid' => ['offered-uid'], 'mail' => ['offered@example.org']];
+
+    protected const string OFFER_CLAIMS_JSON = '{"uid":["offered-uid"],"mail":["offered@example.org"]}';
+
 
     protected MockObject $clientMock;
 
@@ -152,6 +156,7 @@ class AccessTokenEntityFactoryTest extends TestCase
             'subject' => self::SUBJECT,
             'userClaims' => self::USER_CLAIMS,
             'dpopJkt' => self::DPOP_JKT,
+            'offerClaims' => self::OFFER_CLAIMS,
         ];
     }
 
@@ -180,6 +185,7 @@ class AccessTokenEntityFactoryTest extends TestCase
                 'bound_client_id' => self::BOUND_CLIENT_ID,
                 'bound_redirect_uri' => self::BOUND_REDIRECT_URI,
                 'issuer_state' => self::ISSUER_STATE,
+                'offer_claims' => self::OFFER_CLAIMS_JSON,
                 'client' => $this->clientMock,
             ],
             $overrides,
@@ -217,6 +223,8 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->assertSame(self::BOUND_CLIENT_ID, $entity->getBoundClientId());
         $this->assertSame(self::BOUND_REDIRECT_URI, $entity->getBoundRedirectUri());
         $this->assertSame(self::ISSUER_STATE, $entity->getIssuerState());
+        // Persisted, unlike the subject and the user claims: the Credential Endpoint reads it from storage.
+        $this->assertSame(self::OFFER_CLAIMS, $entity->getOfferClaims());
     }
 
 
@@ -308,6 +316,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->assertNull($entity->getBoundClientId());
         $this->assertNull($entity->getBoundRedirectUri());
         $this->assertNull($entity->getIssuerState());
+        $this->assertNull($entity->getOfferClaims());
         $this->assertNull($entity->getSubject());
         $this->assertSame([], $entity->getUserClaims());
         $this->assertNull($entity->getDpopJkt());
@@ -730,6 +739,7 @@ class AccessTokenEntityFactoryTest extends TestCase
             'bound_client_id' => ['bound_client_id', 'getBoundClientId', null],
             'bound_redirect_uri' => ['bound_redirect_uri', 'getBoundRedirectUri', null],
             'issuer_state' => ['issuer_state', 'getIssuerState', null],
+            'offer_claims' => ['offer_claims', 'getOfferClaims', null],
         ];
     }
 
@@ -758,5 +768,68 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->expectException(JsonException::class);
 
         $this->sut()->fromState($this->row(['authorization_details' => '[{"type":']));
+    }
+
+
+    /**
+     * @return array<string, array{mixed, ?array}>
+     */
+    public static function offerClaimsProvider(): array
+    {
+        return [
+            'NULL, a token which carries none' => [null, null],
+            'an offer made with no attributes stays an empty array' => ['[]', []],
+            'the attributes' => [self::OFFER_CLAIMS_JSON, self::OFFER_CLAIMS],
+        ];
+    }
+
+
+    /**
+     * A credential bought with a pre-authorized token is issued from these, so NULL (the token carries none,
+     * and nothing is issued for it) and an empty array (an offer made with no attributes) must not collapse into
+     * each other.
+     */
+    #[DataProvider('offerClaimsProvider')]
+    public function testFromStateDecodesOfferClaims(mixed $value, ?array $expected): void
+    {
+        $entity = $this->sut()->fromState($this->row(['offer_claims' => $value]));
+
+        $this->assertSame($expected, $entity->getOfferClaims());
+    }
+
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function offerClaimsNotDecodingToAnArrayProvider(): array
+    {
+        return [
+            'a JSON string' => ['"offered-uid"'],
+            'a JSON number' => ['5'],
+            'JSON null' => ['null'],
+            'not a string, so not decoded' => [['uid' => ['offered-uid']]],
+        ];
+    }
+
+
+    /**
+     * Unlike `authorization_details`, a stored value which is not a JSON array is refused rather than read as
+     * none: what a credential says is read from it.
+     */
+    #[DataProvider('offerClaimsNotDecodingToAnArrayProvider')]
+    public function testFromStateRejectsOfferClaimsWhichDoNotDecodeToAnArray(mixed $value): void
+    {
+        $this->assertServerError(
+            'Invalid Access Token Entity state: offer claims',
+            fn() => $this->sut()->fromState($this->row(['offer_claims' => $value])),
+        );
+    }
+
+
+    public function testFromStateLetsUnparsableOfferClaimsThrow(): void
+    {
+        $this->expectException(JsonException::class);
+
+        $this->sut()->fromState($this->row(['offer_claims' => '{"uid":']));
     }
 }

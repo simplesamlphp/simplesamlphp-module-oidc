@@ -123,6 +123,9 @@ class PreAuthCodeGrantTest extends TestCase
     /** The one hint an unknown code and a consumed one share, so that the answer does not tell them apart. */
     private const string INVALID_CODE_HINT = 'Invalid pre-authorized code.';
 
+    /** The attributes the code's Credential Offer was made with. */
+    private const array OFFER_CLAIMS = ['uid' => ['offered-uid'], 'givenName' => ['Offered']];
+
 
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
 
@@ -721,6 +724,42 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
+     * A code which carries no Credential Offer attributes was stored before codes carried them, and nothing can be
+     * issued from it: the user record is not read in their place. Answered as the OP's own failure, before a
+     * Transaction Code attempt is spent or the code is consumed, so a code stored since can still be redeemed.
+     */
+    public function testRefusesACodeWhichCarriesNoCredentialOfferAttributes(): void
+    {
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE, offerClaims: null));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $this->accessTokenEntityFactoryMock->expects($this->never())->method('fromData');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestMock,
+                $this->createMock(ResponseTypeInterface::class),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The token request was answered.');
+        } catch (OidcServerException $exception) {
+            $this->assertServerError($exception, 'The pre-authorized code carries no Credential Offer attributes.');
+        }
+
+        $this->assertLogged(
+            'error',
+            'Token request rejected: the pre-authorized code carries no Credential Offer attributes (it was ' .
+            'stored before codes carried them), and no credential can be issued from it.',
+        );
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
+    }
+
+
+    /**
      * A missing transaction code is not a guess, so it spends no attempt.
      */
     #[DataProvider('missingParameterProvider')]
@@ -804,7 +843,10 @@ class PreAuthCodeGrantTest extends TestCase
      * The token is made for the code's holder, granting the configuration the offer offered, expiring after
      * the lifetime given, marked
      * as issued through the pre-authorized code flow, tied to the code, and carrying whatever the
-     * authorization details rule read from the request. Which client it is issued to, and which identifier
+     * authorization details rule read from the request, and a copy of the attributes the offer was made with (an
+     * empty set kept as one). Its subject and user claims are resolved from a user built from those attributes,
+     * never from the user record, which may hold an existing user's own claims: the record is not looked up at
+     * all. Which client it is issued to, and which identifier
      * is bound to it, follow the client rule's answer: a registered wallet gets the token issued to itself,
      * the entity the rule answered with, and nothing bound, since the binding stands in for a registration;
      * a non-registered wallet gets it issued to the code's client with the identifier it declared bound to
@@ -818,6 +860,7 @@ class PreAuthCodeGrantTest extends TestCase
         ?array $authorizationDetails,
         string $wallet,
         ?string $boundClientId,
+        array $offerClaims,
     ): void {
         $walletClientMock = $this->createMock(ClientEntity::class);
         $walletClientMock->method('getIdentifier')->willReturn(self::WALLET_CLIENT_ID);
@@ -834,24 +877,27 @@ class PreAuthCodeGrantTest extends TestCase
             $this->isInstanceOf(QueryResponseMode::class),
             [HttpMethodsEnum::POST],
         )->willReturn($this->resultBagWith($authorizationDetails, $walletClient));
-        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode(holder: $holder));
+        $this->authCodeRepositoryMock->method('findById')->willReturn(
+            $this->preAuthorizedCode(holder: $holder, offerClaims: $offerClaims),
+        );
         $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
-        // A code with a holder has the holder's record looked up and the subject resolved from it; a code
-        // without one has nothing to resolve, and the entity names the client as the subject when it renders.
-        $holderEntity = $this->createMock(UserEntity::class);
-        $this->userRepositoryMock->expects($holder === null ? $this->never() : $this->once())
-            ->method('getUserEntityByIdentifier')
-            ->with(self::USER_ID)
-            ->willReturn($holderEntity);
+        // A code with a holder has the subject resolved from a user built from its offer's attributes, never from
+        // the user record, which is not looked up; a code without one has nothing to resolve, and the entity names
+        // the client as the subject when it renders.
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+        $isTheOfferUser = $this->callback(
+            fn(UserEntity $user): bool =>
+                $user->getIdentifier() === self::USER_ID && $user->getClaims() === $offerClaims,
+        );
         $this->subjectResolverMock->expects($holder === null ? $this->never() : $this->once())
             ->method('resolve')
-            ->with($holderEntity)
+            ->with($isTheOfferUser)
             ->willReturn('holder-subject');
         // The claims released next to the subject are those the granted scopes carry.
         $this->accessTokenClaimsResolverMock->expects($holder === null ? $this->never() : $this->once())
             ->method('resolve')
             ->with(
-                $holderEntity,
+                $isTheOfferUser,
                 $this->callback(fn(array $scopes): bool => $this->scopeIdentifiers($scopes) === [self::OFFERED]),
             )
             ->willReturn([]);
@@ -874,6 +920,8 @@ class PreAuthCodeGrantTest extends TestCase
                 ?string $issuerState,
                 ?string $subject,
                 array $userClaims,
+                ?string $dpopJkt = null,
+                ?array $offerClaims = null,
             ) use (
                 &$tokenData,
                 $accessToken,
@@ -894,6 +942,7 @@ class PreAuthCodeGrantTest extends TestCase
                     'issuerState',
                     'subject',
                     'userClaims',
+                    'offerClaims',
                 );
 
                 return $accessToken;
@@ -931,6 +980,7 @@ class PreAuthCodeGrantTest extends TestCase
         $this->assertNull($tokenData['issuerState']);
         $this->assertSame($holder === null ? null : 'holder-subject', $tokenData['subject']);
         $this->assertSame([], $tokenData['userClaims']);
+        $this->assertSame($offerClaims, $tokenData['offerClaims']);
         $this->assertSame([$this->requestMock], $emitted);
         $this->assertLogged(
             'notice',
@@ -948,14 +998,23 @@ class PreAuthCodeGrantTest extends TestCase
                 self::AUTHORIZATION_DETAILS,
                 'registered',
                 null,
+                self::OFFER_CLAIMS,
             ],
             'a code with a holder and authorization details, redeemed by a non-registered wallet' => [
                 self::USER_ID,
                 self::AUTHORIZATION_DETAILS,
                 'non-registered',
                 self::WALLET_CLIENT_ID,
+                self::OFFER_CLAIMS,
             ],
-            'a code with neither, redeemed anonymously' => [null, null, 'anonymous', null],
+            'a code with neither, redeemed anonymously' => [null, null, 'anonymous', null, self::OFFER_CLAIMS],
+            'a code with a holder whose offer had no attributes, redeemed anonymously' => [
+                self::USER_ID,
+                null,
+                'anonymous',
+                null,
+                [],
+            ],
         ];
     }
 
@@ -1496,6 +1555,7 @@ class PreAuthCodeGrantTest extends TestCase
             self::USER_ID,
             'openid-credential-offer://',
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+            offerClaims: self::OFFER_CLAIMS,
         ));
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
@@ -1577,6 +1637,7 @@ class PreAuthCodeGrantTest extends TestCase
         bool $isRevoked = false,
         ?string $holder = self::USER_ID,
         array $offered = [self::OFFERED],
+        ?array $offerClaims = self::OFFER_CLAIMS,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             self::PRE_AUTHORIZED_CODE,
@@ -1591,6 +1652,7 @@ class PreAuthCodeGrantTest extends TestCase
             isRevoked: $isRevoked,
             flowTypeEnum: $flowType,
             txCode: $transactionCode,
+            offerClaims: $offerClaims,
         );
     }
 

@@ -200,6 +200,58 @@ class AuthCodeRepositoryTest extends TestCase
 
 
     /**
+     * A pre-authorized code is stored with the attributes its Credential Offer was made with, which reading it back
+     * returns and an update -- the revocation -- writes again. A code without them reads back NULL.
+     *
+     * @throws \Exception
+     */
+    public function testStoresTheAttributesOfACredentialOfferAndKeepsThemOnUpdate(): void
+    {
+        $offeredCode = new AuthCodeEntity(
+            'offered-auth-code-id',
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+            flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
+            offerClaims: ['uid' => ['offered-uid']],
+        );
+        $plainCode = new AuthCodeEntity(
+            'plain-auth-code-id',
+            $this->clientEntityMock,
+            $this->scopes,
+            new DateTimeImmutable('tomorrow', new DateTimeZone('UTC')),
+            self::USER_ID,
+            self::REDIRECT_URI,
+        );
+        $this->repository->persistNewAuthCode($offeredCode);
+        $this->repository->persistNewAuthCode($plainCode);
+
+        $states = [];
+        $this->authCodeEntityFactoryMock->method('fromState')->willReturnCallback(
+            function (array $state) use (&$states, $offeredCode, $plainCode): AuthCodeEntity {
+                $states[] = $state;
+
+                return $state['id'] === 'offered-auth-code-id' ? $offeredCode : $plainCode;
+            },
+        );
+
+        $this->repository->findById('offered-auth-code-id');
+        $this->repository->revokeAuthCode('offered-auth-code-id');
+        $this->repository->findById('offered-auth-code-id');
+        $this->repository->findById('plain-auth-code-id');
+
+        $this->assertCount(4, $states);
+        $this->assertSame(
+            ['{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', null],
+            array_column($states, 'offer_claims'),
+        );
+        $this->assertSame(1, (int)$states[2]['is_revoked']);
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testAddAndNotFound(): void

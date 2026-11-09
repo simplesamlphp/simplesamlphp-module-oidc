@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
@@ -247,6 +248,20 @@ class PreAuthCodeGrant extends AuthCodeGrant
 
         $this->validateAuthorizationCode($preAuthorizedCode, $client, $request, $preAuthorizedCode);
 
+        // The credentials the code buys are issued from the attributes its Credential Offer was made with, which
+        // the code carries. A code which carries none was stored before codes did (VCI never shipped one), and
+        // nothing can be issued from it: the user record is not read in their place. Refused before a Transaction
+        // Code attempt is spent or the code is consumed.
+        $offerClaims = $preAuthorizedCode->getOfferClaims();
+
+        if ($offerClaims === null) {
+            $this->loggerService->error(
+                'Token request rejected: the pre-authorized code carries no Credential Offer attributes (it was ' .
+                'stored before codes carried them), and no credential can be issued from it.',
+            );
+            throw OidcServerException::serverError('The pre-authorized code carries no Credential Offer attributes.');
+        }
+
         // Validate Transaction Code. Not sent means null or an empty string; anything else, "0" included, is
         // a Transaction Code. OpenID4VCI 1.0 section 6.3 has a missing one and an unexpected one answered with
         // invalid_request, and a wrong one with invalid_grant. A code which carries one carries a non-empty
@@ -357,6 +372,17 @@ class PreAuthCodeGrant extends AuthCodeGrant
             throw OidcServerException::invalidGrant('Invalid pre-authorized code.');
         }
 
+        // What the token is about is the offer, never the user record: the record of an existing user keeps that
+        // user's own claims, and a login can rewrite it at any time. The subject and the user claims of the JWT are
+        // resolved from a user built from the offer's attributes, which is not stored, and the token carries a copy
+        // of the attributes for the Credential Endpoint, so that a code purged after it expires can not take them
+        // from a token which still lives.
+        $offerUser = null;
+        if ($userIdentifier !== null) {
+            $now = $this->helpers->dateTime()->getUtc();
+            $offerUser = new UserEntity($userIdentifier, $now, $now, $offerClaims);
+        }
+
         // Issue and persist new access token
         $accessToken = $this->issueAccessToken(
             $accessTokenTTL,
@@ -367,7 +393,9 @@ class PreAuthCodeGrant extends AuthCodeGrant
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
             authorizationDetails: $authorizationDetails,
             boundClientId: $boundClientId,
+            user: $offerUser,
             dpopJkt: $dpopJkt,
+            offerClaims: $offerClaims,
         );
 
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));

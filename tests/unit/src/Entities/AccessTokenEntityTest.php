@@ -139,6 +139,7 @@ class AccessTokenEntityTest extends TestCase
         ?string $subject = null,
         array $userClaims = [],
         ?string $dpopJkt = null,
+        ?array $offerClaims = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $this->id,
@@ -154,6 +155,7 @@ class AccessTokenEntityTest extends TestCase
             subject: $subject,
             userClaims: $userClaims,
             dpopJkt: $dpopJkt,
+            offerClaims: $offerClaims,
         );
     }
 
@@ -315,9 +317,58 @@ class AccessTokenEntityTest extends TestCase
         $this->assertSame('thumbprint-of-the-dpop-key', $accessTokenEntity->getDpopJkt());
         $this->assertSame(
             ['id', 'scopes', 'expires_at', 'user_id', 'client_id', 'is_revoked', 'auth_code_id', 'requested_claims',
-                'flow_type', 'authorization_details', 'bound_client_id', 'bound_redirect_uri', 'issuer_state'],
+                'flow_type', 'authorization_details', 'bound_client_id', 'bound_redirect_uri', 'issuer_state',
+                'offer_claims'],
             array_keys($accessTokenEntity->getState()),
         );
+    }
+
+
+    /**
+     * @return array<string, array{?array, ?string}>
+     */
+    public static function offerClaimsProvider(): array
+    {
+        return [
+            'none' => [null, null],
+            'an offer made with no attributes' => [[], '[]'],
+            'the attributes' => [
+                ['uid' => ['offered-uid'], 'mail' => ['offered@example.org']],
+                '{"uid":["offered-uid"],"mail":["offered@example.org"]}',
+            ],
+            'an attribute which is not UTF-8 is substituted' => [['cn' => ["Jo\xC3"]], '{"cn":["Jo\ufffd"]}'],
+        ];
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow stores the attributes of its Credential Offer, which the Credential
+     * Endpoint reads from storage; none (NULL) and an offer of no attributes are stored apart.
+     */
+    #[DataProvider('offerClaimsProvider')]
+    public function testStoresTheAttributesOfItsCredentialOffer(?array $offerClaims, ?string $expectedState): void
+    {
+        $accessTokenEntity = $this->mock(offerClaims: $offerClaims);
+
+        $this->assertSame($offerClaims, $accessTokenEntity->getOfferClaims());
+        $this->assertSame($expectedState, $accessTokenEntity->getState()['offer_claims']);
+    }
+
+
+    /**
+     * The JWT carries the user claims resolved at minting (AccessTokenClaimsResolver), never the offer's attributes
+     * as they are: those are for the Credential Endpoint, and the token goes to the wallet.
+     */
+    public function testJwtDoesNotCarryTheAttributesOfTheCredentialOffer(): void
+    {
+        [$payload] = $this->serialise(
+            $this->mock(offerClaims: ['uid' => ['offered-uid'], 'mail' => ['offered@example.org']]),
+        );
+
+        $this->assertArrayNotHasKey('uid', $payload);
+        $this->assertArrayNotHasKey('mail', $payload);
+        $this->assertArrayNotHasKey('offer_claims', $payload);
+        $this->assertStringNotContainsString('offered', json_encode($payload, JSON_THROW_ON_ERROR));
     }
 
 

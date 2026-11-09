@@ -702,30 +702,58 @@ class UserInfoControllerTest extends TestCase
 
 
     /**
-     * @return array<string, array{0: \SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum}>
+     * A token of the OpenID4VCI authorization code flow need not carry the openid scope, and is answered as before:
+     * a user authenticated for it.
      */
-    public static function credentialFlowProvider(): array
+    public function testAnswersATokenOfTheCredentialAuthorizationCodeFlowWithoutTheOpenIdScope(): void
     {
-        return [
-            'the authorization code flow' => [FlowTypeEnum::VciAuthorizationCode],
-            'the pre-authorized code flow' => [FlowTypeEnum::VciPreAuthorizedCode],
-        ];
-    }
-
-
-    /**
-     * A token of an OpenID4VCI flow need not carry the openid scope, and is answered as before.
-     */
-    #[DataProvider('credentialFlowProvider')]
-    public function testAnswersATokenOfACredentialFlowWithoutTheOpenIdScope(FlowTypeEnum $flowType): void
-    {
-        $response = $this->userInfoResponseFor(['ResearchCredential'], $flowType, 'Bearer');
+        $response = $this->userInfoResponseFor(['ResearchCredential'], FlowTypeEnum::VciAuthorizationCode, 'Bearer');
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame(
             ['email' => 'userid@localhost.localdomain', 'sub' => 'the-subject'],
             json_decode((string)$response->getContent(), true, 512, JSON_THROW_ON_ERROR),
         );
+    }
+
+
+    /**
+     * @return array<string, array{0: ?string[]}>
+     */
+    public static function preAuthorizedTokenScopesProvider(): array
+    {
+        return [
+            'a credential configuration' => [['ResearchCredential']],
+            'openid besides, which the grant never gives' => [['openid', 'ResearchCredential']],
+            'no scopes claim' => [null],
+        ];
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow is refused whatever its scopes, before the user record is looked up:
+     * nobody authenticated for it, it is about the attributes its Credential Offer was made with, and the record it
+     * names may be an existing user's, whose claims are not the token's to release.
+     *
+     * @param string[]|null $scopes
+     */
+    #[DataProvider('preAuthorizedTokenScopesProvider')]
+    public function testRefusesATokenOfThePreAuthorizedCodeFlow(?array $scopes): void
+    {
+        $this->userRepositoryMock->expects($this->never())->method('getUserEntityByIdentifier');
+
+        $response = $this->userInfoResponseFor($scopes, FlowTypeEnum::VciPreAuthorizedCode, 'Bearer');
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertSame(
+            'Bearer error="insufficient_scope", DPoP algs="ES256"',
+            $response->headers->get('WWW-Authenticate'),
+        );
+        $this->assertStringContainsString(
+            'The access token was issued for a pre-authorized Credential Offer, for credential issuance only.',
+            (string)$response->getContent(),
+        );
+        $this->assertStringNotContainsString('userid@localhost.localdomain', (string)$response->getContent());
     }
 
 

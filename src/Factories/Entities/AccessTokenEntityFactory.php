@@ -31,6 +31,8 @@ class AccessTokenEntityFactory
      * @param array<non-empty-string, mixed> $userClaims The user claims placed in the JWT next to 'sub'.
      * @param string|null $dpopJkt The thumbprint of the DPoP key the token is bound to; null for none, and for an
      * entity rehydrated from storage.
+     * @param array|null $offerClaims The attributes of the pre-authorized Credential Offer the token was issued for;
+     * null for a token of any other flow.
      */
     public function fromData(
         string $id,
@@ -49,6 +51,7 @@ class AccessTokenEntityFactory
         ?string $subject = null,
         array $userClaims = [],
         ?string $dpopJkt = null,
+        ?array $offerClaims = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,
@@ -69,6 +72,7 @@ class AccessTokenEntityFactory
             subject: $subject,
             userClaims: $userClaims,
             dpopJkt: $dpopJkt,
+            offerClaims: $offerClaims,
         );
     }
 
@@ -123,6 +127,7 @@ class AccessTokenEntityFactory
         $boundClientId = empty($state['bound_client_id']) ? null : (string)$state['bound_client_id'];
         $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
         $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
+        $offerClaims = $this->offerClaimsFromState($state);
 
         return $this->fromData(
             $id,
@@ -138,6 +143,34 @@ class AccessTokenEntityFactory
             $boundClientId,
             $boundRedirectUri,
             $issuerState,
+            offerClaims: $offerClaims,
         );
+    }
+
+
+    /**
+     * The attributes of the pre-authorized Credential Offer the token was issued for, or null for a token which
+     * carries none: one of another flow, or a state written before tokens carried them (a cached one included),
+     * which has no such entry. An empty JSON array stays an empty array, an offer made with no attributes.
+     *
+     * @throws \JsonException
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function offerClaimsFromState(array $state): ?array
+    {
+        if (!isset($state['offer_claims'])) {
+            return null;
+        }
+
+        /** @psalm-suppress MixedAssignment */
+        $offerClaims = is_string($state['offer_claims']) ?
+        json_decode($state['offer_claims'], true, 512, JSON_THROW_ON_ERROR) :
+        null;
+
+        if (!is_array($offerClaims)) {
+            throw OidcServerException::serverError('Invalid Access Token Entity state: offer claims');
+        }
+
+        return $offerClaims;
     }
 }
