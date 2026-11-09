@@ -530,8 +530,8 @@ class CredentialIssuerCredentialController
             );
         } catch (ConfigurationError | X509TrustStoreException $exception) {
             // What the proofs are validated under can not be used: the binding policy or the proof types of the
-            // configuration, the trust anchors of key attestations, or the temporary files a certificate path is
-            // validated with. The issuer's fault, not the wallet's.
+            // configuration, the settings DID resolution is set up from, the trust anchors of key attestations, or
+            // the temporary files a certificate path is validated with. The issuer's fault, not the wallet's.
             $this->loggerService->error(
                 'CredentialIssuerCredentialController::credential: The key proofs could not be validated.',
                 ['credentialConfigurationId' => $resolvedCredentialIdentifier, 'error' => $exception->getMessage()],

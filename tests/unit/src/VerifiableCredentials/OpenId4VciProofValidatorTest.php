@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials;
 
+use Exception;
 use Jose\Component\Core\JWK;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -11,6 +12,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Assert\AssertionFailedException;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
@@ -18,6 +20,7 @@ use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
+use SimpleSAML\Module\oidc\Exceptions\OidcException;
 use SimpleSAML\Module\oidc\Factories\DidFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
@@ -36,6 +39,7 @@ use SimpleSAML\OpenID\Did\DidDocument;
 use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\ResolvedVerificationMethod;
+use SimpleSAML\OpenID\Exceptions\DestinationPolicyException;
 use SimpleSAML\OpenID\Exceptions\DidException;
 use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Exceptions\X509TrustStoreException;
@@ -50,6 +54,7 @@ use SimpleSAML\OpenID\VerifiableCredentials\Factories\OpenId4VciProofFactory;
 use SimpleSAML\OpenID\VerifiableCredentials\KeyAttestation;
 use SimpleSAML\OpenID\VerifiableCredentials\OpenId4VciProof;
 use Stringable;
+use Throwable;
 
 /**
  * What a key proof has to satisfy before a credential is issued against it.
@@ -327,6 +332,77 @@ class OpenId4VciProofValidatorTest extends TestCase
             ['credential_configuration_id' => 'test'],
             VciCredentialBindingPolicyEnum::Proofless,
             $this->accessTokenMock,
+        );
+    }
+
+
+    /**
+     * What DidFactory::build() may fail with, short of a ConfigurationError.
+     *
+     * @return array<string,array{\Throwable}>
+     */
+    public static function didFacadeBuildFailureProvider(): array
+    {
+        return [
+            'an option which is not an array' => [new AssertionFailedException('not an array')],
+            'an outbound destination the library refuses' => [new DestinationPolicyException('not a CIDR')],
+            'a cache adapter which can not be built' => [new OidcException('no such adapter')],
+            'a cache duration which is not an interval' => [new Exception('not an interval')],
+        ];
+    }
+
+
+    /**
+     * Building the DID facade reads this issuer's configuration and nothing of the proof, so whatever stops it is
+     * the configuration's fault, which the Credential Endpoint answers with a server error, and not an invalid proof,
+     * which would be the wallet's.
+     */
+    #[DataProvider('didFacadeBuildFailureProvider')]
+    public function testRefusesADidFacadeWhichCanNotBeBuiltAsTheConfigurationsFault(Throwable $failure): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('DID resolution could not be set up: ' . $failure->getMessage());
+
+        $this->sutWithDidFactoryFailing($failure)->validateRequest(
+            $this->requestWith(),
+            VciCredentialBindingPolicyEnum::ProofBound,
+            $this->accessTokenMock,
+        );
+    }
+
+
+    /**
+     * A ConfigurationError already names the setting at fault, and is let through as it is.
+     */
+    public function testLetsAConfigurationErrorBuildingTheDidFacadeThroughAsItIs(): void
+    {
+        $failure = new ConfigurationError('Option "vci_did_address_pinning_mode" can not be preferred.');
+
+        try {
+            $this->sutWithDidFactoryFailing($failure)->validateRequest(
+                $this->requestWith(),
+                VciCredentialBindingPolicyEnum::ProofBound,
+                $this->accessTokenMock,
+            );
+            $this->fail('A ConfigurationError was expected.');
+        } catch (ConfigurationError $exception) {
+            $this->assertSame($failure, $exception);
+        }
+    }
+
+
+    protected function sutWithDidFactoryFailing(Throwable $failure): OpenId4VciProofValidator
+    {
+        $didFactoryMock = $this->createMock(DidFactory::class);
+        $didFactoryMock->method('build')->willThrowException($failure);
+
+        return new OpenId4VciProofValidator(
+            $this->moduleConfigMock,
+            $this->verifiableCredentialsMock,
+            $didFactoryMock,
+            $this->nonceServiceMock,
+            $this->loggerServiceMock,
+            $this->keyAttestationVerifierMock,
         );
     }
 

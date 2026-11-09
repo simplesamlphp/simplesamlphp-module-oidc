@@ -1677,6 +1677,25 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * Refused as the configuration's fault, which the Credential Endpoint answers with a server error, rather than
+     * by SimpleSAMLphp's assertion, which it does not catch.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesCredentialBindingPoliciesWhichAreNotAMap(): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Option "' . ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES . '" is not a map of credential ' .
+            'configuration ids to their binding policies.',
+        );
+
+        $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_VCI_CREDENTIAL_BINDING_POLICIES, 'proofless'))
+            ->getVciCredentialBindingPolicies();
+    }
+
+
+    /**
      * A configuration which binds its credentials and sets no proof types of its own takes jwt proofs without key
      * attestations, as every one did before the option.
      *

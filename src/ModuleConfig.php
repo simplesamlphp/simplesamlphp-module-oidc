@@ -2978,10 +2978,13 @@ class ModuleConfig
         $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
         $bindingPolicies = [];
 
+        $configured = $this->getOptionalArrayOption(
+            self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES,
+            'a map of credential configuration ids to their binding policies',
+        );
+
         /** @var mixed $value */
-        foreach (
-            $this->config()->getOptionalArray(self::OPTION_VCI_CREDENTIAL_BINDING_POLICIES, []) as $key => $value
-        ) {
+        foreach ($configured as $key => $value) {
             $credentialConfigurationId = (string)$key;
 
             if (!in_array($credentialConfigurationId, $supportedIds, true)) {
@@ -3006,6 +3009,31 @@ class ModuleConfig
         }
 
         return $this->vciCredentialBindingPolicies = $bindingPolicies;
+    }
+
+
+    /**
+     * An option which, when set, has to be an array. Read as a value, so that one which is not is refused as the
+     * configuration's fault, as everything else here is, rather than by SimpleSAMLphp's assertion, which a caller
+     * answering configuration faults does not catch: the Credential Endpoint answers a ConfigurationError met while
+     * validating key proofs with a server error, and an assertion would end on SimpleSAMLphp's error page instead.
+     *
+     * @param string $expected What the option has to be, completing the refusal 'Option "..." is not ...'.
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function getOptionalArrayOption(string $option, string $expected): array
+    {
+        /** @var mixed $configured */
+        $configured = $this->config()->getOptionalValue($option, []);
+
+        if (!is_array($configured)) {
+            throw new ConfigurationError(
+                sprintf('Option "%s" is not %s.', $option, $expected),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $configured;
     }
 
 
@@ -3085,21 +3113,10 @@ class ModuleConfig
 
         $supportedIds = $this->getVciCredentialConfigurationIdsSupported();
         $proofTypesByConfiguration = [];
-
-        // Read as a value, so that one which is not an array is refused as the configuration's fault, as everything
-        // else here is, and not by SimpleSAMLphp's assertion.
-        /** @var mixed $configured */
-        $configured = $this->config()->getOptionalValue(self::OPTION_VCI_CREDENTIAL_PROOF_TYPES, []);
-
-        if (!is_array($configured)) {
-            throw new ConfigurationError(
-                sprintf(
-                    'Option "%s" is not a map of credential configuration ids to their proof types.',
-                    self::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
-                ),
-                self::DEFAULT_FILE_NAME,
-            );
-        }
+        $configured = $this->getOptionalArrayOption(
+            self::OPTION_VCI_CREDENTIAL_PROOF_TYPES,
+            'a map of credential configuration ids to their proof types',
+        );
 
         /** @var mixed $value */
         foreach ($configured as $key => $value) {

@@ -178,15 +178,30 @@ class OpenId4VciProofValidator
      * The factory keeps the built facade, so this is the same instance every other collaborator in the
      * request gets rather than one more of its own.
      *
+     * Building it reads this issuer's configuration and nothing of the proof (DidFactory::build()), so whatever
+     * stops it is refused as the configuration's fault, a ConfigurationError, which the Credential Endpoint answers
+     * with a server error. Let through as thrown, it would reach the catch-all of validateProof() and be answered
+     * as an invalid proof, the wallet's fault: a cache adapter which can not be built, an outbound destination the
+     * library refuses, a cache duration which is not an interval, an option which is not an array.
+     *
      * @throws \SimpleSAML\Error\ConfigurationError
-     * @throws \SimpleSAML\Module\oidc\Exceptions\OidcException
-     * @throws \SimpleSAML\OpenID\Exceptions\DidException
-     * @throws \SimpleSAML\OpenID\Exceptions\DestinationPolicyException
-     * @throws \Exception
      */
     protected function did(): Did
     {
-        return $this->did ??= $this->didFactory->build();
+        if ($this->did instanceof Did) {
+            return $this->did;
+        }
+
+        try {
+            return $this->did = $this->didFactory->build();
+        } catch (ConfigurationError $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                'DID resolution could not be set up: ' . $throwable->getMessage(),
+                ModuleConfig::DEFAULT_FILE_NAME,
+            );
+        }
     }
 
 
@@ -1199,8 +1214,12 @@ class OpenId4VciProofValidator
 
         $didResolutionBudget->noteResolutionAttempt($didUrl);
 
+        // Outside the try, whose refusal is the wallet's: a facade which can not be built is the configuration's
+        // fault (did()), whichever call reaches for it first.
+        $did = $this->did();
+
         try {
-            return $this->did()->resolveDocument(
+            return $did->resolveDocument(
                 $didUrl->getDid(),
                 $didResolutionBudget->getDeadlineTimestamp(),
             );
