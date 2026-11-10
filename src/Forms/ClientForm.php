@@ -1051,6 +1051,11 @@ class ClientForm extends Form
 
 
     /**
+     * Nette documents the parameter as `iterable<mixed>|\stdClass` on the native `array|object` this method keeps.
+     * Psalm, since 6.20.10, holds an override to that docblock type, yet refuses the same type as a docblock for
+     * the native one (an iterable with mixed keys is not an array), so no docblock here satisfies both checks.
+     *
+     * @psalm-suppress ImplementedParamTypeMismatch
      * @throws \Exception
      */
     public function setDefaults(object|array $values, bool $erase = false): static
