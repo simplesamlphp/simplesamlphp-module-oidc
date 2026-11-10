@@ -2771,12 +2771,21 @@ $config = [
      * credential. A token without one is recorded as an opaque fingerprint
      * instead, which keeps separate callers apart in the trail but says
      * nothing about who they are. The token itself is never recorded.
+     *
+     * The settings array also takes 'credential_configuration_ids': the
+     * credential configurations (keys of vci_credential_configurations_supported)
+     * the token may offer through the credential offer endpoint, and whose
+     * credentials it may revoke, suspend or reinstate through the credential
+     * status endpoint. ['*'] allows all of them. A token without the list
+     * may do neither, whatever its scopes, so a token written as a bare list
+     * of scopes can not be used at those two endpoints. The scopes say which
+     * endpoints a token may call, the list which credentials.
      */
     ModuleConfig::OPTION_API_TOKENS => [
 //        'strong-random-token-string' => [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciAll, // Gives access to all VCI-related endpoints.
-//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
+//            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint, but a bare list allows no credential configuration: see 'credential_configuration_ids' above.
 //        ],
 //        'strong-random-token-string-2' => [
 //            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
@@ -2786,8 +2795,11 @@ $config = [
 //        'strong-random-token-string-3' => [
 //            'name' => 'HR system', // Recorded in the status change audit trail.
 //            'scopes' => [
+//                \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialOffer, // Gives access to the credential offer endpoint.
 //                \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::VciCredentialStatus, // Gives access to the credential status endpoint.
 //            ],
+//            // The credentials it may offer and change the status of; ['*'] for all of them.
+//            'credential_configuration_ids' => ['employee_card'],
 //        ],
     ],
 ];

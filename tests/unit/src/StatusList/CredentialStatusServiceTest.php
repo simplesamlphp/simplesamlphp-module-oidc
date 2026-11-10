@@ -8,6 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
@@ -20,6 +21,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusService;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
+use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 #[CoversClass(CredentialStatusService::class)]
@@ -33,6 +35,8 @@ class CredentialStatusServiceTest extends TestCase
     protected const string LIST_ID = 'list-1';
 
     protected const int IDX = 42;
+
+    protected const string CONFIGURATION_ID = 'employee_card';
 
 
     protected MockObject $statusListEntryRepositoryMock;
@@ -73,6 +77,7 @@ class CredentialStatusServiceTest extends TestCase
         int $status = StatusTypeEnum::Valid->value,
         bool $isAllocated = true,
         ?DateTimeImmutable $expiresAt = null,
+        ?string $credentialConfigurationId = self::CONFIGURATION_ID,
     ): MockObject {
         $entry = $this->createMock(StatusListEntryRecord::class);
         $entry->method('getStatusListId')->willReturn(self::LIST_ID);
@@ -80,6 +85,7 @@ class CredentialStatusServiceTest extends TestCase
         $entry->method('getStatus')->willReturn($status);
         $entry->method('isAllocated')->willReturn($isAllocated);
         $entry->method('getExpiresAt')->willReturn($expiresAt);
+        $entry->method('getCredentialConfigurationId')->willReturn($credentialConfigurationId);
 
         return $entry;
     }
@@ -371,5 +377,130 @@ class CredentialStatusServiceTest extends TestCase
         $this->statusListEntryRepositoryMock->method('findByCredentialIdHash')->willReturn(null);
 
         $this->assertNull($this->sut()->getStatusValue(self::CREDENTIAL_ID));
+    }
+
+
+    /**
+     * A caller limited to some credential configurations changes a credential issued from one of them, as a
+     * caller with no limit does; the administration screens pass none at all. A credential whose configuration
+     * is not recorded is one only they may act on.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('permittedLimitProvider')]
+    public function testActsOnACredentialIssuedFromAConfigurationTheCallerMayActOn(
+        ?string $entryConfigurationId,
+        ?CredentialConfigurationLimit $credentialConfigurationLimit,
+    ): void {
+        $this->statusListEntryRepositoryMock->method('findByCredentialIdHash')
+            ->willReturn($this->entry(credentialConfigurationId: $entryConfigurationId));
+        $this->statusAuditRepositoryMock->expects($this->once())->method('record');
+        $this->statusUpdaterMock->expects($this->once())->method('setStatus')->willReturn(true);
+
+        $change = $this->sut()->setStatus(
+            self::CREDENTIAL_ID,
+            StatusTypeEnum::Invalid,
+            StatusChangeSourceEnum::Api,
+            'HR system',
+            $credentialConfigurationLimit,
+        );
+
+        $this->assertTrue($change?->isChanged());
+    }
+
+
+    public static function permittedLimitProvider(): array
+    {
+        return [
+            'the one configuration' => [
+                self::CONFIGURATION_ID,
+                CredentialConfigurationLimit::to([self::CONFIGURATION_ID]),
+            ],
+            'among others' => [
+                self::CONFIGURATION_ID,
+                CredentialConfigurationLimit::to(['library_card', self::CONFIGURATION_ID, 'student_card']),
+            ],
+            'no limit' => [self::CONFIGURATION_ID, CredentialConfigurationLimit::unlimited()],
+            'no limit passed' => [self::CONFIGURATION_ID, null],
+            'no configuration recorded, no limit passed' => [null, null],
+        ];
+    }
+
+
+    /**
+     * A credential outside the caller's credential configurations is answered as one which can not be acted
+     * on, exactly as an unknown one is: nothing is checked, recorded or changed, and a request for the status
+     * it already holds is not reported as a success either, which would tell the caller it exists. The
+     * operator is told which it was, and by whom.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('refusedLimitProvider')]
+    public function testReportsNothingToActOnOutsideTheCallersCredentialConfigurations(
+        ?string $entryConfigurationId,
+        CredentialConfigurationLimit $credentialConfigurationLimit,
+        StatusTypeEnum $requested,
+    ): void {
+        $this->statusListEntryRepositoryMock->method('findByCredentialIdHash')
+            ->willReturn($this->entry(StatusTypeEnum::Valid->value, credentialConfigurationId: $entryConfigurationId));
+        $this->statusAuditRepositoryMock->expects($this->never())->method('record');
+        $this->statusUpdaterMock->expects($this->never())->method('enforceCanRepresent');
+        $this->statusUpdaterMock->expects($this->never())->method('setStatus');
+        $this->loggerServiceMock->expects($this->once())->method('info')->with(
+            $this->stringContains('credential configuration the caller may not act on'),
+            [
+                'credentialIdHash' => self::CREDENTIAL_ID_HASH,
+                'credentialConfigurationId' => $entryConfigurationId,
+                'source' => StatusChangeSourceEnum::Api->value,
+                'actorRef' => 'HR system',
+            ],
+        );
+
+        $this->assertNull($this->sut()->setStatus(
+            self::CREDENTIAL_ID,
+            $requested,
+            StatusChangeSourceEnum::Api,
+            'HR system',
+            $credentialConfigurationLimit,
+        ));
+    }
+
+
+    public static function refusedLimitProvider(): array
+    {
+        return [
+            'another configuration' => [
+                self::CONFIGURATION_ID,
+                CredentialConfigurationLimit::to(['library_card', 'student_card']),
+                StatusTypeEnum::Invalid,
+            ],
+            'one whose ID starts with it' => [
+                self::CONFIGURATION_ID,
+                CredentialConfigurationLimit::to([self::CONFIGURATION_ID . '_v2']),
+                StatusTypeEnum::Invalid,
+            ],
+            'none at all' => [self::CONFIGURATION_ID, CredentialConfigurationLimit::to([]), StatusTypeEnum::Invalid],
+            'the status it already holds' => [
+                self::CONFIGURATION_ID,
+                CredentialConfigurationLimit::to(['library_card']),
+                StatusTypeEnum::Valid,
+            ],
+            'no configuration recorded' => [
+                null,
+                CredentialConfigurationLimit::to([self::CONFIGURATION_ID]),
+                StatusTypeEnum::Invalid,
+            ],
+            // A token given every configuration is still not given one nobody can name.
+            'no configuration recorded, no limit' => [
+                null,
+                CredentialConfigurationLimit::unlimited(),
+                StatusTypeEnum::Invalid,
+            ],
+            'no configuration recorded, no limit, the status it already holds' => [
+                null,
+                CredentialConfigurationLimit::unlimited(),
+                StatusTypeEnum::Valid,
+            ],
+        ];
     }
 }

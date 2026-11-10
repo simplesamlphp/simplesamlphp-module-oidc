@@ -207,7 +207,11 @@ $config = [
 
     ModuleConfig::OPTION_API_TOKENS => [
         'strong-random-token-string' => [
-            \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
+            'scopes' => [
+                \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum::All, // Gives access to the whole API.
+            ],
+            // Every credential configuration: the conformance offer driver offers each of them.
+            'credential_configuration_ids' => ['*'],
         ],
     ],
 

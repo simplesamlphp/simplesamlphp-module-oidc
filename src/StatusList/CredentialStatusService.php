@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface;
 use SimpleSAML\Module\oidc\StatusList\Values\CredentialStatusChange;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
+use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use Throwable;
 
@@ -45,8 +46,13 @@ class CredentialStatusService
      * @param string $credentialId The identifier the credential carries as its `jti`.
      * @param ?string $actorRef Who asked, as a name rather than a secret. Null for an unattended
      * change, which is what a scheduled task is.
+     * @param ?\SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit $credentialConfigurationLimit
+     *   The credential configurations the caller may act on, as an API token's are limited. A credential issued
+     *   from another, or whose configuration is not recorded, is then one which can not be acted on, whatever
+     *   the limit. Null for none: the administration screens, whose own authorization decides.
      * @return ?\SimpleSAML\Module\oidc\StatusList\Values\CredentialStatusChange Null when no credential of that
-     *   identifier can be acted on, which covers one that was never issued here and one which has expired alike.
+     *   identifier can be acted on, which covers one that was never issued here, one which has expired and one
+     *   outside the caller's credential configurations alike.
      * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException When the list this
      * credential sits in can not represent the requested status. Permanent, not worth retrying.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusConflictException When concurrent changes kept
@@ -59,6 +65,7 @@ class CredentialStatusService
         StatusTypeEnum $status,
         StatusChangeSourceEnum $source,
         ?string $actorRef = null,
+        ?CredentialConfigurationLimit $credentialConfigurationLimit = null,
     ): ?CredentialStatusChange {
         $credentialIdHash = $this->statusListEntryRepository->hashCredentialId($credentialId);
         $entry = $this->statusListEntryRepository->findByCredentialIdHash($credentialIdHash);
@@ -73,6 +80,29 @@ class CredentialStatusService
         }
 
         /** @var \SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord $entry */
+        $credentialConfigurationId = $entry->getCredentialConfigurationId();
+
+        // Answered as a credential which can not be acted on, before anything is compared or recorded: a
+        // caller told that the credential exists but is not theirs would learn which identifiers exist here.
+        // The operator is told which it was.
+        if (
+            $credentialConfigurationLimit instanceof CredentialConfigurationLimit &&
+            !$credentialConfigurationLimit->allows($credentialConfigurationId)
+        ) {
+            $this->loggerService->info(
+                'A status change was requested for a credential issued from a credential configuration the ' .
+                'caller may not act on.',
+                [
+                    'credentialIdHash' => $credentialIdHash,
+                    'credentialConfigurationId' => $credentialConfigurationId,
+                    'source' => $source->value,
+                    'actorRef' => $actorRef,
+                ],
+            );
+
+            return null;
+        }
+
         $observedStatus = $entry->getStatus();
 
         // Already there. Repeating a request is how a caller which never saw an answer recovers, so it

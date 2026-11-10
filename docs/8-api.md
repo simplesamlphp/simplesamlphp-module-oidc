@@ -66,7 +66,42 @@ derived from the module's encryption key or the SimpleSAMLphp secret salt), whic
 apart but says nothing about who they are — the
 token itself is never written anywhere, since that would put a bearer secret in the database.
 
-Both shapes work, and a token configured as a plain list of scopes keeps working unchanged.
+Both shapes work. A token configured as a plain list of scopes can not be given credential configurations,
+though, so it can not be used at the credential offer and credential status endpoints (see below).
+
+### Limiting a token to credential configurations
+
+A token's scopes say which endpoints it may call. At the credential offer and credential status endpoints, a
+second key of the settings array says which credentials: `credential_configuration_ids`, the credential
+configurations (keys of `vci_credential_configurations_supported`) the token may offer, and whose credentials it
+may revoke, suspend or reinstate.
+
+```php
+use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
+use SimpleSAML\Module\oidc\ModuleConfig;
+
+ModuleConfig::OPTION_API_TOKENS => [
+    'strong-random-token-string' => [
+        'name' => 'HR system',
+        'scopes' => [
+            ApiScopesEnum::VciCredentialOffer,
+            ApiScopesEnum::VciCredentialStatus,
+        ],
+        'credential_configuration_ids' => ['employee_card'],
+    ],
+],
+```
+
+`['*']` allows all of them. A token without the list may use neither endpoint for any credential, whatever its
+scopes (`All` and `VciAll` included), so a broad grant is always a line of its own in the configuration. A list
+which is not a list of non-empty strings (keyed entries included), or which has `'*'` beside credential
+configuration IDs, is a configuration error, and the two endpoints answer `500` `server_error` to the token until
+it is fixed. An ID with
+no credential configuration allows nothing, and the token works for the rest. The configuration overview reports
+such an ID, and a token holding a Verifiable Credential scope with no list.
+
+A logged in SimpleSAMLphp administrator, where an endpoint accepts one, is not limited. The list plays no part at
+the token introspection endpoint.
 
 ## API Endpoints
 
@@ -150,8 +185,13 @@ its default value. Errors are answered as JSON objects with `error` and `error_d
 * `400` `invalid_request`: a parameter is missing or not supported, or `use_tx_code` is set and the user attributes
 hold no email address to send the transaction code to.
 * `401` `unauthorized`: the bearer token is missing or carries none of the scopes this endpoint accepts.
+* `403` `insufficient_scope`: the token may not offer this credential configuration: it is not in the token's
+`credential_configuration_ids`, or the token has none (see
+[Limiting a token to credential configurations](#limiting-a-token-to-credential-configurations)). A configuration
+which does not exist is answered with `400` `invalid_request` whatever the list says.
 * `500` `server_error`: the offer could not be built, for example because the transaction code could not be mailed,
-or a credential configuration is malformed. The cause is in the log.
+or a credential configuration is malformed; or the token's `credential_configuration_ids` are malformed. The cause
+is in the log.
 
 When the wallet redeems a pre-authorized code at the token endpoint, a wrong transaction code is answered with
 `invalid_grant`, and one sent for an offer which has none with `invalid_request`, as OpenID4VCI 1.0 section 6.3 has
@@ -284,13 +324,19 @@ status was not one of the three.
 * `401 unauthorized`: no bearer token, or one which is not configured.
 * `403 insufficient_scope`: the token is configured but has none of the scopes this endpoint accepts.
 * `404 not_found`: no credential with that identifier can have its status changed. A credential which
-was never issued here, one issued without a `status` claim, and one which has expired are all answered
-the same way, so that the endpoint can not be used to find out which identifiers exist.
+was never issued here, one issued without a `status` claim, one which has expired, and one issued from a
+credential configuration which is not in the token's `credential_configuration_ids` (see
+[Limiting a token to credential configurations](#limiting-a-token-to-credential-configurations)), or whose
+configuration is not recorded, are all answered the same way, so that the endpoint can not be used to find out
+which identifiers exist. A token with `['*']` included: only the administration screens can change a credential
+whose configuration is not recorded.
 * `409 conflict`: another change landed at the same moment and the credential ended up holding
 something other than what was asked for. Read the current status and decide again.
 * `422 unsupported_status`: the Status List this credential belongs to was created without room for
 that status. Bits per entry are fixed when a list is created, so this will not succeed on retry — a
 pool which may suspend has to be configured with at least 2 bits before its credentials are issued.
+* `500 server_error`: the status could not be changed, or the token's name or
+`credential_configuration_ids` could not be read from the configuration. The cause is in the log.
 
 #### Sample 1
 

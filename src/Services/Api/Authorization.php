@@ -12,6 +12,8 @@ use SimpleSAML\Module\oidc\Exceptions\MissingTokenException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\ApiCaller;
+use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
@@ -63,12 +65,19 @@ class Authorization
 
     /**
      * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
-     *
+     * @return \SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit Which credential configurations
+     * the caller may act on at a Verifiable Credential endpoint: all of them for a logged in SimpleSAMLphp
+     * administrator, and for an API token those it is configured with, which are none without a list.
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * @throws \SimpleSAML\Error\ConfigurationError When the token's credential configurations are malformed.
      */
-    public function requireTokenForAnyOfScope(Request $request, array $requiredScopes): void
+    public function requireTokenForAnyOfScope(Request $request, array $requiredScopes): CredentialConfigurationLimit
     {
-        $this->authorizeForAnyOfScope($request, $requiredScopes);
+        $token = $this->authorizeForAnyOfScope($request, $requiredScopes);
+
+        return is_null($token) ?
+        CredentialConfigurationLimit::unlimited() :
+        $this->credentialConfigurationLimitOf($token);
     }
 
 
@@ -138,8 +147,9 @@ class Authorization
      * administration screens, which have their own authorization and their own cross-site protection.
      *
      * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
-     * @return string Who the request is made by, for recording against what it changes. Never the
-     * token itself.
+     * @return \SimpleSAML\Module\oidc\ValueAbstracts\ApiCaller Who the request is made by, for recording
+     * against what it changes, never the token itself; and the credential configurations the token is
+     * configured with, which are none without a list.
      * @throws \SimpleSAML\Module\oidc\Exceptions\MissingTokenException When the request carried no
      * token at all, which calls for a different challenge than one that arrived and was refused.
      * @throws \SimpleSAML\Module\oidc\Exceptions\InsufficientScopeException When the token is known
@@ -147,7 +157,7 @@ class Authorization
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException When the token is not usable.
      * @throws \SimpleSAML\Error\ConfigurationError
      */
-    public function requireBearerTokenForAnyOfScope(Request $request, array $requiredScopes): string
+    public function requireBearerTokenForAnyOfScope(Request $request, array $requiredScopes): ApiCaller
     {
         $token = $this->helpers->http()->getBearerToken($request->headers->get(self::KEY_AUTHORIZATION));
 
@@ -180,7 +190,21 @@ class Authorization
             );
         }
 
-        return $this->apiTokenPrincipalResolver->resolve($token);
+        return new ApiCaller(
+            $this->apiTokenPrincipalResolver->resolve($token),
+            $this->credentialConfigurationLimitOf($token),
+        );
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function credentialConfigurationLimitOf(string $token): CredentialConfigurationLimit
+    {
+        return CredentialConfigurationLimit::fromConfiguredIds(
+            $this->moduleConfig->getApiTokenCredentialConfigurationIds($token),
+        );
     }
 
 

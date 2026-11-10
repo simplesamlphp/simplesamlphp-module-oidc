@@ -13,6 +13,7 @@ use SimpleSAML\Module\oidc\Admin\ConfigOverview\AbstractOverviewBuilder;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Row;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\Section;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\VciOverviewBuilder;
+use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
@@ -1668,6 +1669,244 @@ class VciOverviewBuilderTest extends TestCase
         $this->assertStringContainsString('falls back to the default', (string)$row->getWarning());
     }
 
+
+    /**
+     * The API token credential configurations row, read with the switches which decide whether a token with
+     * none is worth a warning: the API, issuance and both Verifiable Credential API endpoints on, unless a test
+     * says otherwise.
+     *
+     * @param array<array-key,mixed> $apiTokens
+     * @param array<string,mixed> $overrides
+     */
+    protected function apiTokenCredentialConfigurationsRow(array $apiTokens, array $overrides = []): Row
+    {
+        $row = $this->findRowByLabel(
+            $this->buildVciOverviewBuilder(array_merge(
+                [
+                    ModuleConfig::OPTION_API_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_ENABLED => true,
+                    ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => true,
+                    ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+                    ModuleConfig::OPTION_VCI_CREDENTIAL_CONFIGURATIONS_SUPPORTED => self::credentialConfiguration(),
+                    ModuleConfig::OPTION_API_TOKENS => $apiTokens,
+                ],
+                $overrides,
+            ))->build(),
+            'API Token Credential Configurations',
+        );
+
+        $this->assertNotNull($row);
+
+        return $row;
+    }
+
+
+    /**
+     * The tokens are secrets, so the row lists the credential configurations they name, each once, and nothing
+     * of a token which names none.
+     */
+    public function testListsTheCredentialConfigurationsTheApiTokensName(): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow([
+            'super-secret-api-token' => [
+                'name' => 'HR system',
+                'scopes' => [ApiScopesEnum::VciCredentialOffer],
+                'credential_configuration_ids' => ['ResearchAndScholarshipCredentialJwtVcJson'],
+            ],
+            'another-secret-api-token' => [
+                'scopes' => [ApiScopesEnum::VciCredentialStatus],
+                'credential_configuration_ids' => ['*'],
+            ],
+            'an-introspection-token' => [ApiScopesEnum::OAuth2TokenIntrospection],
+        ]);
+
+        $this->assertSame(ConfigOverviewValueTypeEnum::StringList, $row->getValueType());
+        $this->assertSame(['*', 'ResearchAndScholarshipCredentialJwtVcJson'], $row->getValue());
+        $this->assertSame(ModuleConfig::OPTION_API_TOKENS, $row->getConfigOption());
+        $this->assertNull($row->getWarning());
+        $this->assertStringNotContainsString('secret-api-token', (string)json_encode([
+            $row->getValue(),
+            $row->getNote(),
+            $row->getWarning(),
+        ]));
+    }
+
+
+    public function testShowsNoneConfiguredWhenNoTokenNamesACredentialConfiguration(): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow(['an-introspection-token' => [ApiScopesEnum::OAuth2All]]);
+
+        $this->assertSame('None configured', $row->getValue());
+        $this->assertSame(ConfigOverviewValueTypeEnum::Text, $row->getValueType());
+        $this->assertNull($row->getWarning());
+    }
+
+
+    /**
+     * A token which may call a Verifiable Credential endpoint and is given no credential configurations can do
+     * nothing there, which is worth saying while either endpoint is served. Every scope reaching those endpoints
+     * counts, a bare list and an empty list alike.
+     *
+     * @param array<array-key,mixed> $entry
+     */
+    #[DataProvider('tokenWithNoCredentialConfigurationsProvider')]
+    public function testWarnsOfATokenWhichMayCallTheEndpointsForNoCredentialConfiguration(array $entry): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow([
+            'a-limited-token' => [
+                'scopes' => [ApiScopesEnum::VciCredentialOffer],
+                'credential_configuration_ids' => ['ResearchAndScholarshipCredentialJwtVcJson'],
+            ],
+            'the-token' => $entry,
+        ]);
+
+        $this->assertStringContainsString('given no credential configurations', (string)$row->getWarning());
+    }
+
+
+    public static function tokenWithNoCredentialConfigurationsProvider(): array
+    {
+        return [
+            'credential offer, bare list' => [[ApiScopesEnum::VciCredentialOffer]],
+            'credential status, bare list' => [[ApiScopesEnum::VciCredentialStatus]],
+            'all of VCI, bare list' => [[ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::VciAll]],
+            'everything, bare list' => [[ApiScopesEnum::All]],
+            'settings without a list' => [['name' => 'HR system', 'scopes' => [ApiScopesEnum::VciCredentialStatus]]],
+            'settings with an empty list' => [
+                ['scopes' => [ApiScopesEnum::VciAll], 'credential_configuration_ids' => []],
+            ],
+        ];
+    }
+
+
+    /**
+     * A token with no Verifiable Credential scope needs no credential configurations, and while neither endpoint
+     * is served, no token can use them anyway.
+     *
+     * @param array<array-key,mixed> $apiTokens
+     * @param array<string,mixed> $overrides
+     */
+    #[DataProvider('tokenWithNoCredentialConfigurationsUnwarnedProvider')]
+    public function testDoesNotWarnOfATokenWithNoCredentialConfigurationsWhichNeedsNone(
+        array $apiTokens,
+        array $overrides,
+    ): void {
+        $this->assertNull($this->apiTokenCredentialConfigurationsRow($apiTokens, $overrides)->getWarning());
+    }
+
+
+    public static function tokenWithNoCredentialConfigurationsUnwarnedProvider(): array
+    {
+        $vciToken = ['a-token' => [ApiScopesEnum::VciAll]];
+        $neitherEndpoint = [
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => false,
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
+        ];
+
+        return [
+            'introspection only' => [
+                ['a-token' => [ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::OAuth2All]],
+                [],
+            ],
+            'the API disabled' => [$vciToken, [ModuleConfig::OPTION_API_ENABLED => false]],
+            'neither endpoint enabled' => [$vciToken, $neitherEndpoint],
+            'only the offer endpoint, with issuance disabled' => [
+                $vciToken,
+                [
+                    ModuleConfig::OPTION_VCI_ENABLED => false,
+                    ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * Either endpoint on its own is enough: the status endpoint is served whatever issuance says.
+     *
+     * @param array<string,mixed> $overrides
+     */
+    #[DataProvider('singleServedEndpointProvider')]
+    public function testWarnsOfATokenWithNoCredentialConfigurationsWhileEitherEndpointIsServed(array $overrides): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow(['a-token' => [ApiScopesEnum::VciAll]], $overrides);
+
+        $this->assertStringContainsString('given no credential configurations', (string)$row->getWarning());
+    }
+
+
+    public static function singleServedEndpointProvider(): array
+    {
+        return [
+            'the offer endpoint' => [[ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false]],
+            'the status endpoint, with issuance disabled' => [
+                [
+                    ModuleConfig::OPTION_VCI_ENABLED => false,
+                    ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => false,
+                ],
+            ],
+        ];
+    }
+
+
+    /**
+     * A token naming a credential configuration which does not exist is told about, while it still works for
+     * the rest. The wildcard is not a configuration name.
+     */
+    public function testWarnsOfACredentialConfigurationWhichIsNotConfigured(): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow([
+            'a-token' => [
+                'scopes' => [ApiScopesEnum::VciCredentialOffer],
+                'credential_configuration_ids' => ['ResearchAndScholarshipCredentialJwtVcJson', 'employee_card'],
+            ],
+            'another-token' => [
+                'scopes' => [ApiScopesEnum::VciCredentialStatus],
+                'credential_configuration_ids' => ['*'],
+            ],
+        ]);
+
+        $this->assertSame(['*', 'ResearchAndScholarshipCredentialJwtVcJson', 'employee_card'], $row->getValue());
+        $this->assertStringContainsString('which is not configured', (string)$row->getWarning());
+        $this->assertStringNotContainsString('given no credential configurations', (string)$row->getWarning());
+    }
+
+
+    /**
+     * Both problems at once are both reported, neither hiding the other.
+     */
+    public function testWarnsOfATokenWithNoneAndOfAnUnknownConfigurationTogether(): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow([
+            'a-token' => [
+                'scopes' => [ApiScopesEnum::VciCredentialOffer],
+                'credential_configuration_ids' => ['employee_card'],
+            ],
+            'another-token' => [ApiScopesEnum::VciCredentialStatus],
+        ]);
+
+        $this->assertStringContainsString('given no credential configurations', (string)$row->getWarning());
+        $this->assertStringContainsString('which is not configured', (string)$row->getWarning());
+    }
+
+
+    /**
+     * A malformed list is reported in place, rather than taking the screen down or being shown as read.
+     */
+    public function testReportsMalformedCredentialConfigurationsInPlace(): void
+    {
+        $row = $this->apiTokenCredentialConfigurationsRow([
+            'a-token' => [
+                'scopes' => [ApiScopesEnum::VciCredentialOffer],
+                'credential_configuration_ids' => ['*', 'ResearchAndScholarshipCredentialJwtVcJson'],
+            ],
+        ]);
+
+        $this->assertSame('N/A', $row->getValue());
+        $this->assertStringContainsString('written to the SimpleSAMLphp log', (string)$row->getWarning());
+    }
+
+
     /**
      * These options were not read by the previous template, so the reworked screen must not start
      * failing on values it newly evaluates.
@@ -1718,6 +1957,14 @@ class VciOverviewBuilderTest extends TestCase
             'offer endpoint not a bool' => [
                 [ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED => 'nope'],
                 ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED,
+            ],
+            'api tokens not an array' => [
+                [ModuleConfig::OPTION_API_TOKENS => 'nope'],
+                ModuleConfig::OPTION_API_TOKENS,
+            ],
+            'an api token credential configuration list not a list' => [
+                [ModuleConfig::OPTION_API_TOKENS => ['a-token' => ['credential_configuration_ids' => 'nope']]],
+                ModuleConfig::OPTION_API_TOKENS,
             ],
             'email attribute map not an array' => [
                 [ModuleConfig::OPTION_AUTH_SOURCES_TO_USERS_EMAIL_ATTRIBUTE_NAME_MAP => 'nope'],

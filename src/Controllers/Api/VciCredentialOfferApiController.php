@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\Api;
 
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
 use SimpleSAML\Module\oidc\Factories\CredentialOfferUriFactory;
@@ -20,6 +21,9 @@ use Throwable;
 
 class VciCredentialOfferApiController
 {
+    final public const string HEADER_WWW_AUTHENTICATE = 'WWW-Authenticate';
+
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -57,7 +61,7 @@ class VciCredentialOfferApiController
         $this->loggerService->debug('VciCredentialOfferApiController: Processing credential-offer request.');
 
         try {
-            $this->authorization->requireTokenForAnyOfScope(
+            $credentialConfigurationLimit = $this->authorization->requireTokenForAnyOfScope(
                 $request,
                 [ApiScopesEnum::VciCredentialOffer, ApiScopesEnum::VciAll, ApiScopesEnum::All],
             );
@@ -69,6 +73,17 @@ class VciCredentialOfferApiController
                 error: 'unauthorized',
                 description: $e->getMessage(),
                 httpCode: Response::HTTP_UNAUTHORIZED,
+            );
+        } catch (ConfigurationError $e) {
+            // The token's credential configurations are malformed. That is this server's configuration, not
+            // the caller's request, and the caller is answered in JSON as everywhere else in this API.
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: API token configuration could not be read: ' . $e->getMessage(),
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Authorization could not be resolved.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
             );
         }
 
@@ -98,6 +113,23 @@ class VciCredentialOfferApiController
                 error: 'invalid_request',
                 description: 'Provided credential configuration ID (credential_configuration_id) is not supported.',
                 httpCode: Response::HTTP_BAD_REQUEST,
+            );
+        }
+
+        // Checked after the configuration is known to exist, so an unknown one is answered as unknown whatever the
+        // token's list says. Telling the caller that a configuration exists costs nothing: the Credential Issuer
+        // metadata publishes every one. Both grants are held to the list: an authorization code offer carries no
+        // attributes, but which credentials a token may advertise to wallets is still the token's limit.
+        if (!$credentialConfigurationLimit->allows($credentialConfigurationId)) {
+            $this->loggerService->warning(
+                'VciCredentialOfferApiController: The API token may not offer this credential configuration.',
+                ['credentialConfigurationId' => $credentialConfigurationId],
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'insufficient_scope',
+                description: 'The API token may not offer this credential configuration.',
+                httpCode: Response::HTTP_FORBIDDEN,
+                headers: [self::HEADER_WWW_AUTHENTICATE => 'Bearer error="insufficient_scope"'],
             );
         }
 

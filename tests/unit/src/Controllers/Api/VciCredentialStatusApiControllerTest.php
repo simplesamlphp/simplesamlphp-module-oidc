@@ -8,6 +8,7 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
 use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialStatusApiController;
@@ -24,6 +25,8 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusService;
 use SimpleSAML\Module\oidc\StatusList\Values\CredentialStatusChange;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\ApiCaller;
+use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,6 +54,9 @@ class VciCredentialStatusApiControllerTest extends TestCase
     /** @var array<string,mixed> Body of the JSON response the controller produced. */
     protected array $responseData = [];
 
+    /** Who the authorized token stands for, and the credential configurations it may act on. */
+    protected ApiCaller $caller;
+
 
     protected function setUp(): void
     {
@@ -59,8 +65,9 @@ class VciCredentialStatusApiControllerTest extends TestCase
         $this->moduleConfigMock->method('getVciEnabled')->willReturn(true);
         $this->moduleConfigMock->method('getApiVciCredentialStatusEndpointEnabled')->willReturn(true);
 
+        $this->caller = new ApiCaller(self::ACTOR, CredentialConfigurationLimit::to(['employee_card']));
         $this->authorizationMock = $this->createMock(Authorization::class);
-        $this->authorizationMock->method('requireBearerTokenForAnyOfScope')->willReturn(self::ACTOR);
+        $this->authorizationMock->method('requireBearerTokenForAnyOfScope')->willReturn($this->caller);
 
         $this->credentialStatusServiceMock = $this->createMock(CredentialStatusService::class);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
@@ -163,9 +170,12 @@ class VciCredentialStatusApiControllerTest extends TestCase
 
 
     /**
+     * Who asked goes to the audit trail, and the credential configurations the token may act on go with it,
+     * since the lookup is where a credential outside them is answered as one which can not be acted on.
+     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function testPassesTheAuthorizedPrincipalThroughToTheAuditTrail(): void
+    public function testPassesTheAuthorizedPrincipalAndItsCredentialConfigurationsThrough(): void
     {
         $this->credentialStatusServiceMock->expects($this->once())
             ->method('setStatus')
@@ -174,6 +184,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
                 StatusTypeEnum::Invalid,
                 StatusChangeSourceEnum::Api,
                 self::ACTOR,
+                $this->identicalTo($this->caller->getCredentialConfigurationLimit()),
             )
             ->willReturn(new CredentialStatusChange('list-1', 42, 0, StatusTypeEnum::Invalid, true));
 
@@ -196,7 +207,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
                 $this->anything(),
                 [ApiScopesEnum::VciCredentialStatus, ApiScopesEnum::VciAll, ApiScopesEnum::All],
             )
-            ->willReturn(self::ACTOR);
+            ->willReturn($this->caller);
         $this->authorizationMock = $authorization;
         $this->change();
 
@@ -224,8 +235,35 @@ class VciCredentialStatusApiControllerTest extends TestCase
 
 
     /**
-     * One never issued here, one issued without a status claim and one which has expired are all
-     * answered the same way, so that a caller can not learn which identifiers exist.
+     * A token whose name or credential configurations can not be read is this server's fault: answered as a
+     * JSON server error, with the cause in the log, and no status touched.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testAnswersAnUnreadableTokenConfigurationAsAJsonServerError(): void
+    {
+        $authorization = $this->createMock(Authorization::class);
+        $authorization->method('requireBearerTokenForAnyOfScope')
+            ->willThrowException(new ConfigurationError('credential_configuration_ids must be a list'));
+        $this->authorizationMock = $authorization;
+        $this->credentialStatusServiceMock->expects($this->never())->method('setStatus');
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('credential_configuration_ids must be a list'));
+
+        $response = $this->sut()->credentialStatus($this->request());
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame(
+            ['error' => 'server_error', 'error_description' => 'Authorization could not be resolved.'],
+            json_decode((string)$response->getContent(), true),
+        );
+    }
+
+
+    /**
+     * One never issued here, one issued without a status claim, one which has expired and one issued from
+     * a credential configuration the token may not act on are all answered the same way, so that a caller
+     * can not learn which identifiers exist.
      *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */

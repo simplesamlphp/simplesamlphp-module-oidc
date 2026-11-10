@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Controllers\Api\VciCredentialOfferApiController;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
@@ -19,6 +20,7 @@ use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,6 +51,9 @@ class VciCredentialOfferApiControllerTest extends TestCase
     /** @var ?array<string,mixed> What the credential configuration ID resolves to. */
     protected ?array $credentialConfiguration = null;
 
+    /** Which credential configurations the authorized caller may offer. */
+    protected CredentialConfigurationLimit $credentialConfigurationLimit;
+
     /** @var array<string,mixed> Body of the JSON response the controller produced. */
     protected array $responseData = [];
 
@@ -64,7 +69,12 @@ class VciCredentialOfferApiControllerTest extends TestCase
         $this->moduleConfigMock->method('getVciCredentialConfiguration')
             ->willReturnCallback(fn(): ?array => $this->credentialConfiguration);
 
+        // Read through the property, as the credential configuration is: a caller limited to the configuration
+        // offered, so that a test about something else is not refused for it.
+        $this->credentialConfigurationLimit = CredentialConfigurationLimit::to([self::CONFIGURATION_ID]);
         $this->authorizationMock = $this->createMock(Authorization::class);
+        $this->authorizationMock->method('requireTokenForAnyOfScope')
+            ->willReturnCallback(fn(): CredentialConfigurationLimit => $this->credentialConfigurationLimit);
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
 
         $this->credentialOfferUriFactoryMock = $this->createMock(CredentialOfferUriFactory::class);
@@ -573,6 +583,159 @@ class VciCredentialOfferApiControllerTest extends TestCase
         $this->assertIsArray($data);
 
         return $data;
+    }
+
+
+    /**
+     * A caller which may offer the configuration asked for gets its offer, whichever grant it asks for, and
+     * whatever else it may offer beside it. An administrator's session, which is not limited, likewise.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('permittedOfferProvider')]
+    public function testOffersACredentialConfigurationTheCallerMayOffer(
+        string $grantType,
+        CredentialConfigurationLimit $credentialConfigurationLimit,
+    ): void {
+        $this->credentialConfigurationLimit = $credentialConfigurationLimit;
+
+        $response = $this->sut()->credentialOffer($this->request([
+            'credential_configuration_id' => self::CONFIGURATION_ID,
+            'grant_type' => $grantType,
+        ]));
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertSame(self::OFFER_URI, $this->responseData['credential_offer_uri'] ?? null);
+    }
+
+
+    /**
+     * @return array<string,array{string, \SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit}>
+     */
+    public static function permittedOfferProvider(): array
+    {
+        $cases = [];
+
+        foreach (self::grantTypeProvider() as $grant => [$grantType]) {
+            $cases[$grant . ', the one configuration'] = [
+                $grantType,
+                CredentialConfigurationLimit::to([self::CONFIGURATION_ID]),
+            ];
+            $cases[$grant . ', among others'] = [
+                $grantType,
+                CredentialConfigurationLimit::to(['employee_card', self::CONFIGURATION_ID, 'library_card']),
+            ];
+            $cases[$grant . ', no limit'] = [$grantType, CredentialConfigurationLimit::unlimited()];
+        }
+
+        return $cases;
+    }
+
+
+    /**
+     * A configuration the caller may not offer is refused as a token which does not cover the request, for
+     * either grant: an authorization code offer carries no attributes, but which credentials a token may
+     * advertise to wallets is still the token's limit. Nothing is built, so nothing is stored or mailed.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('refusedOfferProvider')]
+    public function testRefusesACredentialConfigurationTheCallerMayNotOffer(
+        string $grantType,
+        CredentialConfigurationLimit $credentialConfigurationLimit,
+    ): void {
+        $this->credentialConfigurationLimit = $credentialConfigurationLimit;
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildForAuthorization');
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildPreAuthorized');
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('getUserEmail');
+
+        $response = $this->sut()->credentialOffer($this->request([
+            'credential_configuration_id' => self::CONFIGURATION_ID,
+            'grant_type' => $grantType,
+            'user_attributes' => ['mail' => ['jdoe@example.org']],
+            'use_tx_code' => true,
+        ]));
+
+        $this->assertSame(Response::HTTP_FORBIDDEN, $response->getStatusCode());
+        $this->assertSame(
+            [
+                'error' => 'insufficient_scope',
+                'error_description' => 'The API token may not offer this credential configuration.',
+            ],
+            $this->jsonOf($response),
+        );
+        $this->assertSame(
+            'Bearer error="insufficient_scope"',
+            $response->headers->get(VciCredentialOfferApiController::HEADER_WWW_AUTHENTICATE),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{string, \SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit}>
+     */
+    public static function refusedOfferProvider(): array
+    {
+        $cases = [];
+
+        foreach (self::grantTypeProvider() as $grant => [$grantType]) {
+            $cases[$grant . ', others only'] = [
+                $grantType,
+                CredentialConfigurationLimit::to(['employee_card', 'library_card']),
+            ];
+            // A configuration whose ID merely starts with the one offered.
+            $cases[$grant . ', a longer ID'] = [
+                $grantType,
+                CredentialConfigurationLimit::to([self::CONFIGURATION_ID . '_v2']),
+            ];
+            $cases[$grant . ', none at all'] = [$grantType, CredentialConfigurationLimit::to([])];
+        }
+
+        return $cases;
+    }
+
+
+    /**
+     * A configuration which does not exist is answered as one, whatever the caller may offer: the limit
+     * comes after it, and tells the caller nothing the published metadata does not.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testAnswersAnUnknownCredentialConfigurationAsUnknownWhateverTheCallerMayOffer(): void
+    {
+        $this->credentialConfiguration = null;
+        $this->credentialConfigurationLimit = CredentialConfigurationLimit::to([]);
+
+        $response = $this->sut()->credentialOffer($this->request());
+
+        $this->assertSame(Response::HTTP_BAD_REQUEST, $response->getStatusCode());
+        $this->assertSame('invalid_request', $this->jsonOf($response)['error'] ?? null);
+    }
+
+
+    /**
+     * A token whose credential configurations can not be read is this server's fault: answered as a JSON
+     * server error, with the cause in the log, and no offer built.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function testAnswersAnUnreadableTokenConfigurationAsAJsonServerError(): void
+    {
+        $authorization = $this->createMock(Authorization::class);
+        $authorization->method('requireTokenForAnyOfScope')
+            ->willThrowException(new ConfigurationError('credential_configuration_ids must be a list'));
+        $this->authorizationMock = $authorization;
+        $this->credentialOfferUriFactoryMock->expects($this->never())->method('buildForAuthorization');
+        $this->loggerServiceMock->expects($this->once())->method('error')
+            ->with($this->stringContains('credential_configuration_ids must be a list'));
+
+        $response = $this->sut()->credentialOffer($this->request());
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame(
+            ['error' => 'server_error', 'error_description' => 'Authorization could not be resolved.'],
+            $this->jsonOf($response),
+        );
     }
 
 

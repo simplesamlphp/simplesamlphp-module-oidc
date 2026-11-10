@@ -375,11 +375,30 @@ class ModuleConfig
     final public const string KEY_API_TOKEN_SCOPES = 'scopes';
 
     /**
+     * Optional key holding the credential configurations an API token may act on at the Verifiable Credential
+     * endpoints: offer them, and change the status of the credentials issued from them. A token's scopes say which
+     * endpoints it may call, this says which credentials. Without it, a token may act on none.
+     */
+    final public const string KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS = 'credential_configuration_ids';
+
+    /** The one value of an API token's credential configuration list which allows all of them. */
+    final public const string API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS = '*';
+
+    /**
      * Longest name an API token may be given, matching the audit trail's actor column.
      *
      * @see \SimpleSAML\Module\oidc\Repositories\StatusAuditRepository
      */
     final public const int MAX_API_TOKEN_NAME_LENGTH = 191;
+
+    /**
+     * Longest id a Verifiable Credential configuration may have, matching the column a Status List entry records it
+     * in. A longer one could be stored cut short, silently on a database which does not refuse it, and an API token
+     * limited to the shorter id it then reads as would be allowed to change that credential's status.
+     *
+     * @see \SimpleSAML\Module\oidc\Services\DatabaseMigration (the status list entry table)
+     */
+    final public const int MAX_VCI_CREDENTIAL_CONFIGURATION_ID_LENGTH = 191;
 
     final public const string OPTION_DEFAULT_USERS_EMAIL_ATTRIBUTE_NAME = 'users_email_attribute_name';
 
@@ -3969,6 +3988,17 @@ class ModuleConfig
             'scope-token (RFC 6749 section 3.3): printable ASCII without space, double quote or backslash.';
         }
 
+        // Printable ASCII by now, so bytes are characters. Recorded whole or not at all: an API token's limit
+        // compares the id a credential's Status List entry records exactly.
+        if (strlen($credentialConfigurationId) > self::MAX_VCI_CREDENTIAL_CONFIGURATION_ID_LENGTH) {
+            return sprintf(
+                'Verifiable Credential configuration id [%s] is longer than the %d characters a Status List ' .
+                'entry can record.',
+                $credentialConfigurationId,
+                self::MAX_VCI_CREDENTIAL_CONFIGURATION_ID_LENGTH,
+            );
+        }
+
         $of = 'Verifiable Credential configuration [' . $credentialConfigurationId . ']';
 
         if (! $this->claimsDescriptionValidator->isJsonObject($configuration)) {
@@ -5059,10 +5089,15 @@ class ModuleConfig
         // positionally, which is how a token someone had already annotated with a name would be
         // written, and that token authorized before this option grew a second shape. The settings
         // keys are dropped rather than the whole array returned, since handing back the name would
-        // give the token a scope called after itself.
+        // give the token a scope called after itself, and handing back the credential configuration
+        // list would give it one which is an array.
         $positionalScopes = array_diff_key(
             $entry,
-            array_flip([self::KEY_API_TOKEN_NAME, self::KEY_API_TOKEN_SCOPES]),
+            array_flip([
+                self::KEY_API_TOKEN_NAME,
+                self::KEY_API_TOKEN_SCOPES,
+                self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS,
+            ]),
         );
 
         // Settings which name a token and grant it nothing authorize nothing.
@@ -5117,6 +5152,83 @@ class ModuleConfig
 
 
     /**
+     * The credential configurations an API token may act on at the Verifiable Credential endpoints, as listed
+     * under KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS.
+     *
+     * @return ?list<non-empty-string> Null when the token is not configured or is given no list, which allows it
+     * none: a token written as a bare list of scopes has none. A list holding API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS
+     * alone allows all of them. The IDs are not checked against the configured credential configurations: one which
+     * does not exist allows nothing, and the token works for the rest.
+     * @throws \SimpleSAML\Error\ConfigurationError When the list is not a list of credential configuration IDs, or
+     * mixes the wildcard with them.
+     */
+    public function getApiTokenCredentialConfigurationIds(string $token): ?array
+    {
+        /** @var mixed $entry */
+        $entry = $this->getApiTokens()[$token] ?? null;
+
+        if (!is_array($entry) || !array_key_exists(self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS, $entry)) {
+            return null;
+        }
+
+        /** @var mixed $configuredIds */
+        $configuredIds = $entry[self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS];
+        $malformed = sprintf(
+            'The credential configurations of an API token (%s) must be a list of credential configuration ' .
+            'IDs, or [\'%s\'] for all of them.',
+            self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS,
+            self::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS,
+        );
+
+        // Refused rather than read leniently. This list is what keeps a token to the credentials it is meant
+        // for, and a reading which guessed at a malformed one would widen or narrow that without anyone
+        // having decided it: ['employee_card' => '*'] read by its values is the wildcard. Neither the token
+        // nor the values are quoted: the message reaches the log.
+        if (!is_array($configuredIds) || !array_is_list($configuredIds)) {
+            throw new ConfigurationError($malformed, self::DEFAULT_FILE_NAME);
+        }
+
+        $credentialConfigurationIds = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($configuredIds as $credentialConfigurationId) {
+            if (
+                !is_string($credentialConfigurationId) ||
+                $credentialConfigurationId === '' ||
+                trim($credentialConfigurationId) === ''
+            ) {
+                throw new ConfigurationError($malformed, self::DEFAULT_FILE_NAME);
+            }
+
+            $credentialConfigurationIds[] = $credentialConfigurationId;
+        }
+
+        $credentialConfigurationIds = array_values(array_unique($credentialConfigurationIds));
+
+        // The wildcard beside IDs says two things at once, and whichever was meant, reading the other would be
+        // wrong: all of them, where the operator meant to limit the token, or only the IDs, where they meant
+        // to grant it everything.
+        if (
+            count($credentialConfigurationIds) > 1 &&
+            in_array(self::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS, $credentialConfigurationIds, true)
+        ) {
+            throw new ConfigurationError(
+                sprintf(
+                    'The credential configurations of an API token (%s) list \'%s\', which allows all of ' .
+                    'them, together with credential configuration IDs. List either \'%s\' alone, or the IDs.',
+                    self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS,
+                    self::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS,
+                    self::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS,
+                ),
+                self::DEFAULT_FILE_NAME,
+            );
+        }
+
+        return $credentialConfigurationIds;
+    }
+
+
+    /**
      * Whether an API token entry is written as a settings array rather than as a bare list of scopes.
      *
      * @param array<array-key,mixed> $entry
@@ -5127,8 +5239,14 @@ class ModuleConfig
         // list is read by value rather than by key, so one which happens to carry an entry under a
         // key of 'scopes' or 'name' authorized before this option grew a second shape, and quietly
         // ceasing to would be an authorization change nobody asked for.
+        //
+        // The credential configuration key is the exception: it is newer than the settings shape, so no
+        // bare list ever authorized with it, and its presence alone marks the settings shape. Whatever it
+        // holds is then never read as a scope, and a malformed value is refused where the list is read
+        // (getApiTokenCredentialConfigurationIds()) rather than turned into a bare list here.
         return is_array($entry[self::KEY_API_TOKEN_SCOPES] ?? null) ||
-        is_string($entry[self::KEY_API_TOKEN_NAME] ?? null);
+        is_string($entry[self::KEY_API_TOKEN_NAME] ?? null) ||
+        array_key_exists(self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS, $entry);
     }
 
 

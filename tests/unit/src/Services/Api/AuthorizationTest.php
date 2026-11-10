@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Bridges\SspBridge;
 use SimpleSAML\Module\oidc\Bridges\SspBridge\Utils;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
@@ -21,6 +22,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\Api\ApiTokenPrincipalResolver;
 use SimpleSAML\Module\oidc\Services\Api\Authorization;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
+use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\Utils\Auth as SspAuth;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,7 +32,9 @@ use Symfony\Component\HttpFoundation\Request;
  * first. requireTokenForAnyOfScope() takes that session when there is one and otherwise an API token, from
  * the Authorization header or, failing that, the token request parameter. requireBearerTokenForAnyOfScope()
  * takes the header and nothing else, and says who the token belongs to; its own docblock explains why.
- * requireCallerForAnyOfScope() is requireTokenForAnyOfScope() saying who the caller is.
+ * requireCallerForAnyOfScope() is requireTokenForAnyOfScope() saying who the caller is. The two the Verifiable
+ * Credential endpoints call, requireTokenForAnyOfScope() and requireBearerTokenForAnyOfScope(), also say which
+ * credential configurations the caller may act on.
  *
  * The bearer token is read through the real Helpers, so the Authorization header is built into a Request
  * rather than stubbed.
@@ -192,8 +196,189 @@ class AuthorizationTest extends TestCase
         $this->sspAuthMock->method('isAdmin')->willReturn(true);
         $this->requestParamsResolverMock->expects($this->never())->method('getFromRequestBasedOnAllowedMethods');
         $this->moduleConfigMock->expects($this->never())->method('getApiTokenScopes');
+        $this->moduleConfigMock->expects($this->never())->method('getApiTokenCredentialConfigurationIds');
 
-        $this->sut()->requireTokenForAnyOfScope($this->request(), $this->requiredScopes());
+        // And it is not limited to any credential configurations.
+        $this->assertTrue(
+            $this->sut()->requireTokenForAnyOfScope($this->request(), $this->requiredScopes())->isUnlimited(),
+        );
+    }
+
+
+    /**
+     * An API token may act on the credential configurations it is configured with: none without a list, all of
+     * them for the wildcard alone, and otherwise those listed. Read for the token which authorized, from the
+     * header or from the request parameter alike.
+     *
+     * @param ?string[] $configuredIds
+     * @param string[] $allowed
+     * @param string[] $refused
+     */
+    #[DataProvider('configuredCredentialConfigurationsByCarrierProvider')]
+    public function testLimitsATokenToItsCredentialConfigurations(
+        bool $inTheHeader,
+        ?array $configuredIds,
+        bool $isUnlimited,
+        array $allowed,
+        array $refused,
+    ): void {
+        if ($inTheHeader) {
+            $request = $this->requestWithBearerToken();
+        } else {
+            $request = $this->request(query: ['token' => self::TOKEN]);
+            $this->tokenParameterAnswered($request, self::TOKEN);
+        }
+
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $this->moduleConfigMock->expects($this->once())->method('getApiTokenCredentialConfigurationIds')
+            ->with(self::TOKEN)
+            ->willReturn($configuredIds);
+
+        $limit = $this->sut()->requireTokenForAnyOfScope($request, $this->requiredScopes());
+
+        $this->assertLimit($limit, $isUnlimited, $allowed, $refused);
+    }
+
+
+    public static function configuredCredentialConfigurationsByCarrierProvider(): array
+    {
+        $cases = [];
+
+        foreach (self::tokenCarrierProvider() as $carrier => [$inTheHeader]) {
+            foreach (self::configuredCredentialConfigurationsProvider() as $configured => $case) {
+                $cases[$configured . ', in ' . $carrier] = [$inTheHeader, ...$case];
+            }
+        }
+
+        return $cases;
+    }
+
+
+    /**
+     * requireBearerTokenForAnyOfScope() says the same of the token, beside who it stands for.
+     *
+     * @param ?string[] $configuredIds
+     * @param string[] $allowed
+     * @param string[] $refused
+     */
+    #[DataProvider('configuredCredentialConfigurationsProvider')]
+    public function testLimitsABearerTokenToItsCredentialConfigurations(
+        ?array $configuredIds,
+        bool $isUnlimited,
+        array $allowed,
+        array $refused,
+    ): void {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $this->moduleConfigMock->expects($this->once())->method('getApiTokenCredentialConfigurationIds')
+            ->with(self::TOKEN)
+            ->willReturn($configuredIds);
+
+        $caller = $this->sut()->requireBearerTokenForAnyOfScope(
+            $this->requestWithBearerToken(),
+            $this->requiredScopes(),
+        );
+
+        $this->assertSame('HR system', $caller->getPrincipal());
+        $this->assertLimit($caller->getCredentialConfigurationLimit(), $isUnlimited, $allowed, $refused);
+    }
+
+
+    public static function configuredCredentialConfigurationsProvider(): array
+    {
+        return [
+            'no list' => [null, false, [], ['employee_card', '*']],
+            'an empty list' => [[], false, [], ['employee_card']],
+            'the wildcard alone' => [['*'], true, ['employee_card', 'library_card'], []],
+            'two configurations' => [
+                ['employee_card', 'library_card'],
+                false,
+                ['employee_card', 'library_card'],
+                ['student_card', 'employee', 'employee_card_v2', '*'],
+            ],
+        ];
+    }
+
+
+    /**
+     * @param string[] $allowed
+     * @param string[] $refused
+     */
+    protected function assertLimit(
+        CredentialConfigurationLimit $limit,
+        bool $isUnlimited,
+        array $allowed,
+        array $refused,
+    ): void {
+        $this->assertSame($isUnlimited, $limit->isUnlimited());
+
+        foreach ($allowed as $credentialConfigurationId) {
+            $this->assertTrue($limit->allows($credentialConfigurationId), $credentialConfigurationId);
+        }
+
+        foreach ($refused as $credentialConfigurationId) {
+            $this->assertFalse($limit->allows($credentialConfigurationId), $credentialConfigurationId);
+        }
+    }
+
+
+    /**
+     * A token refused for its scopes is refused before its credential configurations are read, by either
+     * method: a malformed list must not turn a refusal into a server error.
+     */
+    public function testDoesNotReadTheCredentialConfigurationsOfARefusedToken(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)
+            ->willReturn([ApiScopesEnum::OAuth2TokenIntrospection]);
+        $this->moduleConfigMock->expects($this->never())->method('getApiTokenCredentialConfigurationIds');
+
+        foreach (['requireTokenForAnyOfScope', 'requireBearerTokenForAnyOfScope'] as $method) {
+            try {
+                $this->sut()->$method($this->requestWithBearerToken(), $this->requiredScopes());
+                $this->fail($method . ' accepted a token without a required scope.');
+            } catch (AuthorizationException) {
+                // Refused, as it should be.
+            }
+        }
+    }
+
+
+    /**
+     * Credential configurations which can not be read refuse the request rather than being read as none or
+     * as all: the caller gets a server error, and the operator the cause.
+     */
+    public function testRefusesATokenWhoseCredentialConfigurationsCanNotBeRead(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $this->moduleConfigMock->method('getApiTokenCredentialConfigurationIds')
+            ->willThrowException(new ConfigurationError('credential_configuration_ids must be a list'));
+
+        foreach (['requireTokenForAnyOfScope', 'requireBearerTokenForAnyOfScope'] as $method) {
+            try {
+                $this->sut()->$method($this->requestWithBearerToken(), $this->requiredScopes());
+                $this->fail($method . ' accepted a token whose credential configurations can not be read.');
+            } catch (ConfigurationError $exception) {
+                $this->assertStringContainsString(
+                    'credential_configuration_ids must be a list',
+                    $exception->getMessage(),
+                );
+            }
+        }
+    }
+
+
+    /**
+     * Token introspection takes no credential configurations, so the list is not read for it, and a malformed
+     * one does not stop it.
+     */
+    public function testDoesNotReadCredentialConfigurationsForTheCallerOfOtherEndpoints(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $this->moduleConfigMock->expects($this->never())->method('getApiTokenCredentialConfigurationIds');
+
+        $this->assertSame(
+            'HR system',
+            $this->sut()->requireCallerForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes()),
+        );
     }
 
 
@@ -372,7 +557,10 @@ class AuthorizationTest extends TestCase
 
         $this->assertSame(
             'HR system',
-            $this->sut()->requireBearerTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes()),
+            $this->sut()->requireBearerTokenForAnyOfScope(
+                $this->requestWithBearerToken(),
+                $this->requiredScopes(),
+            )->getPrincipal(),
         );
     }
 
@@ -400,7 +588,10 @@ class AuthorizationTest extends TestCase
 
         $this->assertSame(
             'the-resolved-principal',
-            $this->sut()->requireBearerTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes()),
+            $this->sut()->requireBearerTokenForAnyOfScope(
+                $this->requestWithBearerToken(),
+                $this->requiredScopes(),
+            )->getPrincipal(),
         );
     }
 

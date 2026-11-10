@@ -2174,6 +2174,183 @@ class ModuleConfigTest extends TestCase
 
         $this->assertNull($sut->getApiTokenScopes('some-other-token'));
         $this->assertNull($sut->getApiTokenName('some-other-token'));
+        $this->assertNull($sut->getApiTokenCredentialConfigurationIds('some-other-token'));
+    }
+
+
+    /**
+     * No list is no credential configurations, and the list is read as configured, each ID once.
+     *
+     * @param array<array-key,mixed> $entry
+     * @throws \Exception
+     */
+    #[DataProvider('apiTokenCredentialConfigurationsProvider')]
+    public function testReadsTheCredentialConfigurationsOfAnApiToken(array $entry, ?array $expected): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_TOKENS => ['a-token' => $entry]],
+        ));
+
+        $this->assertSame($expected, $sut->getApiTokenCredentialConfigurationIds('a-token'));
+    }
+
+
+    public static function apiTokenCredentialConfigurationsProvider(): array
+    {
+        return [
+            'a bare list of scopes' => [[ApiScopesEnum::VciAll], null],
+            'settings without a list' => [
+                [
+                    ModuleConfig::KEY_API_TOKEN_NAME => 'HR system',
+                    ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::All],
+                ],
+                null,
+            ],
+            'an empty list' => [
+                [
+                    ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::VciCredentialOffer],
+                    ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => [],
+                ],
+                [],
+            ],
+            'two IDs, one of them twice' => [
+                [
+                    ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::VciCredentialOffer],
+                    ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => [
+                        'employee_card',
+                        'library_card',
+                        'employee_card',
+                    ],
+                ],
+                ['employee_card', 'library_card'],
+            ],
+            'the wildcard' => [
+                [
+                    ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::VciAll],
+                    ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => [
+                        ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS,
+                    ],
+                ],
+                [ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS],
+            ],
+        ];
+    }
+
+
+    /**
+     * A list which is not a list of IDs is refused rather than guessed at, since a guess would widen or narrow
+     * what the token may do without anyone having decided it. The message names neither the token nor the
+     * values: it reaches the log.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('malformedApiTokenCredentialConfigurationsProvider')]
+    public function testRejectsMalformedCredentialConfigurationsOfAnApiToken(mixed $configuredIds): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [
+                ModuleConfig::OPTION_API_TOKENS => [
+                    'a-secret-token' => [
+                        ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::VciAll],
+                        ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => $configuredIds,
+                    ],
+                ],
+            ],
+        ));
+
+        try {
+            $sut->getApiTokenCredentialConfigurationIds('a-secret-token');
+            $this->fail('A malformed credential configuration list was read.');
+        } catch (ConfigurationError $exception) {
+            $this->assertStringContainsString(
+                ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS,
+                $exception->getMessage(),
+            );
+            $this->assertStringNotContainsString('a-secret-token', $exception->getMessage());
+            $this->assertStringNotContainsString('employee_card', $exception->getMessage());
+        }
+    }
+
+
+    public static function malformedApiTokenCredentialConfigurationsProvider(): array
+    {
+        return [
+            'one ID, not in a list' => ['employee_card'],
+            'null' => [null],
+            'a scope instead of an ID' => [[ApiScopesEnum::All]],
+            'an empty ID' => [['employee_card', '']],
+            'a blank ID' => [['   ']],
+            'a number' => [[42]],
+            'a nested list' => [[['employee_card']]],
+            'the wildcard beside an ID' => [[ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS, 'employee_card']],
+            'an ID beside the wildcard' => [['employee_card', ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS]],
+            // Read by their values, these would be the wildcard alone, or another configuration than the key's.
+            'the wildcard under an ID' => [['employee_card' => ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS]],
+            'an ID under another' => [['student_card' => 'employee_card']],
+            'the wildcard under an index' => [[7 => ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS]],
+            'IDs out of order' => [[1 => 'employee_card', 0 => 'library_card']],
+        ];
+    }
+
+
+    /**
+     * The credential configuration key marks the settings shape on its own, so neither the key nor anything
+     * under it is ever read as a scope: not an entry holding the list alone, not scopes listed positionally
+     * beside it, and not a scope written under it by mistake.
+     *
+     * @param array<array-key,mixed> $entry
+     * @param ?array<array-key,mixed> $expectedScopes
+     * @throws \Exception
+     */
+    #[DataProvider('apiTokenScopesBesideCredentialConfigurationsProvider')]
+    public function testNeverReadsTheCredentialConfigurationListAsScopes(array $entry, ?array $expectedScopes): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_TOKENS => ['a-token' => $entry]],
+        ));
+
+        $scopes = $sut->getApiTokenScopes('a-token');
+
+        $this->assertSame($expectedScopes, is_array($scopes) ? array_values($scopes) : $scopes);
+    }
+
+
+    public static function apiTokenScopesBesideCredentialConfigurationsProvider(): array
+    {
+        return [
+            'the list alone' => [
+                [ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => ['employee_card']],
+                null,
+            ],
+            'a scope written under it' => [
+                [ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => [ApiScopesEnum::All]],
+                null,
+            ],
+            'scopes listed beside it' => [
+                [
+                    ApiScopesEnum::VciCredentialOffer,
+                    ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => ['employee_card'],
+                ],
+                [ApiScopesEnum::VciCredentialOffer],
+            ],
+            'scopes listed beside a malformed one' => [
+                [
+                    ApiScopesEnum::OAuth2TokenIntrospection,
+                    ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => 'employee_card',
+                ],
+                [ApiScopesEnum::OAuth2TokenIntrospection],
+            ],
+            'scopes under their key' => [
+                [
+                    ModuleConfig::KEY_API_TOKEN_SCOPES => [ApiScopesEnum::VciCredentialStatus],
+                    ModuleConfig::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS => [ApiScopesEnum::All],
+                ],
+                [ApiScopesEnum::VciCredentialStatus],
+            ],
+        ];
     }
 
 
@@ -3931,6 +4108,52 @@ class ModuleConfigTest extends TestCase
         );
 
         $sut->getScopes();
+    }
+
+
+    /**
+     * A Status List entry records a credential's configuration id in a column of fixed width, and an API token's
+     * limit compares that record exactly. An id too long for it is refused, where the ids become scopes, rather
+     * than recorded cut short, where it could read as another configuration's.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesACredentialConfigurationIdTooLongToRecord(): void
+    {
+        $name = str_repeat('a', ModuleConfig::MAX_VCI_CREDENTIAL_CONFIGURATION_ID_LENGTH) . '_other';
+        $sut = $this->sut(overrides: array_merge(
+            $this->withCredentialConfigurations([$name => [], 'TestCredential' => []]),
+            [ModuleConfig::OPTION_VCI_ENABLED => true],
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(sprintf(
+            'is longer than the %d characters a Status List entry can record',
+            ModuleConfig::MAX_VCI_CREDENTIAL_CONFIGURATION_ID_LENGTH,
+        ));
+
+        $sut->getScopes();
+    }
+
+
+    /**
+     * The longest id the column records is not too long.
+     *
+     * @throws \Exception
+     */
+    public function testAcceptsACredentialConfigurationIdOfTheGreatestRecordableLength(): void
+    {
+        $name = str_repeat('a', ModuleConfig::MAX_VCI_CREDENTIAL_CONFIGURATION_ID_LENGTH);
+        $sut = $this->sut(overrides: array_merge($this->overrides, [ModuleConfig::OPTION_VCI_ENABLED => true]));
+
+        $this->assertStringNotContainsString(
+            'characters a Status List entry can record',
+            (string)$sut->findFaultInVciCredentialConfiguration($name, []),
+        );
+        $this->assertStringContainsString(
+            'characters a Status List entry can record',
+            (string)$sut->findFaultInVciCredentialConfiguration($name . 'a', []),
+        );
     }
 
 

@@ -1495,6 +1495,38 @@ msgid ""
 "example to send it to a user by email."
 msgstr ""
 
+msgid "API Token Credential Configurations"
+msgstr ""
+
+msgid ""
+"The credential configurations the API tokens may offer, and whose "
+"credentials they may revoke or suspend, as each token lists them under "
+"credential_configuration_ids. '*' allows all of them; a token with no list "
+"may do neither. The tokens themselves are secrets and are never shown here."
+msgstr ""
+
+msgid ""
+"At least one API token holding a Verifiable Credential scope is given no "
+"credential configurations, so the credential offer and credential status "
+"endpoints refuse it; list them under its credential_configuration_ids, or "
+"'*' for all of them. At least one API token also names a credential "
+"configuration which is not configured, so nothing can be offered or changed "
+"for it."
+msgstr ""
+
+msgid ""
+"At least one API token holding a Verifiable Credential scope is given no "
+"credential configurations, so the credential offer and credential status "
+"endpoints refuse it. List them under its credential_configuration_ids, or "
+"'*' for all of them."
+msgstr ""
+
+msgid ""
+"At least one API token names a credential configuration which is not "
+"configured, so nothing can be offered or changed for it. The token works for "
+"the rest."
+msgstr ""
+
 msgid "missing or unsupported format, cannot issue credentials"
 msgstr ""
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Api;
 
+use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
@@ -82,7 +83,7 @@ class VciCredentialStatusApiController
         }
 
         try {
-            $actorRef = $this->authorization->requireBearerTokenForAnyOfScope(
+            $caller = $this->authorization->requireBearerTokenForAnyOfScope(
                 $request,
                 [ApiScopesEnum::VciCredentialStatus, ApiScopesEnum::VciAll, ApiScopesEnum::All],
             );
@@ -120,6 +121,20 @@ class VciCredentialStatusApiController
                     'Bearer' :
                     'Bearer error="invalid_token"',
                 ],
+            );
+        } catch (ConfigurationError $exception) {
+            // Who the token stands for, or which credential configurations it may act on, can not be read from
+            // the configuration. This server's fault, answered in JSON rather than left to reach SimpleSAMLphp's
+            // HTML error page.
+            $this->loggerService->error(
+                'VciCredentialStatusApiController: API token configuration could not be read: ' .
+                $exception->getMessage(),
+            );
+
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Authorization could not be resolved.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
             );
         }
 
@@ -167,7 +182,8 @@ class VciCredentialStatusApiController
                 trim($credentialId),
                 $status,
                 StatusChangeSourceEnum::Api,
-                $actorRef,
+                $caller->getPrincipal(),
+                $caller->getCredentialConfigurationLimit(),
             );
         } catch (UnsupportedStatusException $exception) {
             // Permanent: the number of bits per entry is fixed when a list is created, so no amount of
@@ -209,9 +225,9 @@ class VciCredentialStatusApiController
         }
 
         if (!$change instanceof CredentialStatusChange) {
-            // One that was never issued here, one issued without a status claim and one which has
-            // expired are all answered this way. Telling them apart would let a caller enumerate which
-            // credential identifiers exist.
+            // One that was never issued here, one issued without a status claim, one which has expired
+            // and one issued from a credential configuration the token may not act on are all answered
+            // this way. Telling them apart would let a caller enumerate which credential identifiers exist.
             return $this->routes->newJsonErrorResponse(
                 error: 'not_found',
                 description: 'No credential with that identifier can have its status changed.',

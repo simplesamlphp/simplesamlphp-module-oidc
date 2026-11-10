@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Admin\ConfigOverview;
 use DateInterval;
 use DateTimeImmutable;
 use SimpleSAML\Locale\Translate;
+use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
 use SimpleSAML\Module\oidc\Codebooks\ConfigOverviewValueTypeEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciCredentialBindingPolicyEnum;
@@ -1952,6 +1953,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                     'API on the protocol settings screen.',
                 ) : null),
             ),
+            $this->buildApiTokenCredentialConfigurationsRow(),
             new Row(
                 Translate::noop('Default User Email Attribute'),
                 $defaultEmailAttribute ?? Translate::noop('N/A'),
@@ -1978,6 +1980,136 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->buildTxCodeMaxAttemptsRow(),
             $this->buildAnonymousPreAuthorizedAccessRow(),
         );
+    }
+
+
+    /**
+     * The credential configurations the API tokens may act on at the Verifiable Credential endpoints: offer them,
+     * and change the status of the credentials issued from them.
+     *
+     * The tokens are secrets and are never shown, so the row lists the configurations they name, and warns about
+     * a token which can do nothing at those endpoints, and about a configuration named which does not exist. A
+     * malformed list is reported in place by guardRow(), and the endpoints refuse to serve with it.
+     */
+    protected function buildApiTokenCredentialConfigurationsRow(): Row
+    {
+        // These only decide whether a warning is worth showing, so each is resolved defensively, a failure
+        // read as off; their own rows report it. The offer endpoint is served only while issuance is enabled,
+        // the status endpoint whatever issuance says.
+        $isOn = static function (callable $read): bool {
+            try {
+                return $read() === true;
+            } catch (Throwable) {
+                return false;
+            }
+        };
+        $isApiEnabled = $isOn(fn(): bool => $this->moduleConfig->getApiEnabled());
+        $isOfferEndpointServed = $isApiEnabled &&
+        $isOn(fn(): bool => $this->moduleConfig->getVciEnabled()) &&
+        $isOn(fn(): bool => $this->moduleConfig->getApiVciCredentialOfferEndpointEnabled());
+        $isStatusEndpointServed = $isApiEnabled &&
+        $isOn(fn(): bool => $this->moduleConfig->getApiVciCredentialStatusEndpointEnabled());
+
+        $configuredIds = null;
+
+        try {
+            $configuredIds = $this->moduleConfig->getVciCredentialConfigurationIdsSupported();
+        } catch (Throwable) {
+            // Reported with the credential configurations; without them, no ID can be called unknown.
+        }
+
+        return $this->guardRow(
+            Translate::noop('API Token Credential Configurations'),
+            ModuleConfig::OPTION_API_TOKENS,
+            function () use ($isOfferEndpointServed, $isStatusEndpointServed, $configuredIds): Row {
+                $namedIds = [];
+                $hasTokenWithNone = false;
+
+                foreach (array_keys($this->moduleConfig->getApiTokens() ?? []) as $token) {
+                    $tokenIds = $this->moduleConfig->getApiTokenCredentialConfigurationIds((string)$token);
+
+                    if ($tokenIds === null || $tokenIds === []) {
+                        $hasTokenWithNone = $hasTokenWithNone || $this->holdsAVciApiScope(
+                            $this->moduleConfig->getApiTokenScopes((string)$token) ?? [],
+                        );
+                        continue;
+                    }
+
+                    foreach ($tokenIds as $tokenId) {
+                        $namedIds[$tokenId] = true;
+                    }
+                }
+
+                $namedIds = array_map('strval', array_keys($namedIds));
+                sort($namedIds, SORT_STRING);
+
+                $unknownIds = is_array($configuredIds) ? array_diff(
+                    $namedIds,
+                    [ModuleConfig::API_TOKEN_ALL_CREDENTIAL_CONFIGURATIONS, ...$configuredIds],
+                ) : [];
+
+                $warning = null;
+                $isTokenWithNoneReported = $hasTokenWithNone && ($isOfferEndpointServed || $isStatusEndpointServed);
+
+                // One fixed message per case, the two together included, so that each stays translatable.
+                if ($isTokenWithNoneReported && $unknownIds !== []) {
+                    $warning = Translate::noop(
+                        'At least one API token holding a Verifiable Credential scope is given no credential ' .
+                        'configurations, so the credential offer and credential status endpoints refuse it; ' .
+                        'list them under its credential_configuration_ids, or \'*\' for all of them. At least ' .
+                        'one API token also names a credential configuration which is not configured, so ' .
+                        'nothing can be offered or changed for it.',
+                    );
+                } elseif ($isTokenWithNoneReported) {
+                    $warning = Translate::noop(
+                        'At least one API token holding a Verifiable Credential scope is given no credential ' .
+                        'configurations, so the credential offer and credential status endpoints refuse it. ' .
+                        'List them under its credential_configuration_ids, or \'*\' for all of them.',
+                    );
+                } elseif ($unknownIds !== []) {
+                    $warning = Translate::noop(
+                        'At least one API token names a credential configuration which is not configured, so ' .
+                        'nothing can be offered or changed for it. The token works for the rest.',
+                    );
+                }
+
+                return new Row(
+                    Translate::noop('API Token Credential Configurations'),
+                    $namedIds === [] ? Translate::noop('None configured') : $namedIds,
+                    $namedIds === [] ? ConfigOverviewValueTypeEnum::Text : ConfigOverviewValueTypeEnum::StringList,
+                    ModuleConfig::OPTION_API_TOKENS,
+                    Translate::noop(
+                        'The credential configurations the API tokens may offer, and whose credentials they may ' .
+                        'revoke or suspend, as each token lists them under credential_configuration_ids. \'*\' ' .
+                        'allows all of them; a token with no list may do neither. The tokens themselves are ' .
+                        'secrets and are never shown here.',
+                    ),
+                    $warning,
+                );
+            },
+        );
+    }
+
+
+    /**
+     * @param mixed[] $scopes As ModuleConfig::getApiTokenScopes() returns them.
+     */
+    protected function holdsAVciApiScope(array $scopes): bool
+    {
+        $vciScopes = [
+            ApiScopesEnum::VciCredentialOffer,
+            ApiScopesEnum::VciCredentialStatus,
+            ApiScopesEnum::VciAll,
+            ApiScopesEnum::All,
+        ];
+
+        foreach ($vciScopes as $vciScope) {
+            if (in_array($vciScope, $scopes, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 
