@@ -64,25 +64,34 @@ class Authorization
 
 
     /**
+     * Authorize a request by a logged in SimpleSAMLphp administrator, or by an API token holding one of the scopes.
+     *
      * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
-     * @return \SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit Which credential configurations
-     * the caller may act on at a Verifiable Credential endpoint: all of them for a logged in SimpleSAMLphp
-     * administrator, and for an API token those it is configured with, which are none without a list.
+     * @return ?\SimpleSAML\Module\oidc\ValueAbstracts\ApiCaller Null for an administrator's session, which stands
+     * for no API principal and may act on every credential configuration. For an API token, who it stands for and
+     * the credential configurations it is configured with, which are none without a list. Told apart by type, never
+     * by a principal's string: an operator could give a token any name, {@see ADMIN_PRINCIPAL} included.
      * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
-     * @throws \SimpleSAML\Error\ConfigurationError When the token's credential configurations are malformed.
+     * @throws \SimpleSAML\Error\ConfigurationError When who the token stands for, or its credential configurations,
+     * can not be read from the configuration.
      */
-    public function requireTokenForAnyOfScope(Request $request, array $requiredScopes): CredentialConfigurationLimit
+    public function requireAdminOrTokenForAnyOfScope(Request $request, array $requiredScopes): ?ApiCaller
     {
         $token = $this->authorizeForAnyOfScope($request, $requiredScopes);
 
-        return is_null($token) ?
-        CredentialConfigurationLimit::unlimited() :
-        $this->credentialConfigurationLimitOf($token);
+        if (is_null($token)) {
+            return null;
+        }
+
+        return new ApiCaller(
+            $this->apiTokenPrincipalResolver->resolve($token),
+            $this->credentialConfigurationLimitOf($token),
+        );
     }
 
 
     /**
-     * {@see requireTokenForAnyOfScope()}, saying who the request is made by: for an endpoint whose answer
+     * {@see requireAdminOrTokenForAnyOfScope()}, saying only who the request is made by: for an endpoint whose answer
      * depends on who is asking, and not only on whether they may ask at all.
      *
      * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
@@ -136,7 +145,7 @@ class Authorization
     /**
      * Authorize a state changing request, and say who it is being made by.
      *
-     * Deliberately not {@see requireTokenForAnyOfScope()}, which is right for the endpoints it serves
+     * Deliberately not {@see requireAdminOrTokenForAnyOfScope()}, which is right for the endpoints it serves
      * and wrong for this kind. That method accepts an authenticated SimpleSAMLphp admin session before
      * it ever looks at a token, which means a request carrying an administrator's cookies is authorized
      * whatever caused the browser to send it; and it falls back to reading the token from a request

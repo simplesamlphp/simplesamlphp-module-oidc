@@ -21,6 +21,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryPosition;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
@@ -28,11 +29,18 @@ use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 #[AllowMockObjectsWithoutExpectations]
 class StatusListEntryRepositoryTest extends TestCase
 {
+    use LaggingSecondaryTestTrait;
+
+
     protected const string LIST_ID = 'a-status-list-id';
 
     protected const string OTHER_LIST_ID = 'another-status-list-id';
 
     protected const string CONFIGURATION_ID = 'UniversityDegree';
+
+    protected const string OFFER_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    protected const string OTHER_OFFER_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 
     protected const int CAPACITY = 8;
 
@@ -460,7 +468,7 @@ class StatusListEntryRepositoryTest extends TestCase
 
 
     /**
-     * The four linkage columns are one fact, so they go together. Keeping any of them would leave a row
+     * The five linkage columns are one fact, so they go together. Keeping any of them would leave a row
      * which still says somebody was issued a credential while claiming not to know which one.
      *
      * @throws \Exception
@@ -475,6 +483,7 @@ class StatusListEntryRepositoryTest extends TestCase
             new DateTimeImmutable('2026-01-01 09:00:00'),
             new DateTimeImmutable('2026-06-01 09:00:00'),
         );
+        $this->linkToOffer(self::OFFER_ID, 'urn:vc:expired');
 
         $this->assertSame(1, $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10));
 
@@ -484,6 +493,7 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertNull($entry['credential_id_hash']);
         $this->assertNull($entry['credential_configuration_id']);
         $this->assertNull($entry['subject_ref']);
+        $this->assertNull($entry['offer_id']);
     }
 
 
@@ -723,6 +733,218 @@ class StatusListEntryRepositoryTest extends TestCase
 
         $this->assertSame(1, $page['total']);
         $this->assertSame(['urn:vc:live'], $this->credentialIdsOf($page['items']));
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function linkToOffer(string $offerId, string ...$credentialIds): int
+    {
+        return $this->repository->linkToOffer(
+            $offerId,
+            array_map($this->repository->hashCredentialId(...), $credentialIds),
+        );
+    }
+
+
+    /**
+     * Only the credentials named are linked, and the count says how many were.
+     *
+     * @throws \Exception
+     */
+    public function testLinksTheCredentialsOfARequestToTheirOffer(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:first');
+        $this->allocate(1, 'urn:vc:second');
+        $this->allocate(2, 'urn:vc:of-another-request');
+
+        $this->assertSame(2, $this->linkToOffer(self::OFFER_ID, 'urn:vc:first', 'urn:vc:second'));
+
+        $this->assertSame(self::OFFER_ID, $this->readEntry(0)['offer_id']);
+        $this->assertSame(self::OFFER_ID, $this->readEntry(1)['offer_id']);
+        $this->assertNull($this->readEntry(2)['offer_id']);
+        $this->assertSame(self::OFFER_ID, $this->repository->findByListAndIdx(self::LIST_ID, 0)?->getOfferId());
+    }
+
+
+    /**
+     * A credential which already names an offer is not moved to another, and is not counted.
+     *
+     * @throws \Exception
+     */
+    public function testNeverLinksACredentialWhichAlreadyNamesAnOffer(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:first');
+        $this->linkToOffer(self::OFFER_ID, 'urn:vc:first');
+
+        $this->assertSame(0, $this->linkToOffer(self::OTHER_OFFER_ID, 'urn:vc:first'));
+        $this->assertSame(self::OFFER_ID, $this->readEntry(0)['offer_id']);
+    }
+
+
+    /**
+     * A credential whose linkage was cleared since it expired is not found by its hash any more, so nothing can
+     * put an offer back on its row, out of the reach of every later cleanup.
+     *
+     * @throws \Exception
+     */
+    public function testNeverLinksACredentialWhoseLinkageWasCleared(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->allocate(
+            0,
+            'urn:vc:expired',
+            null,
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2026-06-01 09:00:00'),
+        );
+        $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $this->assertSame(0, $this->linkToOffer(self::OFFER_ID, 'urn:vc:expired'));
+        $this->assertNull($this->readEntry(0)['offer_id']);
+    }
+
+
+    /**
+     * The offer goes with the rest of the linkage, so the credential leaves its offer's listing and the offer's
+     * record can go once none of its credentials names it.
+     *
+     * @throws \Exception
+     */
+    public function testClearsTheOfferWithTheRestOfTheLinkage(): void
+    {
+        $this->createList(self::LIST_ID, 1, StatusListExpiryLaneEnum::Expiring);
+        $this->allocate(
+            0,
+            'urn:vc:expired',
+            null,
+            new DateTimeImmutable('2026-01-01 09:00:00'),
+            new DateTimeImmutable('2026-06-01 09:00:00'),
+        );
+        $this->linkToOffer(self::OFFER_ID, 'urn:vc:expired');
+
+        $this->repository->clearExpiredLinkage(new DateTimeImmutable('2026-08-07 12:00:00'), 10);
+
+        $this->assertNull($this->readEntry(0)['offer_id']);
+        $this->assertSame([], $this->repository->findLinkedToOffer(self::OFFER_ID, 10));
+    }
+
+
+    /**
+     * In the order they were issued, the list and index breaking the tie of a batch; another offer's credentials
+     * and those of no offer are not listed.
+     *
+     * @throws \Exception
+     */
+    public function testListsTheCredentialsOfOneOfferInTheOrderTheyWereIssued(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+        $batch = new DateTimeImmutable('2026-08-07 12:00:00');
+        $this->allocate(5, 'urn:vc:later', null, new DateTimeImmutable('2026-08-07 13:00:00'));
+        $this->allocate(3, 'urn:vc:batch-other-list-3', null, $batch, null, self::OTHER_LIST_ID);
+        $this->allocate(2, 'urn:vc:batch-2', null, $batch);
+        $this->allocate(1, 'urn:vc:batch-1', null, $batch);
+        $this->allocate(0, 'urn:vc:earliest', null, new DateTimeImmutable('2026-08-07 11:00:00'));
+        $this->allocate(6, 'urn:vc:of-another-offer', null, $batch);
+        $this->allocate(7, 'urn:vc:of-no-offer', null, $batch);
+        $this->linkToOffer(
+            self::OFFER_ID,
+            'urn:vc:later',
+            'urn:vc:batch-other-list-3',
+            'urn:vc:batch-2',
+            'urn:vc:batch-1',
+            'urn:vc:earliest',
+        );
+        $this->linkToOffer(self::OTHER_OFFER_ID, 'urn:vc:of-another-offer');
+
+        $this->assertSame(
+            ['urn:vc:earliest', 'urn:vc:batch-1', 'urn:vc:batch-2', 'urn:vc:batch-other-list-3', 'urn:vc:later'],
+            $this->credentialIdsOf($this->repository->findLinkedToOffer(self::OFFER_ID, 10)),
+        );
+    }
+
+
+    /**
+     * Each page starts after the last credential of the one before, so paging through a batch issued in the same
+     * second, across lists, neither repeats a credential nor loses one.
+     *
+     * @throws \Exception
+     */
+    public function testPagesThroughTheCredentialsOfAnOfferWithoutRepeatingOrLosingAny(): void
+    {
+        $this->createList();
+        $this->createList(self::OTHER_LIST_ID, 2);
+        $batch = new DateTimeImmutable('2026-08-07 12:00:00');
+        $credentialIds = [];
+
+        foreach ([self::LIST_ID, self::OTHER_LIST_ID] as $statusListId) {
+            for ($idx = 0; $idx < 3; $idx++) {
+                $credentialId = sprintf('urn:vc:%s-%d', $statusListId, $idx);
+                $this->allocate($idx, $credentialId, null, $batch, null, $statusListId);
+                $credentialIds[] = $credentialId;
+            }
+        }
+
+        $this->allocate(3, 'urn:vc:later', null, new DateTimeImmutable('2026-08-07 12:00:01'));
+        $credentialIds[] = 'urn:vc:later';
+        $this->linkToOffer(self::OFFER_ID, ...$credentialIds);
+
+        $listed = [];
+        $after = null;
+
+        do {
+            $page = $this->repository->findLinkedToOffer(self::OFFER_ID, 2, $after);
+            $listed = [...$listed, ...$this->credentialIdsOf($page)];
+            $after = $page === [] ? null : StatusListEntryPosition::fromRecord($page[array_key_last($page)]);
+        } while (count($page) === 2);
+
+        $this->assertSame($credentialIds, $listed);
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testListsNoMoreCredentialsOfAnOfferThanAskedFor(): void
+    {
+        $this->createList();
+
+        for ($idx = 0; $idx < 4; $idx++) {
+            $this->allocate($idx, 'urn:vc:' . $idx);
+            $this->linkToOffer(self::OFFER_ID, 'urn:vc:' . $idx);
+        }
+
+        $this->assertCount(3, $this->repository->findLinkedToOffer(self::OFFER_ID, 3));
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    public function testLinksInStatementsEveryDriverAccepts(): void
+    {
+        $hashes = array_map(static fn(int $n): string => hash('sha256', (string)$n), range(0, 1199));
+
+        $bindings = [];
+        $this->repositoryCollectingStatements($bindings)->linkToOffer(self::OFFER_ID, $hashes);
+
+        $this->assertGreaterThan(1, count($bindings));
+
+        $linked = [];
+
+        foreach ($bindings as $params) {
+            $this->assertLessThanOrEqual(self::MAX_BOUND_VARIABLES, count($params));
+            $this->assertSame(self::OFFER_ID, $params['offer_id'] ?? null);
+            unset($params['offer_id']);
+            $linked = [...$linked, ...array_values($params)];
+        }
+
+        // Splitting must neither skip a credential nor name one twice.
+        $this->assertSame($hashes, $linked);
     }
 
 
@@ -1287,6 +1509,32 @@ class StatusListEntryRepositoryTest extends TestCase
         $this->assertSame(
             $expected,
             $this->repositoryCollectingStatements($bindings, $selected)->countAllocated(self::LIST_ID),
+        );
+    }
+
+
+    /**
+     * Credentials just issued are listed under their offer though the secondary has not caught up: the listing is
+     * read from the primary.
+     *
+     * @throws \Exception
+     */
+    public function testListsCredentialsJustLinkedThoughTheSecondaryHasNotCaughtUp(): void
+    {
+        $this->createList();
+        $this->allocate(0, 'urn:vc:just-issued');
+        $this->linkToOffer(self::OFFER_ID, 'urn:vc:just-issued');
+
+        $repository = new StatusListEntryRepository(
+            $this->moduleConfigMock,
+            $this->databaseWithALaggingSecondary(),
+            null,
+            $this->helpers,
+        );
+
+        $this->assertSame(
+            ['urn:vc:just-issued'],
+            $this->credentialIdsOf($repository->findLinkedToOffer(self::OFFER_ID, 10)),
         );
     }
 }

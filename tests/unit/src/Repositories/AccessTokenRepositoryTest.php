@@ -244,6 +244,7 @@ class AccessTokenRepositoryTest extends TestCase
             self::USER_ID,
             flowTypeEnum: $offerClaims === null ? null : FlowTypeEnum::VciPreAuthorizedCode,
             offerClaims: $offerClaims,
+            offerId: $offerClaims === null ? null : 'offered-offer-id',
         );
         $offeredToken = $build('offered-access-token-id', ['uid' => ['offered-uid']]);
         $plainToken = $build('plain-access-token-id', null);
@@ -270,6 +271,10 @@ class AccessTokenRepositoryTest extends TestCase
         $this->assertSame(
             ['{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', null],
             array_column($states, 'offer_claims'),
+        );
+        $this->assertSame(
+            ['offered-offer-id', 'offered-offer-id', 'offered-offer-id', null],
+            array_column($states, 'offer_id'),
         );
         $this->assertSame(1, (int)$states[2]['is_revoked']);
     }

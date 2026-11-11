@@ -403,6 +403,74 @@ class IssuerStateEntityFactoryTest extends TestCase
     }
 
 
+    public function testBuildNewAndFromDataCarryTheOfferId(): void
+    {
+        $offerId = str_repeat('ab', 32);
+
+        $built = $this->sut()->buildNew(offerId: $offerId);
+        $this->assertSame($offerId, $built->getOfferId());
+
+        $entity = $this->sut()->fromData(
+            self::VALUE,
+            $this->utc(self::CREATED_AT),
+            $this->utc(self::EXPIRES_AT),
+            false,
+            self::OFFERED,
+            $offerId,
+        );
+        $this->assertSame($offerId, $entity->getOfferId());
+
+        $this->assertNull($this->sut()->buildNew()->getOfferId());
+        $this->assertNull(
+            $this->sut()->fromData(self::VALUE, $this->utc(self::CREATED_AT), $this->utc(self::EXPIRES_AT))
+                ->getOfferId(),
+        );
+    }
+
+
+    public function testFromStateCarriesTheOfferId(): void
+    {
+        $offerId = str_repeat('ab', 32);
+
+        $this->assertSame($offerId, $this->sut()->fromState($this->row(['offer_id' => $offerId]))->getOfferId());
+
+        $original = $this->sut()->buildNew(offerId: $offerId);
+        $this->assertSame($offerId, $this->sut()->fromState($original->getState())->getOfferId());
+    }
+
+
+    /**
+     * A row stored before states named their offer has no such key, or NULL in it.
+     */
+    public function testFromStateReadsAMissingOrNullOfferIdAsNone(): void
+    {
+        $this->assertNull($this->sut()->fromState($this->row())->getOfferId());
+        $this->assertNull($this->sut()->fromState($this->row(['offer_id' => null]))->getOfferId());
+    }
+
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function invalidOfferIdProvider(): array
+    {
+        return [
+            'a number' => [123],
+            'a list' => [['x']],
+        ];
+    }
+
+
+    #[DataProvider('invalidOfferIdProvider')]
+    public function testFromStateRejectsAnOfferIdWhichIsNotAString(mixed $offerId): void
+    {
+        $this->expectException(OpenIdException::class);
+        $this->expectExceptionMessage('Invalid Issuer State Entity offer ID.');
+
+        $this->sut()->fromState($this->row(['offer_id' => $offerId]));
+    }
+
+
     /**
      * @return array<string, array{mixed}>
      */

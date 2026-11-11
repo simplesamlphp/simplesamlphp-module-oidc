@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Codebooks\DateFormatsEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
+use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryPosition;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
@@ -412,6 +413,100 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
 
 
     /**
+     * Name the Credential Offer the credentials of one request were issued from, once they are signed.
+     *
+     * Written after signing rather than at allocation, so that a listing holds the credentials which were signed and
+     * not indices claimed for a request which then failed. Matched by the request's own credentials, still linked
+     * (a cleared linkage has no hash) and naming no offer yet: a late update by list and index alone could put an
+     * offer back on a row whose linkage cleanup had already cleared, out of the reach of every later cleanup.
+     *
+     * @param string[] $credentialIdHashes The hashes of the credentials the request signed with a Status List entry.
+     * @return int How many entries now name the offer, which the caller compares with how many it signed.
+     * @throws \Exception
+     */
+    public function linkToOffer(string $offerId, array $credentialIdHashes): int
+    {
+        $linked = 0;
+
+        // One placeholder per credential named, plus the offer's, however many credentials follow it.
+        foreach (array_chunk(array_values($credentialIdHashes), $this->maxRowsPerStatement(1, 1)) as $chunk) {
+            $placeholders = [];
+            $params = ['offer_id' => $offerId];
+
+            foreach ($chunk as $position => $credentialIdHash) {
+                $placeholders[] = ':hash_' . $position;
+                $params['hash_' . $position] = $credentialIdHash;
+            }
+
+            $affected = $this->database->write(
+                sprintf(
+                    'UPDATE %s SET offer_id = :offer_id WHERE offer_id IS NULL AND credential_id_hash IN (%s)',
+                    $this->getTableName(),
+                    implode(', ', $placeholders),
+                ),
+                $params,
+            );
+
+            $linked += is_int($affected) ? $affected : 0;
+        }
+
+        return $linked;
+    }
+
+
+    /**
+     * A page of the credentials issued from a Credential Offer, in the order they were issued.
+     *
+     * Keyset paging: a page starts after a position, never at a count of rows, since linkage cleanup removes rows
+     * while a caller pages. Each position term is a value of its own under its own placeholder name, since a
+     * repeated name is not portable across drivers. Read from the primary, so that credentials just issued are
+     * listed.
+     *
+     * @return \SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord[]
+     * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
+     */
+    public function findLinkedToOffer(string $offerId, int $limit, ?StatusListEntryPosition $after = null): array
+    {
+        $condition = 'offer_id = :offer_id AND credential_id_hash IS NOT NULL AND issued_at IS NOT NULL';
+        $params = ['offer_id' => $offerId];
+
+        if ($after instanceof StatusListEntryPosition) {
+            $issuedAt = $this->formatForDatabase($after->getIssuedAt());
+
+            $condition .= ' AND (issued_at > :after_issued_at OR (issued_at = :at_issued_at AND ' .
+            '(status_list_id > :after_status_list_id OR ' .
+            '(status_list_id = :at_status_list_id AND idx > :after_idx))))';
+            $params['after_issued_at'] = $issuedAt;
+            $params['at_issued_at'] = $issuedAt;
+            $params['after_status_list_id'] = $after->getStatusListId();
+            $params['at_status_list_id'] = $after->getStatusListId();
+            $params['after_idx'] = [$after->getIdx(), PDO::PARAM_INT];
+        }
+
+        $rows = $this->readPrimary(
+            sprintf(
+                'SELECT * FROM %s WHERE %s ORDER BY issued_at ASC, status_list_id ASC, idx ASC LIMIT %d',
+                $this->getTableName(),
+                $condition,
+                max($limit, 1),
+            ),
+            $params,
+        );
+
+        $records = [];
+
+        /** @var mixed $row */
+        foreach ($rows as $row) {
+            if (is_array($row)) {
+                $records[] = StatusListEntryRecord::fromRow($row);
+            }
+        }
+
+        return $records;
+    }
+
+
+    /**
      * How many Status Lists hold a credential which never expires, and can therefore never be retired.
      *
      * Surfaced to administrators because credential expiry is opt in and off by default, which makes
@@ -497,9 +592,11 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
      * and no longer. What survives is the index and the status it ended on, which is the part the
      * published token is built from and the part which stops the index being handed out a second time.
      *
-     * The four columns go together in one statement, because they are one fact. Clearing some of them
+     * The five columns go together in one statement, because they are one fact. Clearing some of them
      * would leave a row which still says who was issued a credential while claiming not to know which
-     * credential it was.
+     * credential it was. The fifth is the Credential Offer the credential was issued from: cleared with
+     * the rest, the credential leaves its offer's listing, and once none of them names it the offer's
+     * record can go too (CredentialOfferRepository::removeExpired()).
      *
      * Bounded, and batched by the caller. A deployment which switched credential expiry on some time ago
      * can have a great many rows come due at once, and a single unbounded statement over them is a long
@@ -589,6 +686,7 @@ class StatusListEntryRepository extends AbstractDatabaseRepository
                         credential_id_hash = NULL,
                         credential_configuration_id = NULL,
                         subject_ref = NULL,
+                        offer_id = NULL,
                         updated_at = :updated_at
                       WHERE credential_id_hash IS NOT NULL AND (%s)',
                     $this->getTableName(),

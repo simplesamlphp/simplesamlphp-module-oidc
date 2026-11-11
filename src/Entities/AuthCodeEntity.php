@@ -33,6 +33,9 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
      * (CredentialOfferUriFactory::buildPreAuthorized()), which the credentials it buys are issued from; null for
      * any other code, and for a pre-authorized one stored before codes carried them. An empty array is an offer
      * made with no attributes, not the absence of one.
+     * @param string|null $offerId The Credential Offer a pre-authorized code was made for
+     * (CredentialOfferUriFactory::buildPreAuthorized()), copied to the access token the code buys; null for any other
+     * code, and for a pre-authorized one stored before codes named their offer.
      */
     public function __construct(
         string $id,
@@ -51,6 +54,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
         protected readonly ?string $issuerState = null,
         protected readonly ?string $dpopJkt = null,
         protected readonly ?array $offerClaims = null,
+        protected readonly ?string $offerId = null,
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Authorization code identifier cannot be empty.');
@@ -94,6 +98,7 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
             'offer_claims' => is_array($this->offerClaims) ?
                 json_encode($this->offerClaims, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE) :
                 null,
+            'offer_id' => $this->offerId,
         ];
     }
 
@@ -149,5 +154,11 @@ class AuthCodeEntity implements AuthCodeEntityInterface, MementoInterface
     public function getOfferClaims(): ?array
     {
         return $this->offerClaims;
+    }
+
+
+    public function getOfferId(): ?string
+    {
+        return $this->offerId;
     }
 }

@@ -28,6 +28,7 @@ use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\IssuerStateEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
@@ -35,6 +36,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AuthCodeRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
@@ -170,6 +172,7 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         protected readonly ModuleConfig $moduleConfig,
         protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly ResponseModeResolver $responseModeResolver,
+        protected readonly CredentialOfferRepository $credentialOfferRepository,
     ) {
         parent::__construct($authCodeRepository, $refreshTokenRepository, $authCodeTTL);
 
@@ -876,10 +879,26 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         // which fails them does not use the offer up.
         $issuerState = $storedAuthCodeEntity->getIssuerState();
         $spentIssuerState = null;
+        $offerId = null;
         if (
             $issuerState !== null &&
             $storedAuthCodeEntity->getFlowTypeEnum() === FlowTypeEnum::VciAuthorizationCode
         ) {
+            // The offer the state redeems, read before the state is spent, since spending it answers only whether
+            // it was spent. A state which names no offer was stored before states did (VCI never shipped one), and
+            // nothing it buys could be listed under its offer, so it buys nothing: refused before it is spent. A
+            // state which is not found is left to the spending below to refuse.
+            $offeredState = $this->issuerStateRepository->find($issuerState);
+            if ($offeredState instanceof IssuerStateEntity && $offeredState->getOfferId() === null) {
+                $this->loggerService->error(
+                    'Token request rejected: the issuer state the authorization code carries names no Credential ' .
+                    'Offer (it was stored before states named one).',
+                    ['client_id' => $client->getIdentifier(), 'auth_code_id' => $authCodePayload->auth_code_id],
+                );
+                throw OidcServerException::serverError('The issuer state names no Credential Offer.');
+            }
+            $offerId = $offeredState?->getOfferId();
+
             if (!$this->issuerStateRepository->consume($issuerState)) {
                 $this->loggerService->warning(
                     'Token request rejected: the issuer state the authorization code carries was already ' .
@@ -924,7 +943,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 $storedAuthCodeEntity->getBoundRedirectUri(),
                 $issuerState,
                 dpopJkt: $dpopJkt,
+                offerId: $offerId,
             );
+
+            // A token minted for an offer keeps the offer's record at least until it expires. A failure here takes
+            // the recovery below: the token is revoked and the offer given back.
+            if ($spentIssuerState !== null) {
+                $this->recordOfferRedemption($offerId, $accessToken);
+            }
+
             $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
             $responseType->setAccessToken($accessToken);
 
@@ -1049,6 +1076,37 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
         );
 
         return $responseType;
+    }
+
+
+    /**
+     * Note on the Credential Offer's record that an access token was minted for it, keeping the record at least
+     * until the token, as it was stored, expires: a token which still lives can buy credentials, and each of them has
+     * to be listable under the offer. The redemption is refused (server_error) unless that is confirmed, and so is a
+     * token for an offer which is not known.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    protected function recordOfferRedemption(?string $offerId, AccessTokenEntityInterface $accessToken): void
+    {
+        try {
+            $isRecorded = $offerId !== null &&
+            $this->credentialOfferRepository->recordRedemption($offerId, $accessToken->getExpiryDateTime());
+        } catch (Throwable $exception) {
+            $this->loggerService->error(
+                'Token request failed: the Credential Offer could not be recorded as redeemed.',
+                ['offer_id' => $offerId, 'error' => $exception->getMessage()],
+            );
+            throw OidcServerException::serverError('The Credential Offer could not be recorded as redeemed.');
+        }
+
+        if (!$isRecorded) {
+            $this->loggerService->error(
+                'Token request failed: the Credential Offer the token is minted for has no record to keep.',
+                ['offer_id' => $offerId],
+            );
+            throw OidcServerException::serverError('The Credential Offer could not be recorded as redeemed.');
+        }
     }
 
 

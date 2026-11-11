@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
+use ArrayObject;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -32,14 +33,18 @@ use SimpleSAML\Module\oidc\Factories\EmailFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\BuiltCredentialOffer;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
 use SimpleSAML\OpenID\VerifiableCredentials;
 use SimpleSAML\OpenID\VerifiableCredentials\TxCode;
@@ -93,6 +98,8 @@ class CredentialOfferUriFactoryTest extends TestCase
 
     protected TxCodeAttemptLimiter&MockObject $txCodeAttemptLimiterMock;
 
+    protected CredentialOfferRepository&MockObject $credentialOfferRepositoryMock;
+
     /** @var list<array{level: string, message: string, context: array}> */
     protected array $logRecords = [];
 
@@ -114,6 +121,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->moduleConfigMock->method('getUserIdentifierAttributes')->willReturn(['uid']);
         $this->moduleConfigMock->method('getDefaultUsersEmailAttributeName')->willReturn('mail');
         $this->moduleConfigMock->method('getAuthCodeDuration')->willReturn(new DateInterval('PT10M'));
+        $this->moduleConfigMock->method('getVciIssuerStateDuration')->willReturn(new DateInterval('PT5M'));
         $this->moduleConfigMock->method('getIssuer')->willReturn('https://issuer.example.org');
 
         $this->randomMock = $this->createMock(Random::class);
@@ -157,6 +165,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->issuerStateEntityFactoryMock->method('buildNew')->willReturn($this->issuerState('issuer-state-value'));
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
 
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
         foreach (['error', 'warning', 'info', 'debug'] as $level) {
@@ -179,7 +188,8 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->userRepositoryMock->expects($this->once())->method('add');
         $this->authCodeRepositoryMock->expects($this->once())->method('persistNewAuthCode');
 
-        $credentialOfferUri = $this->sut()->buildPreAuthorized(['credential-configuration'], $userAttributes);
+        $credentialOfferUri = $this->sut()->buildPreAuthorized(['credential-configuration'], $userAttributes)
+            ->getUri();
 
         $this->assertStringStartsWith('openid-credential-offer://?', $credentialOfferUri);
         $logs = json_encode($this->logRecords, JSON_THROW_ON_ERROR);
@@ -198,8 +208,9 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->moduleConfigMock->method('getIssuer')->willReturn($issuer);
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
             ->willReturn(['credential-configuration']);
+        $this->moduleConfigMock->method('getVciIssuerStateDuration')->willReturn(new DateInterval('PT5M'));
 
-        $offer = $this->decodeOffer($this->sut()->buildForAuthorization(['credential-configuration']));
+        $offer = $this->decodeOffer($this->sut()->buildForAuthorization(['credential-configuration'])->getUri());
 
         $this->assertSame($issuer, $offer['credential_issuer']);
     }
@@ -272,7 +283,7 @@ class CredentialOfferUriFactoryTest extends TestCase
             });
 
         $offer = $this->decodeOffer(
-            $this->sut()->buildForAuthorization(['credential-configuration', 'other-configuration']),
+            $this->sut()->buildForAuthorization(['credential-configuration', 'other-configuration'])->getUri(),
         );
 
         $this->assertInstanceOf(IssuerStateEntity::class, $persisted);
@@ -327,7 +338,7 @@ class CredentialOfferUriFactoryTest extends TestCase
                 }
             });
 
-        $offer = $this->decodeOffer($this->sut()->buildForAuthorization(['credential-configuration']));
+        $offer = $this->decodeOffer($this->sut()->buildForAuthorization(['credential-configuration'])->getUri());
 
         $this->assertSame(['state-1', 'state-2'], $persisted);
         $this->assertSame('state-2', $offer['grants']['authorization_code']['issuer_state']);
@@ -526,7 +537,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $credentialOfferUri = $this->sut()->buildPreAuthorized(
             ['credential-configuration', 'other-configuration'],
             $userAttributes,
-        );
+        )->getUri();
 
         $this->assertInstanceOf(UserEntity::class, $written);
         $this->assertSame('user-1', $written->getIdentifier());
@@ -536,6 +547,9 @@ class CredentialOfferUriFactoryTest extends TestCase
         $arguments = $this->authCodeArguments[0];
         $this->assertEqualsWithDelta($before + 600, $arguments['expiryDateTime']->getTimestamp(), 5);
         unset($arguments['expiryDateTime']);
+        // The id the offer is recorded under, random; its form is all there is to pin here.
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $arguments['offerId']);
+        unset($arguments['offerId']);
         $arguments['scopes'] = array_map(
             fn (ScopeEntityInterface $scope): string => $scope->getIdentifier(),
             $arguments['scopes'],
@@ -716,7 +730,7 @@ class CredentialOfferUriFactoryTest extends TestCase
             ['credential-configuration'],
             $userAttributes,
             useTxCode: true,
-        );
+        )->getUri();
 
         $code = $this->authCodeArguments[0]['txCode'];
         $this->assertIsString($code);
@@ -886,7 +900,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         $this->userRepositoryMock->expects($this->never())->method('update');
 
         $offer = $this->decodeOffer(
-            $this->sut()->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1']]),
+            $this->sut()->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1']])->getUri(),
         );
 
         $this->assertSame(['code-1', 'code-2'], $persisted);
@@ -993,6 +1007,218 @@ class CredentialOfferUriFactoryTest extends TestCase
     }
 
 
+    /**
+     * A pre-authorized offer is recorded before its code is stored, under the id its code names: the record holds
+     * the owner, the configurations offered and the pre-authorized code grant, and the moment the code expires as
+     * both the moment the offer stops being redeemable and the one it is kept until at least, and the offer built
+     * hands the id back to its maker. Whether an owner is passed or left out, which makes the offer an
+     * administrator's.
+     *
+     * @param array{owner?: ?string} $ownerArguments
+     */
+    #[DataProvider('ownerProvider')]
+    public function testRecordsAPreAuthorizedOfferUnderTheIdItsCodeNames(
+        array $ownerArguments,
+        ?string $expectedOwner,
+    ): void {
+        $record = $this->captureOfferRecords();
+
+        $built = $this->sut()->buildPreAuthorized(
+            ['credential-configuration', 'other-configuration'],
+            ['uid' => ['user-1']],
+            ...$ownerArguments,
+        );
+
+        $this->assertCount(1, $record);
+        $this->assertCount(1, $this->authCodeArguments);
+        $offer = $record[0];
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/D', $offer->getId());
+        $this->assertSame($expectedOwner, $offer->getOwner());
+        $this->assertSame(['credential-configuration', 'other-configuration'], $offer->getCredentialConfigurationIds());
+        $this->assertSame(self::PRE_AUTHORIZED_GRANT, $offer->getGrantType());
+        $expiry = $this->authCodeArguments[0]['expiryDateTime'];
+        $this->assertEquals($expiry, $offer->getRedeemableUntil());
+        $this->assertEquals($expiry, $offer->getRetainedUntil());
+        $this->assertEquals($offer->getCreatedAt()->add(new DateInterval('PT10M')), $expiry);
+        $this->assertSame($offer->getId(), $this->authCodeArguments[0]['offerId']);
+        $this->assertSame($offer->getId(), $built->getOfferId());
+    }
+
+
+    /**
+     * @return array<string,array{array{owner?: ?string}, ?string}>
+     */
+    public static function ownerProvider(): array
+    {
+        return [
+            'an owner passed' => [['owner' => 'hr-system'], 'hr-system'],
+            'no owner passed' => [[], null],
+        ];
+    }
+
+
+    /**
+     * An offer for authorization is recorded the same way, with the authorization code grant, and its issuer state
+     * is built with the id of the offer and lives exactly as long as the offer is redeemable.
+     *
+     * @param array{owner?: ?string} $ownerArguments
+     */
+    #[DataProvider('ownerProvider')]
+    public function testRecordsAnOfferForAuthorizationAndBuildsItsIssuerStateWithTheIdAndTheMomentsOfTheRecord(
+        array $ownerArguments,
+        ?string $expectedOwner,
+    ): void {
+        $records = $this->captureOfferRecords();
+        $arguments = null;
+        $this->issuerStateEntityFactoryMock = $this->createMock(IssuerStateEntityFactory::class);
+        $this->issuerStateEntityFactoryMock->expects($this->once())->method('buildNew')
+            ->willReturnCallback(function (mixed ...$given) use (&$arguments): IssuerStateEntity {
+                $arguments = $given;
+
+                return $this->issuerState('issuer-state-value');
+            });
+
+        $built = $this->sut()->buildForAuthorization(
+            ['credential-configuration', 'other-configuration'],
+            ...$ownerArguments,
+        );
+
+        $this->assertCount(1, $records);
+        $offer = $records[0];
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/D', $offer->getId());
+        $this->assertSame($expectedOwner, $offer->getOwner());
+        $this->assertSame(['credential-configuration', 'other-configuration'], $offer->getCredentialConfigurationIds());
+        $this->assertSame('authorization_code', $offer->getGrantType());
+        $this->assertEquals($offer->getRedeemableUntil(), $offer->getRetainedUntil());
+        $this->assertEquals($offer->getCreatedAt()->add(new DateInterval('PT5M')), $offer->getRedeemableUntil());
+        $this->assertIsArray($arguments);
+        // The double receives the factory's arguments by position.
+        $this->assertEquals($offer->getCreatedAt(), $arguments[1]);
+        $this->assertEquals($offer->getRedeemableUntil(), $arguments[2]);
+        $this->assertSame($offer->getId(), $arguments[5]);
+        $this->assertSame($offer->getId(), $built->getOfferId());
+    }
+
+
+    /**
+     * The offer is recorded before the Transaction Code is mailed, and the code is stored after both: an offer
+     * which can not be recorded sends nothing.
+     */
+    public function testRecordsThePreAuthorizedOfferBeforeMailingTheTransactionCode(): void
+    {
+        $events = [];
+        $this->credentialOfferRepositoryMock->expects($this->once())->method('persist')
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'offer';
+            });
+        $this->emailFactoryMock->method('build')->willReturn($this->emailMock);
+        $this->emailMock->expects($this->once())->method('send')
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'mail';
+            });
+        $this->authCodeRepositoryMock->expects($this->once())->method('persistNewAuthCode')
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'code';
+            });
+
+        $this->sut()->buildPreAuthorized(
+            ['credential-configuration'],
+            ['uid' => ['user-1'], 'mail' => ['user@example.org']],
+            useTxCode: true,
+        );
+
+        $this->assertSame(['offer', 'mail', 'code'], $events);
+    }
+
+
+    /**
+     * An offer which can not be recorded fails the request, whole: no Transaction Code is mailed and no code
+     * stored for an offer nobody can list, and the failure reaches the caller as it was.
+     */
+    public function testSendsNoMailAndStoresNoCodeWhenThePreAuthorizedOfferCanNotBeRecorded(): void
+    {
+        $failure = new RuntimeException('Database error');
+        $this->credentialOfferRepositoryMock->expects($this->once())->method('persist')
+            ->willThrowException($failure);
+        $this->emailFactoryMock->expects($this->never())->method('build');
+        $this->emailMock->expects($this->never())->method('send');
+        $this->authCodeRepositoryMock->expects($this->never())->method('persistNewAuthCode');
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('open');
+
+        try {
+            $this->sut()->buildPreAuthorized(
+                ['credential-configuration'],
+                ['uid' => ['user-1'], 'mail' => ['user@example.org']],
+                useTxCode: true,
+            );
+            $this->fail('The failure to record the offer must reach the caller.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($failure, $exception);
+        }
+    }
+
+
+    /**
+     * As for a pre-authorized offer: an offer for authorization which can not be recorded stores no issuer state,
+     * and the failure reaches the caller as it was.
+     */
+    public function testStoresNoIssuerStateWhenTheOfferForAuthorizationCanNotBeRecorded(): void
+    {
+        $failure = new RuntimeException('Database error');
+        $this->credentialOfferRepositoryMock->expects($this->once())->method('persist')
+            ->willThrowException($failure);
+        $this->issuerStateRepositoryMock->expects($this->never())->method('persist');
+
+        try {
+            $this->sut()->buildForAuthorization(['credential-configuration']);
+            $this->fail('The failure to record the offer must reach the caller.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame($failure, $exception);
+        }
+    }
+
+
+    /**
+     * Every offer gets an id of its own, whichever flow it is made for, though the codes and states it is made
+     * with may repeat.
+     */
+    public function testGivesEveryOfferAnIdOfItsOwn(): void
+    {
+        $records = $this->captureOfferRecords();
+        $sut = $this->sut();
+
+        $built = [
+            $sut->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1']]),
+            $sut->buildPreAuthorized(['credential-configuration'], ['uid' => ['user-1']]),
+            $sut->buildForAuthorization(['credential-configuration']),
+            $sut->buildForAuthorization(['credential-configuration']),
+        ];
+
+        $ids = array_map(fn (BuiltCredentialOffer $offer): string => $offer->getOfferId(), $built);
+        $this->assertCount(4, array_unique($ids));
+        $this->assertSame(
+            $ids,
+            array_map(fn (CredentialOfferRecord $record): string => $record->getId(), $records->getArrayCopy()),
+        );
+    }
+
+
+    /**
+     * @return \ArrayObject<int,\SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord>
+     * The records the offer repository is asked to persist, in order, once the test has run.
+     */
+    protected function captureOfferRecords(): ArrayObject
+    {
+        $records = new ArrayObject();
+        $this->credentialOfferRepositoryMock->method('persist')
+            ->willReturnCallback(function (CredentialOfferRecord $record) use ($records): void {
+                $records->append($record);
+            });
+
+        return $records;
+    }
+
+
     protected function sut(): CredentialOfferUriFactory
     {
         return new CredentialOfferUriFactory(
@@ -1010,6 +1236,8 @@ class CredentialOfferUriFactoryTest extends TestCase
             $this->issuerStateRepositoryMock,
             $this->userIdentifierResolverMock,
             $this->txCodeAttemptLimiterMock,
+            new Helpers(),
+            $this->credentialOfferRepositoryMock,
         );
     }
 
@@ -1031,7 +1259,7 @@ class CredentialOfferUriFactoryTest extends TestCase
     /**
      * An offer of the configurations named, for the grant given; a pre-authorized one for a user with no email.
      */
-    protected function buildOffer(string $grant, array $credentialConfigurationIds): string
+    protected function buildOffer(string $grant, array $credentialConfigurationIds): BuiltCredentialOffer
     {
         if ($grant === self::PRE_AUTHORIZED_GRANT) {
             return $this->sut()->buildPreAuthorized($credentialConfigurationIds, ['uid' => ['user-1']]);
@@ -1062,6 +1290,7 @@ class CredentialOfferUriFactoryTest extends TestCase
         ?string $boundRedirectUri = null,
         ?string $dpopJkt = null,
         ?array $offerClaims = null,
+        ?string $offerId = null,
     ): AuthCodeEntity {
         $this->authCodeArguments[] = get_defined_vars();
 
@@ -1082,6 +1311,7 @@ class CredentialOfferUriFactoryTest extends TestCase
             $issuerState,
             $dpopJkt,
             $offerClaims,
+            $offerId,
         );
     }
 

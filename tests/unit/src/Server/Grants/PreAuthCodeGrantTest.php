@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Grants;
 
+use ArrayObject;
 use Closure;
 use DateInterval;
 use DateTimeImmutable;
@@ -38,6 +39,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\ScopeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
@@ -66,6 +68,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
 use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Stringable;
+use Throwable;
 
 /**
  * The token endpoint half of the OpenID for Verifiable Credential Issuance pre-authorized code flow.
@@ -126,6 +129,9 @@ class PreAuthCodeGrantTest extends TestCase
     /** The attributes the code's Credential Offer was made with. */
     private const array OFFER_CLAIMS = ['uid' => ['offered-uid'], 'givenName' => ['Offered']];
 
+    /** The Credential Offer the code was made for. */
+    private const string OFFER_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
 
     private AuthCodeRepository&MockObject $authCodeRepositoryMock;
 
@@ -157,6 +163,8 @@ class PreAuthCodeGrantTest extends TestCase
 
     private TxCodeAttemptLimiter&MockObject $txCodeAttemptLimiterMock;
 
+    private CredentialOfferRepository&MockObject $credentialOfferRepositoryMock;
+
     private ServerRequestInterface&MockObject $requestMock;
 
     /** The client the pre-authorized code was issued to. */
@@ -173,6 +181,9 @@ class PreAuthCodeGrantTest extends TestCase
 
     /** What ModuleConfig answers for vci_require_dpop. */
     private bool $vciRequireDpop = false;
+
+    /** What recording the redemption of the offer answers, or the throwable it throws instead. */
+    private bool|Throwable $offerRedemptionOutcome = true;
 
 
     protected function setUp(): void
@@ -204,6 +215,12 @@ class PreAuthCodeGrantTest extends TestCase
         // Attempts left, unless a test says otherwise.
         $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
         $this->txCodeAttemptLimiterMock->method('admitAttempt')->willReturn(true);
+        // The redemption is recorded against the code's Credential Offer, unless a test says otherwise.
+        $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
+        $this->credentialOfferRepositoryMock->method('recordRedemption')->willReturnCallback(
+            fn(): bool => $this->offerRedemptionOutcome instanceof Throwable ?
+                throw $this->offerRedemptionOutcome : $this->offerRedemptionOutcome,
+        );
 
         $this->captureLogs('debug');
         $this->captureLogs('notice');
@@ -1171,6 +1188,158 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
+     * The token a pre-authorized code buys is minted for the offer the code names: the offer id is handed to the
+     * access token factory, which is how the token is listed under its offer.
+     */
+    public function testMintsTheTokenWithTheOfferIdOfTheCode(): void
+    {
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->method('consumePreAuthorizedCode')->willReturn(true);
+        $factoryArguments = $this->issueTokenRecordingEvents(new ArrayObject(), new DateTimeImmutable('+5 minutes'));
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+
+        // The double receives the factory's arguments by position, and the offer id is the eighteenth.
+        $this->assertSame(self::OFFER_ID, $factoryArguments[17]);
+    }
+
+
+    /**
+     * The offer's record is kept at least until the token it bought expires: the redemption is recorded once, with
+     * the expiry of the token as it was stored, after the code is consumed and the token persisted, so that nothing
+     * is recorded for a request which did not get that far.
+     */
+    public function testRecordsTheRedemptionOfTheOfferWithTheTokensExpiryAfterConsumingTheCodeAndStoringTheToken(): void
+    {
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $events = new ArrayObject();
+        $expiry = new DateTimeImmutable('+7 minutes');
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->expects($this->once())
+            ->method('consumePreAuthorizedCode')
+            ->with(self::PRE_AUTHORIZED_CODE)
+            ->willReturnCallback(function () use ($events): bool {
+                $events->append('consume');
+
+                return true;
+            });
+        $this->issueTokenRecordingEvents($events, $expiry);
+        $this->credentialOfferRepositoryMock->expects($this->once())
+            ->method('recordRedemption')
+            ->with(self::OFFER_ID, $expiry)
+            ->willReturnCallback(function () use ($events): bool {
+                $events->append('record');
+
+                return true;
+            });
+
+        $this->sut()->respondToAccessTokenRequest(
+            $this->requestMock,
+            $this->createMock(ResponseTypeInterface::class),
+            new DateInterval('PT5M'),
+        );
+
+        $this->assertSame(['consume', 'persist', 'record'], $events->getArrayCopy());
+    }
+
+
+    /**
+     * A code stored before codes named their offer buys nothing: nothing it bought could be listed under an offer.
+     * It is refused (server_error) before a Transaction Code attempt is spent, so the code is not consumed and no
+     * token is stored.
+     */
+    public function testRefusesACodeWhichNamesNoCredentialOfferBeforeSpendingAnything(): void
+    {
+        $this->configureRequestParameters(self::TRANSACTION_CODE);
+        $this->authCodeRepositoryMock->method('findById')
+            ->willReturn($this->preAuthorizedCode(self::TRANSACTION_CODE, namesItsOffer: false));
+        $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->txCodeAttemptLimiterMock->expects($this->never())->method('admitAttempt');
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('recordRedemption');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestMock,
+                $this->createMock(ResponseTypeInterface::class),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The token request was answered.');
+        } catch (OidcServerException $exception) {
+            $this->assertServerError($exception, 'The pre-authorized code names no Credential Offer.');
+        }
+
+        $this->assertSecretsWereNotLogged(self::PRE_AUTHORIZED_CODE, self::TRANSACTION_CODE);
+    }
+
+
+    /**
+     * A redemption which could not be recorded fails the request (server_error). The code stays consumed, as it
+     * does when the token can not be stored (fail closed): there is no giving it back.
+     */
+    public function testFailsTheRequestWhenTheRedemptionOfTheOfferCanNotBeRecorded(): void
+    {
+        $this->offerRedemptionOutcome = false;
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->expects($this->once())
+            ->method('consumePreAuthorizedCode')
+            ->with(self::PRE_AUTHORIZED_CODE)
+            ->willReturn(true);
+        $this->issueTokenRecordingEvents(new ArrayObject(), new DateTimeImmutable('+5 minutes'));
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->requestMock,
+                $this->createMock(ResponseTypeInterface::class),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('The token request was answered.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('server_error', $exception->getErrorType());
+        }
+    }
+
+
+    /**
+     * As issueTokenRecordingEvents() in the authorization code grant's tests: the token expires at the given moment
+     * and records that it was persisted among the events.
+     *
+     * @return \ArrayObject<int,mixed> What the access token factory was called with, by position, once it was.
+     */
+    private function issueTokenRecordingEvents(ArrayObject $events, DateTimeImmutable $expiry): ArrayObject
+    {
+        $factoryArguments = new ArrayObject();
+        $accessToken = $this->createMock(AccessTokenEntity::class);
+        $accessToken->method('getExpiryDateTime')->willReturn($expiry);
+
+        $this->accessTokenEntityFactoryMock->method('fromData')
+            ->willReturnCallback(function (mixed ...$arguments) use ($accessToken, $factoryArguments) {
+                $factoryArguments->exchangeArray($arguments);
+
+                return $accessToken;
+            });
+        $this->accessTokenRepositoryMock->expects($this->once())
+            ->method('persistNewAccessToken')
+            ->with($accessToken)
+            ->willReturnCallback(function () use ($events): void {
+                $events->append('persist');
+            });
+
+        return $factoryArguments;
+    }
+
+
+    /**
      * The arguments an access token was built from, but for its identifier and its expiry, which are each token's
      * own; the client and the scopes by their identifiers.
      *
@@ -1556,6 +1725,7 @@ class PreAuthCodeGrantTest extends TestCase
             'openid-credential-offer://',
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
             offerClaims: self::OFFER_CLAIMS,
+            offerId: self::OFFER_ID,
         ));
         $this->authCodeRepositoryMock->expects($this->never())->method('consumePreAuthorizedCode');
 
@@ -1607,6 +1777,7 @@ class PreAuthCodeGrantTest extends TestCase
             $this->moduleConfigMock,
             $this->createStub(IssuerStateRepository::class),
             $this->createStub(ResponseModeResolver::class),
+            $this->credentialOfferRepositoryMock,
             $this->txCodeAttemptLimiterMock,
         );
         $grant->setScopeRepository(
@@ -1638,6 +1809,7 @@ class PreAuthCodeGrantTest extends TestCase
         ?string $holder = self::USER_ID,
         array $offered = [self::OFFERED],
         ?array $offerClaims = self::OFFER_CLAIMS,
+        bool $namesItsOffer = true,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             self::PRE_AUTHORIZED_CODE,
@@ -1653,6 +1825,7 @@ class PreAuthCodeGrantTest extends TestCase
             flowTypeEnum: $flowType,
             txCode: $transactionCode,
             offerClaims: $offerClaims,
+            offerId: $namesItsOffer ? self::OFFER_ID : null,
         );
     }
 

@@ -352,6 +352,7 @@ class RoutesTest extends TestCase
         $routes = [
             'urlStatusList' => 'statuslist/{statusListId}',
             'urlCredentialJsonLdContext' => 'credential-issuer/context/{credentialConfigurationId}',
+            'urlApiVciCredentialOfferDetails' => 'api/vci/credential-offer/{offerId}',
         ];
 
         $rows = [];

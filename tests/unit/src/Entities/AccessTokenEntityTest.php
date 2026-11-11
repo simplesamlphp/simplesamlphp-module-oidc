@@ -140,6 +140,7 @@ class AccessTokenEntityTest extends TestCase
         array $userClaims = [],
         ?string $dpopJkt = null,
         ?array $offerClaims = null,
+        ?string $offerId = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $this->id,
@@ -156,6 +157,7 @@ class AccessTokenEntityTest extends TestCase
             userClaims: $userClaims,
             dpopJkt: $dpopJkt,
             offerClaims: $offerClaims,
+            offerId: $offerId,
         );
     }
 
@@ -318,9 +320,26 @@ class AccessTokenEntityTest extends TestCase
         $this->assertSame(
             ['id', 'scopes', 'expires_at', 'user_id', 'client_id', 'is_revoked', 'auth_code_id', 'requested_claims',
                 'flow_type', 'authorization_details', 'bound_client_id', 'bound_redirect_uri', 'issuer_state',
-                'offer_claims'],
+                'offer_claims', 'offer_id'],
             array_keys($accessTokenEntity->getState()),
         );
+    }
+
+
+    /**
+     * A token stores the Credential Offer it was minted for, which the Credential Endpoint links its credentials to.
+     */
+    public function testStoresTheOfferItWasMintedFor(): void
+    {
+        $offerId = str_repeat('ab', 32);
+
+        $default = $this->mock();
+        $this->assertNull($default->getOfferId());
+        $this->assertNull($default->getState()['offer_id']);
+
+        $accessTokenEntity = $this->mock(offerId: $offerId);
+        $this->assertSame($offerId, $accessTokenEntity->getOfferId());
+        $this->assertSame($offerId, $accessTokenEntity->getState()['offer_id']);
     }
 
 

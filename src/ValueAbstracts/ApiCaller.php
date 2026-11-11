@@ -8,6 +8,7 @@ namespace SimpleSAML\Module\oidc\ValueAbstracts;
  * Who an API request is made by, and which credential configurations it may act on.
  *
  * @see \SimpleSAML\Module\oidc\Services\Api\Authorization::requireBearerTokenForAnyOfScope()
+ * @see \SimpleSAML\Module\oidc\Services\Api\Authorization::requireAdminOrTokenForAnyOfScope()
  */
 class ApiCaller
 {

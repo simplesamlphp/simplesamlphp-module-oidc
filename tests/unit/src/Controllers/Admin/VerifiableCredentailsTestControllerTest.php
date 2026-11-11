@@ -26,6 +26,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\SessionService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\BuiltCredentialOffer;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\Session;
 use SimpleSAML\XHTML\Template;
@@ -146,12 +147,18 @@ class VerifiableCredentailsTestControllerTest extends TestCase
             ->willReturn(new RedirectResponse(self::PAGE_URL));
 
         $this->credentialOfferUriFactoryMock = $this->createMock(CredentialOfferUriFactory::class);
-        $this->credentialOfferUriFactoryMock->method('buildPreAuthorized')->willReturn(self::OFFER_URI);
-        $this->credentialOfferUriFactoryMock->method('buildForAuthorization')->willReturn(self::OFFER_URI);
+        $this->credentialOfferUriFactoryMock->method('buildPreAuthorized')->willReturn($this->builtOffer());
+        $this->credentialOfferUriFactoryMock->method('buildForAuthorization')->willReturn($this->builtOffer());
 
         $this->requestParamsResolverMock = $this->createMock(RequestParamsResolver::class);
         $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
             ->willReturnCallback(fn(string $param): mixed => $this->requestParams[$param] ?? null);
+    }
+
+
+    protected function builtOffer(string $uri = self::OFFER_URI): BuiltCredentialOffer
+    {
+        return new BuiltCredentialOffer($uri, str_repeat('ab', 32));
     }
 
 
@@ -371,7 +378,7 @@ class VerifiableCredentailsTestControllerTest extends TestCase
         $this->credentialOfferUriFactoryMock->expects($this->once())
             ->method('buildPreAuthorized')
             ->with([self::CONFIGURATION_ID], ['givenName' => ['John']], true, 'emailAddress')
-            ->willReturn(self::OFFER_URI);
+            ->willReturn($this->builtOffer());
         $this->authSimpleMock->expects($this->never())->method('login');
 
         $this->sut()->verifiableCredentialIssuance($this->request());
@@ -405,7 +412,7 @@ class VerifiableCredentailsTestControllerTest extends TestCase
         $this->credentialOfferUriFactoryMock->expects($this->once())
             ->method('buildPreAuthorized')
             ->with([self::CONFIGURATION_ID], $this->anything(), false, 'mail')
-            ->willReturn(self::OFFER_URI);
+            ->willReturn($this->builtOffer());
 
         $this->sut()->verifiableCredentialIssuance($this->request());
     }
@@ -429,7 +436,7 @@ class VerifiableCredentailsTestControllerTest extends TestCase
         $this->credentialOfferUriFactoryMock->expects($this->once())
             ->method('buildForAuthorization')
             ->with([self::CONFIGURATION_ID])
-            ->willReturn(self::OFFER_URI);
+            ->willReturn($this->builtOffer());
         $this->authSimpleMock->expects($this->never())->method('login');
 
         $this->sut()->verifiableCredentialIssuance($this->request());
@@ -481,7 +488,8 @@ class VerifiableCredentailsTestControllerTest extends TestCase
         // More than the 2,953 bytes the largest QR code holds at the lowest error correction level.
         $longOfferUri = self::OFFER_URI . str_repeat('%7B', 1500);
         $this->credentialOfferUriFactoryMock = $this->createMock(CredentialOfferUriFactory::class);
-        $this->credentialOfferUriFactoryMock->method('buildForAuthorization')->willReturn($longOfferUri);
+        $this->credentialOfferUriFactoryMock->method('buildForAuthorization')
+            ->willReturn($this->builtOffer($longOfferUri));
         $this->requestParams = [
             'credentialConfigurationId' => self::CONFIGURATION_ID,
             'grantType' => GrantTypesEnum::AuthorizationCode->value,
@@ -513,7 +521,7 @@ class VerifiableCredentailsTestControllerTest extends TestCase
         $this->credentialOfferUriFactoryMock->expects($this->once())
             ->method('buildPreAuthorized')
             ->with([self::CONFIGURATION_ID], ['givenName' => ['John']], false, $this->anything())
-            ->willReturn(self::OFFER_URI);
+            ->willReturn($this->builtOffer());
 
         $this->sut()->verifiableCredentialIssuance($this->request());
 

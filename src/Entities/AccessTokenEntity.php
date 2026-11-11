@@ -65,6 +65,9 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
      * take them from a token which still lives. What the token is about is read from these, never from the user
      * record. Null for a token of any other flow, and for a pre-authorized one stored before tokens carried them;
      * an empty array is an offer made with no attributes.
+     * @param string|null $offerId The Credential Offer the token was minted for, copied from the pre-authorized code
+     * or the issuer state it was redeemed with (PreAuthCodeGrant, AuthCodeGrant); the Credential Endpoint links the
+     * credentials it buys to that offer. Null for a token of no offer.
      */
     public function __construct(
         string $id,
@@ -86,6 +89,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
         protected readonly array $userClaims = [],
         protected readonly ?string $dpopJkt = null,
         protected readonly ?array $offerClaims = null,
+        protected readonly ?string $offerId = null,
     ) {
         if ($id === '') {
             throw new InvalidArgumentException('Access token identifier cannot be empty.');
@@ -180,6 +184,7 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
             'offer_claims' => is_array($this->offerClaims) ?
                 json_encode($this->offerClaims, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE) :
                 null,
+            'offer_id' => $this->offerId,
         ];
     }
 
@@ -316,5 +321,11 @@ class AccessTokenEntity implements AccessTokenEntityInterface, EntityStringRepre
     public function getOfferClaims(): ?array
     {
         return $this->offerClaims;
+    }
+
+
+    public function getOfferId(): ?string
+    {
+        return $this->offerId;
     }
 }

@@ -156,7 +156,8 @@ class IssuerStateRepository extends AbstractDatabaseRepository
                 created_at = :created_at,
                 expires_at = :expires_at,
                 is_revoked = :is_revoked,
-                credential_configuration_ids = :credential_configuration_ids
+                credential_configuration_ids = :credential_configuration_ids,
+                offer_id = :offer_id
             WHERE
                 value = :value
 EOS
@@ -184,9 +185,9 @@ EOS
         $stmt = sprintf(
             <<<EOS
             INSERT INTO %s
-            (value, created_at, expires_at, is_revoked, credential_configuration_ids)
+            (value, created_at, expires_at, is_revoked, credential_configuration_ids, offer_id)
             VALUES
-            (:value, :created_at, :expires_at, :is_revoked, :credential_configuration_ids)
+            (:value, :created_at, :expires_at, :is_revoked, :credential_configuration_ids, :offer_id)
 EOS
             ,
             $this->getTableName(),

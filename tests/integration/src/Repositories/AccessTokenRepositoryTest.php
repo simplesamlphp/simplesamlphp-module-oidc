@@ -123,6 +123,7 @@ class AccessTokenRepositoryTest extends TestCase
             'bound_redirect_uri' => null,
             'issuer_state' => null,
             'offer_claims' => null,
+            'offer_id' => null,
         ];
 
         $this->accessTokenEntityMock = $this->createMock(AccessTokenEntity::class);

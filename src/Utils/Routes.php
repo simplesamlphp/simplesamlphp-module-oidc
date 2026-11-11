@@ -362,6 +362,18 @@ class Routes
     }
 
 
+    public function urlApiVciCredentialOfferDetails(string $offerId, array $parameters = []): string
+    {
+        $path = str_replace(
+            '{offerId}',
+            rawurlencode($offerId),
+            RoutesEnum::ApiVciCredentialOfferDetails->value,
+        );
+
+        return $this->getModuleUrl($path, $parameters);
+    }
+
+
     public function urlApiVciCredentialStatus(array $parameters = []): string
     {
         return $this->getModuleUrl(RoutesEnum::ApiVciCredentialStatus->value, $parameters);

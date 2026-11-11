@@ -183,7 +183,7 @@ class VciCredentialStatusApiController
                 $status,
                 StatusChangeSourceEnum::Api,
                 $caller->getPrincipal(),
-                $caller->getCredentialConfigurationLimit(),
+                $caller,
             );
         } catch (UnsupportedStatusException $exception) {
             // Permanent: the number of bits per entry is fixed when a list is created, so no amount of
@@ -225,9 +225,10 @@ class VciCredentialStatusApiController
         }
 
         if (!$change instanceof CredentialStatusChange) {
-            // One that was never issued here, one issued without a status claim, one which has expired
-            // and one issued from a credential configuration the token may not act on are all answered
-            // this way. Telling them apart would let a caller enumerate which credential identifiers exist.
+            // One that was never issued here, one issued without a status claim, one which has expired,
+            // one issued from a credential configuration the token may not act on and one issued from
+            // another caller's Credential Offer are all answered this way. Telling them apart would let a
+            // caller enumerate which credential identifiers exist.
             return $this->routes->newJsonErrorResponse(
                 error: 'not_found',
                 description: 'No credential with that identifier can have its status changed.',

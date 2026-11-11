@@ -32,13 +32,14 @@ class IssuerStateEntityFactory
         ?DateTimeImmutable $expiresAt = null,
         bool $isRevoked = false,
         array $credentialConfigurationIds = [],
+        ?string $offerId = null,
     ): IssuerStateEntity {
         $value ??= hash('sha256', $this->helpers->random()->getIdentifier());
 
         $createdAt ??= $this->helpers->dateTime()->getUtc();
         $expiresAt ??= $createdAt->add($this->moduleConfig->getVciIssuerStateDuration());
 
-        return $this->fromData($value, $createdAt, $expiresAt, $isRevoked, $credentialConfigurationIds);
+        return $this->fromData($value, $createdAt, $expiresAt, $isRevoked, $credentialConfigurationIds, $offerId);
     }
 
 
@@ -53,12 +54,20 @@ class IssuerStateEntityFactory
         DateTimeImmutable $expiresAt,
         bool $isRevoked = false,
         array $credentialConfigurationIds = [],
+        ?string $offerId = null,
     ): IssuerStateEntity {
         if (strlen($value) > 64) {
             throw new OpenIdException('Invalid Issuer State Entity value.');
         }
 
-        return new IssuerStateEntity($value, $createdAt, $expiresAt, $isRevoked, $credentialConfigurationIds);
+        return new IssuerStateEntity(
+            $value,
+            $createdAt,
+            $expiresAt,
+            $isRevoked,
+            $credentialConfigurationIds,
+            $offerId,
+        );
     }
 
 
@@ -86,12 +95,18 @@ class IssuerStateEntityFactory
 
         $isRevoked = (bool)($state['is_revoked'] ?? true);
 
+        $offerId = $state['offer_id'] ?? null;
+        if ($offerId !== null && !is_string($offerId)) {
+            throw new OpenIdException('Invalid Issuer State Entity offer ID.');
+        }
+
         return new IssuerStateEntity(
             $value,
             $this->helpers->dateTime()->getUtc($createdAt),
             $this->helpers->dateTime()->getUtc($expiresAt),
             $isRevoked,
             $this->credentialConfigurationIdsFromState($state['credential_configuration_ids'] ?? null),
+            $offerId,
         );
     }
 

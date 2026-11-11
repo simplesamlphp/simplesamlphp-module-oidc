@@ -184,7 +184,7 @@ class VciCredentialStatusApiControllerTest extends TestCase
                 StatusTypeEnum::Invalid,
                 StatusChangeSourceEnum::Api,
                 self::ACTOR,
-                $this->identicalTo($this->caller->getCredentialConfigurationLimit()),
+                $this->identicalTo($this->caller),
             )
             ->willReturn(new CredentialStatusChange('list-1', 42, 0, StatusTypeEnum::Invalid, true));
 

@@ -126,8 +126,33 @@ class AuthCodeEntityTest extends TestCase
                 'issuer_state' => null,
                 'dpop_jkt' => null,
                 'offer_claims' => null,
+                'offer_id' => null,
             ],
         );
+    }
+
+
+    /**
+     * A pre-authorized code stores the Credential Offer it was made for, which the access token it buys carries on.
+     */
+    public function testStoresTheOfferItWasMadeFor(): void
+    {
+        $offerId = str_repeat('ab', 32);
+
+        $default = $this->mock();
+        $this->assertNull($default->getOfferId());
+        $this->assertNull($default->getState()['offer_id']);
+
+        $authCodeEntity = new AuthCodeEntity(
+            $this->id,
+            $this->clientEntityMock,
+            $this->scopes,
+            $this->expiryDateTime,
+            offerId: $offerId,
+        );
+
+        $this->assertSame($offerId, $authCodeEntity->getOfferId());
+        $this->assertSame($offerId, $authCodeEntity->getState()['offer_id']);
     }
 
 

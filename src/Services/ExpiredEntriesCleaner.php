@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Services;
 
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -25,6 +26,7 @@ class ExpiredEntriesCleaner
         private readonly RefreshTokenRepository $refreshTokenRepository,
         private readonly IssuerStateRepository $issuerStateRepository,
         private readonly PushedAuthorizationRequestRepository $pushedAuthorizationRequestRepository,
+        private readonly CredentialOfferRepository $credentialOfferRepository,
     ) {
     }
 
@@ -36,5 +38,8 @@ class ExpiredEntriesCleaner
         $this->refreshTokenRepository->removeExpired();
         $this->issuerStateRepository->removeExpired();
         $this->pushedAuthorizationRequestRepository->removeExpired();
+        // After the codes, tokens and issuer states above: a Credential Offer's record outlives all of them, and
+        // goes once no status entry names it (CredentialOfferRepository::removeExpired()).
+        $this->credentialOfferRepository->removeExpired();
     }
 }

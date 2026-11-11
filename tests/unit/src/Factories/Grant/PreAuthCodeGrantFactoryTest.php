@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
@@ -85,6 +86,8 @@ class PreAuthCodeGrantFactoryTest extends TestCase
 
     protected MockObject $txCodeAttemptLimiterMock;
 
+    protected MockObject $credentialOfferRepositoryMock;
+
     protected DateInterval $authCodeDuration;
 
     protected DateInterval $refreshTokenDuration;
@@ -115,6 +118,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
         $this->responseModeResolverMock = $this->createMock(ResponseModeResolver::class);
         $this->txCodeAttemptLimiterMock = $this->createMock(TxCodeAttemptLimiter::class);
+        $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
     }
 
 
@@ -138,6 +142,7 @@ class PreAuthCodeGrantFactoryTest extends TestCase
             $this->issuerStateRepositoryMock,
             $this->responseModeResolverMock,
             $this->txCodeAttemptLimiterMock,
+            $this->credentialOfferRepositoryMock,
         );
     }
 

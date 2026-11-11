@@ -12,6 +12,7 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -306,6 +307,11 @@ class DatabaseMigration
         if (!in_array('20261109000001', $versions, true)) {
             $this->version20261109000001();
             $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261109000001')");
+        }
+
+        if (!in_array('20261111000001', $versions, true)) {
+            $this->version20261111000001();
+            $this->database->write("INSERT INTO $versionsTablename (version) VALUES ('20261111000001')");
         }
     }
 
@@ -1378,6 +1384,78 @@ EOT
 EOT
                 ,);
         }
+    }
+
+
+    /**
+     * A record of every Credential Offer, and the offer's id on what redeems it and on what it issues, so that the
+     * API caller which made an offer can list the credentials it produced.
+     *
+     * The offer table holds no personal data: the attributes of a pre-authorized offer stay on its code and token.
+     * `owner` is the API principal which made the offer (a token's name, at most 191 characters as the status audit's
+     * `actor_ref`, or its fingerprint), NULL for an administrator's. `retained_until` starts at the moment the offer
+     * stops being redeemable and is raised to the expiry of every access token minted for it; the cron removes a row
+     * past it which no status entry names, so it is indexed for that.
+     *
+     * The offer id then goes on the issuer state and the pre-authorized code which redeem the offer, on the access
+     * token minted for it, and on the status entry of each credential that token buys, indexed in the order the
+     * offer's credentials are listed in, which also answers whether any entry still names an offer. Each column is
+     * guarded by hasColumn() so that a run interrupted before its version was recorded can be repeated (see
+     * version20260801000004()); the table and the indexes are created only when missing.
+     */
+    private function version20261111000001(): void
+    {
+        $offerTableName = $this->database->applyPrefix(CredentialOfferRepository::TABLE_NAME);
+        $entryTableName = $this->database->applyPrefix(StatusListEntryRepository::TABLE_NAME);
+        $dateTime = $this->dateTimeColumnType();
+
+        $this->database->write(<<< EOT
+        CREATE TABLE IF NOT EXISTS $offerTableName (
+            id VARCHAR(64) PRIMARY KEY NOT NULL,
+            owner VARCHAR(191) NULL,
+            credential_configuration_ids TEXT NOT NULL,
+            grant_type VARCHAR(191) NOT NULL,
+            created_at $dateTime NOT NULL,
+            redeemable_until $dateTime NOT NULL,
+            retained_until $dateTime NOT NULL,
+            redeemed_at $dateTime NULL,
+            withdrawn_at $dateTime NULL
+        )
+EOT
+            ,);
+
+        $this->createIndex(
+            $this->generateIdentifierName([$offerTableName, 'retained_until'], 'idx'),
+            $offerTableName,
+            'retained_until',
+        );
+
+        foreach (
+            [
+                IssuerStateRepository::TABLE_NAME,
+                AuthCodeRepository::TABLE_NAME,
+                AccessTokenRepository::TABLE_NAME,
+                StatusListEntryRepository::TABLE_NAME,
+            ] as $table
+        ) {
+            $tableName = $this->database->applyPrefix($table);
+
+            if ($this->hasColumn($tableName, 'offer_id')) {
+                continue;
+            }
+
+            $this->database->write(<<< EOT
+            ALTER TABLE {$tableName}
+                ADD offer_id VARCHAR(64) NULL
+EOT
+                ,);
+        }
+
+        $this->createIndex(
+            $this->generateIdentifierName([$entryTableName, 'offer_id'], 'idx'),
+            $entryTableName,
+            'offer_id, issued_at, status_list_id, idx',
+        );
     }
 
 

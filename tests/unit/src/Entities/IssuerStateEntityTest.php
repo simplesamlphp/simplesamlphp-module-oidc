@@ -47,6 +47,7 @@ class IssuerStateEntityTest extends TestCase
         ?DateTimeImmutable $createdAt = null,
         ?DateTimeImmutable $expiresAt = null,
         array $credentialConfigurationIds = self::OFFERED,
+        ?string $offerId = null,
     ): IssuerStateEntity {
         return new IssuerStateEntity(
             self::VALUE,
@@ -54,6 +55,7 @@ class IssuerStateEntityTest extends TestCase
             $expiresAt ?? $this->moment(self::EXPIRES_AT),
             $isRevoked,
             $credentialConfigurationIds,
+            $offerId,
         );
     }
 
@@ -99,6 +101,7 @@ class IssuerStateEntityTest extends TestCase
             'is_revoked' => false,
             'credential_configuration_ids' =>
                 '["UniversityDegreeCredential","ResearchAndScholarshipCredentialDcSdJwt"]',
+            'offer_id' => null,
         ];
 
         $this->assertSame($row, $entity->getState());
@@ -106,6 +109,17 @@ class IssuerStateEntityTest extends TestCase
         $entity->revoke();
 
         $this->assertSame(array_replace($row, ['is_revoked' => true]), $entity->getState());
+    }
+
+
+    public function testCarriesTheOfferItWasMadeFor(): void
+    {
+        $offerId = str_repeat('ab', 32);
+
+        $this->assertNull($this->sut()->getOfferId());
+        $this->assertNull($this->sut()->getState()['offer_id']);
+        $this->assertSame($offerId, $this->sut(offerId: $offerId)->getOfferId());
+        $this->assertSame($offerId, $this->sut(offerId: $offerId)->getState()['offer_id']);
     }
 
 

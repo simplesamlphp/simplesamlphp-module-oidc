@@ -14,7 +14,7 @@ use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 
 /**
- * `fromRow()` is an eleven column positional wiring, and this class is the only place an entry row
+ * `fromRow()` is a twelve column positional wiring, and this class is the only place an entry row
  * becomes a record. Nothing downstream can tell a mis-wired column from a correct one: swap `issued_at`
  * with `updated_at` and the administration screen goes on showing a moment for every credential, just
  * the wrong one. So every column here holds a value no other column holds, and every getter is asserted
@@ -34,6 +34,11 @@ class StatusListEntryRecordTest extends TestCase
     protected const string CREDENTIAL_ID_HASH = 'a1b2c3d4e5f6071829394a5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f9';
 
     protected const string SUBJECT_REF = '9f2b7c1d4e6a8035bc19d7e4f2a60c8b35719ade46f2c80b1d3e5a7942c60f8b';
+
+    /**
+     * An offer id is sixty four lower-case hex characters too, and differs from both hashes above.
+     */
+    protected const string OFFER_ID = '4c1e9b07d2a85f36e0b7c94a1d6f23e85b0a7c4d9e12f6b38a5c0e7d94b1f26a';
 
 
     /**
@@ -60,6 +65,7 @@ class StatusListEntryRecordTest extends TestCase
             'subject_ref' => self::SUBJECT_REF,
             'issued_at' => '2026-02-06 13:20:05',
             'updated_at' => '2026-03-07 14:21:06',
+            'offer_id' => self::OFFER_ID,
         ], $overrides);
     }
 
@@ -140,6 +146,7 @@ class StatusListEntryRecordTest extends TestCase
             self::SUBJECT_REF,
             $issuedAt,
             $updatedAt,
+            self::OFFER_ID,
         );
 
         $this->assertSame('0f3c9a71', $record->getStatusListId());
@@ -153,13 +160,14 @@ class StatusListEntryRecordTest extends TestCase
         $this->assertSame(self::SUBJECT_REF, $record->getSubjectRef());
         $this->assertSame($issuedAt, $record->getIssuedAt());
         $this->assertSame($updatedAt, $record->getUpdatedAt());
+        $this->assertSame(self::OFFER_ID, $record->getOfferId());
     }
 
 
     /**
-     * The wiring test proper. Seven of the eleven arguments are nullable: a moment, then four strings,
-     * then two more moments. A fixture holding the same value twice within a run could not tell either
-     * member of the pair from the other.
+     * The wiring test proper. Eight of the twelve arguments are nullable: a moment, then four strings,
+     * then two more moments, then a string. A fixture holding the same value twice within a run could
+     * not tell either member of the pair from the other.
      *
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
      */
@@ -180,6 +188,7 @@ class StatusListEntryRecordTest extends TestCase
         $this->assertSame(self::SUBJECT_REF, $record->getSubjectRef());
         $this->assertSame('2026-02-06 13:20:05', $this->utc($record->getIssuedAt()));
         $this->assertSame('2026-03-07 14:21:06', $this->utc($record->getUpdatedAt()));
+        $this->assertSame(self::OFFER_ID, $record->getOfferId());
     }
 
 
@@ -485,6 +494,7 @@ class StatusListEntryRecordTest extends TestCase
             'credential_id_hash' => null,
             'credential_configuration_id' => null,
             'subject_ref' => null,
+            'offer_id' => null,
         ]));
 
         $this->assertTrue($record->isAllocated());
@@ -494,6 +504,7 @@ class StatusListEntryRecordTest extends TestCase
         $this->assertNull($record->getCredentialIdHash());
         $this->assertNull($record->getCredentialConfigurationId());
         $this->assertNull($record->getSubjectRef());
+        $this->assertNull($record->getOfferId());
     }
 
 
@@ -547,6 +558,7 @@ class StatusListEntryRecordTest extends TestCase
             'subject_ref',
             'issued_at',
             'updated_at',
+            'offer_id',
         ));
 
         $this->assertNull($record->getExpiresAt());
@@ -556,6 +568,7 @@ class StatusListEntryRecordTest extends TestCase
         $this->assertNull($record->getSubjectRef());
         $this->assertNull($record->getIssuedAt());
         $this->assertNull($record->getUpdatedAt());
+        $this->assertNull($record->getOfferId());
     }
 
 

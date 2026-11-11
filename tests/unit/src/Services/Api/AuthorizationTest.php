@@ -29,11 +29,11 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Three ways in. requireSimpleSAMLphpAdmin() wants the SimpleSAMLphp admin session, and can force the login
- * first. requireTokenForAnyOfScope() takes that session when there is one and otherwise an API token, from
+ * first. requireAdminOrTokenForAnyOfScope() takes that session when there is one and otherwise an API token, from
  * the Authorization header or, failing that, the token request parameter. requireBearerTokenForAnyOfScope()
  * takes the header and nothing else, and says who the token belongs to; its own docblock explains why.
- * requireCallerForAnyOfScope() is requireTokenForAnyOfScope() saying who the caller is. The two the Verifiable
- * Credential endpoints call, requireTokenForAnyOfScope() and requireBearerTokenForAnyOfScope(), also say which
+ * requireCallerForAnyOfScope() is requireAdminOrTokenForAnyOfScope() saying who the caller is. The two the Verifiable
+ * Credential endpoints call, requireAdminOrTokenForAnyOfScope() and requireBearerTokenForAnyOfScope(), also say which
  * credential configurations the caller may act on.
  *
  * The bearer token is read through the real Helpers, so the Authorization header is built into a Request
@@ -198,9 +198,9 @@ class AuthorizationTest extends TestCase
         $this->moduleConfigMock->expects($this->never())->method('getApiTokenScopes');
         $this->moduleConfigMock->expects($this->never())->method('getApiTokenCredentialConfigurationIds');
 
-        // And it is not limited to any credential configurations.
-        $this->assertTrue(
-            $this->sut()->requireTokenForAnyOfScope($this->request(), $this->requiredScopes())->isUnlimited(),
+        // And it stands for no API caller, so it is not limited to any credential configurations.
+        $this->assertNull(
+            $this->sut()->requireAdminOrTokenForAnyOfScope($this->request(), $this->requiredScopes()),
         );
     }
 
@@ -234,9 +234,11 @@ class AuthorizationTest extends TestCase
             ->with(self::TOKEN)
             ->willReturn($configuredIds);
 
-        $limit = $this->sut()->requireTokenForAnyOfScope($request, $this->requiredScopes());
+        $caller = $this->sut()->requireAdminOrTokenForAnyOfScope($request, $this->requiredScopes());
 
-        $this->assertLimit($limit, $isUnlimited, $allowed, $refused);
+        $this->assertNotNull($caller);
+        $this->assertSame('HR system', $caller->getPrincipal());
+        $this->assertLimit($caller->getCredentialConfigurationLimit(), $isUnlimited, $allowed, $refused);
     }
 
 
@@ -331,7 +333,7 @@ class AuthorizationTest extends TestCase
             ->willReturn([ApiScopesEnum::OAuth2TokenIntrospection]);
         $this->moduleConfigMock->expects($this->never())->method('getApiTokenCredentialConfigurationIds');
 
-        foreach (['requireTokenForAnyOfScope', 'requireBearerTokenForAnyOfScope'] as $method) {
+        foreach (['requireAdminOrTokenForAnyOfScope', 'requireBearerTokenForAnyOfScope'] as $method) {
             try {
                 $this->sut()->$method($this->requestWithBearerToken(), $this->requiredScopes());
                 $this->fail($method . ' accepted a token without a required scope.');
@@ -352,7 +354,7 @@ class AuthorizationTest extends TestCase
         $this->moduleConfigMock->method('getApiTokenCredentialConfigurationIds')
             ->willThrowException(new ConfigurationError('credential_configuration_ids must be a list'));
 
-        foreach (['requireTokenForAnyOfScope', 'requireBearerTokenForAnyOfScope'] as $method) {
+        foreach (['requireAdminOrTokenForAnyOfScope', 'requireBearerTokenForAnyOfScope'] as $method) {
             try {
                 $this->sut()->$method($this->requestWithBearerToken(), $this->requiredScopes());
                 $this->fail($method . ' accepted a token whose credential configurations can not be read.');
@@ -390,7 +392,7 @@ class AuthorizationTest extends TestCase
         $this->sspAuthMock->expects($this->never())->method('requireAdmin');
         $this->moduleConfigMock->method('getApiTokenScopes')->willReturn([ApiScopesEnum::All]);
 
-        $this->sut()->requireTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+        $this->sut()->requireAdminOrTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
     }
 
 
@@ -402,7 +404,7 @@ class AuthorizationTest extends TestCase
         // The header settles it; the request parameter is not consulted.
         $this->requestParamsResolverMock->expects($this->never())->method('getFromRequestBasedOnAllowedMethods');
 
-        $this->sut()->requireTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+        $this->sut()->requireAdminOrTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
     }
 
 
@@ -417,7 +419,7 @@ class AuthorizationTest extends TestCase
             ->with(self::TOKEN)
             ->willReturn([ApiScopesEnum::All]);
 
-        $this->sut()->requireTokenForAnyOfScope($request, $this->requiredScopes());
+        $this->sut()->requireAdminOrTokenForAnyOfScope($request, $this->requiredScopes());
     }
 
 
@@ -433,7 +435,7 @@ class AuthorizationTest extends TestCase
         $this->moduleConfigMock->expects($this->never())->method('getApiTokenScopes');
         $this->expectAuthorizationRefused('Authorization token not provided.');
 
-        $this->sut()->requireTokenForAnyOfScope($request, $this->requiredScopes());
+        $this->sut()->requireAdminOrTokenForAnyOfScope($request, $this->requiredScopes());
     }
 
 
@@ -453,7 +455,7 @@ class AuthorizationTest extends TestCase
         $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn($tokenScopes);
         $this->expectAuthorizationRefused('Authorization token does not have defined scopes.');
 
-        $this->sut()->requireTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+        $this->sut()->requireAdminOrTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
     }
 
 
@@ -472,12 +474,12 @@ class AuthorizationTest extends TestCase
             ->willReturn([ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::OAuth2All]);
         $this->expectAuthorizationRefused('Authorization token is not authorized for this action.');
 
-        $this->sut()->requireTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+        $this->sut()->requireAdminOrTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
     }
 
 
     /**
-     * requireCallerForAnyOfScope() authorizes exactly as requireTokenForAnyOfScope() does, and says who by: an
+     * requireCallerForAnyOfScope() authorizes exactly as requireAdminOrTokenForAnyOfScope() does, and says who by: an
      * administrator's session is the administrator, whose session names no one in particular.
      */
     public function testNamesAnAdminSessionAsTheAdministrator(): void
@@ -528,6 +530,87 @@ class AuthorizationTest extends TestCase
             'the Authorization header' => [true],
             'the token request parameter' => [false],
         ];
+    }
+
+
+    /**
+     * The caller of an API token is who the principal resolver says the token that authorized stands for, resolved
+     * from that token and returned as resolved.
+     */
+    public function testNamesTheCallerOfATokenByWhatThePrincipalResolverAnswersForIt(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $resolver = $this->createMock(ApiTokenPrincipalResolver::class);
+        $resolver->expects($this->once())
+            ->method('resolve')
+            ->with(self::TOKEN)
+            ->willReturn('the-resolved-principal');
+        $this->apiTokenPrincipalResolverMock = $resolver;
+
+        $caller = $this->sut()->requireAdminOrTokenForAnyOfScope(
+            $this->requestWithBearerToken(),
+            $this->requiredScopes(),
+        );
+
+        $this->assertNotNull($caller);
+        $this->assertSame('the-resolved-principal', $caller->getPrincipal());
+    }
+
+
+    /**
+     * An administrator's session stands for no API caller, so nobody is named for it: the principal resolver is
+     * never asked.
+     */
+    public function testResolvesNoPrincipalForAnAdminSession(): void
+    {
+        $this->sspAuthMock->method('isAdmin')->willReturn(true);
+        $this->apiTokenPrincipalResolverMock->expects($this->never())->method('resolve');
+
+        $this->assertNull($this->sut()->requireAdminOrTokenForAnyOfScope($this->request(), $this->requiredScopes()));
+    }
+
+
+    /**
+     * A token whose principal can not be resolved from the configuration is not let through as nobody in particular:
+     * the fault reaches the caller of the method as it was.
+     */
+    public function testLetsAFailureToResolveThePrincipalOfATokenThrough(): void
+    {
+        $fault = new ConfigurationError('Option "api_tokens" holds a malformed name.');
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $resolver = $this->createMock(ApiTokenPrincipalResolver::class);
+        $resolver->method('resolve')->willThrowException($fault);
+        $this->apiTokenPrincipalResolverMock = $resolver;
+
+        try {
+            $this->sut()->requireAdminOrTokenForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+            $this->fail('A token whose principal can not be resolved was accepted.');
+        } catch (ConfigurationError $exception) {
+            $this->assertSame($fault, $exception);
+        }
+    }
+
+
+    /**
+     * The administrator is told apart from an API caller by type, never by the principal's string: a token an
+     * operator named like the administrator is still an API caller, which is limited to its credential
+     * configurations, not the administrator.
+     */
+    public function testDoesNotTakeATokenNamedLikeTheAdministratorForTheAdministrator(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
+        $resolver = $this->createMock(ApiTokenPrincipalResolver::class);
+        $resolver->method('resolve')->with(self::TOKEN)->willReturn(Authorization::ADMIN_PRINCIPAL);
+        $this->apiTokenPrincipalResolverMock = $resolver;
+
+        $caller = $this->sut()->requireAdminOrTokenForAnyOfScope(
+            $this->requestWithBearerToken(),
+            $this->requiredScopes(),
+        );
+
+        $this->assertNotNull($caller);
+        $this->assertSame('simplesamlphp-admin', $caller->getPrincipal());
+        $this->assertFalse($caller->getCredentialConfigurationLimit()->isUnlimited());
     }
 
 
@@ -622,7 +705,7 @@ class AuthorizationTest extends TestCase
 
 
     /**
-     * The reason this method exists at all. requireTokenForAnyOfScope() authorizes an administrator's
+     * The reason this method exists at all. requireAdminOrTokenForAnyOfScope() authorizes an administrator's
      * session before it examines any token, which means a request carrying an administrator's cookies
      * is authorized whatever caused the browser to send it. For an endpoint which withdraws
      * credentials that is a cross-site request away from being someone else's decision. So the

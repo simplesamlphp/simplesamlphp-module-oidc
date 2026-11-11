@@ -60,6 +60,8 @@ class AuthCodeEntityFactoryTest extends TestCase
 
     protected const string DPOP_JKT = 'thumbprint-of-the-dpop-key';
 
+    protected const string OFFER_ID = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
     protected const string TX_CODE = 'tx-code-value';
 
     protected const string BOUND_CLIENT_ID = 'bound-client-id';
@@ -139,6 +141,7 @@ class AuthCodeEntityFactoryTest extends TestCase
             'boundRedirectUri' => self::BOUND_REDIRECT_URI,
             'dpopJkt' => self::DPOP_JKT,
             'offerClaims' => self::OFFER_CLAIMS,
+            'offerId' => self::OFFER_ID,
         ];
     }
 
@@ -170,6 +173,7 @@ class AuthCodeEntityFactoryTest extends TestCase
                 'issuer_state' => self::ISSUER_STATE,
                 'dpop_jkt' => self::DPOP_JKT,
                 'offer_claims' => self::OFFER_CLAIMS_JSON,
+                'offer_id' => self::OFFER_ID,
                 'client' => $this->clientMock,
             ],
             $overrides,
@@ -210,6 +214,7 @@ class AuthCodeEntityFactoryTest extends TestCase
         $this->assertSame(self::BOUND_REDIRECT_URI, $entity->getBoundRedirectUri());
         $this->assertSame(self::DPOP_JKT, $entity->getDpopJkt());
         $this->assertSame(self::OFFER_CLAIMS, $entity->getOfferClaims());
+        $this->assertSame(self::OFFER_ID, $entity->getOfferId());
     }
 
 
@@ -298,6 +303,7 @@ class AuthCodeEntityFactoryTest extends TestCase
         $this->assertNull($entity->getBoundRedirectUri());
         $this->assertNull($entity->getDpopJkt());
         $this->assertNull($entity->getOfferClaims());
+        $this->assertNull($entity->getOfferId());
     }
 
 
@@ -464,6 +470,7 @@ class AuthCodeEntityFactoryTest extends TestCase
             'bound_client_id' => ['bound_client_id', 'getBoundClientId'],
             'bound_redirect_uri' => ['bound_redirect_uri', 'getBoundRedirectUri'],
             'dpop_jkt' => ['dpop_jkt', 'getDpopJkt'],
+            'offer_id' => ['offer_id', 'getOfferId'],
         ];
     }
 
@@ -629,6 +636,7 @@ class AuthCodeEntityFactoryTest extends TestCase
             'bound_redirect_uri' => ['bound_redirect_uri', 'getBoundRedirectUri', null],
             'dpop_jkt' => ['dpop_jkt', 'getDpopJkt', null],
             'offer_claims' => ['offer_claims', 'getOfferClaims', null],
+            'offer_id' => ['offer_id', 'getOfferId', null],
         ];
     }
 

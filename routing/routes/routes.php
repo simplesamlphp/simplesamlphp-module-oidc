@@ -209,6 +209,12 @@ return function (RoutingConfigurator $routes): void {
         ->methods([HttpMethodsEnum::POST->value]);
 
     $routes->add(
+        RoutesEnum::ApiVciCredentialOfferDetails->name,
+        RoutesEnum::ApiVciCredentialOfferDetails->value,
+    )->controller([VciCredentialOfferApiController::class, 'credentialOfferDetails'])
+        ->methods([HttpMethodsEnum::GET->value]);
+
+    $routes->add(
         RoutesEnum::ApiVciCredentialStatus->name,
         RoutesEnum::ApiVciCredentialStatus->value,
     )->controller([VciCredentialStatusApiController::class, 'credentialStatus'])

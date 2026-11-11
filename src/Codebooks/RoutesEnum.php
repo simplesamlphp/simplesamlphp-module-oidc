@@ -108,6 +108,9 @@ enum RoutesEnum: string
      ****************************************************************************************************************/
 
     case ApiVciCredentialOffer = 'api/vci/credential-offer';
+    // What one offer produced, asked by the API caller which made it. The offer id is validated by the controller,
+    // after authorization, so that a malformed one is answered as an unknown one is.
+    case ApiVciCredentialOfferDetails = 'api/vci/credential-offer/{offerId}';
     case ApiVciCredentialStatus = 'api/vci/credential-status';
     case ApiOAuth2TokenIntrospection = 'api/oauth2/token-introspection';
 }

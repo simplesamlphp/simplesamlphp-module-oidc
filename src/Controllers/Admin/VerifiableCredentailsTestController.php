@@ -161,16 +161,17 @@ class VerifiableCredentailsTestController
                     is_string($authSourceId) ? $authSourceId : '',
                 );
 
+                // An administrator's offer is recorded with no owner, so no API caller can list it.
                 $credentialOfferUri = $this->credentialOfferUriFactory->buildPreAuthorized(
                     [$credentialConfigurationId],
                     $authSource->getAttributes(),
                     $useTxCode,
                     $usersEmailAttributeName,
-                );
+                )->getUri();
             } elseif ($grantType === GrantTypesEnum::AuthorizationCode->value) {
                 $credentialOfferUri = $this->credentialOfferUriFactory->buildForAuthorization(
                     [$credentialConfigurationId],
-                );
+                )->getUri();
             }
         }
 

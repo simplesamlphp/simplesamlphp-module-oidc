@@ -69,6 +69,13 @@ token itself is never written anywhere, since that would put a bearer secret in 
 Both shapes work. A token configured as a plain list of scopes can not be given credential configurations,
 though, so it can not be used at the credential offer and credential status endpoints (see below).
 
+The name, or the fingerprint of an unnamed token, is also who owns the credential offers the token makes (see
+[Credential Offer Details](#credential-offer-details)). Two tokens configured under one name are therefore one
+owner, by design: a token can be rotated without losing its offers, and an offering system and a support system can
+share their offers by sharing a name. Two integrations an operator gives the same name share them too, so give each
+integration a name of its own. An unnamed token owns its offers by its fingerprint, so rotating it loses them: the
+new token can neither list them nor change the status of what they issued (the administration screens still can).
+
 ### Limiting a token to credential configurations
 
 A token's scopes say which endpoints it may call. At the credential offer and credential status endpoints, a
@@ -166,7 +173,18 @@ naming the same user each issue their own attributes.
 
 #### Response
 
-The response is a JSON object with the `credential_offer_uri` field containing the credential offer URI string value.
+The response is a JSON object with two fields:
+
+* __credential_offer_uri__ (string): the credential offer URI, which the wallet is sent to.
+* __offer_id__ (string): the identifier of the offer, 64 lower-case hexadecimal characters. Keep it: it is how the
+caller later asks which credentials the offer produced, and changes their status (see
+[Credential Offer Details](#credential-offer-details)). It is neither the pre-authorized code nor the issuer state,
+which redeem the offer and are for the wallet only, so it can go into the caller's own records and logs.
+
+Every offer is recorded, with the principal of the token which made it as its owner (its name, or a fingerprint;
+see [Naming a token](#naming-a-token)). An offer made from an administrator's session, or from the administration
+screens, has no owner, and no API caller can list it. The record holds no personal data: the user attributes of a
+pre-authorized offer stay with its code and its access token.
 
 An offer for the authorization code grant is redeemed once: when the wallet exchanges the code it obtained with the
 offer for an access token. That has to happen within the issuer state lifetime (`vci_issuer_state_ttl`); the access
@@ -189,9 +207,9 @@ hold no email address to send the transaction code to.
 `credential_configuration_ids`, or the token has none (see
 [Limiting a token to credential configurations](#limiting-a-token-to-credential-configurations)). A configuration
 which does not exist is answered with `400` `invalid_request` whatever the list says.
-* `500` `server_error`: the offer could not be built, for example because the transaction code could not be mailed,
-or a credential configuration is malformed; or the token's `credential_configuration_ids` are malformed. The cause
-is in the log.
+* `500` `server_error`: the offer could not be built or recorded, for example because the transaction code could not
+be mailed, or a credential configuration is malformed; or the token's name or `credential_configuration_ids` could
+not be read from the configuration. The cause is in the log.
 
 When the wallet redeems a pre-authorized code at the token endpoint, a wrong transaction code is answered with
 `invalid_grant`, and one sent for an offer which has none with `invalid_request`, as OpenID4VCI 1.0 section 6.3 has
@@ -225,7 +243,8 @@ Response:
 
 ```json
 {
-    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%2230616b68fa26b00c5a6391faffc02e4e4fd9b0023fd6a3aa29ec754e2f5e2871%22%7D%7D%7D"
+    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22authorization_code%22%3A%7B%22issuer_state%22%3A%2230616b68fa26b00c5a6391faffc02e4e4fd9b0023fd6a3aa29ec754e2f5e2871%22%7D%7D%7D",
+    "offer_id": "8f4c2a1e9d7b6053c4e1f2a8b9d0c7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0"
 }
 
 ```
@@ -259,7 +278,115 @@ Response:
 
 ```json
 {
-    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A4%2C%22description%22%3A%22Please%20provide%20the%20one-time%20code%20that%20was%20sent%20to%20your%20e-mail%20address.%22%7D%7D%7D%7D"
+    "credential_offer_uri": "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fidp.mivanci.incubator.hexaa.eu%22%2C%22credential_configuration_ids%22%3A%5B%22ResearchAndScholarshipCredentialDcSdJwt%22%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22_ffcdf6d86cd564c300346351dce0b4ccb2fde304e2%22%2C%22tx_code%22%3A%7B%22input_mode%22%3A%22numeric%22%2C%22length%22%3A4%2C%22description%22%3A%22Please%20provide%20the%20one-time%20code%20that%20was%20sent%20to%20your%20e-mail%20address.%22%7D%7D%7D%7D",
+    "offer_id": "3b9e7d1c5a2f4086e9c3b7a1d5f2e8c4b6a0d9e3f7c1b5a8e2d6f0c4b9a7e3d1"
+}
+```
+
+### Credential Offer Details
+
+Tells the caller which made a credential offer what the offer produced: the offer as it is recorded, and the
+credentials issued from it, each with the identifier the [Credential Status](#credential-status) endpoint takes.
+Withdrawing a credential issued from an offer is then: list the offer's credentials, and change the status of each.
+
+It is served under the same settings as the [Credential Offer](#credential-offer) endpoint: the API, the VCI
+feature and `ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED`. With the VCI feature switched off
+it is not served, unlike the credential status endpoint; the administration screens still reach the credentials.
+
+#### Path
+
+`/api/vci/credential-offer/{offer_id}`, with the `offer_id` the credential offer endpoint answered.
+
+#### Method
+
+`GET`
+
+#### Authorization
+
+`Bearer Token`, and only from the `Authorization` header, for the reasons given at the
+[Credential Status](#credential-status) endpoint. The token needs one of the scopes of the credential offer
+endpoint (`VciCredentialOffer`, `VciAll`, `All`), has to stand for the principal which made the offer (see
+[Naming a token](#naming-a-token)), and every credential configuration the offer offered has to be in its
+`credential_configuration_ids` still: an offer whose configuration has since been taken off the token's list is no
+longer the token's to see.
+
+#### Request
+
+* __cursor__ (query parameter, optional): the `next_cursor` of the previous page, to ask for the page after it.
+
+#### Response
+
+A JSON object with the following fields. Moments are numbers of seconds since the epoch (UTC), as in a JWT.
+
+* __offer_id__ (string): the offer's identifier.
+* __credential_configuration_ids__ (array of strings): the credential configurations offered.
+* __grant_type__ (string): the grant the offer is redeemed with.
+* __created_at__ (number): when the offer was made.
+* __redeemable_until__ (number): when its pre-authorized code or issuer state expires.
+* __redeemed_at__ (number or `null`): when an access token was first issued for the offer, `null` until then. It says
+that a token was issued, not that a credential reached a wallet.
+* __withdrawn_at__ (number or `null`): reserved for withdrawing an offer; always `null` for now.
+* __credentials__ (array): the credentials issued from the offer, in the order they were issued, at most 500 per
+page. Each is an object with:
+  * __credential_id__ (string): the credential's `jti`, which the credential status endpoint takes.
+  * __credential_configuration_id__ (string): the credential configuration it was issued from.
+  * __status__ (string): `valid`, `invalid` or `suspended`, as the credential status endpoint names them.
+  * __issued_at__ (number): when it was issued, to the second. The times the credential itself states are rounded
+  (`vci_time_claim_granularity`), so its `iat` may be earlier and its `exp` later.
+  * __expires_at__ (number or `null`): when it expires; `null` for a credential which never does.
+* __next_cursor__ (string, only when there are more): pass it as `cursor` to get the next page. A cursor names the
+last credential of a page rather than a position, so credentials which expire while the caller pages do not shift
+the pages.
+
+An access token issued for an offer buys credentials as often as its lifetime allows, so the list can grow until
+the token expires. A credential appears once it has been signed and before it is handed to the wallet, so a list
+taken after the wallet received a credential holds it. A credential issued with no Token Status List entry (its
+configuration is in no Status List pool) is not listed, since the entry is where the link to the offer is kept; nor
+is a credential once it has expired and the cron has removed what linked it to its offer. An offer is kept as long as
+it can still be redeemed, as long as an access token issued for it lives, and as long as a credential issued from
+it has not expired; then the cron removes it.
+
+Errors:
+
+* `400 invalid_request`: the cursor is malformed.
+* `401 unauthorized`: no bearer token, or one which is not configured.
+* `403 insufficient_scope`: the token is configured but has none of the scopes this endpoint accepts.
+* `404 not_found`: no offer with that identifier can be shown. An identifier which is malformed, one which is
+unknown or whose offer has been removed, an offer made from an administrator's session, an offer made by another
+principal, and an offer whose credential configuration is no longer in the token's list are all answered the same
+way, so that the endpoint can not be used to find out which offers exist. The log says which it was.
+* `500 server_error`: the offer or its credentials could not be read, or the token's name or
+`credential_configuration_ids` could not be read from the configuration. The cause is in the log.
+
+#### Sample
+
+Request:
+
+```shell
+curl --location 'https://idp.example.org/ssp/module.php/oidc/api/vci/credential-offer/8f4c2a1e9d7b6053c4e1f2a8b9d0c7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0' \
+--header 'Authorization: Bearer ***'
+```
+
+Response:
+
+```json
+{
+    "offer_id": "8f4c2a1e9d7b6053c4e1f2a8b9d0c7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0",
+    "credential_configuration_ids": ["ResearchAndScholarshipCredentialDcSdJwt"],
+    "grant_type": "authorization_code",
+    "created_at": 1794391200,
+    "redeemable_until": 1794391800,
+    "redeemed_at": 1794391320,
+    "withdrawn_at": null,
+    "credentials": [
+        {
+            "credential_id": "https://idp.example.org/vc/mBS4Zt9wDRe-8sYcJUEBiZ4bGDsYY3rMHOB2Xdw4t1c",
+            "credential_configuration_id": "ResearchAndScholarshipCredentialDcSdJwt",
+            "status": "valid",
+            "issued_at": 1794391320,
+            "expires_at": 1825927320
+        }
+    ]
 }
 ```
 
@@ -324,12 +451,19 @@ status was not one of the three.
 * `401 unauthorized`: no bearer token, or one which is not configured.
 * `403 insufficient_scope`: the token is configured but has none of the scopes this endpoint accepts.
 * `404 not_found`: no credential with that identifier can have its status changed. A credential which
-was never issued here, one issued without a `status` claim, one which has expired, and one issued from a
+was never issued here, one issued without a `status` claim, one which has expired, one issued from a
 credential configuration which is not in the token's `credential_configuration_ids` (see
 [Limiting a token to credential configurations](#limiting-a-token-to-credential-configurations)), or whose
-configuration is not recorded, are all answered the same way, so that the endpoint can not be used to find out
-which identifiers exist. A token with `['*']` included: only the administration screens can change a credential
-whose configuration is not recorded.
+configuration is not recorded, and one issued from a credential offer another principal made, are all answered
+the same way, so that the endpoint can not be used to find out which identifiers exist. A token with `['*']`
+included: only the administration screens can change a credential whose configuration is not recorded.
+
+A credential issued from an offer an API token made can have its status changed by that token's principal only
+(see [Naming a token](#naming-a-token)), whatever the other tokens' configurations: otherwise an integration sharing
+a credential configuration with another could revoke, suspend or reinstate the other's credentials, whose
+identifiers travel inside them to every verifier they are shown to. Any other credential, one a wallet obtained
+without an offer or from an offer made from the administration screens, is changed under the token's credential
+configurations alone.
 * `409 conflict`: another change landed at the same moment and the credential ended up holding
 something other than what was asked for. Read the current status and decide again.
 * `422 unsupported_status`: the Status List this credential belongs to was created without room for

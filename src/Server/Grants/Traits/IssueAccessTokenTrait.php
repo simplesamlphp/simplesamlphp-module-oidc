@@ -60,6 +60,8 @@ trait IssueAccessTokenTrait
      * the token is bound to (RFC 9449 section 5); null for a request without one.
      * @param array|null $offerClaims The attributes of the pre-authorized Credential Offer the token is issued for,
      * which the token carries (AccessTokenEntity::getOfferClaims()); null for every other grant.
+     * @param string|null $offerId The Credential Offer the token is minted for, from the pre-authorized code or the
+     * issuer state it is redeemed with; null for a token of no offer.
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -79,6 +81,7 @@ trait IssueAccessTokenTrait
         ?string $subject = null,
         ?string $dpopJkt = null,
         ?array $offerClaims = null,
+        ?string $offerId = null,
     ): AccessTokenEntityInterface {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
@@ -134,6 +137,7 @@ trait IssueAccessTokenTrait
                     userClaims: $userClaims,
                     dpopJkt: $dpopJkt,
                     offerClaims: $offerClaims,
+                    offerId: $offerId,
                 );
                 $this->accessTokenRepository->persistNewAccessToken($accessToken);
                 return $accessToken;

@@ -19,6 +19,8 @@ class IssuerStateEntity implements MementoInterface
     /**
      * @param string[] $credentialConfigurationIds The configurations the Credential Offer carrying this state
      * offered, and so the only ones a request following it may ask for.
+     * @param ?string $offerId The Credential Offer this state was made for (its offer record), copied to the access
+     * token its redemption mints; null for a state stored before states named their offer.
      */
     public function __construct(
         protected readonly string $value,
@@ -26,6 +28,7 @@ class IssuerStateEntity implements MementoInterface
         protected readonly DateTimeImmutable $expirestAt,
         protected bool $isRevoked = false,
         protected readonly array $credentialConfigurationIds = [],
+        protected readonly ?string $offerId = null,
     ) {
     }
 
@@ -44,6 +47,7 @@ class IssuerStateEntity implements MementoInterface
                 array_values($this->getCredentialConfigurationIds()),
                 JSON_THROW_ON_ERROR,
             ),
+            'offer_id' => $this->getOfferId(),
         ];
     }
 
@@ -78,6 +82,12 @@ class IssuerStateEntity implements MementoInterface
     public function getCredentialConfigurationIds(): array
     {
         return $this->credentialConfigurationIds;
+    }
+
+
+    public function getOfferId(): ?string
+    {
+        return $this->offerId;
     }
 
 

@@ -27,6 +27,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
@@ -79,6 +80,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
         ModuleConfig $moduleConfig,
         IssuerStateRepository $issuerStateRepository,
         ResponseModeResolver $responseModeResolver,
+        CredentialOfferRepository $credentialOfferRepository,
         protected readonly TxCodeAttemptLimiter $txCodeAttemptLimiter,
     ) {
         parent::__construct(
@@ -99,6 +101,7 @@ class PreAuthCodeGrant extends AuthCodeGrant
             $moduleConfig,
             $issuerStateRepository,
             $responseModeResolver,
+            $credentialOfferRepository,
         );
     }
 
@@ -262,6 +265,19 @@ class PreAuthCodeGrant extends AuthCodeGrant
             throw OidcServerException::serverError('The pre-authorized code carries no Credential Offer attributes.');
         }
 
+        // Every credential the code buys is listed under its Credential Offer, which the code names. A code which
+        // names none was stored before codes did (VCI never shipped one), and buys nothing, refused at the same
+        // point and for the same reason as one without attributes.
+        $offerId = $preAuthorizedCode->getOfferId();
+
+        if ($offerId === null) {
+            $this->loggerService->error(
+                'Token request rejected: the pre-authorized code names no Credential Offer (it was stored before ' .
+                'codes named one), and no credential can be issued from it.',
+            );
+            throw OidcServerException::serverError('The pre-authorized code names no Credential Offer.');
+        }
+
         // Validate Transaction Code. Not sent means null or an empty string; anything else, "0" included, is
         // a Transaction Code. OpenID4VCI 1.0 section 6.3 has a missing one and an unexpected one answered with
         // invalid_request, and a wrong one with invalid_grant. A code which carries one carries a non-empty
@@ -396,7 +412,12 @@ class PreAuthCodeGrant extends AuthCodeGrant
             user: $offerUser,
             dpopJkt: $dpopJkt,
             offerClaims: $offerClaims,
+            offerId: $offerId,
         );
+
+        // The offer's record is kept at least until the token expires. Should that fail, the token, which was
+        // stored, never reaches the wallet, and the code stays consumed (fail closed, as above).
+        $this->recordOfferRedemption($offerId, $accessToken);
 
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));
         $responseType->setAccessToken($accessToken);

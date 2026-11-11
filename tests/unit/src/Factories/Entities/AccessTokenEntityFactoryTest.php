@@ -66,6 +66,8 @@ class AccessTokenEntityFactoryTest extends TestCase
 
     protected const string ISSUER_STATE = 'issuer-state-value';
 
+    protected const string OFFER_ID = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
     protected const string SUBJECT = 'resolved-subject';
 
     protected const string DPOP_JKT = 'thumbprint-of-the-dpop-key';
@@ -157,6 +159,7 @@ class AccessTokenEntityFactoryTest extends TestCase
             'userClaims' => self::USER_CLAIMS,
             'dpopJkt' => self::DPOP_JKT,
             'offerClaims' => self::OFFER_CLAIMS,
+            'offerId' => self::OFFER_ID,
         ];
     }
 
@@ -186,6 +189,7 @@ class AccessTokenEntityFactoryTest extends TestCase
                 'bound_redirect_uri' => self::BOUND_REDIRECT_URI,
                 'issuer_state' => self::ISSUER_STATE,
                 'offer_claims' => self::OFFER_CLAIMS_JSON,
+                'offer_id' => self::OFFER_ID,
                 'client' => $this->clientMock,
             ],
             $overrides,
@@ -225,6 +229,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->assertSame(self::ISSUER_STATE, $entity->getIssuerState());
         // Persisted, unlike the subject and the user claims: the Credential Endpoint reads it from storage.
         $this->assertSame(self::OFFER_CLAIMS, $entity->getOfferClaims());
+        $this->assertSame(self::OFFER_ID, $entity->getOfferId());
     }
 
 
@@ -317,6 +322,7 @@ class AccessTokenEntityFactoryTest extends TestCase
         $this->assertNull($entity->getBoundRedirectUri());
         $this->assertNull($entity->getIssuerState());
         $this->assertNull($entity->getOfferClaims());
+        $this->assertNull($entity->getOfferId());
         $this->assertNull($entity->getSubject());
         $this->assertSame([], $entity->getUserClaims());
         $this->assertNull($entity->getDpopJkt());
@@ -535,6 +541,7 @@ class AccessTokenEntityFactoryTest extends TestCase
             'bound_client_id' => ['bound_client_id', 'getBoundClientId'],
             'bound_redirect_uri' => ['bound_redirect_uri', 'getBoundRedirectUri'],
             'issuer_state' => ['issuer_state', 'getIssuerState'],
+            'offer_id' => ['offer_id', 'getOfferId'],
         ];
     }
 
@@ -740,6 +747,7 @@ class AccessTokenEntityFactoryTest extends TestCase
             'bound_redirect_uri' => ['bound_redirect_uri', 'getBoundRedirectUri', null],
             'issuer_state' => ['issuer_state', 'getIssuerState', null],
             'offer_claims' => ['offer_claims', 'getOfferClaims', null],
+            'offer_id' => ['offer_id', 'getOfferId', null],
         ];
     }
 

@@ -18,6 +18,7 @@ use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -25,12 +26,14 @@ use SimpleSAML\Module\oidc\Server\ResourceServer;
 use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
+use SimpleSAML\Module\oidc\StatusList\CredentialOfferLinker;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciIssuerIdentity;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciCertificateChainResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\VciIssuerIdentityResolver;
@@ -95,6 +98,8 @@ class CredentialIssuerCredentialController
         protected readonly ErrorResponder $errorResponder,
         protected readonly CredentialClaimLocator $credentialClaimLocator,
         protected readonly VciCertificateChainResolver $vciCertificateChainResolver,
+        protected readonly CredentialOfferLinker $credentialOfferLinker,
+        protected readonly CredentialOfferRepository $credentialOfferRepository,
     ) {
         if (!$this->moduleConfig->getVciEnabled()) {
             $this->loggerService->warning('Verifiable Credential capabilities not enabled.');
@@ -282,6 +287,22 @@ class CredentialIssuerCredentialController
         // An issuer state on the token is not checked again here. The token endpoint spent it when it exchanged
         // the code carrying it for this token (AuthCodeGrant), so the token can be used for as many credential
         // requests as its lifetime allows, like one which followed no offer (OpenID4VCI 1.0 section 14.3).
+
+        // Each credential a token minted for a Credential Offer buys is listed under that offer, which the token
+        // names (PreAuthCodeGrant, AuthCodeGrant). A token of the pre-authorized code flow, or one of the
+        // authorization code flow which followed an offer (it carries the offer's issuer state), and which names
+        // none, was minted before tokens named their offer (VCI never shipped one): what it bought could be listed
+        // nowhere, so it buys nothing. Only a token of an authorization code flow the wallet started on its own
+        // rightly names none.
+        $offerId = $accessToken->getOfferId();
+        if ($offerId === null && ($flowType === FlowTypeEnum::VciPreAuthorizedCode || is_string($issuerState))) {
+            $this->loggerService->error(
+                'CredentialIssuerCredentialController::credential: Access token minted for a Credential Offer ' .
+                'names no offer (it was stored before tokens named one).',
+                ['accessTokenId' => $accessToken->getIdentifier()],
+            );
+            throw OidcServerException::serverError('The access token names no Credential Offer.');
+        }
 
         // The user a credential would be about, checked with the rest of the token and before anything the
         // request asks for: a token naming no user, or one who no longer exists, buys no credential whatever is
@@ -573,6 +594,10 @@ class CredentialIssuerCredentialController
         }
 
         $issuedCredentialsData = [];
+
+        // The credentials of this request which have a Status List entry, to link to the token's Credential Offer
+        // once they are all signed.
+        $statusBackedCredentialIds = [];
 
         // Noted from inside the loop so that what is recorded afterwards is the identity credentials
         // were actually signed under, rather than what configuration said before any of them was.
@@ -1079,11 +1104,25 @@ class CredentialIssuerCredentialController
 
             $token = $verifiableCredential->getToken();
             $issuedCredentialsData[] = ['credential' => $token];
+
+            if ($statusClaim instanceof StatusClaim) {
+                $statusBackedCredentialIds[] = $vcId;
+            }
             $this->loggerService->debug(
                 'Verifiable credential issued successfully.',
                 ['token' => substr($token, 0, 20) . '...'],
                 //['token' => $token],
             );
+        }
+
+        // Once every credential of the request is signed, and before any is handed out: those of a token minted for
+        // a Credential Offer are linked to it, and the offer and the token are asked about one last time.
+        if ($offerId !== null) {
+            $refusal = $this->linkToOffer($offerId, $statusBackedCredentialIds, $accessToken, $scheme);
+
+            if ($refusal instanceof Response) {
+                return $refusal;
+            }
         }
 
         // Note which identity this deployment has now issued under, so that a later change to it can be
@@ -1114,6 +1153,91 @@ class CredentialIssuerCredentialController
                 'credentials' => $issuedCredentialsData,
             ],
         );
+    }
+
+
+    /**
+     * Link the credentials a request signed to the Credential Offer its access token was minted for, then check, on
+     * the primary, that the offer is still recorded and that the token has not expired since the request began.
+     *
+     * Linked after signing, so that the offer's listing holds credentials which were signed, by the request's own
+     * credentials which are still linked and name no offer yet (StatusListEntryRepository::linkToOffer()), through a
+     * linker which can do nothing else to an entry (CredentialOfferLinker); every one of them has to be linked, or
+     * the request is refused. A credential without a Status List entry (its configuration uses none) has nothing to
+     * link.
+     *
+     * The check after linking is what makes the listing complete. A credential is handed out only if its offer's
+     * record was there after it was linked, so a listing taken afterwards shows it. A token alive at the check keeps
+     * the record alive, since the record is kept until the token expires (AuthCodeGrant::recordOfferRedemption());
+     * a request whose token expired on the way is refused, and what it linked may name a record already removed,
+     * which no listing reaches and linkage cleanup clears in time. A credential refused or lost in transit after
+     * linking can be listed; changing its status changes nothing for anyone.
+     *
+     * @param string[] $credentialIds
+     * @return ?\Symfony\Component\HttpFoundation\Response The refusal, or null to hand the credentials out.
+     */
+    protected function linkToOffer(
+        string $offerId,
+        array $credentialIds,
+        AccessTokenEntity $accessToken,
+        AccessTokenTypesEnum $scheme,
+    ): ?Response {
+        try {
+            if ($credentialIds !== []) {
+                $linked = $this->credentialOfferLinker->link($offerId, $credentialIds);
+
+                if ($linked !== count($credentialIds)) {
+                    $this->loggerService->error(
+                        'Credential request failed: not every credential signed could be linked to its Credential ' .
+                        'Offer, so none is handed out.',
+                        ['offerId' => $offerId, 'signed' => count($credentialIds), 'linked' => $linked],
+                    );
+
+                    return $this->routes->newJsonErrorResponse(
+                        'server_error',
+                        'Unable to issue the credential at this time.',
+                        500,
+                    );
+                }
+            }
+
+            // The clock is read again after the slow work of signing.
+            if ($accessToken->getExpiryDateTime() <= $this->helpers->dateTime()->getUtc()) {
+                $this->loggerService->notice(
+                    'Credential request refused: the access token expired while its credentials were issued.',
+                    ['accessTokenId' => $accessToken->getIdentifier(), 'offerId' => $offerId],
+                );
+
+                return $this->invalidTokenResponse('The access token has expired.', $scheme);
+            }
+
+            if (!$this->credentialOfferRepository->find($offerId) instanceof CredentialOfferRecord) {
+                $this->loggerService->error(
+                    'Credential request failed: the Credential Offer the access token was minted for is not ' .
+                    'recorded, though the token still lives.',
+                    ['accessTokenId' => $accessToken->getIdentifier(), 'offerId' => $offerId],
+                );
+
+                return $this->routes->newJsonErrorResponse(
+                    'server_error',
+                    'Unable to issue the credential at this time.',
+                    500,
+                );
+            }
+        } catch (Throwable $exception) {
+            $this->loggerService->error(
+                'Credential request failed: the credentials could not be linked to their Credential Offer.',
+                ['offerId' => $offerId, 'error' => $exception->getMessage()],
+            );
+
+            return $this->routes->newJsonErrorResponse(
+                'server_error',
+                'Unable to issue the credential at this time.',
+                500,
+            );
+        }
+
+        return null;
     }
 
 

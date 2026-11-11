@@ -44,6 +44,7 @@ use SimpleSAML\Module\oidc\Helpers\Arr;
 use SimpleSAML\Module\oidc\Helpers\Scope;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\RefreshTokenRepositoryInterface;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
@@ -141,6 +142,8 @@ class AuthCodeGrantTest extends TestCase
 
     private const string ISSUER_STATE = 'issuer-state-of-a-credential-offer';
 
+    private const string OFFER_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
     /** The credential configurations ModuleConfig names. */
     private const array CREDENTIAL_CONFIGURATION_IDS = ['pid', 'diploma', 'mdl'];
 
@@ -178,6 +181,8 @@ class AuthCodeGrantTest extends TestCase
     private ModuleConfig&MockObject $moduleConfigMock;
 
     private IssuerStateRepository&MockObject $issuerStateRepositoryMock;
+
+    private CredentialOfferRepository&MockObject $credentialOfferRepositoryMock;
 
     /** The form_post response mode the grant resolves the request's response mode value to. */
     private FormPostResponseMode&MockObject $formPostResponseModeMock;
@@ -220,6 +225,18 @@ class AuthCodeGrantTest extends TestCase
     /** @var string[] Scope identifiers finalizeScopes() drops, as for a client not registered for them. */
     private array $scopesTheClientMayNotHave = [];
 
+    /** Whether the issuer state repository finds the issuer state of the code's Credential Offer. */
+    private bool $offerIsFound = true;
+
+    /** Whether the issuer state of the code's Credential Offer names its offer, as a state stored later does. */
+    private bool $issuerStateNamesItsOffer = true;
+
+    /** What recording the redemption of the offer answers, or the throwable it throws instead. */
+    private bool|Throwable $offerRedemptionOutcome = true;
+
+    /** @var string[] The credential configurations the issuer state of the code's Credential Offer offers. */
+    private array $offeredCredentialConfigurationIds = self::CREDENTIAL_CONFIGURATION_IDS;
+
     /** @var array<int,array{0:string,1:mixed}> Calls on the rules manager, in order, with what they were given. */
     private array $rulesManagerCalls = [];
 
@@ -254,6 +271,22 @@ class AuthCodeGrantTest extends TestCase
         $this->moduleConfigMock->method('getVciCredentialConfigurationIdsSupported')
             ->willReturn(self::CREDENTIAL_CONFIGURATION_IDS);
         $this->issuerStateRepositoryMock = $this->createMock(IssuerStateRepository::class);
+        // The state of the code's Credential Offer names its offer, whose redemption is recorded.
+        $this->issuerStateRepositoryMock->method('find')->willReturnCallback(
+            fn(): ?IssuerStateEntity => $this->offerIsFound ? new IssuerStateEntity(
+                self::ISSUER_STATE,
+                new DateTimeImmutable(),
+                new DateTimeImmutable('+5 minutes'),
+                false,
+                $this->offeredCredentialConfigurationIds,
+                $this->issuerStateNamesItsOffer ? self::OFFER_ID : null,
+            ) : null,
+        );
+        $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
+        $this->credentialOfferRepositoryMock->method('recordRedemption')->willReturnCallback(
+            fn(): bool => $this->offerRedemptionOutcome instanceof Throwable ?
+                throw $this->offerRedemptionOutcome : $this->offerRedemptionOutcome,
+        );
         $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
 
         // A Key rather than a password string: both are accepted by the grant, but the password form runs a
@@ -1190,6 +1223,132 @@ class AuthCodeGrantTest extends TestCase
         $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
     }
 
+    // Credential Offer record of a redemption.
+
+    /**
+     * The token a code of a Credential Offer buys is minted for that offer: the offer id its issuer state names is
+     * handed to the access token factory, which is how the token is listed under its offer.
+     */
+    public function testMintsTheTokenWithTheOfferIdOfTheIssuerState(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->issueTokenRecordingEvents(new ArrayObject(), new DateTimeImmutable('+5 minutes'));
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        // The double receives the factory's arguments by position, and the offer id is the eighteenth.
+        $this->assertSame(self::OFFER_ID, $this->accessTokenFactoryArguments[17]);
+    }
+
+
+    /**
+     * The offer's record is kept at least until the token it bought expires: the redemption is recorded once, with
+     * the expiry of the token as it was stored, after the token is persisted (a record kept for a token which was
+     * not stored would outlive nothing) and before the code is consumed, so that a failure to record it still finds
+     * the code unspent and takes the recovery.
+     */
+    public function testRecordsTheRedemptionWithTheTokensExpiryBetweenStoringTheTokenAndConsumingTheCode(): void
+    {
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $events = new ArrayObject();
+        $expiry = new DateTimeImmutable('+7 minutes');
+        $this->issueTokenRecordingEvents($events, $expiry);
+        $this->recordConsumedAuthCodes($events);
+        $this->credentialOfferRepositoryMock->expects($this->once())
+            ->method('recordRedemption')
+            ->with(self::OFFER_ID, $expiry)
+            ->willReturnCallback(function () use ($events): bool {
+                $events->append(['record']);
+
+                return true;
+            });
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        $this->assertSame(
+            [['persist'], ['record'], ['consume', self::AUTH_CODE_ID]],
+            $events->getArrayCopy(),
+        );
+    }
+
+
+    /**
+     * An issuer state stored before states named their offer buys nothing: nothing it bought could be listed
+     * under an offer. It is refused (server_error) before it is spent, so that no token is persisted and the state
+     * is not consumed.
+     */
+    public function testRefusesAnIssuerStateWhichNamesNoCredentialOfferBeforeSpendingIt(): void
+    {
+        $this->issuerStateNamesItsOffer = false;
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->expects($this->never())->method('consume');
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('recordRedemption');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest(
+                $this->request(),
+                $this->responseType(),
+                new DateInterval('PT5M'),
+            );
+            $this->fail('A state which names no Credential Offer must be refused.');
+        } catch (OAuthServerException $exception) {
+            $this->assertSame('server_error', $exception->getErrorType());
+            $this->assertStringContainsString('The issuer state names no Credential Offer.', $exception->getMessage());
+        }
+    }
+
+
+    /**
+     * A redemption which could not be recorded is a failure of the request: the token, which never reached the
+     * wallet, is revoked and the offer given back, as for any other failure once the offer was spent, and the
+     * client is answered server_error. Whether the repository answers that nothing was recorded or fails.
+     */
+    #[DataProvider('redemptionsWhichCanNotBeRecordedProvider')]
+    public function testRecoversWhenTheRedemptionOfTheOfferCanNotBeRecorded(bool|Throwable $outcome): void
+    {
+        $this->offerRedemptionOutcome = $outcome;
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->issueTokenRecordingEvents(new ArrayObject(), new DateTimeImmutable('+5 minutes'));
+        $this->accessTokenRepositoryMock->expects($this->once())->method('revokeByAuthCodeId')
+            ->with(self::AUTH_CODE_ID);
+        $this->refreshTokenRepositoryMock->expects($this->once())->method('revokeByAuthCodeId')
+            ->with(self::AUTH_CODE_ID);
+        $this->issuerStateRepositoryMock->expects($this->once())->method('release')->with(self::ISSUER_STATE);
+        $this->authCodeRepositoryMock->expects($this->never())->method('consumeAuthCode');
+
+        $this->assertRejects('server_error', $this->request());
+    }
+
+
+    public static function redemptionsWhichCanNotBeRecordedProvider(): array
+    {
+        return [
+            'nothing was recorded' => [false],
+            'the repository failed' => [new RuntimeException('Database error')],
+        ];
+    }
+
+
+    /**
+     * A code of the plain OpenID Connect flow follows no offer: no issuer state is read for it, no redemption is
+     * recorded, and its token names no offer.
+     */
+    public function testRecordsNoRedemptionAndNamesNoOfferForACodeOfThePlainOidcFlow(): void
+    {
+        $this->storedAuthCode(flowType: FlowTypeEnum::OidcAuthorizationCode);
+        $this->expectAccessTokenToBeIssued();
+        $this->issuerStateRepositoryMock->expects($this->never())->method('find');
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('recordRedemption');
+
+        $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
+
+        $this->assertNull($this->accessTokenFactoryArguments[17]);
+    }
+
     // Successful redemption.
 
     public function testIssuesAccessTokenAndConsumesTheAuthorizationCode(): void
@@ -1676,7 +1835,7 @@ class AuthCodeGrantTest extends TestCase
     public function testLeavesAnOfferNoLongerFoundToBeRefusedWhenItIsSpent(): void
     {
         $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
-        $this->issuerStateRepositoryMock->method('find')->willReturn(null);
+        $this->offerIsFound = false;
         $this->issuerStateRepositoryMock->method('consume')->willReturn(false);
         $this->requestedAuthorizationDetails = [self::detail('pid')];
 
@@ -3009,6 +3168,7 @@ class AuthCodeGrantTest extends TestCase
                 new FragmentResponseMode(),
                 $this->formPostResponseModeMock,
             ),
+            $this->credentialOfferRepositoryMock,
         );
 
         $grant->setEncryptionKey($this->encryptionKey);
@@ -3370,15 +3530,7 @@ class AuthCodeGrantTest extends TestCase
      */
     private function offerOffers(string ...$credentialConfigurationIds): void
     {
-        $this->issuerStateRepositoryMock->method('find')->with(self::ISSUER_STATE)->willReturn(
-            new IssuerStateEntity(
-                self::ISSUER_STATE,
-                new DateTimeImmutable(),
-                new DateTimeImmutable('+5 minutes'),
-                false,
-                $credentialConfigurationIds,
-            ),
-        );
+        $this->offeredCredentialConfigurationIds = $credentialConfigurationIds;
     }
 
 
@@ -3623,6 +3775,34 @@ class AuthCodeGrantTest extends TestCase
         $this->accessTokenRepositoryMock->expects($this->once())
             ->method('persistNewAccessToken')
             ->with($accessToken);
+
+        return $accessToken;
+    }
+
+
+    /**
+     * As expectAccessTokenToBeIssued(), for a token which expires at the given moment, and which records that it
+     * was persisted among the events.
+     */
+    private function issueTokenRecordingEvents(
+        ArrayObject $events,
+        DateTimeImmutable $expiry,
+    ): AccessTokenEntity&MockObject {
+        $accessToken = $this->createMock(AccessTokenEntity::class);
+        $accessToken->method('getExpiryDateTime')->willReturn($expiry);
+
+        $this->accessTokenEntityFactoryMock->method('fromData')
+            ->willReturnCallback(function (...$arguments) use ($accessToken): AccessTokenEntity {
+                $this->accessTokenFactoryArguments = $arguments;
+
+                return $accessToken;
+            });
+        $this->accessTokenRepositoryMock->expects($this->once())
+            ->method('persistNewAccessToken')
+            ->with($accessToken)
+            ->willReturnCallback(function () use ($events): void {
+                $events->append(['persist']);
+            });
 
         return $accessToken;
     }

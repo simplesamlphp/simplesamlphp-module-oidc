@@ -7,13 +7,15 @@ namespace SimpleSAML\Module\oidc\StatusList;
 use DateTimeImmutable;
 use SimpleSAML\Module\oidc\Codebooks\StatusChangeSourceEnum;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusAuditRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface;
 use SimpleSAML\Module\oidc\StatusList\Values\CredentialStatusChange;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListEntryRecord;
-use SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit;
+use SimpleSAML\Module\oidc\ValueAbstracts\ApiCaller;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord;
 use SimpleSAML\OpenID\Codebooks\StatusTypeEnum;
 use Throwable;
 
@@ -38,6 +40,7 @@ class CredentialStatusService
         protected readonly StatusAuditRepository $statusAuditRepository,
         protected readonly Helpers $helpers,
         protected readonly LoggerService $loggerService,
+        protected readonly CredentialOfferRepository $credentialOfferRepository,
     ) {
     }
 
@@ -46,13 +49,14 @@ class CredentialStatusService
      * @param string $credentialId The identifier the credential carries as its `jti`.
      * @param ?string $actorRef Who asked, as a name rather than a secret. Null for an unattended
      * change, which is what a scheduled task is.
-     * @param ?\SimpleSAML\Module\oidc\ValueAbstracts\CredentialConfigurationLimit $credentialConfigurationLimit
-     *   The credential configurations the caller may act on, as an API token's are limited. A credential issued
-     *   from another, or whose configuration is not recorded, is then one which can not be acted on, whatever
-     *   the limit. Null for none: the administration screens, whose own authorization decides.
+     * @param ?\SimpleSAML\Module\oidc\ValueAbstracts\ApiCaller $apiCaller The API caller asking, whose
+     *   credential configurations and offers limit what it may act on. A credential issued from another
+     *   configuration, or whose configuration is not recorded, is then one which can not be acted on, whatever
+     *   the limit; and so is one issued from a Credential Offer an API caller made, unless this caller made it.
+     *   Null for the administration screens, whose own authorization decides.
      * @return ?\SimpleSAML\Module\oidc\StatusList\Values\CredentialStatusChange Null when no credential of that
-     *   identifier can be acted on, which covers one that was never issued here, one which has expired and one
-     *   outside the caller's credential configurations alike.
+     *   identifier can be acted on, which covers one that was never issued here, one which has expired, one
+     *   outside the caller's credential configurations and one from another caller's offer alike.
      * @throws \SimpleSAML\Module\oidc\Exceptions\UnsupportedStatusException When the list this
      * credential sits in can not represent the requested status. Permanent, not worth retrying.
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusConflictException When concurrent changes kept
@@ -65,7 +69,7 @@ class CredentialStatusService
         StatusTypeEnum $status,
         StatusChangeSourceEnum $source,
         ?string $actorRef = null,
-        ?CredentialConfigurationLimit $credentialConfigurationLimit = null,
+        ?ApiCaller $apiCaller = null,
     ): ?CredentialStatusChange {
         $credentialIdHash = $this->statusListEntryRepository->hashCredentialId($credentialId);
         $entry = $this->statusListEntryRepository->findByCredentialIdHash($credentialIdHash);
@@ -86,8 +90,8 @@ class CredentialStatusService
         // caller told that the credential exists but is not theirs would learn which identifiers exist here.
         // The operator is told which it was.
         if (
-            $credentialConfigurationLimit instanceof CredentialConfigurationLimit &&
-            !$credentialConfigurationLimit->allows($credentialConfigurationId)
+            $apiCaller instanceof ApiCaller &&
+            !$apiCaller->getCredentialConfigurationLimit()->allows($credentialConfigurationId)
         ) {
             $this->loggerService->info(
                 'A status change was requested for a credential issued from a credential configuration the ' .
@@ -95,6 +99,26 @@ class CredentialStatusService
                 [
                     'credentialIdHash' => $credentialIdHash,
                     'credentialConfigurationId' => $credentialConfigurationId,
+                    'source' => $source->value,
+                    'actorRef' => $actorRef,
+                ],
+            );
+
+            return null;
+        }
+
+        // A credential issued from an offer an API caller made is that caller's alone to act on, and is answered
+        // to anyone else as one which can not be acted on, at the same point and for the same reason. Without
+        // this, an integration sharing a credential configuration with another could change the other's
+        // credentials, whose identifiers travel inside them to every verifier they are shown to. A credential
+        // from no offer, or from an administrator's, stays with the configuration's limit above.
+        if ($apiCaller instanceof ApiCaller && !$this->mayActOnOfferOf($entry, $apiCaller)) {
+            $this->loggerService->info(
+                'A status change was requested for a credential issued from a Credential Offer the caller did not ' .
+                'make.',
+                [
+                    'credentialIdHash' => $credentialIdHash,
+                    'offerId' => $entry->getOfferId(),
                     'source' => $source->value,
                     'actorRef' => $actorRef,
                 ],
@@ -197,6 +221,33 @@ class CredentialStatusService
         );
 
         return $this->isActionable($entry) ? $entry?->getStatus() : null;
+    }
+
+
+    /**
+     * Whether an API caller may act on a credential as far as its Credential Offer goes: always for one issued from
+     * no offer and for one from an offer no API caller made (an administrator's), and otherwise only for the caller
+     * which made the offer, compared byte for byte (CredentialOfferRecord::isOwnedBy()). A credential naming an
+     * offer whose record is gone can not be told to be the caller's, so it is not: it was never handed out, since
+     * the Credential Endpoint asks for the record after linking a credential to it.
+     *
+     * @throws \RuntimeException When the stored offer can not be read.
+     */
+    protected function mayActOnOfferOf(StatusListEntryRecord $entry, ApiCaller $apiCaller): bool
+    {
+        $offerId = $entry->getOfferId();
+
+        if ($offerId === null) {
+            return true;
+        }
+
+        $offer = $this->credentialOfferRepository->find($offerId);
+
+        if (!$offer instanceof CredentialOfferRecord) {
+            return false;
+        }
+
+        return $offer->getOwner() === null || $offer->isOwnedBy($apiCaller->getPrincipal());
     }
 
 

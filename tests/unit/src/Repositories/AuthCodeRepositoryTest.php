@@ -216,6 +216,7 @@ class AuthCodeRepositoryTest extends TestCase
             self::REDIRECT_URI,
             flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
             offerClaims: ['uid' => ['offered-uid']],
+            offerId: 'offered-offer-id',
         );
         $plainCode = new AuthCodeEntity(
             'plain-auth-code-id',
@@ -246,6 +247,10 @@ class AuthCodeRepositoryTest extends TestCase
         $this->assertSame(
             ['{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', '{"uid":["offered-uid"]}', null],
             array_column($states, 'offer_claims'),
+        );
+        $this->assertSame(
+            ['offered-offer-id', 'offered-offer-id', 'offered-offer-id', null],
+            array_column($states, 'offer_id'),
         );
         $this->assertSame(1, (int)$states[2]['is_revoked']);
     }

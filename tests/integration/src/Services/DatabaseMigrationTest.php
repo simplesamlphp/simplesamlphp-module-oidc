@@ -91,6 +91,40 @@ class DatabaseMigrationTest extends TestCase
 
 
     /**
+     * The credential offer migration interrupted before its version was recorded: run again, it finds the table,
+     * the four offer id columns and both indexes already there (the composite one on the status entries by its
+     * catalog lookup on MySQL), and adds nothing twice.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testAnInterruptedCredentialOfferMigrationCanBeRerun(string $database): void
+    {
+        $config = self::$$database;
+        $config['database.prefix'] = 'migration_test_';
+
+        $this->database = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => '20261111000001'],
+        );
+        $this->assertSame(
+            ['version20261111000001'],
+            array_values($migration->getNotImplementedVersions()),
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame([], $migration->getNotImplementedVersions());
+    }
+
+
+    /**
      * Points in time are stored as their wall clock in UTC, so no column holding one may convert it with the
      * connection's time zone. MySQL's TIMESTAMP does, and refuses a wall clock which a zone with daylight
      * saving time skips; version20261003000002 turned the older tables' columns into DATETIME. PostgreSQL's

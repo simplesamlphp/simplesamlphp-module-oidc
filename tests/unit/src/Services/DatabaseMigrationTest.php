@@ -14,8 +14,10 @@ use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 
 /**
@@ -38,6 +40,8 @@ class DatabaseMigrationTest extends TestCase
     protected const string AUTH_CODE_DPOP_JKT_VERSION = '20261005000001';
 
     protected const string OFFER_CLAIMS_VERSION = '20261109000001';
+
+    protected const string CREDENTIAL_OFFER_VERSION = '20261111000001';
 
 
     protected Database $database;
@@ -328,6 +332,132 @@ class DatabaseMigrationTest extends TestCase
                 "SELECT name FROM pragma_table_info('$accessTokenTableName') WHERE name = 'offer_claims'",
             )->fetchAll(PDO::FETCH_ASSOC),
         );
+    }
+
+
+    /**
+     * The offer table, and the offer id on what redeems an offer and on what it issues. The version creates the
+     * table and the index only when they are missing and adds each column only when it is missing, so a run
+     * interrupted before its version was recorded can be repeated, and everything keeps what it holds.
+     *
+     * @throws \Exception
+     */
+    public function testRecordsOffersAndTheirIdsOnceAndKeepsThem(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $offerTableName = $this->database->applyPrefix(CredentialOfferRepository::TABLE_NAME);
+        $offerId = str_repeat('a', 64);
+        $this->database->write(
+            "INSERT INTO $offerTableName (id, owner, credential_configuration_ids, grant_type, created_at, " .
+            "redeemable_until, retained_until) VALUES (:id, 'HR system', '[\"employee_card\"]', " .
+            "'authorization_code', '2026-11-11 10:00:00', '2026-11-11 10:10:00', '2026-11-11 10:10:00')",
+            ['id' => $offerId],
+        );
+
+        // SQLite enforces no foreign key unless a connection turns them on, which this one does not, so the rows
+        // need no user, client or list rows.
+        foreach (self::offerIdTables() as $table => $insert) {
+            $this->database->write(sprintf($insert, $this->database->applyPrefix($table)), ['offer_id' => $offerId]);
+        }
+
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::CREDENTIAL_OFFER_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame(
+            [['id' => $offerId, 'owner' => 'HR system']],
+            $this->database->read("SELECT id, owner FROM $offerTableName")->fetchAll(PDO::FETCH_ASSOC),
+        );
+
+        // Other tests of this class leave rows of their own in the same database, which name no offer.
+        foreach (array_keys(self::offerIdTables()) as $table) {
+            $this->assertSame(
+                [['offer_id' => $offerId]],
+                $this->database->read(
+                    'SELECT offer_id FROM ' . $this->database->applyPrefix($table) . ' WHERE offer_id IS NOT NULL',
+                )->fetchAll(PDO::FETCH_ASSOC),
+                $table,
+            );
+        }
+    }
+
+
+    /**
+     * A run interrupted between the columns left some added and others not. Repeating the version adds the one
+     * which is missing; those already there do not stop it.
+     *
+     * @throws \Exception
+     */
+    public function testAddsTheOfferIdColumnAnInterruptedRunLeftOut(): void
+    {
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $accessTokenTableName = $this->database->applyPrefix(AccessTokenRepository::TABLE_NAME);
+        $this->database->write("ALTER TABLE $accessTokenTableName DROP COLUMN offer_id");
+        $this->database->write(
+            'DELETE FROM ' . $this->database->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::CREDENTIAL_OFFER_VERSION],
+        );
+
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+        $this->assertSame(
+            [['name' => 'offer_id']],
+            $this->database->read(
+                "SELECT name FROM pragma_table_info('$accessTokenTableName') WHERE name = 'offer_id'",
+            )->fetchAll(PDO::FETCH_ASSOC),
+        );
+    }
+
+
+    /**
+     * The credentials of an offer are listed, in the order they were issued, and the cron asks whether any entry
+     * still names an offer, through an index rather than by reading every entry of every list.
+     *
+     * @throws \Exception
+     */
+    public function testListsTheCredentialsOfAnOfferThroughAnIndex(): void
+    {
+        (new DatabaseMigration($this->database))->migrate();
+
+        $rows = $this->database->read(
+            'EXPLAIN QUERY PLAN SELECT * FROM ' .
+            $this->database->applyPrefix(StatusListEntryRepository::TABLE_NAME) .
+            ' WHERE offer_id = :offer_id ORDER BY issued_at, status_list_id, idx',
+            ['offer_id' => str_repeat('a', 64)],
+        )->fetchAll(PDO::FETCH_ASSOC);
+        $plan = implode("\n", array_column($rows, 'detail'));
+
+        $this->assertMatchesRegularExpression('/\bUSING INDEX \S+ \(offer_id=\?\)/', $plan);
+        // The order comes out of the index, not out of a sort over what was selected.
+        $this->assertStringNotContainsString('TEMP B-TREE', $plan);
+    }
+
+
+    /**
+     * Each table which carries an offer id, and a row of it which names one.
+     *
+     * @return array<string,string>
+     */
+    protected static function offerIdTables(): array
+    {
+        return [
+            IssuerStateRepository::TABLE_NAME => "INSERT INTO %s (value, offer_id) VALUES ('a-state', :offer_id)",
+            AuthCodeRepository::TABLE_NAME => 'INSERT INTO %s (id, user_id, client_id, redirect_uri, offer_id) ' .
+                "VALUES ('a-code', 'user', 'client', 'openid-credential-offer://', :offer_id)",
+            AccessTokenRepository::TABLE_NAME => 'INSERT INTO %s (id, user_id, client_id, offer_id) ' .
+                "VALUES ('a-token', 'user', 'client', :offer_id)",
+            StatusListEntryRepository::TABLE_NAME => 'INSERT INTO %s (status_list_id, idx, offer_id) ' .
+                "VALUES ('a-list', 0, :offer_id)",
+        ];
     }
 
 

@@ -10,6 +10,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\PushedAuthorizationRequestRepository;
 use SimpleSAML\Module\oidc\Repositories\RefreshTokenRepository;
@@ -29,6 +30,8 @@ class ExpiredEntriesCleanerTest extends TestCase
 
     private PushedAuthorizationRequestRepository&MockObject $pushedAuthorizationRequestRepositoryMock;
 
+    private CredentialOfferRepository&MockObject $credentialOfferRepositoryMock;
+
 
     protected function setUp(): void
     {
@@ -39,6 +42,7 @@ class ExpiredEntriesCleanerTest extends TestCase
         $this->pushedAuthorizationRequestRepositoryMock = $this->createMock(
             PushedAuthorizationRequestRepository::class,
         );
+        $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
     }
 
 
@@ -50,6 +54,7 @@ class ExpiredEntriesCleanerTest extends TestCase
             $this->refreshTokenRepositoryMock,
             $this->issuerStateRepositoryMock,
             $this->pushedAuthorizationRequestRepositoryMock,
+            $this->credentialOfferRepositoryMock,
         );
 
         $this->assertInstanceOf(ExpiredEntriesCleaner::class, $cleaner);
@@ -73,12 +78,16 @@ class ExpiredEntriesCleanerTest extends TestCase
         $this->pushedAuthorizationRequestRepositoryMock->expects($this->once())
             ->method('removeExpired');
 
+        $this->credentialOfferRepositoryMock->expects($this->once())
+            ->method('removeExpired');
+
         $cleaner = new ExpiredEntriesCleaner(
             $this->accessTokenRepositoryMock,
             $this->authCodeRepositoryMock,
             $this->refreshTokenRepositoryMock,
             $this->issuerStateRepositoryMock,
             $this->pushedAuthorizationRequestRepositoryMock,
+            $this->credentialOfferRepositoryMock,
         );
 
         $cleaner->clean();

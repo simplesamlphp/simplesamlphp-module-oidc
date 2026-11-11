@@ -15,14 +15,18 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\IssuerStateEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\UserEntityFactory;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AuthCodeRepository;
 use SimpleSAML\Module\oidc\Repositories\ClientRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\TxCodeAttemptLimiter;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\BuiltCredentialOffer;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\Exceptions\OpenIdException;
@@ -43,6 +47,11 @@ class CredentialOfferUriFactory
      */
     public const int TX_CODE_DESCRIPTION_MAX_LENGTH = 300;
 
+    /**
+     * Bytes of randomness in an offer id, which is written as their lower-case hex.
+     */
+    public const int OFFER_ID_RANDOM_BYTES = 32;
+
 
     public function __construct(
         protected readonly VerifiableCredentials $verifiableCredentials,
@@ -59,30 +68,52 @@ class CredentialOfferUriFactory
         protected readonly IssuerStateRepository $issuerStateRepository,
         protected readonly UserIdentifierResolver $userIdentifierResolver,
         protected readonly TxCodeAttemptLimiter $txCodeAttemptLimiter,
+        protected readonly Helpers $helpers,
+        protected readonly CredentialOfferRepository $credentialOfferRepository,
     ) {
     }
 
 
     /**
      * The issuer state records the offered configurations, which are then the only ones a request following
-     * the offer may ask for (OfferedCredentialsRule).
+     * the offer may ask for (OfferedCredentialsRule), and the offer's record, which the access token its
+     * redemption mints is linked to.
      *
      * @param string[] $credentialConfigurationIds
+     * @param ?string $owner The API principal making the offer; null for an administrator.
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \JsonException
      * @throws \RuntimeException When the configurations named can not be offered.
      * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed.
+     * @throws \Exception When the offer can not be recorded.
      */
     public function buildForAuthorization(
         array $credentialConfigurationIds,
-    ): string {
+        ?string $owner = null,
+    ): BuiltCredentialOffer {
         $credentialConfigurationIds = $this->offerableCredentialConfigurationIds($credentialConfigurationIds);
+
+        // The state redeeming the offer lives as long as the offer is redeemable, which is the moment the record
+        // is kept until at least, so both are computed once, here.
+        $createdAt = $this->helpers->dateTime()->getUtc();
+        $expiresAt = $createdAt->add($this->moduleConfig->getVciIssuerStateDuration());
+
+        $offerId = $this->recordOffer(
+            $credentialConfigurationIds,
+            GrantTypesEnum::AuthorizationCode,
+            $owner,
+            $createdAt,
+            $expiresAt,
+        );
 
         $issuerStateGenerationAttempts = 3;
         while ($issuerStateGenerationAttempts-- > 0) {
             try {
                 $issuerState = $this->issuerStateEntityFactory->buildNew(
+                    createdAt: $createdAt,
+                    expiresAt: $expiresAt,
                     credentialConfigurationIds: $credentialConfigurationIds,
+                    offerId: $offerId,
                 );
                 $this->issuerStateRepository->persist($issuerState);
                 break;
@@ -112,23 +143,26 @@ class CredentialOfferUriFactory
             ],
         );
 
-        return $this->buildUri($credentialOffer->jsonSerialize());
+        return new BuiltCredentialOffer($this->buildUri($credentialOffer->jsonSerialize()), $offerId);
     }
 
 
     /**
      * @param string[] $credentialConfigurationIds
+     * @param ?string $owner The API principal making the offer; null for an administrator.
      * @throws \SimpleSAML\OpenID\Exceptions\OpenIdException
      * @throws \JsonException
      * @throws \RuntimeException When the configurations named can not be offered.
      * @throws \SimpleSAML\Error\ConfigurationError When a configuration is malformed.
+     * @throws \Exception When the offer can not be recorded.
      */
     public function buildPreAuthorized(
         array $credentialConfigurationIds,
         array $userAttributes,
         bool $useTxCode = false,
         string $userEmailAttributeName = null,
-    ): string {
+        ?string $owner = null,
+    ): BuiltCredentialOffer {
         $credentialConfigurationIds = $this->offerableCredentialConfigurationIds($credentialConfigurationIds);
 
         // TODO mivanci Wallet (client) credential_offer_endpoint metadata
@@ -176,6 +210,21 @@ class CredentialOfferUriFactory
             $this->userRepository->add($this->userEntityFactory->fromData($userId));
         }
 
+        // Recorded before a Transaction Code is mailed, so that an offer which can not be recorded sends nothing;
+        // a record whose code then fails to be stored is removed by the cron once it could no longer have been
+        // redeemed (CredentialOfferRepository::removeExpired()). The code expires when the offer stops being
+        // redeemable, so both are computed once, here.
+        $createdAt = $this->helpers->dateTime()->getUtc();
+        $expiresAt = $createdAt->add($this->moduleConfig->getAuthCodeDuration());
+
+        $offerId = $this->recordOffer(
+            $credentialConfigurationIds,
+            GrantTypesEnum::PreAuthorizedCode,
+            $owner,
+            $createdAt,
+            $expiresAt,
+        );
+
         $txCode = null;
         $userEmailAttributeName ??= $this->moduleConfig->getDefaultUsersEmailAttributeName();
         if ($useTxCode) {
@@ -195,12 +244,13 @@ class CredentialOfferUriFactory
                     id: $this->sspBridge->utils()->random()->generateID(),
                     client: $client,
                     scopes: $scopes,
-                    expiryDateTime: (new DateTimeImmutable())->add($this->moduleConfig->getAuthCodeDuration()),
+                    expiryDateTime: $expiresAt,
                     userIdentifier: $userId,
                     redirectUri: 'openid-credential-offer://',
                     flowTypeEnum: FlowTypeEnum::VciPreAuthorizedCode,
                     txCode: $txCode instanceof TxCode ? $txCode->getCodeAsString() : null,
                     offerClaims: $userAttributes,
+                    offerId: $offerId,
                 );
                 $this->authCodeRepository->persistNewAuthCode($authCode);
                 break;
@@ -242,7 +292,42 @@ class CredentialOfferUriFactory
             ],
         );
 
-        return $this->buildUri($credentialOffer->jsonSerialize());
+        return new BuiltCredentialOffer($this->buildUri($credentialOffer->jsonSerialize()), $offerId);
+    }
+
+
+    /**
+     * Record the offer, before what redeems it is stored, so that the code or issuer state can name it.
+     *
+     * The id is 32 random bytes as lower-case hex, the only form it is stored or accepted in. It is kept until the
+     * offer stops being redeemable at least (retained_until), and the token endpoint raises that to the expiry of
+     * every access token minted for it. A record which can not be written fails the offer.
+     *
+     * @param list<string> $credentialConfigurationIds
+     * @return string The offer id.
+     * @throws \JsonException
+     * @throws \Exception
+     */
+    protected function recordOffer(
+        array $credentialConfigurationIds,
+        GrantTypesEnum $grantType,
+        ?string $owner,
+        DateTimeImmutable $createdAt,
+        DateTimeImmutable $redeemableUntil,
+    ): string {
+        $offerId = $this->helpers->random()->getIdentifier(self::OFFER_ID_RANDOM_BYTES);
+
+        $this->credentialOfferRepository->persist(new CredentialOfferRecord(
+            $offerId,
+            $owner,
+            $credentialConfigurationIds,
+            $grantType->value,
+            $createdAt,
+            $redeemableUntil,
+            $redeemableUntil,
+        ));
+
+        return $offerId;
     }
 
 

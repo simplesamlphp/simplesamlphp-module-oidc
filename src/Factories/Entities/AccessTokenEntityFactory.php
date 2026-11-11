@@ -52,6 +52,7 @@ class AccessTokenEntityFactory
         array $userClaims = [],
         ?string $dpopJkt = null,
         ?array $offerClaims = null,
+        ?string $offerId = null,
     ): AccessTokenEntity {
         return new AccessTokenEntity(
             $id,
@@ -73,6 +74,7 @@ class AccessTokenEntityFactory
             userClaims: $userClaims,
             dpopJkt: $dpopJkt,
             offerClaims: $offerClaims,
+            offerId: $offerId,
         );
     }
 
@@ -128,6 +130,7 @@ class AccessTokenEntityFactory
         $boundRedirectUri = empty($state['bound_redirect_uri']) ? null : (string)$state['bound_redirect_uri'];
         $issuerState = empty($state['issuer_state']) ? null : (string)$state['issuer_state'];
         $offerClaims = $this->offerClaimsFromState($state);
+        $offerId = empty($state['offer_id']) ? null : (string)$state['offer_id'];
 
         return $this->fromData(
             $id,
@@ -144,6 +147,7 @@ class AccessTokenEntityFactory
             $boundRedirectUri,
             $issuerState,
             offerClaims: $offerClaims,
+            offerId: $offerId,
         );
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\VerifiableCredentials;
 
 use ArrayObject;
+use Closure;
 use DateInterval;
 use DateMalformedIntervalStringException;
 use DateTimeImmutable;
@@ -32,8 +33,10 @@ use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
 use SimpleSAML\Module\oidc\Exceptions\StatusListException;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Helpers\DateTime as HelpersDateTime;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Repositories\AccessTokenRepository;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\StatusListEntryRepository;
 use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Repositories\VciIssuerIdentityRepository;
@@ -43,6 +46,7 @@ use SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator;
 use SimpleSAML\Module\oidc\Services\ErrorResponder;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\StatusList\Contracts\StatusUpdaterInterface;
+use SimpleSAML\Module\oidc\StatusList\CredentialOfferLinker;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusIssuer;
 use SimpleSAML\Module\oidc\StatusList\CredentialStatusService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
@@ -50,6 +54,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\Module\oidc\Utils\VciContextResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\CredentialClaimLocator;
 use SimpleSAML\Module\oidc\VerifiableCredentials\OpenId4VciProofValidator;
+use SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\ValidatedOpenId4VciProof;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCertificateChain;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciCredentialProofTypes;
@@ -118,6 +123,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
     protected const string CREDENTIAL_ENDPOINT = 'https://issuer.com/module.php/oidc/credential';
 
+    protected const string OFFER_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
 
     protected MockObject $resourceServerMock;
 
@@ -148,6 +155,43 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     protected MockObject $credentialStatusIssuerMock;
 
     protected MockObject $vciCertificateChainResolverMock;
+
+    protected MockObject $credentialOfferLinkerMock;
+
+    protected MockObject $credentialOfferRepositoryMock;
+
+    /** The Credential Offer the access token names; null for a token of no offer. */
+    protected ?string $tokenOfferId = self::OFFER_ID;
+
+    /** When the access token expires, relative to the moment it is asked. */
+    protected string $tokenExpiresIn = '+1 hour';
+
+    /** When the access token expires, fixed; overrides the relative expiry above. */
+    protected ?DateTimeImmutable $tokenExpiresAt = null;
+
+    /** What the module's clock reads, once a test has set it (useClockAt()); a test may move it on. */
+    protected DateTimeImmutable $clockMoment;
+
+    /** Called when the request links what it signed to its offer, the last step before the final check. */
+    protected ?Closure $whileLinking = null;
+
+    /** How many credentials the linker reports linked; null for every one it is given. */
+    protected ?int $linkedCount = null;
+
+    /** @var list<array{string,string[]}> What the linker was asked to link, call by call. */
+    protected array $linkCalls = [];
+
+    /** The offer's record as the final check finds it; null for none. */
+    protected ?CredentialOfferRecord $recordedOffer = null;
+
+    /** What the final check's lookup of the offer throws, if anything. */
+    protected ?Throwable $offerLookupFailure = null;
+
+    /** What the linker throws, if anything. */
+    protected ?Throwable $linkFailure = null;
+
+    /** @var list<string> What was done about the token's offer, in order: `link` and `find`. */
+    protected array $offerEvents = [];
 
     /** The certificate chain of the active signing key; none unless a test gives it one. */
     protected ?VciCertificateChain $certificateChain = null;
@@ -327,6 +371,55 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             },
         );
         $this->helpers = new Helpers();
+        // The credentials a token's offer is linked to, every one of them unless a test says otherwise, and the
+        // offer there to be found.
+        $this->tokenOfferId = self::OFFER_ID;
+        $this->tokenExpiresIn = '+1 hour';
+        $this->tokenExpiresAt = null;
+        $this->whileLinking = null;
+        $this->linkedCount = null;
+        $this->linkCalls = [];
+        $this->offerLookupFailure = null;
+        $this->linkFailure = null;
+        $this->offerEvents = [];
+        $this->credentialOfferLinkerMock = $this->createMock(CredentialOfferLinker::class);
+        $this->credentialOfferLinkerMock->method('link')->willReturnCallback(
+            function (string $offerId, array $credentialIds): int {
+                $this->offerEvents[] = 'link';
+
+                if ($this->whileLinking !== null) {
+                    ($this->whileLinking)();
+                }
+                $this->linkCalls[] = [$offerId, $credentialIds];
+
+                if ($this->linkFailure !== null) {
+                    throw $this->linkFailure;
+                }
+
+                return $this->linkedCount ?? count($credentialIds);
+            },
+        );
+        $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
+        $this->credentialOfferRepositoryMock->method('find')->willReturnCallback(
+            function (string $offerId): ?CredentialOfferRecord {
+                $this->offerEvents[] = 'find ' . $offerId;
+
+                if ($this->offerLookupFailure !== null) {
+                    throw $this->offerLookupFailure;
+                }
+
+                return $this->recordedOffer;
+            },
+        );
+        $this->recordedOffer = new CredentialOfferRecord(
+            self::OFFER_ID,
+            null,
+            [self::CONFIGURATION_ID],
+            'urn:ietf:params:oauth:grant-type:pre-authorized_code',
+            new DateTimeImmutable('-1 minute'),
+            new DateTimeImmutable('+1 hour'),
+            new DateTimeImmutable('+1 hour'),
+        );
         $this->errorResponderMock = $this->createMock(ErrorResponder::class);
         $this->errorResponderResponse = null;
         $this->signedPayloads = [];
@@ -443,6 +536,11 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             ->willReturnCallback(fn(): ?array => $this->authorizationDetails);
         $this->accessTokenMock->method('getIssuerState')
             ->willReturnCallback(fn(): ?string => $this->issuerState);
+        $this->accessTokenMock->method('getOfferId')->willReturnCallback(fn(): ?string => $this->tokenOfferId);
+        // Alive for the whole request, however long signing takes, unless a test says otherwise.
+        $this->accessTokenMock->method('getExpiryDateTime')->willReturnCallback(
+            fn(): DateTimeImmutable => $this->tokenExpiresAt ?? new DateTimeImmutable($this->tokenExpiresIn),
+        );
         $this->accessTokenMock->method('getOfferClaims')->willReturnCallback(
             fn(): ?array => $this->tokenCarriesOfferClaims ? ($this->offerClaims ?? $this->userClaims) : null,
         );
@@ -832,6 +930,8 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             // The real one: where a claim lands is what the mandatory claim tests are about.
             new CredentialClaimLocator(),
             $this->vciCertificateChainResolverMock,
+            $this->credentialOfferLinkerMock,
+            $this->credentialOfferRepositoryMock,
         );
     }
 
@@ -1818,7 +1918,9 @@ class CredentialIssuerCredentialControllerTest extends TestCase
      * endpoint, and the status issuer it allocates a Status List entry through for each credential, are given
      * nothing which can change the status of a credential. That is the admin page's and the status API's, through
      * CredentialStatusService, a status updater and the entries' repository. The allocator the status issuer claims
-     * an entry through holds that repository, and that claiming one leaves every other as it was is
+     * an entry through holds that repository, and so does the linker the endpoint links signed credentials to their
+     * offer through, which does nothing else with it (CredentialOfferLinkerTest). That claiming one leaves every
+     * other as it was is
      * DbStatusIndexAllocatorTest::testLeavesTheEntryOfAnEarlierCredentialOfTheSameSubjectAsItWas'. That a later
      * request is served at all is testIssuesAgainstATokenWhichFollowedAnOfferForEveryRequestItMakes'.
      */
@@ -2003,6 +2105,343 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->issue();
 
         $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * Two credentials with a Status List entry each, signed, for one request.
+     */
+    protected function issueTwoRevocableCredentials(): void
+    {
+        $idx = 0;
+        $this->credentialStatusIssuerMock->method('issueFor')->willReturnCallback(
+            function () use (&$idx): StatusClaim {
+                return $this->statusClaim(++$idx);
+            },
+        );
+
+        $this->issue(proofJwts: ['jwt1', 'jwt2']);
+    }
+
+
+    /**
+     * Once every credential of the request is signed, each is linked to the token's Credential Offer, by the
+     * identifier it carries, and then the offer is asked about one last time; only then is anything handed out.
+     */
+    public function testLinksTheSignedCredentialsToTheTokensOfferBeforeHandingThemOut(): void
+    {
+        $this->routesMock->expects($this->once())->method('newJsonResponse')
+            ->willReturnCallback(function (): JsonResponse {
+                $this->offerEvents[] = 'respond';
+
+                return $this->createMock(JsonResponse::class);
+            });
+
+        $this->issueTwoRevocableCredentials();
+
+        $this->assertSame(
+            [[self::OFFER_ID, array_column($this->signedPayloads, ClaimsEnum::Jti->value)]],
+            $this->linkCalls,
+        );
+        $this->assertCount(2, $this->linkCalls[0][1]);
+        $this->assertSame(['link', 'find ' . self::OFFER_ID, 'respond'], $this->offerEvents);
+    }
+
+
+    /**
+     * A credential without a Status List entry has nothing to link, and the offer is still asked about before the
+     * credential is handed out.
+     */
+    public function testLinksNothingForACredentialWithoutAStatusListEntryAndStillChecksTheOffer(): void
+    {
+        $this->credentialStatusIssuerMock->method('issueFor')->willReturn(null);
+        $this->routesMock->expects($this->once())->method('newJsonResponse')
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issue();
+
+        $this->assertSame([], $this->linkCalls);
+        $this->assertSame(['find ' . self::OFFER_ID], $this->offerEvents);
+    }
+
+
+    /**
+     * Only the credentials with an entry are linked, and their count is what the linker has to report.
+     */
+    public function testLinksOnlyTheCredentialsWhichHaveAStatusListEntry(): void
+    {
+        $calls = 0;
+        $this->credentialStatusIssuerMock->method('issueFor')->willReturnCallback(
+            function () use (&$calls): ?StatusClaim {
+                return ++$calls === 1 ? null : $this->statusClaim($calls);
+            },
+        );
+        $this->routesMock->expects($this->once())->method('newJsonResponse')
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issue(proofJwts: ['jwt1', 'jwt2']);
+
+        $this->assertSame(
+            [[self::OFFER_ID, [$this->signedPayloads[1][ClaimsEnum::Jti->value]]]],
+            $this->linkCalls,
+        );
+    }
+
+
+    /**
+     * A credential which could not be linked would be missing from its offer's listing, so none of the request's
+     * credentials is handed out.
+     */
+    public function testRefusesWhenNotEveryCredentialCouldBeLinkedToTheOffer(): void
+    {
+        $logged = $this->captureLog();
+        $this->linkedCount = 1;
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
+            ->with('server_error', $this->anything(), 500)
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+
+        $this->assertSame(['link'], $this->offerEvents);
+        $this->assertSame(
+            [[
+                'Credential request failed: not every credential signed could be linked to its Credential Offer, so ' .
+                'none is handed out.',
+                ['offerId' => self::OFFER_ID, 'signed' => 2, 'linked' => 1],
+            ]],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
+    }
+
+
+    public function testRefusesWhenTheCredentialsCanNotBeLinkedToTheOffer(): void
+    {
+        $this->linkFailure = new RuntimeException('Database error');
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
+            ->with('server_error', $this->anything(), 500)
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+    }
+
+
+    /**
+     * A token which expired while its credentials were signed no longer keeps its offer's record, which may be
+     * gone by the time a listing is taken, so nothing is handed out.
+     */
+    public function testRefusesWhenTheTokenExpiredWhileItsCredentialsWereIssued(): void
+    {
+        $this->tokenExpiresIn = '-1 second';
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
+            ->with('invalid_token', $this->anything(), 401, $this->anything())
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+
+        // Asked after linking, with the clock read again after signing.
+        $this->assertSame(['link'], $this->offerEvents);
+    }
+
+
+    /**
+     * The module's clock, as the endpoint reads it through the helpers, set to a moment of the test's choosing;
+     * the system clock, which the request's own times are taken from, runs on.
+     */
+    protected function useClockAt(DateTimeImmutable $moment): void
+    {
+        $this->clockMoment = $moment;
+        $dateTime = new class (fn(): DateTimeImmutable => $this->clockMoment) extends HelpersDateTime {
+            /**
+             * @param \Closure(): \DateTimeImmutable $moment
+             */
+            public function __construct(protected readonly Closure $moment)
+            {
+            }
+
+
+            public function getUtc(string $time = 'now'): DateTimeImmutable
+            {
+                return $time === 'now' ?
+                ($this->moment)()->setTimezone(new DateTimeZone('UTC')) :
+                parent::getUtc($time);
+            }
+        };
+
+        $this->helpers = new class ($dateTime) extends Helpers {
+            public function __construct(protected readonly HelpersDateTime $clock)
+            {
+            }
+
+
+            public function dateTime(): HelpersDateTime
+            {
+                return $this->clock;
+            }
+        };
+    }
+
+
+    /**
+     * @return array<string,array{string,bool}>
+     */
+    public static function clockAtTheFinalCheckProvider(): array
+    {
+        return [
+            'a second before the token expires' => ['-1 second', true],
+            'the second the token expires' => ['+0 seconds', false],
+            'a second after the token expired' => ['+1 second', false],
+        ];
+    }
+
+
+    /**
+     * The token is alive when the request begins, by the module's clock as well as by the system clock the
+     * request's own times are taken from; the module's clock moves on once every credential is signed, while they
+     * are linked to the offer, and it is read again for the final check after that: a token which has expired by
+     * then, to the second it expires included, buys nothing. A reading taken any earlier, before or during signing
+     * or before linking, would still see the token alive.
+     */
+    #[DataProvider('clockAtTheFinalCheckProvider')]
+    public function testAsksTheClockAgainWhetherTheTokenStillLivesOnceTheCredentialsAreSigned(
+        string $clockFromExpiry,
+        bool $isServed,
+    ): void {
+        // A whole second, as a stored expiry is, an hour ahead by the system clock.
+        $this->tokenExpiresAt = new DateTimeImmutable('@' . (time() + 3600));
+        $this->useClockAt($this->tokenExpiresAt->modify('-30 minutes'));
+        $finalCheckAt = $this->tokenExpiresAt->modify($clockFromExpiry);
+        $this->whileLinking = function () use ($finalCheckAt): void {
+            $this->clockMoment = $finalCheckAt;
+        };
+
+        if ($isServed) {
+            $this->routesMock->expects($this->once())->method('newJsonResponse')
+                ->willReturn($this->createMock(JsonResponse::class));
+        } else {
+            $this->routesMock->expects($this->never())->method('newJsonResponse');
+            $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
+                ->with('invalid_token', $this->anything(), 401, $this->anything())
+                ->willReturn($this->createMock(JsonResponse::class));
+        }
+
+        $this->issueTwoRevocableCredentials();
+
+        $this->assertSame('link', $this->offerEvents[0] ?? null);
+    }
+
+
+    /**
+     * An offer whose record is gone while a token minted for it still lives is this issuer's fault: nothing is
+     * handed out which the offer's listing could not show.
+     */
+    public function testRefusesWhenTheOfferIsNoLongerRecorded(): void
+    {
+        $this->recordedOffer = null;
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
+            ->with('server_error', $this->anything(), 500)
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+
+        $this->assertSame(['link', 'find ' . self::OFFER_ID], $this->offerEvents);
+    }
+
+
+    public function testRefusesWhenTheOfferCanNotBeRead(): void
+    {
+        $this->offerLookupFailure = new RuntimeException('Database error');
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
+            ->with('server_error', $this->anything(), 500)
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+    }
+
+
+    /**
+     * A token of the pre-authorized code flow names its offer; one which names none was minted before tokens did,
+     * and buys nothing, refused before any Status List entry is allocated or anything is signed.
+     */
+    public function testRefusesAPreAuthorizedTokenWhichNamesNoOffer(): void
+    {
+        $logged = $this->captureLog();
+        $this->tokenOfferId = null;
+        $this->validatedProofs = [$this->validatedProof()];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+        $this->accessTokenMock->method('getIdentifier')->willReturn('token_id');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame([], $this->signedPayloads);
+        $this->assertSame(
+            [[
+                'CredentialIssuerCredentialController::credential: Access token minted for a Credential Offer names ' .
+                'no offer (it was stored before tokens named one).',
+                ['accessTokenId' => 'token_id'],
+            ]],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
+    }
+
+
+    /**
+     * A token of the authorization code flow which followed an offer carries the offer's issuer state, and has to
+     * name the offer too.
+     */
+    public function testRefusesATokenWhichFollowedAnOfferAndNamesNoOffer(): void
+    {
+        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+        $this->issuerState = 'an-issuer-state';
+        $this->tokenOfferId = null;
+        $this->validatedProofs = [$this->validatedProof()];
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->dispatch();
+
+        $this->assertAnsweredWithOAuthError('server_error', 500);
+        $this->assertSame([], $this->signedPayloads);
+    }
+
+
+    /**
+     * A wallet which started the authorization code flow on its own followed no offer: its token names none, rightly,
+     * and what it buys is linked to nothing.
+     */
+    public function testIssuesToATokenOfNoOfferWithoutLinkingAnything(): void
+    {
+        $this->flowType = FlowTypeEnum::VciAuthorizationCode;
+        $this->issuerState = null;
+        $this->tokenOfferId = null;
+        $this->routesMock->expects($this->once())->method('newJsonResponse')
+            ->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+
+        $this->assertCount(2, $this->signedPayloads);
+        $this->assertSame([], $this->offerEvents);
+    }
+
+
+    /**
+     * A token buys credentials as often as its lifetime allows, and what each of its requests signs is linked to
+     * the token's one offer.
+     */
+    public function testLinksTheCredentialsOfEveryRequestOfOneTokenToTheSameOffer(): void
+    {
+        $this->routesMock->method('newJsonResponse')->willReturn($this->createMock(JsonResponse::class));
+
+        $this->issueTwoRevocableCredentials();
+        $this->signedPayloads = [];
+        $this->issue();
+
+        $this->assertCount(2, $this->linkCalls);
+        $this->assertSame([self::OFFER_ID, self::OFFER_ID], array_column($this->linkCalls, 0));
     }
 
 

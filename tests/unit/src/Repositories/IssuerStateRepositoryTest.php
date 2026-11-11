@@ -140,6 +140,37 @@ class IssuerStateRepositoryTest extends TestCase
     }
 
 
+    /**
+     * The offer the state was made for is stored with it, and an update writes it again.
+     */
+    public function testStoresAndUpdatesTheOfferId(): void
+    {
+        $offerId = str_repeat('ab', 32);
+        $entity = $this->entityFactory->buildNew(offerId: $offerId);
+
+        $this->repository->persist($entity);
+
+        $this->assertSame($offerId, $this->repository->find($entity->getValue())?->getOfferId());
+
+        $this->repository->update($this->entityFactory->fromData(
+            $entity->getValue(),
+            $entity->getCreatedAt(),
+            $entity->getExpirestAt(),
+            true,
+            [],
+            $offerId,
+        ));
+
+        $found = $this->repository->find($entity->getValue());
+        $this->assertSame($offerId, $found?->getOfferId());
+        $this->assertTrue($found->isRevoked());
+
+        $plain = $this->entityFactory->buildNew();
+        $this->repository->persist($plain);
+        $this->assertNull($this->repository->find($plain->getValue())?->getOfferId());
+    }
+
+
     public function testFindReturnsNullForUnknownValue(): void
     {
         $this->assertNull($this->repository->find('unknown-issuer-state-value'));

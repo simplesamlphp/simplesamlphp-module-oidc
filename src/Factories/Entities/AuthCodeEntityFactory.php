@@ -41,6 +41,7 @@ class AuthCodeEntityFactory
         ?string $boundRedirectUri = null,
         ?string $dpopJkt = null,
         ?array $offerClaims = null,
+        ?string $offerId = null,
     ): AuthCodeEntity {
         return new AuthCodeEntity(
             $id,
@@ -59,6 +60,7 @@ class AuthCodeEntityFactory
             $issuerState,
             $dpopJkt,
             $offerClaims,
+            $offerId,
         );
     }
 
@@ -115,6 +117,7 @@ class AuthCodeEntityFactory
         // A state written before codes were bound (a cached one included) has no such entry: bound to nothing.
         $dpopJkt = empty($state['dpop_jkt']) ? null : (string)$state['dpop_jkt'];
         $offerClaims = $this->offerClaimsFromState($state);
+        $offerId = empty($state['offer_id']) ? null : (string)$state['offer_id'];
 
         return $this->fromData(
             $id,
@@ -133,6 +136,7 @@ class AuthCodeEntityFactory
             $boundRedirectUri,
             $dpopJkt,
             $offerClaims,
+            $offerId,
         );
     }
 

@@ -28,6 +28,8 @@ class StatusListEntryRecord
      * @param ?\DateTimeImmutable $expiresAt When the credential occupying this index expires, or null
      * if it never does. A list holding a non-expiring entry can never be retired.
      * @param ?string $subjectRef Keyed hash of the user identifier, never the identifier itself.
+     * @param ?string $offerId The Credential Offer the credential was issued from, written once it was signed; null
+     * for one issued from no offer, and once the linkage is cleared.
      */
     public function __construct(
         protected readonly string $statusListId,
@@ -41,6 +43,7 @@ class StatusListEntryRecord
         protected readonly ?string $subjectRef,
         protected readonly ?DateTimeImmutable $issuedAt,
         protected readonly ?DateTimeImmutable $updatedAt,
+        protected readonly ?string $offerId = null,
     ) {
     }
 
@@ -128,6 +131,12 @@ class StatusListEntryRecord
     }
 
 
+    public function getOfferId(): ?string
+    {
+        return $this->offerId;
+    }
+
+
     /**
      * @param array<array-key,mixed> $row
      * @throws \SimpleSAML\Module\oidc\Exceptions\StatusListException
@@ -146,6 +155,7 @@ class StatusListEntryRecord
             self::asNullableString($row, 'subject_ref'),
             self::asNullableDateTime($row, 'issued_at'),
             self::asNullableDateTime($row, 'updated_at'),
+            self::asNullableString($row, 'offer_id'),
         );
     }
 }
