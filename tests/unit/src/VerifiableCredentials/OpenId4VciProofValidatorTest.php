@@ -63,6 +63,13 @@ use Throwable;
  * one addressed to somewhere else as well as here, or no proof at all, all ended in a credential being
  * issued - the last three bound to a subject identifier this issuer made up, with a warning in the log
  * as the only sign. A wallet could not tell any of that apart from a proof which had been honoured.
+ *
+ * Two guards no request can reach, each behind a check which refuses first: the attestation wording of the
+ * request-wide refusal of a repeated key in validateRequest() (validateAttestationProof() refuses a key attested
+ * twice, and a request carries one attestation), and the refusal of a key_attestation header which is not a string
+ * in verifyKeyAttestationOfProof() (assertSignedWithAnAdvertisedAlgorithm() refuses it). The null check of
+ * validateKeyAttestationNonce() is a third, behind KeyAttestationVerifier's own, and only a stand-in verifier
+ * reaches it (testRefusesAKeyAttestationWithoutANonceTheVerifierLetThrough).
  */
 #[CoversClass(OpenId4VciProofValidator::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -3052,6 +3059,169 @@ class OpenId4VciProofValidatorTest extends TestCase
             ['proofs' => ['attestation' => [self::keyAttestationJwt([self::PUBLIC_EC_JWK])]]],
             expectedMessageFragment: 'Attestation proof could not be validated.',
             proofTypes: new VciCredentialProofTypes(['attestation' => null]),
+        );
+    }
+
+
+    /*****************************************************************************************************
+     * What goes wrong while a proof is checked.
+     ****************************************************************************************************/
+
+    /**
+     * Whatever else goes wrong while a jwt proof is checked went wrong about the proof: it is refused, with why in the
+     * log, rather than let through as some other exception. A key sent inline with a kid longer than a did:jwk may
+     * carry is one such: the library's did:jwk resolver refuses to write it down.
+     */
+    public function testRefusesAProofTheLibraryFailsOnAsAnInvalidProof(): void
+    {
+        $warnings = [];
+        $this->loggerServiceMock->method('warning')->willReturnCallback(
+            static function (string $message, array $context = []) use (&$warnings): void {
+                $warnings[] = [$message, $context];
+            },
+        );
+        $this->resolvesDidJwkForReal();
+        $key = JWKFactory::createECKey('P-256');
+        $inline = ['jwk' => $key->toPublic()->all() + ['kid' => str_repeat('k', 4096)]];
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof($inline, without: ['kid'], key: $key)]),
+            expectedMessageFragment: 'Key proof could not be validated.',
+        );
+        $this->assertContains('Key proof could not be validated.', array_column($warnings, 0));
+    }
+
+
+    /**
+     * The same of an attestation proof: an attested key with a kid longer than a did:jwk may carry is refused by the
+     * library's did:jwk resolver, and the attestation with it, rather than let through as some other exception.
+     */
+    public function testRefusesAnAttestationProofTheLibraryFailsOnAsAnInvalidProof(): void
+    {
+        $warnings = [];
+        $this->loggerServiceMock->method('warning')->willReturnCallback(
+            static function (string $message, array $context = []) use (&$warnings): void {
+                $warnings[] = [$message, $context];
+            },
+        );
+        $this->resolvesDidJwkForReal();
+        $this->verifierAccepts();
+        $attestedKey = JWKFactory::createECKey('P-256')->toPublic()->all() + ['kid' => str_repeat('k', 4096)];
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            ['proofs' => ['attestation' => [self::keyAttestationJwt([$attestedKey])]]],
+            expectedMessageFragment: 'Attestation proof could not be validated.',
+            proofTypes: new VciCredentialProofTypes(['attestation' => null]),
+        );
+        $this->assertContains('Attestation proof could not be validated.', array_column($warnings, 0));
+    }
+
+
+    /**
+     * Has the library's own did:jwk resolver write down the keys sent inline, rather than the stand-in every other test
+     * gets.
+     */
+    protected function resolvesDidJwkForReal(): void
+    {
+        $didJwkResolver = new DidJwkResolver(new Helpers());
+        $this->didJwkResolverMock = $this->createMock(DidJwkResolver::class);
+        $this->didJwkResolverMock->method('generateDidJwkFromJwk')->willReturnCallback(
+            static fn(array $jwk): string => $didJwkResolver->generateDidJwkFromJwk($jwk),
+        );
+    }
+
+
+    /**
+     * The trust_chain is read as a JSON array from the header as sent, decoded into objects, which refuses a member
+     * name starting with a NUL character. The library decodes the header into arrays, which takes one, so such a proof
+     * is parsed, and then refused here; without that member the same proof is accepted
+     * (testAcceptsAttachedJwtsSignedWithAnAdvertisedAlgorithm).
+     */
+    public function testRefusesATrustChainInAHeaderWhichCanNotBeReadAsAnObject(): void
+    {
+        $header = [
+            ClaimsEnum::TrustChain->value => [self::signedJwt(['typ' => 'entity-statement+jwt']), self::signedJwt([])],
+            "\0extension" => 'value',
+        ];
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$this->realProof($header)]),
+            expectedMessageFragment: 'trust_chain header parameter of the key proof must be a non-empty array of JWTs.',
+        );
+    }
+
+
+    /**
+     * A key sent inline goes into the did:jwk this module writes for the credential's subject, written down as JSON.
+     * The members of a public key are checked by name, not by value, so a member JSON reads in but no encoder writes
+     * out - a number too large for a float, which decodes as INF - reaches that step, and is refused there as the
+     * proof's fault.
+     */
+    public function testRefusesAnInlineKeyWhichCanNotBeWrittenDownAsADidJwk(): void
+    {
+        // By hand, since no encoder writes 1e400 either: a public key's members, and a kid which is that number.
+        $header = sprintf(
+            '{"alg":"ES256","typ":"openid4vci-proof+jwt","jwk":%s,"kid":1e400}}',
+            substr(json_encode(self::PUBLIC_EC_JWK, JSON_THROW_ON_ERROR), 0, -1),
+        );
+        $payload = json_encode(
+            ['iss' => self::CLIENT_ID, 'aud' => self::ISSUER, 'iat' => time(), 'nonce' => 'nonce-value'],
+            JSON_THROW_ON_ERROR,
+        );
+        $base64Url = (new Helpers())->base64Url();
+        $proofJwt = $base64Url->encode($header) . '.' . $base64Url->encode($payload) . '.' .
+        $base64Url->encode('not a signature');
+
+        $this->resolvesDidJwkForReal();
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWithRealProofs([$proofJwt]),
+            expectedMessageFragment: 'The jwk header of the key proof could not be read as a key.',
+        );
+    }
+
+
+    /**
+     * Where the profile a configuration follows names no DID method this deployment resolves, there is nothing to name
+     * in place of the method refused, and the refusal does not name an empty list. The DID facade is rebuilt by hand
+     * for that on purpose, with a registry the profile has nothing in common with.
+     */
+    public function testRefusesAHolderWithoutNamingAMethodWhenTheDeploymentResolvesNoneTheProfileNames(): void
+    {
+        $this->didMock = $this->createMock(Did::class);
+        $this->didMock->method('supportedMethods')->willReturn(['did:key']);
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $this->requestWith(['getKeyId' => self::HOLDER_DID_WEB_URL]),
+            VciCredentialBindingPolicyEnum::DiipProofBound,
+            'This credential configuration can not accept the holder identifier this key proof names.',
+        );
+    }
+
+
+    /**
+     * KeyAttestationVerifier refuses a key attestation without a nonce. Asked again where the nonce is checked, so an
+     * attestation without one is not taken should the verifier ever stop asking.
+     */
+    #[DataProvider('proofTypeProvider')]
+    public function testRefusesAKeyAttestationWithoutANonceTheVerifierLetThrough(VciProofTypeEnum $proofType): void
+    {
+        $key = JWKFactory::createECKey('P-256');
+        $keyAttestation = self::keyAttestationJwt([$key->toPublic()->all()], ['nonce' => null]);
+        $this->verifierAccepts();
+
+        $this->assertRefusedWith(
+            'invalid_proof',
+            $proofType === VciProofTypeEnum::Jwt ?
+            $this->requestWithRealProofs([$this->realProof(['key_attestation' => $keyAttestation], key: $key)]) :
+            ['proofs' => ['attestation' => [$keyAttestation]]],
+            expectedMessageFragment: 'The key attestation must carry a nonce claim obtained from the Nonce Endpoint.',
+            proofTypes: new VciCredentialProofTypes([$proofType->value => new VciKeyAttestationRequirements()]),
         );
     }
 }

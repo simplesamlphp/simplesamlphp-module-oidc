@@ -20,11 +20,14 @@ use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmBag;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Exceptions\X509TrustStoreException;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\Serializers\JwsSerializerEnum;
 use SimpleSAML\OpenID\SupportedAlgorithms;
 use SimpleSAML\OpenID\VerifiableCredentials;
+use SimpleSAML\OpenID\VerifiableCredentials\Factories\KeyAttestationFactory;
+use SimpleSAML\OpenID\VerifiableCredentials\KeyAttestation;
 use SimpleSAML\OpenID\X509;
 use SimpleSAML\OpenID\X509\CertificatePathValidator;
 use SpomkyLabs\Pki\CryptoTypes\Asymmetric\PrivateKeyInfo;
@@ -32,6 +35,9 @@ use SpomkyLabs\Pki\CryptoTypes\Asymmetric\PrivateKeyInfo;
 /**
  * Key attestations signed and chained for real, against certificates made when the tests run: a root, an issuing CA
  * under it, and the key storage component's certificate under that, which signs the attestations.
+ *
+ * One statement no run can count, a guard on what parsing has refused already: the catch around
+ * getX509CertificateChain() in verify(), since the library reads x5c with that getter while parsing.
  */
 #[CoversClass(KeyAttestationVerifier::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -201,9 +207,10 @@ class KeyAttestationVerifierTest extends TestCase
         string $message,
         VciProofTypeEnum $proofType = VciProofTypeEnum::Jwt,
         ?VciKeyAttestationRequirements $requirements = null,
+        ?KeyAttestationVerifier $verifier = null,
     ): void {
         try {
-            $this->sut()->verify($keyAttestation, $proofType, $requirements);
+            ($verifier ?? $this->sut())->verify($keyAttestation, $proofType, $requirements);
             $this->fail('The key attestation was accepted.');
         } catch (CredentialRequestException $credentialRequestException) {
             $this->assertSame('invalid_proof', $credentialRequestException->getErrorCode());
@@ -652,5 +659,131 @@ class KeyAttestationVerifierTest extends TestCase
         $this->expectException(X509TrustStoreException::class);
 
         $this->sut($x509Mock)->verify($this->keyAttestation(), VciProofTypeEnum::Jwt, null);
+    }
+
+
+    /**
+     * The x5c is read as a JSON array from the header as sent, decoded into objects, which refuses a member name
+     * starting with a NUL character. The library decodes the header into arrays, which takes one, so such an
+     * attestation is parsed, and then refused here. The refusal names the x5c it was reading, though what could not
+     * be read is the header around it.
+     */
+    public function testRefusesAKeyAttestationWhoseHeaderCanNotBeReadAsAnObject(): void
+    {
+        $this->assertRefused(
+            $this->keyAttestation([], ["\0extension" => 'value']),
+            'The x5c header parameter of the key attestation must be a JSON array of certificates.',
+        );
+    }
+
+
+    /**
+     * Every claim is read once the signature holds, through getters which parsing has run already. Should one throw
+     * all the same, the attestation is refused as unreadable, and why goes to the log: let through, the library's
+     * exception would reach the caller as something other than a refusal.
+     */
+    #[DataProvider('claimGetterProvider')]
+    public function testRefusesAKeyAttestationWhoseClaimCanNotBeRead(string $getter): void
+    {
+        $warnings = [];
+        $this->loggerServiceMock->method('warning')->willReturnCallback(
+            static function (string $message, array $context = []) use (&$warnings): void {
+                $warnings[] = [$message, $context];
+            },
+        );
+
+        $this->assertRefused(
+            $this->keyAttestation(),
+            'The key attestation could not be read.',
+            VciProofTypeEnum::Jwt,
+            new VciKeyAttestationRequirements([self::ISO_HIGH], [self::ISO_MODERATE]),
+            $this->sutParsingAs($this->parsedKeyAttestationMock($getter)),
+        );
+        $this->assertContains(['Key attestation could not be read.', ['error' => 'Not readable.']], $warnings);
+    }
+
+
+    /**
+     * Each claim verify() reads.
+     *
+     * @return array<string,array{string}>
+     */
+    public static function claimGetterProvider(): array
+    {
+        return [
+            'exp' => ['getExpirationTimeNumericDate'],
+            'key_storage' => ['getKeyStorage'],
+            'user_authentication' => ['getUserAuthentication'],
+            'nonce' => ['getNonce'],
+        ];
+    }
+
+
+    /**
+     * The stand-in with every claim readable is verified, so what refuses each row above is the claim which can not be
+     * read, and nothing else about the stand-in.
+     */
+    public function testVerifiesTheStandInWhoseClaimsCanAllBeRead(): void
+    {
+        $keyAttestationMock = $this->parsedKeyAttestationMock(null);
+
+        $this->assertSame(
+            $keyAttestationMock,
+            $this->sutParsingAs($keyAttestationMock)->verify(
+                $this->keyAttestation(),
+                VciProofTypeEnum::Jwt,
+                new VciKeyAttestationRequirements([self::ISO_HIGH], [self::ISO_MODERATE]),
+            ),
+        );
+    }
+
+
+    /**
+     * A key attestation as the library parses one: its x5c the chain keyAttestation() sends, its signature taken, and
+     * every claim readable but the one whose getter is named, which throws.
+     */
+    protected function parsedKeyAttestationMock(?string $failingGetter): KeyAttestation&MockObject
+    {
+        $keyAttestationMock = $this->createMock(KeyAttestation::class);
+        $keyAttestationMock->method('getX509CertificateChain')
+            ->willReturn([base64_encode(self::$attesterDer), base64_encode(self::$issuingCaDer)]);
+
+        $claims = [
+            'getExpirationTimeNumericDate' => time() + 300,
+            'getKeyStorage' => [self::ISO_HIGH],
+            'getUserAuthentication' => [self::ISO_MODERATE],
+            'getNonce' => self::NONCE,
+        ];
+
+        foreach ($claims as $getter => $value) {
+            if ($getter === $failingGetter) {
+                $keyAttestationMock->method($getter)->willThrowException(new JwsException('Not readable.'));
+            } else {
+                $keyAttestationMock->method($getter)->willReturn($value);
+            }
+        }
+
+        return $keyAttestationMock;
+    }
+
+
+    /**
+     * The subject, with the attestation given standing in for what the library parses. The header is still read by the
+     * library's own helpers, as in production.
+     */
+    protected function sutParsingAs(KeyAttestation $keyAttestation): KeyAttestationVerifier
+    {
+        $keyAttestationFactoryMock = $this->createMock(KeyAttestationFactory::class);
+        $keyAttestationFactoryMock->method('fromToken')->willReturn($keyAttestation);
+        $verifiableCredentialsMock = $this->createMock(VerifiableCredentials::class);
+        $verifiableCredentialsMock->method('keyAttestationFactory')->willReturn($keyAttestationFactoryMock);
+        $verifiableCredentialsMock->method('helpers')->willReturn(self::$facade->helpers());
+
+        return new KeyAttestationVerifier(
+            $this->moduleConfigMock,
+            $verifiableCredentialsMock,
+            new X509(),
+            $this->loggerServiceMock,
+        );
     }
 }
