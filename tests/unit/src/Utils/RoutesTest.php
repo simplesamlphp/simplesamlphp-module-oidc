@@ -353,6 +353,7 @@ class RoutesTest extends TestCase
             'urlStatusList' => 'statuslist/{statusListId}',
             'urlCredentialJsonLdContext' => 'credential-issuer/context/{credentialConfigurationId}',
             'urlApiVciCredentialOfferDetails' => 'api/vci/credential-offer/{offerId}',
+            'urlApiVciCredentialOfferWithdrawal' => 'api/vci/credential-offer/{offerId}/withdraw',
         ];
 
         $rows = [];
@@ -366,11 +367,17 @@ class RoutesTest extends TestCase
 
 
     /**
-     * The part of a route template which precedes its placeholder.
+     * A route template with its one placeholder replaced, wherever in the path it sits: the fixed parts before and
+     * after it are kept as the template has them.
      */
-    protected static function fixedPathPartOf(string $template): string
+    protected static function filledPath(string $template, string $value): string
     {
-        return substr($template, 0, (int)strpos($template, '{'));
+        $start = strpos($template, '{');
+        $end = strpos($template, '}');
+        self::assertIsInt($start);
+        self::assertIsInt($end);
+
+        return substr($template, 0, $start) . $value . substr($template, $end + 1);
     }
 
 
@@ -379,14 +386,14 @@ class RoutesTest extends TestCase
         string $method,
         string $template,
     ): void {
-        $prefix = self::fixedPathPartOf($template);
+        $path = self::filledPath($template, 'identifier-1');
 
         $url = $this->sut()->$method('identifier-1', ['ui_locales' => 'en']);
 
-        $this->assertSame($this->prefixed($prefix . 'identifier-1'), $this->lastResource());
+        $this->assertSame($this->prefixed($path), $this->lastResource());
         $this->assertSame(['ui_locales' => 'en'], $this->lastParameters());
         $this->assertSame(
-            self::BASE_URL . $this->prefixed($prefix . 'identifier-1') . '?ui_locales=en',
+            self::BASE_URL . $this->prefixed($path) . '?ui_locales=en',
             $url,
         );
     }
@@ -422,10 +429,8 @@ class RoutesTest extends TestCase
         $rows = [];
 
         foreach (self::placeholderUrlMethodProvider() as [$method, $template]) {
-            $prefix = self::fixedPathPartOf($template);
-
             foreach ($identifiers as $label => [$identifier, $encoded]) {
-                $rows[$method . ', ' . $label] = [$method, $prefix, $identifier, $encoded];
+                $rows[$method . ', ' . $label] = [$method, $template, $identifier, $encoded];
             }
         }
 
@@ -436,15 +441,17 @@ class RoutesTest extends TestCase
     #[DataProvider('placeholderEncodingProvider')]
     public function testPlaceholderUrlMethodEncodesTheIdentifier(
         string $method,
-        string $prefix,
+        string $template,
         string $identifier,
         string $encoded,
     ): void {
+        $path = self::filledPath($template, $encoded);
+
         $url = $this->sut()->$method($identifier);
 
-        $this->assertSame($this->prefixed($prefix . $encoded), $this->lastResource());
+        $this->assertSame($this->prefixed($path), $this->lastResource());
         $this->assertSame([], $this->lastParameters());
-        $this->assertSame(self::BASE_URL . $this->prefixed($prefix . $encoded), $url);
+        $this->assertSame(self::BASE_URL . $this->prefixed($path), $url);
     }
 
 

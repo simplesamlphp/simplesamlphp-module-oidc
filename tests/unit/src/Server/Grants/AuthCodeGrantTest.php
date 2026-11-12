@@ -29,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
 use SimpleSAML\Error\ConfigurationError;
+use SimpleSAML\Module\oidc\Codebooks\CredentialOfferRedemptionEnum;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
@@ -232,7 +233,7 @@ class AuthCodeGrantTest extends TestCase
     private bool $issuerStateNamesItsOffer = true;
 
     /** What recording the redemption of the offer answers, or the throwable it throws instead. */
-    private bool|Throwable $offerRedemptionOutcome = true;
+    private CredentialOfferRedemptionEnum|Throwable $offerRedemptionOutcome = CredentialOfferRedemptionEnum::Recorded;
 
     /** @var string[] The credential configurations the issuer state of the code's Credential Offer offers. */
     private array $offeredCredentialConfigurationIds = self::CREDENTIAL_CONFIGURATION_IDS;
@@ -284,7 +285,7 @@ class AuthCodeGrantTest extends TestCase
         );
         $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
         $this->credentialOfferRepositoryMock->method('recordRedemption')->willReturnCallback(
-            fn(): bool => $this->offerRedemptionOutcome instanceof Throwable ?
+            fn(): CredentialOfferRedemptionEnum => $this->offerRedemptionOutcome instanceof Throwable ?
                 throw $this->offerRedemptionOutcome : $this->offerRedemptionOutcome,
         );
         $this->formPostResponseModeMock = $this->createMock(FormPostResponseMode::class);
@@ -1259,10 +1260,10 @@ class AuthCodeGrantTest extends TestCase
         $this->credentialOfferRepositoryMock->expects($this->once())
             ->method('recordRedemption')
             ->with(self::OFFER_ID, $expiry)
-            ->willReturnCallback(function () use ($events): bool {
+            ->willReturnCallback(function () use ($events): CredentialOfferRedemptionEnum {
                 $events->append(['record']);
 
-                return true;
+                return CredentialOfferRedemptionEnum::Recorded;
             });
 
         $this->sut()->respondToAccessTokenRequest($this->request(), $this->responseType(), new DateInterval('PT5M'));
@@ -1307,8 +1308,9 @@ class AuthCodeGrantTest extends TestCase
      * client is answered server_error. Whether the repository answers that nothing was recorded or fails.
      */
     #[DataProvider('redemptionsWhichCanNotBeRecordedProvider')]
-    public function testRecoversWhenTheRedemptionOfTheOfferCanNotBeRecorded(bool|Throwable $outcome): void
-    {
+    public function testRecoversWhenTheRedemptionOfTheOfferCanNotBeRecorded(
+        CredentialOfferRedemptionEnum|Throwable $outcome,
+    ): void {
         $this->offerRedemptionOutcome = $outcome;
         $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
         $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
@@ -1327,9 +1329,41 @@ class AuthCodeGrantTest extends TestCase
     public static function redemptionsWhichCanNotBeRecordedProvider(): array
     {
         return [
-            'nothing was recorded' => [false],
+            'nothing was recorded' => [CredentialOfferRedemptionEnum::NotRecorded],
             'the repository failed' => [new RuntimeException('Database error')],
         ];
+    }
+
+
+    /**
+     * An offer its maker withdrew after the code was issued is not redeemed: the wallet is answered invalid_grant,
+     * the token, which never reached it, is revoked and the issuer state given back, as for any other failure once
+     * the offer was spent, and the code is not consumed. The refusal is logged with the offer it concerns.
+     */
+    public function testRefusesTheCodeOfAWithdrawnOfferAndGivesItsStateBack(): void
+    {
+        $this->offerRedemptionOutcome = CredentialOfferRedemptionEnum::Withdrawn;
+        $this->storedAuthCode(issuerState: self::ISSUER_STATE, flowType: FlowTypeEnum::VciAuthorizationCode);
+        $this->issuerStateRepositoryMock->method('consume')->willReturn(true);
+        $this->issueTokenRecordingEvents(new ArrayObject(), new DateTimeImmutable('+5 minutes'));
+        $calls = $this->recordRecoveryCalls();
+        $this->recordConsumedAuthCodes($calls);
+
+        $this->assertRejectsWithHint('invalid_grant', 'The Credential Offer has been withdrawn.', $this->request());
+
+        $this->assertSame(
+            [
+                ['access', self::AUTH_CODE_ID],
+                ['refresh', self::AUTH_CODE_ID],
+                ['release', self::ISSUER_STATE],
+            ],
+            $calls->getArrayCopy(),
+        );
+        $this->assertLogged(
+            'notice',
+            'Token request rejected: the Credential Offer the code was issued for has been withdrawn.',
+            ['offer_id' => self::OFFER_ID],
+        );
     }
 
 

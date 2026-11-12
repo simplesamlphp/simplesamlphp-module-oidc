@@ -74,7 +74,8 @@ The name, or the fingerprint of an unnamed token, is also who owns the credentia
 owner, by design: a token can be rotated without losing its offers, and an offering system and a support system can
 share their offers by sharing a name. Two integrations an operator gives the same name share them too, so give each
 integration a name of its own. An unnamed token owns its offers by its fingerprint, so rotating it loses them: the
-new token can neither list them nor change the status of what they issued (the administration screens still can).
+new token can neither list nor withdraw them, nor change the status of what they issued (the administration screens
+still reach those credentials).
 
 ### Limiting a token to credential configurations
 
@@ -178,8 +179,9 @@ The response is a JSON object with two fields:
 * __credential_offer_uri__ (string): the credential offer URI, which the wallet is sent to.
 * __offer_id__ (string): the identifier of the offer, 64 lower-case hexadecimal characters. Keep it: it is how the
 caller later asks which credentials the offer produced, and changes their status (see
-[Credential Offer Details](#credential-offer-details)). It is neither the pre-authorized code nor the issuer state,
-which redeem the offer and are for the wallet only, so it can go into the caller's own records and logs.
+[Credential Offer Details](#credential-offer-details)), and how it withdraws the offer (see
+[Credential Offer Withdrawal](#credential-offer-withdrawal)). It is neither the pre-authorized code nor the issuer
+state, which redeem the offer and are for the wallet only, so it can go into the caller's own records and logs.
 
 Every offer is recorded, with the principal of the token which made it as its owner (its name, or a fingerprint;
 see [Naming a token](#naming-a-token)). An offer made from an administrator's session, or from the administration
@@ -287,7 +289,8 @@ Response:
 
 Tells the caller which made a credential offer what the offer produced: the offer as it is recorded, and the
 credentials issued from it, each with the identifier the [Credential Status](#credential-status) endpoint takes.
-Withdrawing a credential issued from an offer is then: list the offer's credentials, and change the status of each.
+Revoking everything an offer issued is then: [withdraw the offer](#credential-offer-withdrawal), so that it issues
+nothing more, list its credentials, and change the status of each.
 
 It is served under the same settings as the [Credential Offer](#credential-offer) endpoint: the API, the VCI
 feature and `ModuleConfig::OPTION_API_VCI_CREDENTIAL_OFFER_ENDPOINT_ENABLED`. With the VCI feature switched off
@@ -325,7 +328,8 @@ A JSON object with the following fields. Moments are numbers of seconds since th
 * __redeemable_until__ (number): when its pre-authorized code or issuer state expires.
 * __redeemed_at__ (number or `null`): when an access token was first issued for the offer, `null` until then. It says
 that a token was issued, not that a credential reached a wallet.
-* __withdrawn_at__ (number or `null`): reserved for withdrawing an offer; always `null` for now.
+* __withdrawn_at__ (number or `null`): when the offer was withdrawn (see
+[Credential Offer Withdrawal](#credential-offer-withdrawal)), `null` while it is not.
 * __credentials__ (array): the credentials issued from the offer, in the order they were issued, at most 500 per
 page. Each is an object with:
   * __credential_id__ (string): the credential's `jti`, which the credential status endpoint takes.
@@ -387,6 +391,74 @@ Response:
             "expires_at": 1825927320
         }
     ]
+}
+```
+
+### Credential Offer Withdrawal
+
+Withdraws a credential offer, so that it issues nothing more:
+
+* the token endpoint no longer redeems the offer's pre-authorized code or issuer state, and answers a wallet which
+presents one with `invalid_grant`;
+* an authorization request carrying the offer's `issuer_state` is refused (`invalid_request`) before the user is
+asked to log in;
+* the credential endpoint refuses the access tokens already issued for the offer, with `401` `invalid_token`.
+
+Credentials already issued from the offer are left as they are: to revoke them, list them with
+[Credential Offer Details](#credential-offer-details) and change the status of each. A listing taken after the
+withdrawal holds every credential the offer handed out, because the credential endpoint asks whether the offer is
+withdrawn once more after a request's credentials are linked to the offer and before it hands them out. A response
+already on its way may still reach the wallet after the withdrawal; its credentials are in the listing all the same.
+
+It is served under the same settings as the [Credential Offer](#credential-offer) endpoint.
+
+#### Path
+
+`/api/vci/credential-offer/{offer_id}/withdraw`, with the `offer_id` the credential offer endpoint answered.
+
+#### Method
+
+`POST`, with no body.
+
+#### Authorization
+
+As for [Credential Offer Details](#credential-offer-details): a bearer token from the `Authorization` header, with
+one of the scopes of the credential offer endpoint, standing for the principal which made the offer, and with every
+credential configuration the offer offered still in its `credential_configuration_ids`.
+
+#### Response
+
+A JSON object with the following fields:
+
+* __withdrawn_at__ (number): when the offer was withdrawn, in seconds since the epoch (UTC).
+* __changed__ (boolean): whether this request is what withdrew it. `false` means the offer was withdrawn already, so
+a caller retrying a request it never saw the answer to can tell which happened; `withdrawn_at` is then the moment of
+the first withdrawal.
+
+Errors:
+
+* `401 unauthorized`: no bearer token, or one which is not configured.
+* `403 insufficient_scope`: the token is configured but has none of the scopes this endpoint accepts.
+* `404 not_found`: no offer with that identifier can be withdrawn, for any of the reasons
+[Credential Offer Details](#credential-offer-details) answers `404` for, with the same response body.
+* `500 server_error`: the offer could not be read or withdrawn, or the token's name or `credential_configuration_ids`
+could not be read from the configuration. The cause is in the log.
+
+#### Sample
+
+Request:
+
+```shell
+curl --location --request POST 'https://idp.example.org/ssp/module.php/oidc/api/vci/credential-offer/8f4c2a1e9d7b6053c4e1f2a8b9d0c7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0/withdraw' \
+--header 'Authorization: Bearer ***'
+```
+
+Response:
+
+```json
+{
+    "withdrawn_at": 1794392400,
+    "changed": true
 }
 ```
 
@@ -457,13 +529,6 @@ credential configuration which is not in the token's `credential_configuration_i
 configuration is not recorded, and one issued from a credential offer another principal made, are all answered
 the same way, so that the endpoint can not be used to find out which identifiers exist. A token with `['*']`
 included: only the administration screens can change a credential whose configuration is not recorded.
-
-A credential issued from an offer an API token made can have its status changed by that token's principal only
-(see [Naming a token](#naming-a-token)), whatever the other tokens' configurations: otherwise an integration sharing
-a credential configuration with another could revoke, suspend or reinstate the other's credentials, whose
-identifiers travel inside them to every verifier they are shown to. Any other credential, one a wallet obtained
-without an offer or from an offer made from the administration screens, is changed under the token's credential
-configurations alone.
 * `409 conflict`: another change landed at the same moment and the credential ended up holding
 something other than what was asked for. Read the current status and decide again.
 * `422 unsupported_status`: the Status List this credential belongs to was created without room for
@@ -471,6 +536,13 @@ that status. Bits per entry are fixed when a list is created, so this will not s
 pool which may suspend has to be configured with at least 2 bits before its credentials are issued.
 * `500 server_error`: the status could not be changed, or the token's name or
 `credential_configuration_ids` could not be read from the configuration. The cause is in the log.
+
+A credential issued from an offer an API token made can have its status changed by that token's principal only
+(see [Naming a token](#naming-a-token)), whatever the other tokens' configurations: otherwise an integration sharing
+a credential configuration with another could revoke, suspend or reinstate the other's credentials, whose
+identifiers travel inside them to every verifier they are shown to. Any other credential, one a wallet obtained
+without an offer or from an offer made from the administration screens, is changed under the token's credential
+configurations alone.
 
 #### Sample 1
 

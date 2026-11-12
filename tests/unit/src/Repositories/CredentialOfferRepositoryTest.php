@@ -12,6 +12,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\CredentialOfferRedemptionEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
@@ -175,6 +176,39 @@ class CredentialOfferRepositoryTest extends TestCase
 
 
     /**
+     * @throws \Exception
+     */
+    protected function redeem(string $offerId, string $tokenExpiresAt): CredentialOfferRedemptionEnum
+    {
+        return $this->repository->recordRedemption($offerId, $this->utc($tokenExpiresAt));
+    }
+
+
+    /**
+     * @throws \Exception
+     */
+    protected function assertRecorded(string $offerId, string $tokenExpiresAt): void
+    {
+        $this->assertSame(CredentialOfferRedemptionEnum::Recorded, $this->redeem($offerId, $tokenExpiresAt));
+    }
+
+
+    /**
+     * A repository whose writes do not take, as when the database refuses them; reads reach the test database.
+     */
+    protected function repositoryWhoseWritesDoNotTake(): CredentialOfferRepository
+    {
+        $database = Database::getInstance();
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('applyPrefix')->willReturnCallback($database->applyPrefix(...));
+        $databaseMock->method('readPrimary')->willReturnCallback($database->readPrimary(...));
+        $databaseMock->method('write')->willReturn(0);
+
+        return new CredentialOfferRepository($this->moduleConfigMock, $databaseMock, null, $this->helpers);
+    }
+
+
+    /**
      * @return string[]
      */
     protected function storedOfferIds(): array
@@ -263,7 +297,7 @@ class CredentialOfferRepositoryTest extends TestCase
     {
         $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
 
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertRecorded(self::offerId('a'), '2026-11-11 11:05:00');
 
         $offer = $this->repository->find(self::offerId('a'));
         $this->assertEquals($this->utc('2026-11-11 11:05:00'), $offer?->getRetainedUntil());
@@ -283,10 +317,10 @@ class CredentialOfferRepositoryTest extends TestCase
     public function testNeverShortensTheRecordsRetentionNorMovesItsFirstRedemption(): void
     {
         $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertRecorded(self::offerId('a'), '2026-11-11 11:05:00');
         $redeemedAt = $this->repository->find(self::offerId('a'))?->getRedeemedAt();
 
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 10:30:00')));
+        $this->assertRecorded(self::offerId('a'), '2026-11-11 10:30:00');
 
         $offer = $this->repository->find(self::offerId('a'));
         $this->assertEquals($this->utc('2026-11-11 11:05:00'), $offer?->getRetainedUntil());
@@ -312,7 +346,7 @@ class CredentialOfferRepositoryTest extends TestCase
             $this->utc('2026-11-11 10:05:00'),
         ));
 
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertRecorded(self::offerId('a'), '2026-11-11 11:05:00');
 
         $this->assertEquals(
             $this->utc('2026-11-11 10:05:00'),
@@ -331,7 +365,7 @@ class CredentialOfferRepositoryTest extends TestCase
     {
         $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
 
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 10:05:00')));
+        $this->assertRecorded(self::offerId('a'), '2026-11-11 10:05:00');
         $this->assertEquals(
             $this->utc('2026-11-11 10:10:00'),
             $this->repository->find(self::offerId('a'))?->getRetainedUntil(),
@@ -346,8 +380,188 @@ class CredentialOfferRepositoryTest extends TestCase
     {
         $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
 
-        $this->assertFalse($this->repository->recordRedemption(self::offerId('b'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::NotRecorded,
+            $this->redeem(self::offerId('b'), '2026-11-11 11:05:00'),
+        );
         $this->assertNull($this->repository->find(self::offerId('a'))?->getRedeemedAt());
+    }
+
+
+    /**
+     * A withdrawn offer is redeemed no more: the token is not to be handed out, and the record is left as it was,
+     * neither kept longer for the token nor noted as redeemed.
+     *
+     * @throws \Exception
+     */
+    public function testRefusesToRecordARedemptionOfAWithdrawnOffer(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+        $this->assertTrue($this->repository->withdraw(self::offerId('a')));
+
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::Withdrawn,
+            $this->redeem(self::offerId('a'), '2026-11-11 11:05:00'),
+        );
+
+        $offer = $this->repository->find(self::offerId('a'));
+        $this->assertEquals($this->utc('2026-11-11 10:10:00'), $offer?->getRetainedUntil());
+        $this->assertNull($offer?->getRedeemedAt());
+    }
+
+
+    /**
+     * An offer withdrawn after its record was kept for the token, and before the record is read back, is found
+     * withdrawn all the same.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAnOfferWithdrawnAfterTheRedemptionWasWrittenAsWithdrawn(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+        Database::getInstance()->write(
+            sprintf(
+                'UPDATE %s SET retained_until = :retained_until, redeemed_at = :redeemed_at, ' .
+                'withdrawn_at = :withdrawn_at',
+                $this->repository->getTableName(),
+            ),
+            [
+                'retained_until' => '2026-11-11 11:05:00',
+                'redeemed_at' => '2026-11-11 10:05:00',
+                'withdrawn_at' => '2026-11-11 10:06:00',
+            ],
+        );
+
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::Withdrawn,
+            $this->repositoryWhoseWritesDoNotTake()->recordRedemption(
+                self::offerId('a'),
+                $this->utc('2026-11-11 11:05:00'),
+            ),
+        );
+    }
+
+
+    /**
+     * A redemption is confirmed by what the record holds afterwards, not by the write having been sent: a write which
+     * did not take leaves the record neither kept for the token nor noted as redeemed.
+     *
+     * @throws \Exception
+     */
+    public function testReportsARedemptionWhoseWriteDidNotTakeAsNotRecorded(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::NotRecorded,
+            $this->repositoryWhoseWritesDoNotTake()->recordRedemption(
+                self::offerId('a'),
+                $this->utc('2026-11-11 10:05:00'),
+            ),
+        );
+    }
+
+
+    /**
+     * A record noted as redeemed confirms a token it is kept for, to the second, and not one expiring a second later.
+     *
+     * @throws \Exception
+     */
+    public function testConfirmsARedemptionOnlyForATokenTheRecordIsKeptFor(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+        Database::getInstance()->write(
+            sprintf('UPDATE %s SET redeemed_at = :redeemed_at', $this->repository->getTableName()),
+            ['redeemed_at' => '2026-11-11 10:05:00'],
+        );
+        $repository = $this->repositoryWhoseWritesDoNotTake();
+
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::Recorded,
+            $repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 10:10:00')),
+        );
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::NotRecorded,
+            $repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 10:10:01')),
+        );
+    }
+
+
+    /**
+     * A token's expiry may carry microseconds and come in any zone, while the record keeps UTC seconds: a token
+     * expiring within the second the record is kept until is confirmed, whether this redemption wrote that second
+     * or an earlier one did.
+     *
+     * @throws \Exception
+     */
+    public function testConfirmsATokenExpiringWithinTheSecondTheRecordIsKeptUntil(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+        // 11:05:00.654321 UTC.
+        $expiresAt = new DateTimeImmutable('2026-11-11 12:05:00.654321', new DateTimeZone('Europe/Zagreb'));
+
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::Recorded,
+            $this->repository->recordRedemption(self::offerId('a'), $expiresAt),
+        );
+        $this->assertEquals(
+            $this->utc('2026-11-11 11:05:00'),
+            $this->repository->find(self::offerId('a'))?->getRetainedUntil(),
+        );
+
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::Recorded,
+            $this->repositoryWhoseWritesDoNotTake()->recordRedemption(
+                self::offerId('a'),
+                $this->utc('2026-11-11 11:05:00.999999'),
+            ),
+        );
+    }
+
+
+    /**
+     * An offer is withdrawn once, at the moment of the first request; a later one changes nothing and says so.
+     *
+     * @throws \Exception
+     */
+    public function testWithdrawsAnOfferOnce(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+        $before = $this->helpers->dateTime()->getUtc()->getTimestamp();
+
+        $this->assertTrue($this->repository->withdraw(self::offerId('a')));
+
+        $withdrawnAt = $this->repository->find(self::offerId('a'))?->getWithdrawnAt();
+        $this->assertInstanceOf(DateTimeImmutable::class, $withdrawnAt);
+        $this->assertGreaterThanOrEqual($before, $withdrawnAt->getTimestamp());
+        $this->assertLessThanOrEqual(
+            $this->helpers->dateTime()->getUtc()->getTimestamp(),
+            $withdrawnAt->getTimestamp(),
+        );
+
+        Database::getInstance()->write(
+            sprintf('UPDATE %s SET withdrawn_at = :withdrawn_at', $this->repository->getTableName()),
+            ['withdrawn_at' => '2026-11-11 10:01:00'],
+        );
+        $this->assertFalse($this->repository->withdraw(self::offerId('a')));
+        $this->assertEquals(
+            $this->utc('2026-11-11 10:01:00'),
+            $this->repository->find(self::offerId('a'))?->getWithdrawnAt(),
+        );
+    }
+
+
+    /**
+     * Withdrawing an offer which is not recorded changes nothing, least of all another offer.
+     *
+     * @throws \Exception
+     */
+    public function testWithdrawsNothingForAnUnknownOffer(): void
+    {
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+
+        $this->assertFalse($this->repository->withdraw(self::offerId('b')));
+        $this->assertNull($this->repository->find(self::offerId('a'))?->getWithdrawnAt());
     }
 
 
@@ -446,6 +660,9 @@ class CredentialOfferRepositoryTest extends TestCase
         $repository = $this->repositoryBehindALaggingSecondary();
         $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
 
-        $this->assertTrue($repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertSame(
+            CredentialOfferRedemptionEnum::Recorded,
+            $repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')),
+        );
     }
 }

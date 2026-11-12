@@ -22,6 +22,7 @@ use League\OAuth2\Server\ResponseTypes\AbstractResponseType;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
+use SimpleSAML\Module\oidc\Codebooks\CredentialOfferRedemptionEnum;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
@@ -946,8 +947,9 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
                 offerId: $offerId,
             );
 
-            // A token minted for an offer keeps the offer's record at least until it expires. A failure here takes
-            // the recovery below: the token is revoked and the offer given back.
+            // A token minted for an offer keeps the offer's record at least until it expires. A failure here, or an
+            // offer found withdrawn, takes the recovery below: the token is revoked and the issuer state given back,
+            // which a withdrawn offer's state can then buy nothing with.
             if ($spentIssuerState !== null) {
                 $this->recordOfferRedemption($offerId, $accessToken);
             }
@@ -1085,13 +1087,19 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
      * to be listable under the offer. The redemption is refused (server_error) unless that is confirmed, and so is a
      * token for an offer which is not known.
      *
+     * An offer withdrawn by the API caller which made it is redeemed no more: the redemption is refused with
+     * invalid_grant, the error OpenID4VCI 1.0 section 6.3 has for a pre-authorized code which can not be redeemed,
+     * and RFC 6749 section 5.2 for an authorization grant which is no longer valid. Asked here, after the token is
+     * stored, rather than before: a withdrawal which lands while the token is being minted is seen as well.
+     *
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     protected function recordOfferRedemption(?string $offerId, AccessTokenEntityInterface $accessToken): void
     {
         try {
-            $isRecorded = $offerId !== null &&
-            $this->credentialOfferRepository->recordRedemption($offerId, $accessToken->getExpiryDateTime());
+            $redemption = $offerId !== null ?
+            $this->credentialOfferRepository->recordRedemption($offerId, $accessToken->getExpiryDateTime()) :
+            CredentialOfferRedemptionEnum::NotRecorded;
         } catch (Throwable $exception) {
             $this->loggerService->error(
                 'Token request failed: the Credential Offer could not be recorded as redeemed.',
@@ -1100,7 +1108,15 @@ class AuthCodeGrant extends OAuth2AuthCodeGrant implements
             throw OidcServerException::serverError('The Credential Offer could not be recorded as redeemed.');
         }
 
-        if (!$isRecorded) {
+        if ($redemption === CredentialOfferRedemptionEnum::Withdrawn) {
+            $this->loggerService->notice(
+                'Token request rejected: the Credential Offer the code was issued for has been withdrawn.',
+                ['offer_id' => $offerId],
+            );
+            throw OidcServerException::invalidGrant('The Credential Offer has been withdrawn.');
+        }
+
+        if ($redemption !== CredentialOfferRedemptionEnum::Recorded) {
             $this->loggerService->error(
                 'Token request failed: the Credential Offer the token is minted for has no record to keep.',
                 ['offer_id' => $offerId],

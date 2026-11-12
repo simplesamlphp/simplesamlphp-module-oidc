@@ -2111,7 +2111,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
     /**
      * Two credentials with a Status List entry each, signed, for one request.
      */
-    protected function issueTwoRevocableCredentials(): void
+    protected function issueTwoRevocableCredentials(): Response
     {
         $idx = 0;
         $this->credentialStatusIssuerMock->method('issueFor')->willReturnCallback(
@@ -2120,13 +2120,14 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             },
         );
 
-        $this->issue(proofJwts: ['jwt1', 'jwt2']);
+        return $this->issue(proofJwts: ['jwt1', 'jwt2']);
     }
 
 
     /**
-     * Once every credential of the request is signed, each is linked to the token's Credential Offer, by the
-     * identifier it carries, and then the offer is asked about one last time; only then is anything handed out.
+     * The token's Credential Offer is asked about before anything is signed. Once every credential of the request is
+     * signed, each is linked to the offer, by the identifier it carries, and then the offer is asked about one last
+     * time; only then is anything handed out.
      */
     public function testLinksTheSignedCredentialsToTheTokensOfferBeforeHandingThemOut(): void
     {
@@ -2144,7 +2145,10 @@ class CredentialIssuerCredentialControllerTest extends TestCase
             $this->linkCalls,
         );
         $this->assertCount(2, $this->linkCalls[0][1]);
-        $this->assertSame(['link', 'find ' . self::OFFER_ID, 'respond'], $this->offerEvents);
+        $this->assertSame(
+            ['find ' . self::OFFER_ID, 'link', 'find ' . self::OFFER_ID, 'respond'],
+            $this->offerEvents,
+        );
     }
 
 
@@ -2161,7 +2165,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->issue();
 
         $this->assertSame([], $this->linkCalls);
-        $this->assertSame(['find ' . self::OFFER_ID], $this->offerEvents);
+        $this->assertSame(['find ' . self::OFFER_ID, 'find ' . self::OFFER_ID], $this->offerEvents);
     }
 
 
@@ -2203,7 +2207,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->issueTwoRevocableCredentials();
 
-        $this->assertSame(['link'], $this->offerEvents);
+        $this->assertSame(['find ' . self::OFFER_ID, 'link'], $this->offerEvents);
         $this->assertSame(
             [[
                 'Credential request failed: not every credential signed could be linked to its Credential Offer, so ' .
@@ -2242,7 +2246,7 @@ class CredentialIssuerCredentialControllerTest extends TestCase
         $this->issueTwoRevocableCredentials();
 
         // Asked after linking, with the clock read again after signing.
-        $this->assertSame(['link'], $this->offerEvents);
+        $this->assertSame(['find ' . self::OFFER_ID, 'link'], $this->offerEvents);
     }
 
 
@@ -2329,17 +2333,20 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->issueTwoRevocableCredentials();
 
-        $this->assertSame('link', $this->offerEvents[0] ?? null);
+        $this->assertSame(['find ' . self::OFFER_ID, 'link'], array_slice($this->offerEvents, 0, 2));
     }
 
 
     /**
      * An offer whose record is gone while a token minted for it still lives is this issuer's fault: nothing is
-     * handed out which the offer's listing could not show.
+     * handed out which the offer's listing could not show. Here the record goes while the credentials are linked,
+     * after the read before signing found it.
      */
     public function testRefusesWhenTheOfferIsNoLongerRecorded(): void
     {
-        $this->recordedOffer = null;
+        $this->whileLinking = function (): void {
+            $this->recordedOffer = null;
+        };
         $this->routesMock->expects($this->never())->method('newJsonResponse');
         $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
             ->with('server_error', $this->anything(), 500)
@@ -2347,19 +2354,139 @@ class CredentialIssuerCredentialControllerTest extends TestCase
 
         $this->issueTwoRevocableCredentials();
 
-        $this->assertSame(['link', 'find ' . self::OFFER_ID], $this->offerEvents);
+        $this->assertSame(['find ' . self::OFFER_ID, 'link', 'find ' . self::OFFER_ID], $this->offerEvents);
     }
 
 
     public function testRefusesWhenTheOfferCanNotBeRead(): void
     {
-        $this->offerLookupFailure = new RuntimeException('Database error');
+        $this->whileLinking = function (): void {
+            $this->offerLookupFailure = new RuntimeException('Database error');
+        };
         $this->routesMock->expects($this->never())->method('newJsonResponse');
         $this->routesMock->expects($this->once())->method('newJsonErrorResponse')
             ->with('server_error', $this->anything(), 500)
             ->willReturn($this->createMock(JsonResponse::class));
 
         $this->issueTwoRevocableCredentials();
+
+        $this->assertSame(['find ' . self::OFFER_ID, 'link', 'find ' . self::OFFER_ID], $this->offerEvents);
+    }
+
+
+    /**
+     * The token's offer, withdrawn by the API caller which made it.
+     */
+    protected function withdrawnOffer(): CredentialOfferRecord
+    {
+        return new CredentialOfferRecord(
+            self::OFFER_ID,
+            'HR system',
+            [self::CONFIGURATION_ID],
+            'urn:ietf:params:oauth:grant-type:pre-authorized_code',
+            new DateTimeImmutable('-1 minute'),
+            new DateTimeImmutable('+1 hour'),
+            new DateTimeImmutable('+1 hour'),
+            new DateTimeImmutable('-30 seconds'),
+            new DateTimeImmutable('-10 seconds'),
+        );
+    }
+
+
+    /**
+     * A token minted for an offer which has since been withdrawn buys nothing more. It is refused as a revoked
+     * token is, the fault being the token's, before its key proofs are validated (which would spend their nonce and
+     * could answer `invalid_proof` in its place), a Status List entry is allocated or anything is signed.
+     */
+    public function testRefusesATokenWhoseOfferWasWithdrawnBeforeAnythingIsSigned(): void
+    {
+        $logged = $this->captureLog();
+        $this->recordedOffer = $this->withdrawnOffer();
+        $this->openId4VciProofValidatorMock->expects($this->never())->method('validateRequest');
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+        $this->accessTokenMock->method('getIdentifier')->willReturn('token_id');
+
+        $response = $this->issue();
+
+        $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesTheRefusedToken($response);
+        $this->assertSame([], $this->signedPayloads);
+        $this->assertSame(['find ' . self::OFFER_ID], $this->offerEvents);
+        $this->assertContains(
+            [
+                'Credential request refused: the Credential Offer the access token was minted for has been withdrawn.',
+                ['accessTokenId' => 'token_id', 'offerId' => self::OFFER_ID],
+            ],
+            $this->logLinesOfLevel($logged, 'notice'),
+        );
+    }
+
+
+    /**
+     * An offer whose record is gone while a token minted for it lives is refused as this issuer's fault before
+     * anything is signed, as it is after linking.
+     */
+    public function testRefusesATokenWhoseOfferIsNotRecordedBeforeAnythingIsSigned(): void
+    {
+        $this->recordedOffer = null;
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->issue();
+
+        $this->assertRefusedWith('server_error', 500);
+        $this->assertSame([], $this->signedPayloads);
+        $this->assertSame(['find ' . self::OFFER_ID], $this->offerEvents);
+    }
+
+
+    public function testRefusesATokenWhoseOfferCanNotBeReadBeforeAnythingIsSigned(): void
+    {
+        $logged = $this->captureLog();
+        $this->offerLookupFailure = new RuntimeException('Database error');
+        $this->credentialStatusIssuerMock->expects($this->never())->method('issueFor');
+
+        $this->issue();
+
+        $this->assertRefusedWith('server_error', 500);
+        $this->assertSame([], $this->signedPayloads);
+        $this->assertSame(['find ' . self::OFFER_ID], $this->offerEvents);
+        $this->assertContains(
+            [
+                'Credential request failed: the Credential Offer the access token was minted for could not be read.',
+                ['offerId' => self::OFFER_ID, 'error' => 'Database error'],
+            ],
+            $this->logLinesOfLevel($logged, 'error'),
+        );
+    }
+
+
+    /**
+     * An offer withdrawn while the credentials of a request are signed is seen by the check after linking, and
+     * nothing is handed out: so a listing taken after the withdrawal holds every credential the offer handed out.
+     * The credentials linked before the check stay in the listing.
+     */
+    public function testRefusesWhenTheOfferWasWithdrawnWhileItsCredentialsWereIssued(): void
+    {
+        $logged = $this->captureLog();
+        $this->whileLinking = function (): void {
+            $this->recordedOffer = $this->withdrawnOffer();
+        };
+        $this->routesMock->expects($this->never())->method('newJsonResponse');
+        $this->accessTokenMock->method('getIdentifier')->willReturn('token_id');
+
+        $response = $this->issueTwoRevocableCredentials();
+
+        $this->assertRefusedWith('invalid_token', 401);
+        $this->assertChallengesTheRefusedToken($response);
+        $this->assertSame(['find ' . self::OFFER_ID, 'link', 'find ' . self::OFFER_ID], $this->offerEvents);
+        $this->assertCount(2, $this->linkCalls[0][1] ?? []);
+        $this->assertContains(
+            [
+                'Credential request refused: the Credential Offer the access token was minted for has been withdrawn.',
+                ['accessTokenId' => 'token_id', 'offerId' => self::OFFER_ID],
+            ],
+            $this->logLinesOfLevel($logged, 'notice'),
+        );
     }
 
 

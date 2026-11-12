@@ -415,8 +415,9 @@ class PreAuthCodeGrant extends AuthCodeGrant
             offerId: $offerId,
         );
 
-        // The offer's record is kept at least until the token expires. Should that fail, the token, which was
-        // stored, never reaches the wallet, and the code stays consumed (fail closed, as above).
+        // The offer's record is kept at least until the token expires. Should that fail, or the offer have been
+        // withdrawn, the token, which was stored, never reaches the wallet, and the code stays consumed (fail
+        // closed, as above).
         $this->recordOfferRedemption($offerId, $accessToken);
 
         $this->getEmitter()->emit(new RequestEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request));

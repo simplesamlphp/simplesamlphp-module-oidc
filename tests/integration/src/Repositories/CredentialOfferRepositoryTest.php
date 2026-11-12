@@ -12,6 +12,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\CredentialOfferRedemptionEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Helpers;
@@ -29,8 +30,8 @@ use SimpleSAML\Test\Module\oidc\integration\DatabaseContainers;
  *
  * The statements here lean on what the unit tests' SQLite can not show for the other two: a CASE and a COALESCE
  * over a timestamp column and an untyped parameter, an UPDATE which MySQL reports as changing nothing when it
- * leaves a row as it was, a DELETE whose condition reads another table, and a keyset over a timestamp, a string and
- * an integer.
+ * leaves a row as it was, a DELETE whose condition reads another table, a keyset over a timestamp, a string and
+ * an integer, and a withdrawal whose affected row count has to tell the request which withdrew the offer.
  */
 #[CoversClass(CredentialOfferRepository::class)]
 #[CoversClass(StatusListEntryRepository::class)]
@@ -236,18 +237,62 @@ class CredentialOfferRepositoryTest extends TestCase
         $this->useDatabase(self::$$database);
         $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
 
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertSame(CredentialOfferRedemptionEnum::Recorded, $this->redeem(self::offerId('a'), '11:05:00'));
         $redeemedAt = $this->repository->find(self::offerId('a'))?->getRedeemedAt();
         $this->assertInstanceOf(DateTimeImmutable::class, $redeemedAt);
 
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 10:30:00')));
-        $this->assertTrue($this->repository->recordRedemption(self::offerId('a'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertSame(CredentialOfferRedemptionEnum::Recorded, $this->redeem(self::offerId('a'), '10:30:00'));
+        $this->assertSame(CredentialOfferRedemptionEnum::Recorded, $this->redeem(self::offerId('a'), '11:05:00'));
 
         $offer = $this->repository->find(self::offerId('a'));
         $this->assertEquals($this->utc('2026-11-11 11:05:00'), $offer?->getRetainedUntil());
         $this->assertEquals($redeemedAt, $offer?->getRedeemedAt());
 
-        $this->assertFalse($this->repository->recordRedemption(self::offerId('b'), $this->utc('2026-11-11 11:05:00')));
+        $this->assertSame(CredentialOfferRedemptionEnum::NotRecorded, $this->redeem(self::offerId('b'), '11:05:00'));
+    }
+
+
+    /**
+     * A token minted for the offer on 2026-11-11, expiring at the time given.
+     *
+     * @throws \Exception
+     */
+    protected function redeem(string $offerId, string $tokenExpiresAt): CredentialOfferRedemptionEnum
+    {
+        return $this->repository->recordRedemption($offerId, $this->utc('2026-11-11 ' . $tokenExpiresAt));
+    }
+
+
+    /**
+     * An offer is withdrawn by the first request only: the affected row count tells it apart from a repeat, which
+     * leaves the first moment as it was; an unknown offer is withdrawn by none. A withdrawn offer is redeemed no
+     * more, and its record is neither kept longer for the token nor noted as redeemed.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testWithdrawsAnOfferOnceAndRedeemsItNoMore(string $database): void
+    {
+        $this->useDatabase(self::$$database);
+        $this->persistOffer(self::offerId('a'), $this->utc('2026-11-11 10:10:00'));
+        $this->persistOffer(self::offerId('b'), $this->utc('2026-11-11 10:10:00'));
+
+        $this->assertTrue($this->repository->withdraw(self::offerId('a')));
+        $withdrawnAt = $this->repository->find(self::offerId('a'))?->getWithdrawnAt();
+        $this->assertInstanceOf(DateTimeImmutable::class, $withdrawnAt);
+
+        $this->assertFalse($this->repository->withdraw(self::offerId('a')));
+        $this->assertEquals($withdrawnAt, $this->repository->find(self::offerId('a'))?->getWithdrawnAt());
+        $this->assertFalse($this->repository->withdraw(self::offerId('c')));
+
+        $this->assertSame(CredentialOfferRedemptionEnum::Withdrawn, $this->redeem(self::offerId('a'), '11:05:00'));
+        $offer = $this->repository->find(self::offerId('a'));
+        $this->assertEquals($this->utc('2026-11-11 10:10:00'), $offer?->getRetainedUntil());
+        $this->assertNull($offer?->getRedeemedAt());
+
+        // The other offer is untouched by either.
+        $this->assertNull($this->repository->find(self::offerId('b'))?->getWithdrawnAt());
+        $this->assertSame(CredentialOfferRedemptionEnum::Recorded, $this->redeem(self::offerId('b'), '11:05:00'));
     }
 
 

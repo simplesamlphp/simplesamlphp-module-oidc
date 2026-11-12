@@ -304,6 +304,31 @@ class CredentialIssuerCredentialController
             throw OidcServerException::serverError('The access token names no Credential Offer.');
         }
 
+        // A token minted for an offer which has since been withdrawn buys nothing more. Asked here, before a Status
+        // List entry is allocated or anything is signed, and again once the credentials are linked to the offer
+        // (linkToOffer()), which is the answer a listing can rely on.
+        if ($offerId !== null) {
+            try {
+                $refusal = $this->offerRefusal($offerId, $accessToken, $scheme);
+            } catch (Throwable $exception) {
+                $this->loggerService->error(
+                    'Credential request failed: the Credential Offer the access token was minted for could not be ' .
+                    'read.',
+                    ['offerId' => $offerId, 'error' => $exception->getMessage()],
+                );
+
+                return $this->routes->newJsonErrorResponse(
+                    'server_error',
+                    'Unable to issue the credential at this time.',
+                    500,
+                );
+            }
+
+            if ($refusal instanceof Response) {
+                return $refusal;
+            }
+        }
+
         // The user a credential would be about, checked with the rest of the token and before anything the
         // request asks for: a token naming no user, or one who no longer exists, buys no credential whatever is
         // asked with it, which no change to the request would mend.
@@ -1158,7 +1183,8 @@ class CredentialIssuerCredentialController
 
     /**
      * Link the credentials a request signed to the Credential Offer its access token was minted for, then check, on
-     * the primary, that the offer is still recorded and that the token has not expired since the request began.
+     * the primary, that the offer is still recorded and not withdrawn, and that the token has not expired since the
+     * request began.
      *
      * Linked after signing, so that the offer's listing holds credentials which were signed, by the request's own
      * credentials which are still linked and name no offer yet (StatusListEntryRepository::linkToOffer()), through a
@@ -1172,6 +1198,11 @@ class CredentialIssuerCredentialController
      * a request whose token expired on the way is refused, and what it linked may name a record already removed,
      * which no listing reaches and linkage cleanup clears in time. A credential refused or lost in transit after
      * linking can be listed; changing its status changes nothing for anyone.
+     *
+     * So too for a withdrawal: a credential is handed out only if the offer was not withdrawn when it was asked
+     * about after linking, so a listing taken after the withdrawal holds every credential the offer handed out. A
+     * response already approved may still reach the wallet after the withdrawal; its credentials are listed all the
+     * same.
      *
      * @param string[] $credentialIds
      * @return ?\Symfony\Component\HttpFoundation\Response The refusal, or null to hand the credentials out.
@@ -1211,18 +1242,10 @@ class CredentialIssuerCredentialController
                 return $this->invalidTokenResponse('The access token has expired.', $scheme);
             }
 
-            if (!$this->credentialOfferRepository->find($offerId) instanceof CredentialOfferRecord) {
-                $this->loggerService->error(
-                    'Credential request failed: the Credential Offer the access token was minted for is not ' .
-                    'recorded, though the token still lives.',
-                    ['accessTokenId' => $accessToken->getIdentifier(), 'offerId' => $offerId],
-                );
+            $refusal = $this->offerRefusal($offerId, $accessToken, $scheme);
 
-                return $this->routes->newJsonErrorResponse(
-                    'server_error',
-                    'Unable to issue the credential at this time.',
-                    500,
-                );
+            if ($refusal instanceof Response) {
+                return $refusal;
             }
         } catch (Throwable $exception) {
             $this->loggerService->error(
@@ -1234,6 +1257,53 @@ class CredentialIssuerCredentialController
                 'server_error',
                 'Unable to issue the credential at this time.',
                 500,
+            );
+        }
+
+        return null;
+    }
+
+
+    /**
+     * The refusal of a request whose access token was minted for a Credential Offer which can buy nothing, or null.
+     * Read from the primary, as every read of an offer is (CredentialOfferRepository).
+     *
+     * A withdrawn offer is the token's fault, which no change to the request would mend, and is answered as a
+     * revoked token is (RFC 6750 section 3, OpenID4VCI 1.0 section 8.3.1.1). An offer no longer recorded while a
+     * token minted for it lives is this issuer's, since the record is kept until the token expires.
+     *
+     * @throws \RuntimeException When the stored offer can not be read.
+     */
+    protected function offerRefusal(
+        string $offerId,
+        AccessTokenEntity $accessToken,
+        AccessTokenTypesEnum $scheme,
+    ): ?Response {
+        $offer = $this->credentialOfferRepository->find($offerId);
+
+        if (!$offer instanceof CredentialOfferRecord) {
+            $this->loggerService->error(
+                'Credential request failed: the Credential Offer the access token was minted for is not recorded, ' .
+                'though the token still lives.',
+                ['accessTokenId' => $accessToken->getIdentifier(), 'offerId' => $offerId],
+            );
+
+            return $this->routes->newJsonErrorResponse(
+                'server_error',
+                'Unable to issue the credential at this time.',
+                500,
+            );
+        }
+
+        if ($offer->getWithdrawnAt() instanceof DateTimeImmutable) {
+            $this->loggerService->notice(
+                'Credential request refused: the Credential Offer the access token was minted for has been withdrawn.',
+                ['accessTokenId' => $accessToken->getIdentifier(), 'offerId' => $offerId],
+            );
+
+            return $this->invalidTokenResponse(
+                'The Credential Offer the access token was issued for has been withdrawn.',
+                $scheme,
             );
         }
 

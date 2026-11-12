@@ -239,6 +239,11 @@ Currently implemented OpenID4VCI features:
   - Nonce Endpoint | `credential-issuer/nonce` - Provides nonces (`c_nonce`).
   - Credential Offer (API) | `api/vci/credential-offer` - Allows triggering
   credential offers via administrative API.
+  - Credential Offer Details (API) | `api/vci/credential-offer/{offerId}` -
+  Lists what an offer issued, for the API caller which made it.
+  - Credential Offer Withdrawal (API) |
+  `api/vci/credential-offer/{offerId}/withdraw` - Withdraws an offer, so that it
+  issues nothing more.
   - Credential Status (API) | `api/vci/credential-status` - Withdraws, suspends
   or reinstates an issued credential through its Token Status List entry.
   - JSON-LD Context | `credential-issuer/context/{credentialConfigurationId}` -

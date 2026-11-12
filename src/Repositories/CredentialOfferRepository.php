@@ -6,6 +6,7 @@ namespace SimpleSAML\Module\oidc\Repositories;
 
 use DateTimeImmutable;
 use SimpleSAML\Database;
+use SimpleSAML\Module\oidc\Codebooks\CredentialOfferRedemptionEnum;
 use SimpleSAML\Module\oidc\Entities\Traits\FormatForDatabaseTrait;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -108,21 +109,21 @@ class CredentialOfferRepository extends AbstractDatabaseRepository
 
     /**
      * Note that an access token was minted for the offer: keep the record at least until the token expires, never
-     * shortening what an earlier token asked for, and note when the offer was first redeemed.
+     * shortening what an earlier token asked for, and note when the offer was first redeemed. A withdrawn offer is
+     * left as it is.
      *
      * Confirmed on the primary afterwards rather than by the affected row count, which MySQL reports as zero for a
-     * row the statement matched and left as it was (a second token expiring sooner than the first, say).
+     * row the statement matched and left as it was (a second token expiring sooner than the first, say). The record
+     * read back also tells a withdrawn offer from a missing one, whether the withdrawal landed before this write or
+     * after it: either way the token is not to be handed out.
      *
      * @param \DateTimeImmutable $tokenExpiresAt The expiry of the token as it was stored, so that neither a calendar
      * interval nor a lifetime raised between offer and redemption can let the token outlive the record.
-     * @return bool Whether the record is there and now kept until the token expires. False means it is gone, and the
-     * token can not be listed under it.
      * @throws \Exception
+     * @throws \RuntimeException When the stored row does not hold a credential offer record.
      */
-    public function recordRedemption(string $id, DateTimeImmutable $tokenExpiresAt): bool
+    public function recordRedemption(string $id, DateTimeImmutable $tokenExpiresAt): CredentialOfferRedemptionEnum
     {
-        $expiresAt = $this->formatForDatabase($tokenExpiresAt);
-
         // Each value under its own placeholder name: PDO turns named placeholders into positional ones for some
         // drivers, and a repeated name then binds only its first occurrence.
         $this->database->write(
@@ -130,26 +131,63 @@ class CredentialOfferRepository extends AbstractDatabaseRepository
                 'UPDATE %s SET ' .
                 'retained_until = CASE WHEN retained_until < :expires_at THEN :raised_until ELSE retained_until END, ' .
                 'redeemed_at = COALESCE(redeemed_at, :redeemed_at) ' .
-                'WHERE id = :id',
+                'WHERE id = :id AND withdrawn_at IS NULL',
                 $this->getTableName(),
             ),
             [
-                'expires_at' => $expiresAt,
-                'raised_until' => $expiresAt,
+                'expires_at' => $this->formatForDatabase($tokenExpiresAt),
+                'raised_until' => $this->formatForDatabase($tokenExpiresAt),
                 'redeemed_at' => $this->formatForDatabase($this->helpers->dateTime()->getUtc()),
                 'id' => $id,
             ],
         );
 
-        $rows = $this->database->readPrimary(
+        $offer = $this->find($id);
+
+        if (!$offer instanceof CredentialOfferRecord) {
+            return CredentialOfferRedemptionEnum::NotRecorded;
+        }
+
+        if ($offer->getWithdrawnAt() instanceof DateTimeImmutable) {
+            return CredentialOfferRedemptionEnum::Withdrawn;
+        }
+
+        // Compared to the second, as the moments are stored.
+        if (
+            !$offer->getRedeemedAt() instanceof DateTimeImmutable ||
+            $offer->getRetainedUntil()->getTimestamp() < $tokenExpiresAt->getTimestamp()
+        ) {
+            return CredentialOfferRedemptionEnum::NotRecorded;
+        }
+
+        return CredentialOfferRedemptionEnum::Recorded;
+    }
+
+
+    /**
+     * Withdraw the offer, so that it buys nothing more: neither a token for its code or issuer state, nor a credential
+     * for a token minted for it. Credentials already issued from it are left as they are.
+     *
+     * A conditional write, so that of several requests withdrawing the offer at once only one is told it did.
+     *
+     * @return bool Whether this call is what withdrew the offer: false when it was withdrawn already, or is not
+     * recorded, or the write did not take. The record, read again, tells which.
+     * @throws \Exception
+     */
+    public function withdraw(string $id): bool
+    {
+        $affected = $this->database->write(
             sprintf(
-                'SELECT id FROM %s WHERE id = :id AND retained_until >= :expires_at AND redeemed_at IS NOT NULL',
+                'UPDATE %s SET withdrawn_at = :withdrawn_at WHERE id = :id AND withdrawn_at IS NULL',
                 $this->getTableName(),
             ),
-            ['id' => $id, 'expires_at' => $expiresAt],
-        )->fetchAll();
+            [
+                'withdrawn_at' => $this->formatForDatabase($this->helpers->dateTime()->getUtc()),
+                'id' => $id,
+            ],
+        );
 
-        return $rows !== [];
+        return $affected === 1;
     }
 
 

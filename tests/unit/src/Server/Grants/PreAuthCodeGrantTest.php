@@ -12,6 +12,7 @@ use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessToke
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\EventEmitting\EventEmitter;
+use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
 use League\OAuth2\Server\RequestEvent;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequest as OAuth2AuthorizationRequest;
@@ -26,6 +27,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClassConstant;
 use ReflectionMethod;
 use RuntimeException;
+use SimpleSAML\Module\oidc\Codebooks\CredentialOfferRedemptionEnum;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
@@ -183,7 +185,7 @@ class PreAuthCodeGrantTest extends TestCase
     private bool $vciRequireDpop = false;
 
     /** What recording the redemption of the offer answers, or the throwable it throws instead. */
-    private bool|Throwable $offerRedemptionOutcome = true;
+    private CredentialOfferRedemptionEnum|Throwable $offerRedemptionOutcome = CredentialOfferRedemptionEnum::Recorded;
 
 
     protected function setUp(): void
@@ -218,7 +220,7 @@ class PreAuthCodeGrantTest extends TestCase
         // The redemption is recorded against the code's Credential Offer, unless a test says otherwise.
         $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
         $this->credentialOfferRepositoryMock->method('recordRedemption')->willReturnCallback(
-            fn(): bool => $this->offerRedemptionOutcome instanceof Throwable ?
+            fn(): CredentialOfferRedemptionEnum => $this->offerRedemptionOutcome instanceof Throwable ?
                 throw $this->offerRedemptionOutcome : $this->offerRedemptionOutcome,
         );
 
@@ -1234,10 +1236,10 @@ class PreAuthCodeGrantTest extends TestCase
         $this->credentialOfferRepositoryMock->expects($this->once())
             ->method('recordRedemption')
             ->with(self::OFFER_ID, $expiry)
-            ->willReturnCallback(function () use ($events): bool {
+            ->willReturnCallback(function () use ($events): CredentialOfferRedemptionEnum {
                 $events->append('record');
 
-                return true;
+                return CredentialOfferRedemptionEnum::Recorded;
             });
 
         $this->sut()->respondToAccessTokenRequest(
@@ -1287,7 +1289,7 @@ class PreAuthCodeGrantTest extends TestCase
      */
     public function testFailsTheRequestWhenTheRedemptionOfTheOfferCanNotBeRecorded(): void
     {
-        $this->offerRedemptionOutcome = false;
+        $this->offerRedemptionOutcome = CredentialOfferRedemptionEnum::NotRecorded;
         $this->configureRequestParameters(null);
         $this->withNoAuthorizationDetails();
         $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
@@ -1307,6 +1309,42 @@ class PreAuthCodeGrantTest extends TestCase
         } catch (OidcServerException $exception) {
             $this->assertSame('server_error', $exception->getErrorType());
         }
+    }
+
+
+    /**
+     * An offer its maker withdrew after the code was issued is not redeemed: the wallet is answered invalid_grant
+     * and the token is not handed over. The code stays consumed and the token stored, as for a redemption which
+     * could not be recorded: there is no giving the code back.
+     */
+    public function testRefusesTheCodeOfAWithdrawnOffer(): void
+    {
+        $this->offerRedemptionOutcome = CredentialOfferRedemptionEnum::Withdrawn;
+        $this->configureRequestParameters(null);
+        $this->withNoAuthorizationDetails();
+        $this->authCodeRepositoryMock->method('findById')->willReturn($this->preAuthorizedCode());
+        $this->authCodeRepositoryMock->expects($this->once())
+            ->method('consumePreAuthorizedCode')
+            ->with(self::PRE_AUTHORIZED_CODE)
+            ->willReturn(true);
+        $this->issueTokenRecordingEvents($events = new ArrayObject(), new DateTimeImmutable('+5 minutes'));
+        $responseType = $this->createMock(ResponseTypeInterface::class);
+        $responseType->expects($this->never())->method('setAccessToken');
+
+        try {
+            $this->sut()->respondToAccessTokenRequest($this->requestMock, $responseType, new DateInterval('PT5M'));
+            $this->fail('The token request was answered.');
+        } catch (OAuthServerException $exception) {
+            $this->assertSame('invalid_grant', $exception->getErrorType());
+            $this->assertSame('The Credential Offer has been withdrawn.', $exception->getHint());
+        }
+
+        $this->assertContains('persist', $events->getArrayCopy());
+        $this->assertLogged(
+            'notice',
+            'Token request rejected: the Credential Offer the code was issued for has been withdrawn.',
+            ['offer_id' => self::OFFER_ID],
+        );
     }
 
 

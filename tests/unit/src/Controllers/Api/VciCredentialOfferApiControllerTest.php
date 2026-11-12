@@ -1511,4 +1511,343 @@ class VciCredentialOfferApiControllerTest extends TestCase
 
         $this->assertNotFound($this->sut()->credentialOfferDetails($this->detailsRequest(), self::OFFER_ID));
     }
+
+
+    /*****************************************************************************************************************
+     * Withdrawal
+     ****************************************************************************************************************/
+
+    protected function withdrawalRequest(): Request
+    {
+        $request = new Request();
+        $request->setMethod('POST');
+
+        return $request;
+    }
+
+
+    /**
+     * The offer as it is read before and after the withdrawal, in turn, each read noted among the events.
+     *
+     * @param list<\Closure(): ?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\CredentialOfferRecord> $reads
+     * @param list<string> $events
+     */
+    protected function offerReadAs(array $reads, array &$events): void
+    {
+        $this->credentialOfferRepositoryMock->expects($this->exactly(count($reads)))
+            ->method('find')
+            ->with(self::OFFER_ID)
+            ->willReturnCallback(function () use (&$reads, &$events): ?CredentialOfferRecord {
+                $events[] = 'find';
+                $read = array_shift($reads);
+                $this->assertNotNull($read, 'The offer was read more often than the test expects.');
+
+                return $read();
+            });
+    }
+
+
+    /**
+     * The per-endpoint switch is checked first, as for the listing, and nobody is asked to authorize.
+     */
+    public function testRefusesTheWithdrawalWhenTheCredentialOfferEndpointIsNotEnabled(): void
+    {
+        $this->moduleConfigMock = $this->moduleConfigWith(offerEndpointEnabled: false);
+        $authorization = $this->createMock(Authorization::class);
+        $authorization->expects($this->never())->method('requireBearerTokenForAnyOfScope');
+        $this->authorizationMock = $authorization;
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('withdraw');
+
+        $this->expectException(OidcServerException::class);
+
+        $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+    }
+
+
+    /**
+     * Every way authorization can fail is answered before the offer is read or withdrawn, with the same challenges
+     * as at the listing.
+     *
+     * @param \Throwable $failure
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    #[DataProvider('authorizationFailureProvider')]
+    public function testAnswersAuthorizationFailuresOfAWithdrawalBeforeReadingAnything(
+        Throwable $failure,
+        int $expectedStatus,
+        string $expectedError,
+        ?string $expectedChallenge,
+    ): void {
+        $authorization = $this->createMock(Authorization::class);
+        $authorization->method('requireBearerTokenForAnyOfScope')->willThrowException($failure);
+        $this->authorizationMock = $authorization;
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('find');
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('withdraw');
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame($expectedStatus, $response->getStatusCode());
+        $this->assertSame($expectedError, $this->jsonOf($response)['error'] ?? null);
+        $this->assertSame(
+            $expectedChallenge,
+            $response->headers->get(VciCredentialOfferApiController::HEADER_WWW_AUTHENTICATE),
+        );
+    }
+
+
+    /**
+     * A withdrawal takes a bearer token with one of the scopes of the offer endpoint, or the broader ones, as the
+     * listing does: an administrator's session is not asked.
+     */
+    public function testRequiresATokenCarryingACredentialOfferScopeForAWithdrawal(): void
+    {
+        $authorization = $this->createMock(Authorization::class);
+        $authorization->expects($this->once())
+            ->method('requireBearerTokenForAnyOfScope')
+            ->with(
+                $this->anything(),
+                [ApiScopesEnum::VciCredentialOffer, ApiScopesEnum::VciAll, ApiScopesEnum::All],
+            )
+            ->willReturn($this->employeeCaller());
+        $authorization->expects($this->never())->method('requireAdminOrTokenForAnyOfScope');
+        $this->authorizationMock = $authorization;
+
+        $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+    }
+
+
+    #[DataProvider('malformedOfferIdProvider')]
+    public function testAnswersAWithdrawalOfAMalformedOfferIdAsNotFoundWithoutALookup(string $offerId): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('find');
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('withdraw');
+
+        $this->assertNotFound($this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), $offerId));
+    }
+
+
+    /**
+     * An offer the caller may not see is not withdrawn, and the answer is the listing's one 404, whatever the
+     * reason: unknown, an administrator's, another caller's (compared byte for byte), or outside the token's list.
+     */
+    #[DataProvider('unseeableOfferProvider')]
+    public function testWithdrawsNoOfferTheCallerMayNotSee(
+        ?CredentialOfferRecord $offer,
+        CredentialConfigurationLimit $limit,
+    ): void {
+        $this->authorizeDetailsAs(new ApiCaller('HR system', $limit));
+        $this->credentialOfferRepositoryMock->expects($this->once())
+            ->method('find')
+            ->with(self::OFFER_ID)
+            ->willReturn($offer);
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('withdraw');
+
+        $this->assertNotFound($this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID));
+    }
+
+
+    /**
+     * A token which may offer every configuration may still withdraw only its own principal's offers.
+     */
+    public function testAnUnlimitedCallerCanNotWithdrawAnotherCallersOffer(): void
+    {
+        $this->authorizeDetailsAs(
+            new ApiCaller('Library system', CredentialConfigurationLimit::fromConfiguredIds(['*'])),
+        );
+        $this->credentialOfferRepositoryMock->method('find')->willReturn($this->offerRecord('HR system'));
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('withdraw');
+
+        $this->assertNotFound($this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID));
+    }
+
+
+    /**
+     * The caller's own offer is withdrawn, and then read back from the store to tell the caller the moment the store
+     * holds, with whether this request is what withdrew it.
+     */
+    public function testWithdrawsTheCallersOffer(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $withdrawnAt = new DateTimeImmutable('2026-11-01 10:45:00', new DateTimeZone('UTC'));
+        $events = [];
+        $this->offerReadAs(
+            [
+                fn(): CredentialOfferRecord => $this->offerRecord(),
+                fn(): CredentialOfferRecord => $this->offerRecord(withdrawnAt: $withdrawnAt),
+            ],
+            $events,
+        );
+        $this->credentialOfferRepositoryMock->expects($this->once())
+            ->method('withdraw')
+            ->with(self::OFFER_ID)
+            ->willReturnCallback(function () use (&$events): bool {
+                $events[] = 'withdraw';
+
+                return true;
+            });
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertSame(
+            ['withdrawn_at' => $withdrawnAt->getTimestamp(), 'changed' => true],
+            $this->jsonOf($response),
+        );
+        $this->assertSame(['find', 'withdraw', 'find'], $events);
+    }
+
+
+    /**
+     * Withdrawing a withdrawn offer again changes nothing: the caller is told so, with the moment of the first
+     * withdrawal, so that a retry of a request whose answer was lost can tell which happened.
+     */
+    public function testAnswersARepeatedWithdrawalAsNoChangeWithTheFirstMoment(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $withdrawnAt = new DateTimeImmutable('2026-11-01 10:45:00', new DateTimeZone('UTC'));
+        $this->credentialOfferRepositoryMock->method('find')
+            ->willReturn($this->offerRecord(withdrawnAt: $withdrawnAt));
+        $this->credentialOfferRepositoryMock->expects($this->once())->method('withdraw')->willReturn(false);
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertSame(
+            ['withdrawn_at' => $withdrawnAt->getTimestamp(), 'changed' => false],
+            $this->jsonOf($response),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{bool,string}>
+     */
+    public static function withdrawalLogProvider(): array
+    {
+        return [
+            'withdrawn by this request' => [true, 'VciCredentialOfferApiController: Credential offer withdrawn.'],
+            'withdrawn already' => [
+                false,
+                'VciCredentialOfferApiController: Credential offer asked to be withdrawn was withdrawn already.',
+            ],
+        ];
+    }
+
+
+    /**
+     * The operator's log says which offer was withdrawn, for which principal, and whether this request did it.
+     */
+    #[DataProvider('withdrawalLogProvider')]
+    public function testLogsTheWithdrawal(bool $changed, string $expectedMessage): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $this->credentialOfferRepositoryMock->method('find')->willReturn(
+            $this->offerRecord(withdrawnAt: new DateTimeImmutable('2026-11-01 10:45:00', new DateTimeZone('UTC'))),
+        );
+        $this->credentialOfferRepositoryMock->method('withdraw')->willReturn($changed);
+        $this->loggerServiceMock->expects($this->once())
+            ->method('notice')
+            ->with($expectedMessage, ['offerId' => self::OFFER_ID, 'principal' => 'HR system']);
+
+        $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+    }
+
+
+    /**
+     * A record which, read back, is not withdrawn means the write did not take: the caller is not told the offer
+     * was withdrawn.
+     */
+    public function testAnswersAWithdrawalWhichDidNotTakeAsAJsonServerError(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $this->credentialOfferRepositoryMock->method('find')->willReturn($this->offerRecord());
+        $this->credentialOfferRepositoryMock->method('withdraw')->willReturn(false);
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame(
+            ['error' => 'server_error', 'error_description' => 'The credential offer could not be withdrawn.'],
+            $this->jsonOf($response),
+        );
+    }
+
+
+    /**
+     * An offer the cron removed between the first read and the read back is gone, as an unknown one is.
+     */
+    public function testAnswersAnOfferRemovedWhileItWasWithdrawnAsNotFound(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $events = [];
+        $this->offerReadAs(
+            [
+                fn(): CredentialOfferRecord => $this->offerRecord(),
+                static fn(): ?CredentialOfferRecord => null,
+            ],
+            $events,
+        );
+        $this->credentialOfferRepositoryMock->method('withdraw')->willReturn(true);
+
+        $this->assertNotFound($this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID));
+    }
+
+
+    /**
+     * A storage failure at any step is this server's, answered as one in JSON; one before the withdrawal withdraws
+     * nothing.
+     */
+    public function testAnswersAFailureToReadTheOfferBeforeWithdrawingItAsAJsonServerError(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $this->credentialOfferRepositoryMock->method('find')
+            ->willThrowException(new RuntimeException('database gone'));
+        $this->credentialOfferRepositoryMock->expects($this->never())->method('withdraw');
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame('server_error', $this->jsonOf($response)['error'] ?? null);
+    }
+
+
+    public function testAnswersAFailureToWithdrawTheOfferAsAJsonServerError(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $this->credentialOfferRepositoryMock->method('find')->willReturn($this->offerRecord());
+        $this->credentialOfferRepositoryMock->method('withdraw')
+            ->willThrowException(new RuntimeException('database gone'));
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame(
+            ['error' => 'server_error', 'error_description' => 'The credential offer could not be withdrawn.'],
+            $this->jsonOf($response),
+        );
+    }
+
+
+    public function testAnswersAFailureToReadTheWithdrawnOfferBackAsAJsonServerError(): void
+    {
+        $this->authorizeDetailsAs($this->employeeCaller());
+        $events = [];
+        $this->offerReadAs(
+            [
+                fn(): CredentialOfferRecord => $this->offerRecord(),
+                static fn(): never => throw new RuntimeException('database gone'),
+            ],
+            $events,
+        );
+        $this->credentialOfferRepositoryMock->method('withdraw')->willReturn(true);
+
+        $response = $this->sut()->credentialOfferWithdrawal($this->withdrawalRequest(), self::OFFER_ID);
+
+        $this->assertSame(Response::HTTP_INTERNAL_SERVER_ERROR, $response->getStatusCode());
+        $this->assertSame(
+            ['error' => 'server_error', 'error_description' => 'The credential offer could not be withdrawn.'],
+            $this->jsonOf($response),
+        );
+    }
 }

@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\Server\RequestRules\Rules;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
 use SimpleSAML\Module\oidc\Helpers;
+use SimpleSAML\Module\oidc\Repositories\CredentialOfferRepository;
 use SimpleSAML\Module\oidc\Repositories\IssuerStateRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\RequestRules\Interfaces\ResultBagInterface;
@@ -17,11 +18,13 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ParamsEnum;
+use Throwable;
 
 /**
  * An issuer_state ties an OpenID4VCI authorization request to the Credential Offer it follows (OpenID4VCI 1.0
- * section 5.1.3), so in such a request it has to name an offer of this issuer which can still be redeemed. A
- * request naming any other is refused here, before the End-User is asked to log in, rather than only at the
+ * section 5.1.3), so in such a request it has to name an offer of this issuer which can still be redeemed: one
+ * whose issuer state has neither expired nor been spent, and which the API caller that made it has not withdrawn.
+ * A request naming any other is refused here, before the End-User is asked to log in, rather than only at the
  * token endpoint, where the offer is spent (AuthCodeGrant). With Verifiable Credential issuance switched on, a
  * code request carrying an issuer_state is an OpenID4VCI one (RequestParamsResolver::isVciAuthorizationCodeRequest()),
  * so it is checked. Otherwise -- issuance switched off, or a response type other than code -- the request follows
@@ -36,6 +39,7 @@ class IssuerStateRule extends AbstractRule
         RequestParamsResolver $requestParamsResolver,
         Helpers $helpers,
         protected readonly IssuerStateRepository $issuerStateRepository,
+        protected readonly CredentialOfferRepository $credentialOfferRepository,
     ) {
         parent::__construct($requestParamsResolver, $helpers);
     }
@@ -70,7 +74,9 @@ class IssuerStateRule extends AbstractRule
             return new Result($this->getKey(), null);
         }
 
-        if ($this->issuerStateRepository->findValid($issuerState) !== null) {
+        $offeredState = $this->issuerStateRepository->findValid($issuerState);
+
+        if ($offeredState !== null && !$this->isOfferWithdrawn($offeredState->getOfferId(), $loggerService)) {
             return new Result($this->getKey(), $issuerState);
         }
 
@@ -96,5 +102,41 @@ class IssuerStateRule extends AbstractRule
             $currentResultBag->getOrFail(StateRule::class)->getValue(),
             $responseMode,
         );
+    }
+
+
+    /**
+     * Whether the offer the issuer state redeems has been withdrawn. Read from the primary, as every read of an
+     * offer is. A state which names no offer, and an offer which is not recorded, are left to the token endpoint,
+     * which refuses both as this server's fault (AuthCodeGrant).
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException When the offer can not be read.
+     */
+    protected function isOfferWithdrawn(?string $offerId, LoggerService $loggerService): bool
+    {
+        if ($offerId === null) {
+            return false;
+        }
+
+        try {
+            $offer = $this->credentialOfferRepository->find($offerId);
+        } catch (Throwable $exception) {
+            $loggerService->error(
+                'IssuerStateRule: the Credential Offer the issuer state redeems could not be read.',
+                ['offerId' => $offerId, 'error' => $exception->getMessage()],
+            );
+            throw OidcServerException::serverError('The Credential Offer could not be read.');
+        }
+
+        if ($offer?->getWithdrawnAt() === null) {
+            return false;
+        }
+
+        $loggerService->info(
+            'IssuerStateRule: the Credential Offer the issuer state redeems has been withdrawn.',
+            ['offerId' => $offerId],
+        );
+
+        return true;
     }
 }

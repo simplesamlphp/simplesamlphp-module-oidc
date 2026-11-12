@@ -370,67 +370,16 @@ class VciCredentialOfferApiController
             throw OidcServerException::forbidden('Credential Offer API endpoint not enabled.');
         }
 
-        try {
-            $caller = $this->authorization->requireBearerTokenForAnyOfScope($request, self::SCOPES);
-        } catch (InsufficientScopeException $exception) {
-            $this->loggerService->error(
-                'VciCredentialOfferApiController: InsufficientScopeException: ' . $exception->getMessage(),
-            );
-            return $this->routes->newJsonErrorResponse(
-                error: 'insufficient_scope',
-                description: $exception->getMessage(),
-                httpCode: Response::HTTP_FORBIDDEN,
-                headers: [self::HEADER_WWW_AUTHENTICATE => sprintf(
-                    'Bearer error="insufficient_scope", scope="%s"',
-                    ApiScopesEnum::VciCredentialOffer->value,
-                )],
-            );
-        } catch (AuthorizationException $exception) {
-            $this->loggerService->error(
-                'VciCredentialOfferApiController: AuthorizationException: ' . $exception->getMessage(),
-            );
-            // A request which carried no token gets the bare challenge: RFC 6750 keeps `invalid_token` for a
-            // token which actually arrived.
-            return $this->routes->newJsonErrorResponse(
-                error: 'unauthorized',
-                description: $exception->getMessage(),
-                httpCode: Response::HTTP_UNAUTHORIZED,
-                headers: [self::HEADER_WWW_AUTHENTICATE => $exception instanceof MissingTokenException ?
-                    'Bearer' :
-                    'Bearer error="invalid_token"',
-                ],
-            );
-        } catch (ConfigurationError $exception) {
-            $this->loggerService->error(
-                'VciCredentialOfferApiController: API token configuration could not be read: ' .
-                $exception->getMessage(),
-            );
-            return $this->routes->newJsonErrorResponse(
-                error: 'server_error',
-                description: 'Authorization could not be resolved.',
-                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
-            );
+        $caller = $this->authorizeOfferCaller($request);
+
+        if ($caller instanceof Response) {
+            return $caller;
         }
 
-        try {
-            $offer = $this->findOfferOf($offerId, $caller);
-        } catch (Throwable $exception) {
-            $this->loggerService->error(
-                'VciCredentialOfferApiController: The credential offer could not be read: ' . $exception->getMessage(),
-            );
-            return $this->routes->newJsonErrorResponse(
-                error: 'server_error',
-                description: 'The credential offer could not be read.',
-                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
-            );
-        }
+        $offer = $this->readOfferOf($offerId, $caller);
 
-        if (!$offer instanceof CredentialOfferRecord) {
-            return $this->routes->newJsonErrorResponse(
-                error: 'not_found',
-                description: 'No credential offer with that identifier can be shown.',
-                httpCode: Response::HTTP_NOT_FOUND,
-            );
+        if ($offer instanceof Response) {
+            return $offer;
         }
 
         /** @var mixed $cursor */
@@ -497,6 +446,176 @@ class VciCredentialOfferApiController
         }
 
         return $this->routes->newJsonResponse($data);
+    }
+
+
+    /**
+     * Withdraw an offer, so that it buys nothing more: the token endpoint redeems neither its pre-authorized code nor
+     * its issuer state, and the Credential Endpoint refuses the access tokens already minted for it, asking once more
+     * after the credentials of a request are linked to the offer and before they are handed out. So a listing taken
+     * after the withdrawal holds every credential the offer will ever have handed out. Credentials already issued are
+     * left as they are: the caller lists them and changes each through the status API.
+     *
+     * Authorized as the listing is (credentialOfferDetails()), and answered alike for every offer the caller may not
+     * see. Withdrawing a withdrawn offer again changes nothing and answers `changed: false`, so a caller retrying a
+     * request whose answer it never saw can tell which happened.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    public function credentialOfferWithdrawal(Request $request, string $offerId): Response
+    {
+        if (!$this->moduleConfig->getApiVciCredentialOfferEndpointEnabled()) {
+            $this->loggerService->warning('Credential Offer API endpoint not enabled.');
+            throw OidcServerException::forbidden('Credential Offer API endpoint not enabled.');
+        }
+
+        $caller = $this->authorizeOfferCaller($request);
+
+        if ($caller instanceof Response) {
+            return $caller;
+        }
+
+        $offer = $this->readOfferOf($offerId, $caller);
+
+        if ($offer instanceof Response) {
+            return $offer;
+        }
+
+        try {
+            $changed = $this->credentialOfferRepository->withdraw($offer->getId());
+            $withdrawnOffer = $this->credentialOfferRepository->find($offer->getId());
+        } catch (Throwable $exception) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: The credential offer could not be withdrawn: ' .
+                $exception->getMessage(),
+                ['offerId' => $offer->getId()],
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'The credential offer could not be withdrawn.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+
+        // Removed by the cron since it was read a moment ago, which takes an offer only once it can buy nothing.
+        if (!$withdrawnOffer instanceof CredentialOfferRecord) {
+            $this->loggerService->info(
+                'VciCredentialOfferApiController: Credential offer removed while it was being withdrawn.',
+                ['offerId' => $offer->getId(), 'principal' => $caller->getPrincipal()],
+            );
+            return $this->offerNotFoundResponse();
+        }
+
+        $withdrawnAt = $withdrawnOffer->getWithdrawnAt();
+
+        if (!$withdrawnAt instanceof DateTimeImmutable) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: The credential offer could not be withdrawn: the write did not ' .
+                'take.',
+                ['offerId' => $offer->getId()],
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'The credential offer could not be withdrawn.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+
+        $this->loggerService->notice(
+            $changed ?
+                'VciCredentialOfferApiController: Credential offer withdrawn.' :
+                'VciCredentialOfferApiController: Credential offer asked to be withdrawn was withdrawn already.',
+            ['offerId' => $offer->getId(), 'principal' => $caller->getPrincipal()],
+        );
+
+        return $this->routes->newJsonResponse([
+            'withdrawn_at' => $withdrawnAt->getTimestamp(),
+            'changed' => $changed,
+        ]);
+    }
+
+
+    /**
+     * The caller of an endpoint about one offer, or the answer refusing it. A bearer token in the Authorization
+     * header only (an administrator has the administration screens), with one of this endpoint's scopes, answered
+     * with the challenge RFC 6750 asks for when it fails.
+     */
+    protected function authorizeOfferCaller(Request $request): ApiCaller|Response
+    {
+        try {
+            return $this->authorization->requireBearerTokenForAnyOfScope($request, self::SCOPES);
+        } catch (InsufficientScopeException $exception) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: InsufficientScopeException: ' . $exception->getMessage(),
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'insufficient_scope',
+                description: $exception->getMessage(),
+                httpCode: Response::HTTP_FORBIDDEN,
+                headers: [self::HEADER_WWW_AUTHENTICATE => sprintf(
+                    'Bearer error="insufficient_scope", scope="%s"',
+                    ApiScopesEnum::VciCredentialOffer->value,
+                )],
+            );
+        } catch (AuthorizationException $exception) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: AuthorizationException: ' . $exception->getMessage(),
+            );
+            // A request which carried no token gets the bare challenge: RFC 6750 keeps `invalid_token` for a
+            // token which actually arrived.
+            return $this->routes->newJsonErrorResponse(
+                error: 'unauthorized',
+                description: $exception->getMessage(),
+                httpCode: Response::HTTP_UNAUTHORIZED,
+                headers: [self::HEADER_WWW_AUTHENTICATE => $exception instanceof MissingTokenException ?
+                    'Bearer' :
+                    'Bearer error="invalid_token"',
+                ],
+            );
+        } catch (ConfigurationError $exception) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: API token configuration could not be read: ' .
+                $exception->getMessage(),
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'Authorization could not be resolved.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
+
+    /**
+     * The offer when it is this caller's to see, or the answer refusing it: one 404 for every offer the caller may
+     * not see (findOfferOf()), and a server error when the offer can not be read.
+     */
+    protected function readOfferOf(string $offerId, ApiCaller $caller): CredentialOfferRecord|Response
+    {
+        try {
+            $offer = $this->findOfferOf($offerId, $caller);
+        } catch (Throwable $exception) {
+            $this->loggerService->error(
+                'VciCredentialOfferApiController: The credential offer could not be read: ' . $exception->getMessage(),
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'server_error',
+                description: 'The credential offer could not be read.',
+                httpCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        }
+
+        return $offer ?? $this->offerNotFoundResponse();
+    }
+
+
+    protected function offerNotFoundResponse(): Response
+    {
+        return $this->routes->newJsonErrorResponse(
+            error: 'not_found',
+            description: 'No credential offer with that identifier can be shown.',
+            httpCode: Response::HTTP_NOT_FOUND,
+        );
     }
 
 
