@@ -9,6 +9,7 @@ use League\OAuth2\Server\Exception\OAuthServerException;
 use Nyholm\Psr7\Response as PsrResponse;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -42,9 +43,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Controllers\AuthorizationController
- */
+#[CoversClass(AuthorizationController::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AuthorizationControllerTest extends TestCase
 {

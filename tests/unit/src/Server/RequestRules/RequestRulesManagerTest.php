@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -17,9 +18,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\RequestRulesManager
- */
+#[CoversClass(RequestRulesManager::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RequestRulesManagerTest extends TestCase
 {

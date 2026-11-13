@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -21,9 +22,7 @@ use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestedClaimsRule
- */
+#[CoversClass(RequestedClaimsRule::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RequestedClaimsRuleTest extends TestCase
 {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Factories\CoreFactory;
@@ -20,9 +21,7 @@ use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Services\LogoutTokenBuilder
- */
+#[CoversClass(LogoutTokenBuilder::class)]
 #[AllowMockObjectsWithoutExpectations]
 class LogoutTokenBuilderTest extends TestCase
 {

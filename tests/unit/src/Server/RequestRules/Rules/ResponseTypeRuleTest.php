@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -22,9 +23,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule
- */
+#[CoversClass(ResponseTypeRule::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ResponseTypeRuleTest extends TestCase
 {

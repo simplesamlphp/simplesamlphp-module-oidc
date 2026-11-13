@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Database;
@@ -17,9 +18,7 @@ use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb;
 use SimpleSAML\Test\Module\oidc\unit\Repositories\LaggingSecondaryTestTrait;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Stores\Session\LogoutTicketStoreDb
- */
+#[CoversClass(LogoutTicketStoreDb::class)]
 #[AllowMockObjectsWithoutExpectations]
 class LogoutTicketStoreDbTest extends TestCase
 {

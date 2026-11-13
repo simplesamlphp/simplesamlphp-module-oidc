@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -35,9 +36,8 @@ use Stringable;
  * client which sends no challenge, and refusing a challenge which does not follow RFC-7636, are
  * therefore security controls rather than input tidiness. The token endpoint half is in
  * `CodeVerifierRuleTest`.
- *
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\CodeChallengeRule
  */
+#[CoversClass(CodeChallengeRule::class)]
 #[AllowMockObjectsWithoutExpectations]
 class CodeChallengeRuleTest extends TestCase
 {

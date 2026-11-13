@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\ResponseModes;
 
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
 use SimpleSAML\Module\oidc\Factories\TemplateFactory;
@@ -14,9 +15,7 @@ use SimpleSAML\Module\oidc\Server\ResponseTypes\HtmlResponse;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\XHTML\Template;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\ResponseModes\FormPostResponseMode
- */
+#[CoversClass(FormPostResponseMode::class)]
 #[AllowMockObjectsWithoutExpectations]
 class FormPostResponseModeTest extends TestCase
 {

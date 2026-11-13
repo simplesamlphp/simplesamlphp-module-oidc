@@ -14,6 +14,7 @@ use League\OAuth2\Server\Entities\RefreshTokenEntityInterface;
 use LogicException;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -42,9 +43,7 @@ use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use Stringable;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\ResponseTypes\TokenResponse
- */
+#[CoversClass(TokenResponse::class)]
 #[AllowMockObjectsWithoutExpectations]
 class TokenResponseTest extends TestCase
 {

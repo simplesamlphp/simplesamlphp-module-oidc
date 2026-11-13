@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -15,9 +16,7 @@ use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Entities\AuthCodeEntity
- */
+#[CoversClass(AuthCodeEntity::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AuthCodeEntityTest extends TestCase
 {

@@ -13,6 +13,7 @@ use DateTimeZone;
 use Jose\Component\KeyManagement\JWKFactory;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -102,6 +103,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
+#[CoversClass(CredentialIssuerCredentialController::class)]
 #[AllowMockObjectsWithoutExpectations]
 class CredentialIssuerCredentialControllerTest extends TestCase
 {

@@ -7,15 +7,14 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\RefreshTokenEntity;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Entities\RefreshTokenEntity
- */
+#[CoversClass(RefreshTokenEntity::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RefreshTokenEntityTest extends TestCase
 {

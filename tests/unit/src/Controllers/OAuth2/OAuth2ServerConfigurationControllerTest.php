@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers\OAuth2;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController;
@@ -12,9 +13,7 @@ use SimpleSAML\Module\oidc\Services\OpMetadataService;
 use SimpleSAML\Module\oidc\Utils\Routes;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Controllers\OAuth2\OAuth2ServerConfigurationController
- */
+#[CoversClass(OAuth2ServerConfigurationController::class)]
 #[AllowMockObjectsWithoutExpectations]
 class OAuth2ServerConfigurationControllerTest extends TestCase
 {

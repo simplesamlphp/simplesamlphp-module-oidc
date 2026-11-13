@@ -8,6 +8,7 @@ use Exception;
 use PDO;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -21,9 +22,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Repositories\ClientRepository
- */
+#[CoversClass(ClientRepository::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ClientRepositoryTest extends TestCase
 {

@@ -14,6 +14,7 @@ use GuzzleHttp\RequestOptions;
 use GuzzleHttp\Utils;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,9 +30,7 @@ use SimpleSAML\OpenID\Network\AddressPinner;
 use SimpleSAML\OpenID\Network\DestinationGuardMiddleware;
 use SimpleSAML\OpenID\Network\DestinationPolicy;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\LogoutHandlers\BackChannelLogoutHandler
- */
+#[CoversClass(BackChannelLogoutHandler::class)]
 #[AllowMockObjectsWithoutExpectations]
 class BackChannelLogoutHandlerTest extends TestCase
 {

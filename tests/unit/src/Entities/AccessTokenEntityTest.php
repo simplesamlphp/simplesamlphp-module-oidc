@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -32,9 +33,7 @@ use SimpleSAML\OpenID\ValueAbstracts\KeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Entities\AccessTokenEntity
- */
+#[CoversClass(AccessTokenEntity::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AccessTokenEntityTest extends TestCase
 {

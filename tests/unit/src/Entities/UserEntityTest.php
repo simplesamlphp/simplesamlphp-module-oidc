@@ -7,13 +7,12 @@ namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 use DateTimeImmutable;
 use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Entities\UserEntity
- */
+#[CoversClass(UserEntity::class)]
 #[AllowMockObjectsWithoutExpectations]
 class UserEntityTest extends TestCase
 {

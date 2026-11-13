@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
@@ -20,9 +21,7 @@ use SimpleSAML\OpenID\Jwks\JwksDecorator;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Controllers\JwksController
- */
+#[CoversClass(JwksController::class)]
 #[AllowMockObjectsWithoutExpectations]
 class JwksControllerTest extends TestCase
 {

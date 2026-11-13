@@ -6,13 +6,12 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\ResultBag
- */
+#[CoversClass(ResultBag::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ResultBagTest extends TestCase
 {

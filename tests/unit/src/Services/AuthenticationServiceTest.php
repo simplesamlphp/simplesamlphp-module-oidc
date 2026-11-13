@@ -9,6 +9,7 @@ use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -55,9 +56,7 @@ use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\Session;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Services\AuthenticationService
- */
+#[CoversClass(AuthenticationService::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AuthenticationServiceTest extends TestCase
 {

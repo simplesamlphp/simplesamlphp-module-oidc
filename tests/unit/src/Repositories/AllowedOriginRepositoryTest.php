@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Repositories;
 
 use Exception;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Configuration;
@@ -15,9 +16,7 @@ use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository
- */
+#[CoversClass(AllowedOriginRepository::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AllowedOriginRepositoryTest extends TestCase
 {

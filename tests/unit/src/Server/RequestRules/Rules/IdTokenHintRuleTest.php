@@ -7,6 +7,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 use Exception;
 use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -31,9 +32,7 @@ use SimpleSAML\OpenID\Core\IdTokenHint;
 use SimpleSAML\OpenID\Jwks;
 use Throwable;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule
- */
+#[CoversClass(IdTokenHintRule::class)]
 #[AllowMockObjectsWithoutExpectations]
 class IdTokenHintRuleTest extends TestCase
 {

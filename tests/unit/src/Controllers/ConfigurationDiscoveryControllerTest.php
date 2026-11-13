@@ -6,14 +6,13 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers;
 
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController;
 use SimpleSAML\Module\oidc\Services\OpMetadataService;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Controllers\ConfigurationDiscoveryController
- */
+#[CoversClass(ConfigurationDiscoveryController::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ConfigurationDiscoveryControllerTest extends TestCase
 {

@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use Exception;
 use PDOStatement;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
@@ -23,9 +24,7 @@ use SimpleSAML\Module\oidc\Repositories\UserRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Repositories\UserRepository
- */
+#[CoversClass(UserRepository::class)]
 #[AllowMockObjectsWithoutExpectations]
 class UserRepositoryTest extends TestCase
 {

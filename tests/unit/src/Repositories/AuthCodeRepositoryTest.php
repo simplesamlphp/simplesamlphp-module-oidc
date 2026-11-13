@@ -10,6 +10,7 @@ use Exception;
 use League\OAuth2\Server\Entities\AuthCodeEntityInterface;
 use PDO;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -31,9 +32,7 @@ use SimpleSAML\Module\oidc\Repositories\ClientRepository;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Repositories\AuthCodeRepository
- */
+#[CoversClass(AuthCodeRepository::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AuthCodeRepositoryTest extends TestCase
 {

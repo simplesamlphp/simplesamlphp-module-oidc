@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Utils;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence
- */
+#[CoversClass(ResponseTypeGrantTypeCorrespondence::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ResponseTypeGrantTypeCorrespondenceTest extends TestCase
 {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -17,9 +18,7 @@ use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Factories\ClaimTranslatorExtractorFactory
- */
+#[CoversClass(ClaimTranslatorExtractorFactory::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ClaimTranslatorExtractorFactoryTest extends TestCase
 {

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -20,9 +21,7 @@ use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredNonceRule
- */
+#[CoversClass(RequiredNonceRule::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RequiredNonceRuleTest extends TestCase
 {

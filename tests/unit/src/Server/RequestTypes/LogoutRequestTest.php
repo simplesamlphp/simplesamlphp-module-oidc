@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestTypes;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest;
 use SimpleSAML\OpenID\Core\IdToken;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestTypes\LogoutRequest
- */
+#[CoversClass(LogoutRequest::class)]
 #[AllowMockObjectsWithoutExpectations]
 class LogoutRequestTest extends TestCase
 {

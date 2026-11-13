@@ -9,6 +9,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Codebooks\RegistrationTypeEnum;
@@ -20,9 +21,7 @@ use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ResponseModesEnum;
 use SimpleSAML\OpenID\X509\CertificateIdentityTypeEnum;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Entities\ClientEntity
- */
+#[CoversClass(ClientEntity::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ClientEntityTest extends TestCase
 {

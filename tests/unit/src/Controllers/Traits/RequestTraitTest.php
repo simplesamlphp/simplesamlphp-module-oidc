@@ -8,6 +8,7 @@ use Exception;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversTrait;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -17,9 +18,7 @@ use SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait;
 use SimpleSAML\Module\oidc\Repositories\AllowedOriginRepository;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Controllers\Traits\RequestTrait
- */
+#[CoversTrait(RequestTrait::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RequestTraitTest extends TestCase
 {

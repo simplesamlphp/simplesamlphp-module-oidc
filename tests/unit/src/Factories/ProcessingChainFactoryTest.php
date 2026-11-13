@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Auth\ProcessingChain;
 use SimpleSAML\Module\oidc\Factories\ProcessingChainFactory;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Factories\ProcessingChainFactory
- */
+#[CoversClass(ProcessingChainFactory::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ProcessingChainFactoryTest extends TestCase
 {

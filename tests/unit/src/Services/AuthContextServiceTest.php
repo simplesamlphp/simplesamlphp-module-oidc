@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -15,9 +16,7 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\AuthContextService;
 use SimpleSAML\Module\oidc\Utils\UserIdentifierResolver;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Services\AuthContextService
- */
+#[CoversClass(AuthContextService::class)]
 #[AllowMockObjectsWithoutExpectations]
 class AuthContextServiceTest extends TestCase
 {

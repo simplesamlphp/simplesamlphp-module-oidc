@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Entities;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 
+#[CoversClass(ScopeEntity::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ScopeEntityTest extends TestCase
 {

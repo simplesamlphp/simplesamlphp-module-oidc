@@ -10,6 +10,7 @@ use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
 use PDOException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -38,9 +39,7 @@ use SimpleSAML\OpenID\Jws\ParsedJws;
 use SimpleSAML\OpenID\OAuth2\DpopProof;
 use Throwable;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\Validators\BearerTokenValidator
- */
+#[CoversClass(BearerTokenValidator::class)]
 #[AllowMockObjectsWithoutExpectations]
 class BearerTokenValidatorTest extends TestCase
 {

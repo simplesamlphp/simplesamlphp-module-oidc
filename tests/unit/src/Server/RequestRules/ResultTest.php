@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Depends;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Result
- */
+#[CoversClass(Result::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ResultTest extends TestCase
 {

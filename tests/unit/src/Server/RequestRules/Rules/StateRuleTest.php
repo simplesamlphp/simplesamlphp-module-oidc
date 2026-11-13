@@ -5,21 +5,21 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\Server\RequestRules\Result;
 use SimpleSAML\Module\oidc\Server\RequestRules\ResultBag;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\ResponseModeInterface;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\AbstractRule
- * @covers \SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule
- */
+#[CoversClass(AbstractRule::class)]
+#[CoversClass(StateRule::class)]
 #[AllowMockObjectsWithoutExpectations]
 class StateRuleTest extends TestCase
 {

@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Server\Associations;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Server\Associations\RelyingPartyAssociation
- */
+#[CoversClass(RelyingPartyAssociation::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RelyingPartyAssociationTest extends TestCase
 {

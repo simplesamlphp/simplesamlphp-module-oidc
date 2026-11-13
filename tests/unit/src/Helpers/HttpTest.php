@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Helpers;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Helpers\Http;
 use SimpleSAML\OpenID\Codebooks\HttpMethodsEnum;
 
+#[CoversClass(Http::class)]
 #[AllowMockObjectsWithoutExpectations]
 class HttpTest extends TestCase
 {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionProperty;
@@ -12,9 +13,7 @@ use SimpleSAML\Auth\State;
 use SimpleSAML\Error\UserAborted;
 use SimpleSAML\Module\oidc\Services\StateService;
 
-/**
- * @covers \SimpleSAML\Module\oidc\Services\StateService
- */
+#[CoversClass(StateService::class)]
 #[AllowMockObjectsWithoutExpectations]
 class StateServiceTest extends TestCase
 {
