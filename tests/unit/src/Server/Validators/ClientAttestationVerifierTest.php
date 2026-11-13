@@ -25,13 +25,19 @@ use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\ValueAbstracts\ClientAttestationTrust;
 use SimpleSAML\Module\oidc\ValueAbstracts\PresentedClientAttestation;
 use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
+use SimpleSAML\OpenID\Exceptions\ClientAttestationException;
+use SimpleSAML\OpenID\Exceptions\InvalidValueException;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\OAuth2;
+use SimpleSAML\OpenID\OAuth2\ClientAttestation;
+use SimpleSAML\OpenID\OAuth2\ClientAttestationPop;
 use SimpleSAML\OpenID\X509;
 use SimpleSAML\OpenID\X509\CertificateChain;
 use SimpleSAML\OpenID\X509\CertificatePathValidator;
 use SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials\CertificateBuilder;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Cache\Psr16Cache;
+use Throwable;
 
 /**
  * The Client Attestation and PoP a request carries, checked as draft-ietf-oauth-attestation-based-client-auth-07
@@ -442,6 +448,128 @@ class ClientAttestationVerifierTest extends TestCase
 
 
     /**
+     * The builder's attestation and PoP, parsed, behind stand-ins which hand every call verify() makes on to them,
+     * but the one named ("attestation getIssuer", say), which throws the given exception.
+     *
+     * @throws \Throwable
+     */
+    protected function presentedStandIn(
+        ?string $failingCall = null,
+        Throwable $cause = new RuntimeException('Not readable.'),
+    ): PresentedClientAttestation {
+        $presented = $this->sut()->parse($this->request($this->builder->attestation(), $this->builder->pop()));
+        $this->assertInstanceOf(PresentedClientAttestation::class, $presented);
+        $attestation = $presented->getAttestation();
+        $pop = $presented->getPop();
+        $fails = static fn(): never => throw $cause;
+
+        $attestationMock = $this->createMock(ClientAttestation::class);
+        $attestationCalls = [
+            'getAlgorithm' => $attestation->getAlgorithm(...),
+            'getIssuer' => $attestation->getIssuer(...),
+            'getX509CertificateChain' => $attestation->getX509CertificateChain(...),
+            'verifyWithX509CertificatePath' => $attestation->verifyWithX509CertificatePath(...),
+            // Read by the PoP's check of its signature, which is handed this stand-in.
+            'getSubject' => $attestation->getSubject(...),
+            'getConfirmationJsonWebKey' => $attestation->getConfirmationJsonWebKey(...),
+        ];
+        foreach ($attestationCalls as $method => $call) {
+            $attestationMock->method($method)->willReturnCallback(
+                $failingCall === 'attestation ' . $method ? $fails : $call,
+            );
+        }
+
+        $popMock = $this->createMock(ClientAttestationPop::class);
+        $popCalls = [
+            'getAlgorithm' => $pop->getAlgorithm(...),
+            'verifyWithClientAttestation' => $pop->verifyWithClientAttestation(...),
+            'hasAudience' => $pop->hasAudience(...),
+        ];
+        foreach ($popCalls as $method => $call) {
+            $popMock->method($method)->willReturnCallback($failingCall === 'pop ' . $method ? $fails : $call);
+        }
+
+        return new PresentedClientAttestation(
+            $attestationMock,
+            $popMock,
+            $presented->getClientId(),
+            $presented->getAttestationExpiresAt(),
+            $presented->getPopIssuedAt(),
+            $presented->getPopExpiresAt(),
+            $presented->getPopJwtId(),
+            $presented->getInstanceKeyThumbprint(),
+        );
+    }
+
+
+    /**
+     * What verify() reads of a parsed attestation and PoP first, and an exception of the kind the library's getter
+     * raises for each.
+     *
+     * @return array<string,array{string,\Throwable}>
+     */
+    public static function unreadableOnceParsedProvider(): array
+    {
+        return [
+            'the attestation algorithm' => [
+                'attestation getAlgorithm',
+                new JwsException('Invalid Algorithm header claim (none).'),
+            ],
+            'the PoP algorithm' => [
+                'pop getAlgorithm',
+                new ClientAttestationException('No Algorithm header claim found.'),
+            ],
+            'the attester' => [
+                'attestation getIssuer',
+                new ClientAttestationException('No Issuer claim found.'),
+            ],
+            'the certificate chain' => [
+                'attestation getX509CertificateChain',
+                new InvalidValueException('Empty list encountered, aborting.'),
+            ],
+        ];
+    }
+
+
+    /**
+     * The library reads all four while it parses an attestation and a PoP, so a token which fails one is refused by
+     * parse(). Stand-ins which fail one once parsed show that verify() refuses it too, rather than letting the
+     * library's exception through.
+     *
+     * @throws \Throwable
+     */
+    #[DataProvider('unreadableOnceParsedProvider')]
+    public function testRefusesWhatCanNotBeReadOfAParsedAttestationOrPop(string $failingCall, Throwable $cause): void
+    {
+        try {
+            $this->sut()->verify($this->presentedStandIn($failingCall, $cause), $this->builder->client());
+        } catch (AuthorizationException $exception) {
+            $this->assertSame(
+                'The Client Attestation or its PoP can not be read: ' . $cause->getMessage(),
+                $exception->getMessage(),
+            );
+            $this->assertSame($cause, $exception->getPrevious());
+            return;
+        }
+
+        $this->fail('The attestation was accepted.');
+    }
+
+
+    /**
+     * The stand-ins above, with nothing failing, are accepted: each refusal there is the failing call's.
+     *
+     * @throws \Throwable
+     */
+    public function testAcceptsTheStandInsWhenNothingFails(): void
+    {
+        $this->sut()->verify($this->presentedStandIn(), $this->builder->client());
+
+        $this->assertContains('Client Attestation accepted.', array_column($this->logRecords, 'message'));
+    }
+
+
+    /**
      * Check 4, local policy, for either JWT on its own.
      *
      * @throws \Throwable
@@ -665,6 +793,44 @@ class ClientAttestationVerifierTest extends TestCase
 
 
     /**
+     * Subject distinguished names the module can not compare: a string which is not one, and one holding a value
+     * which is not text (a TeletexString, as a hexstring). The client form refuses either when it is saved
+     * (ClientForm), but a client record is read without that check (ClientAttestationTrust::fromClientMetadata()).
+     *
+     * @return array<string,array{string,string}>
+     */
+    public static function uncomparableSubjectDnProvider(): array
+    {
+        return [
+            'not a distinguished name' => [
+                'not a distinguished name',
+                'Not a distinguished name in the string form of RFC 4514.',
+            ],
+            'a value which is not text' => [
+                'CN=#140568656C6C6F',
+                'The distinguished name holds a value which is not text',
+            ],
+        ];
+    }
+
+
+    /**
+     * @throws \Throwable
+     */
+    #[DataProvider('uncomparableSubjectDnProvider')]
+    public function testRefusesATrustPinningASubjectDnWhichCanNotBeCompared(string $dn, string $reason): void
+    {
+        $this->assertRefused(
+            'The certificate of the Client Attestation can not be held to the client attestation trust of the ' .
+            'client: ' . $reason,
+            client: $this->builder->client(
+                $this->builder->trust(['attester_identity' => ['type' => 'subject_dn', 'value' => $dn]]),
+            ),
+        );
+    }
+
+
+    /**
      * An attestation whose signature is not the leaf's: one of the conformance suite's negative cases.
      *
      * @throws \Throwable
@@ -798,6 +964,40 @@ class ClientAttestationVerifierTest extends TestCase
         $this->hasValidatedPath = false;
         $this->nowAfterPathValidation = $issuedAt + 49.999;
         $this->verify(pop: $pop);
+    }
+
+
+    /**
+     * The verifier's own clock, which the other tests replace: the present, keeping the fraction of a second a
+     * NumericDate may carry. A reading falls on a whole second once in a million, so three are taken, each in a
+     * microsecond of its own.
+     */
+    public function testTheClockKeepsTheFractionOfASecond(): void
+    {
+        $sut = new class (
+            new OAuth2(supportedAlgorithms: ClientAttestationBuilder::supportedAlgorithms()),
+            new X509(),
+            $this->moduleConfigMock,
+            null,
+            $this->loggerServiceMock,
+        ) extends ClientAttestationVerifier {
+            public function now(): float
+            {
+                return $this->currentTime();
+            }
+        };
+
+        $readings = [];
+        for ($reading = 0; $reading < 3; $reading++) {
+            usleep(1);
+            $readings[] = $sut->now();
+        }
+
+        $this->assertEqualsWithDelta(microtime(true), $readings[2], 1.0);
+        $this->assertNotSame(
+            [],
+            array_filter($readings, fn(float $reading): bool => $reading !== floor($reading)),
+        );
     }
 
 

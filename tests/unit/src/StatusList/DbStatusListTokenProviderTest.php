@@ -35,6 +35,7 @@ use SimpleSAML\OpenID\Did\DidJwkResolver;
 use SimpleSAML\OpenID\Did\DidUrl;
 use SimpleSAML\OpenID\Did\Factories\DidDocumentFactory;
 use SimpleSAML\OpenID\Exceptions\StatusListException as LibraryStatusListException;
+use SimpleSAML\OpenID\Exceptions\X509Exception;
 use SimpleSAML\OpenID\Helpers as OpenIdHelpers;
 use SimpleSAML\OpenID\Jwk\Factories\JwkDecoratorFactory;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
@@ -1005,6 +1006,47 @@ class DbStatusListTokenProviderTest extends TestCase
 
 
     /**
+     * Header segments which can not be read: not base64url, and base64url of what is not JSON.
+     *
+     * @return array<string,array{string}>
+     */
+    public static function unreadableHeaders(): array
+    {
+        return [
+            'not base64url' => ['!!!'],
+            'not JSON' => ['bm90IGpzb24'],
+        ];
+    }
+
+
+    /**
+     * A published token whose header can not be read, a damaged row, is taken to carry no chain, which is not the
+     * chain the key has now: the list is signed again rather than the token served. This one was issued in an
+     * earlier second, under a chain which resolves; within the second it was issued in, unchanged content keeps the
+     * stored token (unreplaceableResult()), and so does a chain which can not be resolved (publishedResult()),
+     * neither reading its header.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unreadableHeaders')]
+    public function testRepublishesAnX509TokenWhoseHeaderCanNotBeRead(string $header): void
+    {
+        $record = $this->publishedX509Record($header . '.e30.c2lnbmF0dXJl', issuedAt: '-10 minutes');
+        $this->statusListRepositoryMock->method('findById')->willReturn($record);
+        $this->statusListRepositoryMock->method('findByIdOnPrimary')->willReturn($record);
+        $this->statusListEntryRepositoryMock->method('findNonValidStatuses')->willReturn([]);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')
+            ->willReturn($this->certificateChain(['bGVhZg==', 'aW50ZXJtZWRpYXRl'], time() + 86400 * 30));
+        $this->statusListRepositoryMock->expects($this->once())->method('publishToken')->willReturn(true);
+
+        $result = $this->sut()->getToken(self::LIST_ID);
+
+        $this->assertInstanceOf(StatusListTokenResult::class, $result);
+        $this->assertSame(self::SIGNED_TOKEN, $result->getToken());
+    }
+
+
+    /**
      * Content which has not changed is published again only with a later `iat` than the published token's, so a
      * renewed certificate within the second that token was issued in does not replace it then: it is served, rather
      * than three signings failing to publish.
@@ -1316,6 +1358,37 @@ class DbStatusListTokenProviderTest extends TestCase
         $this->expectExceptionMessage('The certificate chain of the key of Status List "a-status-list-id" has expired');
 
         $this->sut()->getToken(self::LIST_ID);
+    }
+
+
+    /**
+     * A chain whose end of validity can not be read signs nothing: the token could not be made to expire with it.
+     * The cause's message is in the report, its code is the code, and it is the previous exception.
+     *
+     * @throws \Exception
+     */
+    public function testReportsAnX509ChainWhoseEndOfValidityCanNotBeRead(): void
+    {
+        $cause = new X509Exception('Unable to read the end of validity.', 23);
+        $certificateChainMock = $this->createMock(VciCertificateChain::class);
+        $certificateChainMock->method('getEarliestNotAfter')->willThrowException($cause);
+        $this->givenAListWhichNeedsPublishing(StatusListKeyProfileEnum::X509);
+        $this->statusListKeyResolverMock->method('getCertificateChainFor')->willReturn($certificateChainMock);
+        $this->statusListTokenFactoryMock->expects($this->never())->method('forStatusList');
+        $this->statusListRepositoryMock->expects($this->never())->method('publishToken');
+
+        try {
+            $this->sut()->getToken(self::LIST_ID);
+            $this->fail('No exception was raised.');
+        } catch (StatusListException $exception) {
+            $this->assertSame(
+                'Unable to read when the certificate chain of a Status List\'s key expires: ' .
+                'Unable to read the end of validity.',
+                $exception->getMessage(),
+            );
+            $this->assertSame(23, $exception->getCode());
+            $this->assertSame($cause, $exception->getPrevious());
+        }
     }
 
 
