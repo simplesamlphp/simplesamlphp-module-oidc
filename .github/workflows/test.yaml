@@ -81,6 +81,30 @@ jobs:
           name: build-data
           path: ${{ github.workspace }}/build
 
+      # Line coverage of the unit and integration suites together, as merged above. The floor only goes up:
+      # raise it when the figure clears the next half point, never lower it.
+      - name: Check the coverage floor
+        if: ${{ matrix.php-versions == '8.5' }}
+        env:
+          COVERAGE_FLOOR: "98.5"
+        run: |
+          php -r '
+            $metrics = simplexml_load_file("build/logs/clover.xml")->project->metrics;
+            $covered = (int)$metrics["coveredstatements"];
+            $statements = (int)$metrics["statements"];
+            $floor = (float)getenv("COVERAGE_FLOOR");
+            if ($statements === 0) {
+              echo "::error::No coverage totals in build/logs/clover.xml\n";
+              exit(1);
+            }
+            $percent = 100 * $covered / $statements;
+            printf("Line coverage %.3f%% (%d of %d statements), floor %.1f%%\n", $percent, $covered, $statements, $floor);
+            if ($percent < $floor) {
+              printf("::error::Line coverage %.3f%% is below the floor of %.1f%%\n", $percent, $floor);
+              exit(1);
+            }
+          '
+
   security:
     name: Security checks
     runs-on: [ubuntu-latest]
