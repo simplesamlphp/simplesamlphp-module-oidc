@@ -125,6 +125,134 @@ class DatabaseMigrationTest extends TestCase
 
 
     /**
+     * Reading the migration state of a database never migrated creates nothing. The Database Migrations screen
+     * reads it on every visit, possibly as a database user without the CREATE privilege.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testReadsTheStateOfADatabaseNeverMigratedWithoutCreatingAnything(string $database): void
+    {
+        $config = self::$$database;
+        $config['database.prefix'] = 'migration_fresh_';
+
+        $this->database = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+
+        $migration = new DatabaseMigration($this->database);
+        $this->assertFalse($migration->isMigrated());
+        $this->assertNotSame([], $migration->getNotImplementedVersions());
+        $this->assertSame([], $this->tableNamesLike('migration_fresh_%'));
+    }
+
+
+    /**
+     * PostgreSQL folds the unquoted name of a table to lower case, so the versions table of a prefix with upper
+     * case in it is found only by its folded name.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('databaseToTest')]
+    public function testFindsTheVersionsUnderAPrefixWithUpperCase(string $database): void
+    {
+        $config = self::$$database;
+        $config['database.prefix'] = 'Migration_Case_';
+
+        $this->database = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+    }
+
+
+    /**
+     * Under the prefix in other letter case, the state reads as the server resolves the names of tables. PostgreSQL
+     * folds unquoted names to lower case and SQLite matches them without regard to letter case, so there the tables
+     * migrated are the prefix's tables too. MySQL, under the lower_case_table_names of 0 the test servers run with,
+     * tells the names apart, so there the prefix is not migrated yet; MariaDB's information_schema does not tell them
+     * apart, so a lookup going by it alone would take the table for there, and the SELECT after it would fail.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('caseOfNames')]
+    public function testReadsTheVersionsUnderThePrefixInOtherLetterCaseAsTheServerResolvesThem(
+        string $database,
+        bool $isTheSameTable,
+    ): void {
+        $config = self::$$database;
+        $config['database.prefix'] = 'Migration_Fold_';
+        (new DatabaseMigration(Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'))))
+            ->migrate();
+
+        $config['database.prefix'] = 'MIGRATION_FOLD_';
+        $this->database = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+
+        $this->assertSame($isTheSameTable, (new DatabaseMigration($this->database))->isMigrated());
+    }
+
+
+    /**
+     * A prefix can name a schema, which puts the module's tables there, and the versions table is found in it. The
+     * MySQL database the tests use is called `database`, a reserved word no unquoted name can start with, so only
+     * PostgreSQL is tried.
+     *
+     * @throws \Exception
+     */
+    public function testFindsTheVersionsUnderAPrefixNamingASchema(): void
+    {
+        $config = self::$pgConfig;
+        $config['database.prefix'] = 'public.migration_schema_';
+
+        $this->database = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+
+        $migration = new DatabaseMigration($this->database);
+        $migration->migrate();
+
+        $this->assertTrue($migration->isMigrated());
+    }
+
+
+    /**
+     * The migration state reads as a database user without DDL privileges, which the Database Migrations screen
+     * advises removing once the migrations have run. PostgreSQL refuses such a user CREATE TABLE IF NOT EXISTS
+     * even for a table which is already there, and reading the state used to issue one. MySQL and MariaDB refuse
+     * it the same way, but the user the tests connect to MySQL as cannot create another.
+     *
+     * @throws \Exception
+     */
+    public function testReadsTheStateAsAUserWithoutDdlPrivileges(): void
+    {
+        $config = self::$pgConfig;
+        $config['database.prefix'] = 'migration_test_';
+
+        $owner = Database::getInstance(Configuration::loadFromArray($config, '', 'simplesaml'));
+        (new DatabaseMigration($owner))->migrate();
+
+        // Granted the reads and writes of day-to-day operation, and nothing else.
+        $owner->write(
+            "DO \$\$ BEGIN CREATE ROLE migration_reader LOGIN PASSWORD 'reader'; " .
+            "EXCEPTION WHEN duplicate_object THEN NULL; END \$\$",
+        );
+        $owner->write('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO migration_reader');
+        // No CREATE on the schema either, which PostgreSQL granted every role before version 15.
+        $this->assertSame(
+            [],
+            $owner->read("SELECT 1 WHERE has_schema_privilege('migration_reader', 'public', 'CREATE')")->fetchAll(),
+        );
+
+        $readerConfig = ['database.username' => 'migration_reader', 'database.password' => 'reader'] + $config;
+        $reader = Database::getInstance(Configuration::loadFromArray($readerConfig, '', 'simplesaml'));
+        $this->assertTrue((new DatabaseMigration($reader))->isMigrated());
+
+        // Nor before the migrations ran.
+        $readerConfig['database.prefix'] = 'migration_fresh_';
+        $reader = Database::getInstance(Configuration::loadFromArray($readerConfig, '', 'simplesaml'));
+        $this->assertFalse((new DatabaseMigration($reader))->isMigrated());
+    }
+
+
+    /**
      * Points in time are stored as their wall clock in UTC, so no column holding one may convert it with the
      * connection's time zone. MySQL's TIMESTAMP does, and refuses a wall clock which a zone with daylight
      * saving time skips; version20261003000002 turned the older tables' columns into DATETIME. PostgreSQL's
@@ -179,5 +307,39 @@ class DatabaseMigrationTest extends TestCase
     public static function databaseToTest(): array
     {
         return DatabaseContainers::all();
+    }
+
+
+    /**
+     * Each database, with whether a table's name in other letter case names the same table.
+     *
+     * @return array<string,array{string,bool}>
+     */
+    public static function caseOfNames(): array
+    {
+        return [
+            'PostgreSql' => ['pgConfig', true],
+            'MySql' => ['mysqlConfig', false],
+            'Sqlite' => ['sqliteConfig', true],
+        ];
+    }
+
+
+    /**
+     * The names of the tables of the database under test which match a LIKE pattern.
+     *
+     * @return string[]
+     */
+    protected function tableNamesLike(string $pattern): array
+    {
+        if ($this->database->getDriver() === 'sqlite') {
+            $statement = "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE :pattern";
+        } else {
+            $schemaFunction = $this->database->getDriver() === 'pgsql' ? 'CURRENT_SCHEMA()' : 'DATABASE()';
+            $statement = 'SELECT table_name FROM information_schema.tables ' .
+            "WHERE table_schema = $schemaFunction AND table_name LIKE :pattern";
+        }
+
+        return $this->database->read($statement, ['pattern' => $pattern])->fetchAll(PDO::FETCH_COLUMN, 0);
     }
 }

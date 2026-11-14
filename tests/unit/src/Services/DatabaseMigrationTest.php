@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
 use PDO;
+use PDOStatement;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -443,6 +444,87 @@ class DatabaseMigrationTest extends TestCase
 
 
     /**
+     * The Database Migrations screen and the module's link on SimpleSAMLphp's Federation page read the migration
+     * state on every visit, possibly as a database user without DDL privileges, whom MySQL, MariaDB and
+     * PostgreSQL refuse CREATE TABLE IF NOT EXISTS even for a table which is already there. Reading the state
+     * runs nothing but SELECTs, before the migrations and after them, and before them it lists every version
+     * and creates nothing.
+     *
+     * @throws \Exception
+     */
+    public function testReadsTheStateWithoutChangingTheDatabase(): void
+    {
+        // Never migrated: a database of its own, since Database::getInstance() keeps one per configuration.
+        $database = Database::getInstance(Configuration::loadFromArray([
+            'database.dsn' => 'sqlite::memory:',
+            'database.username' => null,
+            'database.password' => null,
+            'database.prefix' => 'migration_fresh_',
+            'database.persistent' => false,
+            'database.secondaries' => [],
+        ]));
+        $reader = new DatabaseMigration($this->selectOnlyDatabaseOver($database));
+
+        $this->assertFalse($reader->isMigrated());
+        $notImplementedVersions = array_values($reader->getNotImplementedVersions());
+        $this->assertSame(
+            [],
+            $database->read("SELECT name FROM sqlite_master WHERE name LIKE 'migration_fresh_%'")->fetchAll(),
+        );
+
+        (new DatabaseMigration($database))->migrate();
+
+        $this->assertTrue($reader->isMigrated());
+        // Every version the migrations recorded was listed as not implemented before.
+        $this->assertEqualsCanonicalizing(
+            $notImplementedVersions,
+            array_map(fn(string $version): string => "version$version", $reader->versions()),
+        );
+    }
+
+
+    /**
+     * Right after the migrations ran, a database secondary may not have every version they recorded, nor even the
+     * table they are recorded in, and the Database Migrations screen would offer to run them again. The state is
+     * read from the primary.
+     *
+     * @throws \Exception
+     */
+    public function testReadsTheStateFromThePrimaryWhileASecondaryHasNotCaughtUp(): void
+    {
+        (new DatabaseMigration($this->database))->migrate();
+
+        $secondary = Database::getInstance(Configuration::loadFromArray([
+            'database.dsn' => 'sqlite::memory:',
+            // Only so that Database::getInstance(), which keeps one database per configuration, does not answer
+            // with the primary's. SQLite takes no user name.
+            'database.username' => 'secondary',
+            'database.password' => null,
+            'database.prefix' => 'migration_test_',
+            'database.persistent' => false,
+            'database.secondaries' => [],
+        ]));
+        (new DatabaseMigration($secondary))->migrate();
+        $secondary->write(
+            'DELETE FROM ' . $secondary->applyPrefix('oidc_migration_versions') . ' WHERE version = :version',
+            ['version' => self::CREDENTIAL_OFFER_VERSION],
+        );
+
+        $databaseStub = $this->createStub(Database::class);
+        $databaseStub->method('getDriver')->willReturnCallback($this->database->getDriver(...));
+        $databaseStub->method('applyPrefix')->willReturnCallback($this->database->applyPrefix(...));
+        $databaseStub->method('readPrimary')->willReturnCallback($this->database->readPrimary(...));
+        $databaseStub->method('read')->willReturnCallback($secondary->read(...));
+
+        $this->assertTrue((new DatabaseMigration($databaseStub))->isMigrated());
+
+        $secondary->write('DROP TABLE ' . $secondary->applyPrefix('oidc_migration_versions'));
+
+        $this->assertTrue((new DatabaseMigration($databaseStub))->isMigrated());
+    }
+
+
+    /**
      * Each table which carries an offer id, and a row of it which names one.
      *
      * @return array<string,string>
@@ -458,6 +540,35 @@ class DatabaseMigrationTest extends TestCase
             StatusListEntryRepository::TABLE_NAME => 'INSERT INTO %s (status_list_id, idx, offer_id) ' .
                 "VALUES ('a-list', 0, :offer_id)",
         ];
+    }
+
+
+    /**
+     * A database which answers SELECTs through the given one, and fails the test on any other statement.
+     */
+    protected function selectOnlyDatabaseOver(Database $database): Database
+    {
+        $databaseMock = $this->createMock(Database::class);
+        $databaseMock->method('getDriver')->willReturnCallback($database->getDriver(...));
+        $databaseMock->method('applyPrefix')->willReturnCallback($database->applyPrefix(...));
+        $databaseMock->method('read')->willReturnCallback($this->selectOnly($database->read(...)));
+        $databaseMock->method('readPrimary')->willReturnCallback($this->selectOnly($database->readPrimary(...)));
+        $databaseMock->expects($this->never())->method('write');
+
+        return $databaseMock;
+    }
+
+
+    /**
+     * A query which fails the test on any statement but a SELECT.
+     */
+    protected function selectOnly(callable $query): callable
+    {
+        return function (string $stmt, array $params = []) use ($query): PDOStatement {
+            $this->assertStringStartsWith('SELECT ', $stmt);
+
+            return $query($stmt, $params);
+        };
     }
 
 

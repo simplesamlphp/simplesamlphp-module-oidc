@@ -215,6 +215,11 @@ Edit `config/config.php` and enable `oidc`:
 
 Run the built-in migrations to create required tables.
 
+The migrations create and change tables, so the database user needs DDL
+privileges (for example `CREATE`, `ALTER`, `DROP` and `INDEX`) while they run.
+They can be removed afterwards: telling whether the migrations have run needs
+none, so the Database Migrations screen keeps working without them.
+
 Option A: Web UI
 
 - Go to the admin area, then `OIDC` > `Database Migrations` and click the

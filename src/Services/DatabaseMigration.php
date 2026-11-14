@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Services;
 
 use PDO;
+use PDOStatement;
 use SimpleSAML\Database;
 use SimpleSAML\Module\oidc\Codebooks\StatusListExpiryLaneEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -61,22 +62,36 @@ class DatabaseMigration
     }
 
 
+    /**
+     * The versions recorded as run.
+     *
+     * Only reads: the Database Migrations screen and the module's link on SimpleSAMLphp's Federation page read
+     * the state on every visit, possibly as a database user whose DDL privileges were removed once the
+     * migrations had run, as the screen advises. MySQL, MariaDB and PostgreSQL refuse such a user CREATE TABLE
+     * IF NOT EXISTS even for a table which is already there, so the versions table is looked up in the catalog
+     * instead, and only migrate() creates it. Until it has, no version is recorded.
+     */
     public function versions(): array
     {
         $versionsTablename = $this->versionsTableName();
-        $this->database->write(
-            "CREATE TABLE IF NOT EXISTS $versionsTablename (version VARCHAR(191) PRIMARY KEY NOT NULL)",
-        );
 
-        return $this->database
-            ->read("SELECT version FROM $versionsTablename")
-            ->fetchAll(PDO::FETCH_COLUMN, 0);
+        if (!$this->hasTable($versionsTablename)) {
+            return [];
+        }
+
+        // Right after a run, a secondary may not have the versions it recorded yet, and the screen would offer
+        // to run them again.
+        return $this->readFromPrimary("SELECT version FROM $versionsTablename")->fetchAll(PDO::FETCH_COLUMN, 0);
     }
 
 
     public function migrate(): void
     {
         $versionsTablename = $this->versionsTableName();
+        // Created here and nowhere else, so that reading the versions needs no CREATE privilege.
+        $this->database->write(
+            "CREATE TABLE IF NOT EXISTS $versionsTablename (version VARCHAR(191) PRIMARY KEY NOT NULL)",
+        );
         $versions = $this->versions();
 
         if (!in_array('20180305180300', $versions, true)) {
@@ -1494,13 +1509,64 @@ EOT
 
         // Every statement around this writes to the primary, so asking a secondary whether the column
         // is there can get a stale no and turn a retry into the duplicate column error this exists to
-        // avoid. Migrations run on hosts which may predate the primary read, so it is used only where
-        // it is available.
-        $existing = ModuleConfig::hasPrimaryDatabaseReadCapability() ?
-        $this->database->readPrimary($statement, $params)->fetchAll() :
-        $this->database->read($statement, $params)->fetchAll();
+        // avoid.
+        return $this->readFromPrimary($statement, $params)->fetchAll() !== [];
+    }
 
-        return $existing !== [];
+
+    /**
+     * Whether a table is there, its name resolved as a statement naming the table resolves it.
+     *
+     * The name carries a schema when the configured prefix names one. PostgreSQL's to_regclass() resolves
+     * the name exactly as a statement does: in the schema it names or else along the search path, an
+     * unquoted name lower cased. MySQL's information_schema is asked for the table in the database the name
+     * names, or else in the one connected to, with letter case mattering where it does to the server. SQLite
+     * matches the names of tables without regard to letter case, so its catalog is compared that way. None
+     * of this needs a DDL privilege.
+     */
+    private function hasTable(string $tableName): bool
+    {
+        $params = ['tableName' => $tableName];
+
+        switch ($this->database->getDriver()) {
+            case self::DRIVER_SQLITE:
+                $statement = "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :tableName COLLATE NOCASE";
+                break;
+            case self::DRIVER_PGSQL:
+                $statement = 'SELECT 1 WHERE to_regclass(:tableName) IS NOT NULL';
+                break;
+            default:
+                // Restricted to one database: MySQL's information_schema spans every database on the server.
+                // MariaDB's compares names without regard to letter case even while lower_case_table_names is
+                // 0, under which a statement resolves them case sensitively, so they are then compared as binary
+                // strings too. The name is bound again for that, since a placeholder can not be used twice.
+                $statement = 'SELECT 1 FROM information_schema.tables WHERE ' .
+                "CONCAT(table_schema, '.', table_name) IN (:qualifiedName, CONCAT(DATABASE(), '.', :tableName)) " .
+                "AND (@@lower_case_table_names <> 0 OR CAST(CONCAT(table_schema, '.', table_name) AS BINARY) " .
+                "IN (:exactQualifiedName, CONCAT(DATABASE(), '.', :exactTableName)))";
+                $params += [
+                    'qualifiedName' => $tableName,
+                    'exactQualifiedName' => $tableName,
+                    'exactTableName' => $tableName,
+                ];
+        }
+
+        return $this->readFromPrimary($statement, $params)->fetchAll() !== [];
+    }
+
+
+    /**
+     * A read from the primary database, past any secondary.
+     *
+     * What is read here decides what is migrated next, or what the Database Migrations screen offers to
+     * run, and a secondary may not have caught up with what was written last. Migrations run on hosts which
+     * may predate the primary read, so it is used only where it is available.
+     */
+    private function readFromPrimary(string $statement, array $params = []): PDOStatement
+    {
+        return ModuleConfig::hasPrimaryDatabaseReadCapability() ?
+        $this->database->readPrimary($statement, $params) :
+        $this->database->read($statement, $params);
     }
 
 
@@ -1558,13 +1624,8 @@ EOT
 
         // Every statement above writes to the primary, so asking a secondary whether the index is
         // there can get a stale no and turn this retry into a duplicate index error on the primary,
-        // which is exactly what the check exists to avoid. Migrations run on every deployment,
-        // including hosts predating the primary read, so it is used only where it is available.
-        $existing = ModuleConfig::hasPrimaryDatabaseReadCapability() ?
-        $this->database->readPrimary($statement, $params)->fetchAll() :
-        $this->database->read($statement, $params)->fetchAll();
-
-        if ($existing !== []) {
+        // which is exactly what the check exists to avoid.
+        if ($this->readFromPrimary($statement, $params)->fetchAll() !== []) {
             return;
         }
 

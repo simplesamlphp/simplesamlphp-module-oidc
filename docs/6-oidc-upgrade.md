@@ -894,6 +894,15 @@ the re-authentication `prompt=login` or an expired `max_age` asks for, which,
 cancelled, leaves the earlier session in place. Any other error of an
 authentication is shown as before. See
 [Authentication Processing filters](3-oidc-configuration.md#authentication-processing-filters-oidc).
+- The Database Migrations screen, and the module's link on SimpleSAMLphp's
+Federation page, no longer need the database user to hold the `CREATE`
+privilege. Telling whether the migrations have run used to issue a
+`CREATE TABLE IF NOT EXISTS` for the table of migration versions, which MySQL,
+MariaDB and PostgreSQL refuse from a user without `CREATE` even when the table
+is there, so with the DDL privileges removed after the migrations ran, as the
+screen advises, both pages failed with a database error. The table is now
+created only when the migrations run, and a `CREATE` privilege kept only for
+these pages can be removed.
 - The underlying `thephpleague/oauth2-server` library has been updated from
 v8 to v9
 - The requirements on packages `lcobucci/jwt` and `web-token/jwt-framework`
