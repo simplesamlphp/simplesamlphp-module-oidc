@@ -10,10 +10,19 @@ jobs:
   basic-tests:
     name: Syntax and unit tests, PHP ${{ matrix.php-versions }}, ${{ matrix.operating-system }}
     runs-on: [ubuntu-latest]
+    # A failure of the experimental leg below shows red without failing the run.
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
         php-versions: ["8.3", "8.4", "8.5"]
+        experimental: [false]
+        include:
+          # PHP 8.6 before its release: setup-php installs a nightly build of the PHP-8.6 branch. It informs
+          # without blocking: any deprecation 8.6 adds fails its tests, as on every leg. Once 8.6 is released
+          # and this leg is green, move it into php-versions above.
+          - php-versions: "8.6"
+            experimental: true
 
     steps:
       - name: Setup PHP, with composer and extensions
@@ -51,8 +60,11 @@ jobs:
       - name: Validate composer.json and composer.lock
         run: composer validate
 
+      # On the experimental leg, the dependencies whose releases do not admit that PHP yet (league/oauth2-server,
+      # lcobucci/jwt, nette and Psalm, for 8.6) are installed anyway, so that the tests run; php+ ignores only
+      # their upper bounds.
       - name: Install Composer dependencies
-        run: composer install --no-progress --prefer-dist --optimize-autoloader
+        run: composer install --no-progress --prefer-dist --optimize-autoloader ${{ matrix.experimental && '--ignore-platform-req=php+' || '' }}
 
       - name: Decide whether to run code coverage or not
         if: ${{ matrix.php-versions != '8.5' }}
