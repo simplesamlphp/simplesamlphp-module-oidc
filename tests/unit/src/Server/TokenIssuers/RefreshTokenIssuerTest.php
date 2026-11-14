@@ -222,7 +222,7 @@ class RefreshTokenIssuerTest extends TestCase
 
     /**
      * When every allowed attempt collides, the last collision is logged and rethrown as it is. The context
-     * reports the attempt counter as it stands then, 0, not the limit the call started from.
+     * reports the limit the call started from.
      */
     public function testGivesUpAfterTheAllowedAttemptsAndRethrowsTheLastCollision(): void
     {
@@ -250,7 +250,7 @@ class RefreshTokenIssuerTest extends TestCase
                     [
                         'Maximum generation attempts reached.',
                         [
-                            'maxGenerationAttempts' => 0,
+                            'maxGenerationAttempts' => 3,
                             'accessTokenId' => self::ACCESS_TOKEN_ID,
                             'authCodeId' => self::AUTH_CODE_ID,
                         ],

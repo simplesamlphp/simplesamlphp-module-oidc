@@ -4318,7 +4318,7 @@ class ModuleConfig
 
     /**
      * Extract and parse the claims path definition from the credential configuration supported.
-     * Returns an array of valid paths for the claims.
+     * Returns the valid paths for the claims, as a list.
      */
     public function getVciValidCredentialClaimPathsFor(string $credentialConfigurationId): array
     {
@@ -4347,7 +4347,7 @@ class ModuleConfig
             }
         }
 
-        return array_filter($validPaths);
+        return array_values(array_filter($validPaths));
     }
 
 

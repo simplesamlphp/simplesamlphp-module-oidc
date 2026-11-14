@@ -612,10 +612,8 @@ class EntityStatementControllerTest extends TestCase
      * with this.
      *
      * The clock here advances a second per reading, which makes something visible that a fixed clock
-     * hides: the controller reads it twice, once for `iat` and once as the base for `exp`, so the
-     * published lifetime is the configured duration plus however long the work between the two readings
-     * took. Harmless against a lifetime measured in hours, and pinned as it behaves rather than
-     * corrected here -- it is recorded in the release plan as a tidy-up.
+     * hides: were the controller to read it again as the base for `exp`, the published lifetime would be
+     * the configured duration plus however long the work between the two readings took.
      *
      * @throws \Exception
      */
@@ -625,7 +623,7 @@ class EntityStatementControllerTest extends TestCase
 
         $this->assertSame($this->now->getTimestamp(), $payload[ClaimsEnum::Iat->value] ?? null);
         $this->assertSame(
-            $this->now->modify('+1 seconds')->getTimestamp() + 5400,
+            $this->now->getTimestamp() + 5400,
             $payload[ClaimsEnum::Exp->value] ?? null,
         );
     }

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Server\Grants;
 
 use DateInterval;
-use League\OAuth2\Server\Entities\AccessTokenEntityInterface as OAuth2AccessTokenEntityInterface;
 use League\OAuth2\Server\Entities\ClientEntityInterface as OAuth2ClientEntityInterface;
 use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Repositories\AuthCodeRepositoryInterface as OAuth2AuthCodeRepositoryInterface;
@@ -17,10 +16,8 @@ use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AuthCodeEntity;
-use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\AuthCodeEntityInterface;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Factories\Entities\AuthCodeEntityFactory;
@@ -559,29 +556,5 @@ class PreAuthCodeGrant extends AuthCodeGrant
         ResultBagInterface $resultBag,
     ): OAuth2AuthorizationRequestInterface {
         throw OidcServerException::serverError('Not implemented');
-    }
-
-
-    /**
-     * @param \League\OAuth2\Server\Entities\AccessTokenEntityInterface $accessToken
-     * @param string|null $authCodeId
-     * @return \SimpleSAML\Module\oidc\Entities\Interfaces\RefreshTokenEntityInterface|null
-     * @throws \League\OAuth2\Server\Exception\OAuthServerException
-     * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
-     */
-    protected function issueRefreshToken(
-        OAuth2AccessTokenEntityInterface $accessToken,
-        ?string $authCodeId = null,
-    ): ?RefreshTokenEntityInterface {
-        if (! is_a($accessToken, AccessTokenEntityInterface::class)) {
-            throw OidcServerException::serverError('Unexpected access token entity type.');
-        }
-
-        return $this->refreshTokenIssuer->issue(
-            $accessToken,
-            $this->refreshTokenTTL,
-            $authCodeId,
-            self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS,
-        );
     }
 }

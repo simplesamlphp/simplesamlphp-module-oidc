@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Services;
 
+use DateInterval;
+use DateTimeImmutable;
+use DateTimeZone;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -17,6 +20,8 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 use SimpleSAML\OpenID\Codebooks\ClaimsEnum;
 use SimpleSAML\OpenID\Core;
 use SimpleSAML\OpenID\Core\Factories\LogoutTokenFactory;
+use SimpleSAML\OpenID\Helpers;
+use SimpleSAML\OpenID\Helpers\DateTime;
 use SimpleSAML\OpenID\Jwk\JwkDecorator;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPair;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
@@ -174,5 +179,47 @@ class LogoutTokenBuilderTest extends TestCase
         $this->sut()->forRelyingPartyAssociation(
             $this->relyingPartyAssociationMock,
         );
+    }
+
+
+    /**
+     * Issued now and expiring the configured duration later, both from one reading of the clock. The clock here
+     * advances a second per reading, so a second reading as the base for `exp` would show as a second more.
+     *
+     * @throws \Exception
+     */
+    public function testTheLogoutTokenIsIssuedNowAndExpiresAfterTheConfiguredDuration(): void
+    {
+        $now = new DateTimeImmutable('2026-11-14 10:00:00', new DateTimeZone('UTC'));
+        $clockReads = 0;
+        $dateTimeHelperStub = $this->createStub(DateTime::class);
+        $dateTimeHelperStub->method('getUtc')->willReturnCallback(
+            static function () use ($now, &$clockReads): DateTimeImmutable {
+                return $now->modify(sprintf('+%d seconds', $clockReads++));
+            },
+        );
+        $helpersStub = $this->createStub(Helpers::class);
+        $helpersStub->method('dateTime')->willReturn($dateTimeHelperStub);
+        $this->coreMock->method('helpers')->willReturn($helpersStub);
+        $this->moduleConfigMock->method('getProtocolSignatureKeyPairBag')
+            ->willReturn($this->protocolSignatureKeyPairBagMock);
+        $this->protocolSignatureKeyPairBagMock->method('getFirstOrFail')->willReturn($this->signatureKeyPairMock);
+        $this->moduleConfigMock->method('getAuthCodeDuration')->willReturn(new DateInterval('PT7M'));
+        $payload = null;
+        $this->logoutTokenFactoryMock->expects($this->once())->method('fromData')->with(
+            $this->anything(),
+            $this->anything(),
+            $this->callback(static function (array $claims) use (&$payload): bool {
+                $payload = $claims;
+                return true;
+            }),
+            $this->anything(),
+        );
+
+        $this->sut()->forRelyingPartyAssociation($this->relyingPartyAssociationMock);
+
+        $this->assertIsArray($payload);
+        $this->assertSame($now->getTimestamp(), $payload[ClaimsEnum::Iat->value] ?? null);
+        $this->assertSame($now->getTimestamp() + 420, $payload[ClaimsEnum::Exp->value] ?? null);
     }
 }

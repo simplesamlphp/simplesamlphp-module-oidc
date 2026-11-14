@@ -74,7 +74,9 @@ class EntityStatementController
             return $this->prepareEntityStatementResponse((string)$cachedEntityConfigurationToken);
         }
 
-        $currentTimestamp = $this->helpers->dateTime()->getUtc()->getTimestamp();
+        // Read once, so that the statement lives exactly the configured duration from its iat.
+        $now = $this->helpers->dateTime()->getUtc();
+        $currentTimestamp = $now->getTimestamp();
 
         $jwks = $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
             ...$this->moduleConfig->getFederationSignatureKeyPairBag()->getAllPublicKeys(),
@@ -86,7 +88,7 @@ class EntityStatementController
             ClaimsEnum::Jti->value => $this->federation->helpers()->random()->string(),
             // This is entity configuration (statement about itself).
             ClaimsEnum::Sub->value => $this->moduleConfig->getIssuer(),
-            ClaimsEnum::Exp->value => $this->helpers->dateTime()->getUtc()->add(
+            ClaimsEnum::Exp->value => $now->add(
                 $this->moduleConfig->getFederationEntityStatementDuration(),
             )->getTimestamp(),
             ClaimsEnum::Jwks->value => $jwks,

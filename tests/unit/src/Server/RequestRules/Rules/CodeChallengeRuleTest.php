@@ -178,7 +178,11 @@ class CodeChallengeRuleTest extends TestCase
             'standard base64 rather than base64url (/)' => [str_repeat('a', 42) . '/', false],
             'base64 padding' => [str_repeat('a', 42) . '=', false],
             'a space' => [str_repeat('a', 42) . ' ', false],
-            // Only a single *trailing* newline slips past the pattern (7.21); these do not.
+            // A newline is refused wherever it is, a single trailing one too: PCRE's $ would match before that one
+            // without the D modifier.
+            'the shortest allowed, plus a trailing newline' => [str_repeat('a', 43) . "\n", false],
+            // 129 characters, so that laxness would widen the maximum by one as well as the character set.
+            'the longest allowed, plus a trailing newline' => [str_repeat('a', 128) . "\n", false],
             'a leading newline' => ["\n" . str_repeat('a', 43), false],
             'an embedded newline' => [str_repeat('a', 20) . "\n" . str_repeat('a', 23), false],
             'two trailing newlines' => [str_repeat('a', 43) . "\n\n", false],
@@ -344,47 +348,6 @@ class CodeChallengeRuleTest extends TestCase
             ],
             $this->logRecordsOfLevel('notice'),
         );
-    }
-
-
-    /**
-     * PCRE's `$` matches at the end of the subject or before a final newline, and the rule's pattern uses
-     * neither `\z` nor the `D` modifier, so a challenge of valid shape followed by one newline is accepted
-     * today (a carriage return is not: it is not `$`'s exception). Pinned as it stands, with the fix queued
-     * as 7.21 -- the same pattern is in `CodeVerifierRule.php:61`, so both halves of PKCE take it together.
-     * Nothing is bypassed by it: such a challenge is still redeemable only by a verifier which hashes to it.
-     *
-     * @throws \Throwable
-     */
-    /**
-     * @return array<string,array{0:string}>
-     */
-    public static function newlineTerminatedCodeChallengeProvider(): array
-    {
-        return [
-            'the shortest allowed, plus a newline' => [str_repeat('a', 43) . "\n"],
-            // 129 characters, so the laxness widens the maximum by one as well as the character set.
-            'the longest allowed, plus a newline' => [str_repeat('a', 128) . "\n"],
-        ];
-    }
-
-
-    #[DataProvider('newlineTerminatedCodeChallengeProvider')]
-    public function testAcceptsACodeChallengeWithOneTrailingNewline(string $codeChallenge): void
-    {
-        $this->clientStub->method('isConfidential')->willReturn(false);
-        $this->requestParamsResolverStub->method('getAsStringBasedOnAllowedMethods')->willReturn($codeChallenge);
-
-        $result = $this->sut()->checkRule(
-            $this->requestStub,
-            $this->prepareValidResultBag(),
-            $this->loggerServiceMock,
-            [],
-            $this->responseModeStub,
-        );
-
-        $this->assertSame($codeChallenge, $result?->getValue());
-        $this->assertSame([], $this->logRecordsOfLevel('notice'));
     }
 
 

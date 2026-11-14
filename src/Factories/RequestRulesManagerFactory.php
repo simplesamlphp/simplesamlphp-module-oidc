@@ -55,7 +55,6 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
-use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\OpenID\Core;
@@ -91,7 +90,6 @@ class RequestRulesManagerFactory
         private readonly ClaimsDescriptionValidator $claimsDescriptionValidator,
         private readonly CredentialOfferRepository $credentialOfferRepository,
         private readonly ?FederationCache $federationCache = null,
-        private readonly ?ProtocolCache $protocolCache = null,
     ) {
     }
 

@@ -5693,18 +5693,15 @@ class ModuleConfigTest extends TestCase
 
 
     /**
-     * Dropping a claim which names no path leaves the surviving entries under their original keys: the
-     * getter filters without re-indexing. Both callers walk the result rather than index into it, so it
-     * does not matter to them today -- but the shape is what it is, and one which reaches for position 0
-     * or encodes the list as JSON would find a gap. Pinned so that adding `array_values()` is a decision
-     * someone makes rather than one that happens quietly.
+     * Dropping a claim which names no path still leaves a list: the survivors are re-indexed, so a caller which
+     * reaches for position 0, or encodes the result as JSON (an array, not an object), finds no gap.
      *
      * @throws \Exception
      */
-    public function testTheSurvivingClaimPathsKeepTheirOriginalKeys(): void
+    public function testTheSurvivingClaimPathsAreReindexedAsAList(): void
     {
         $this->assertSame(
-            [1 => ['given_name']],
+            [['given_name']],
             $this->sut(overrides: $this->withCredentialConfigurations([
                 'TestCredential' => [
                     ClaimsEnum::Claims->value => [

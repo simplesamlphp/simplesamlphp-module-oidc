@@ -169,15 +169,14 @@ class LoggerServiceTest extends TestCase
 
 
     /**
-     * Refused with PSR-3's own exception, and nothing is logged. The message ends with a doubled quote,
-     * pinned as spelled.
+     * Refused with PSR-3's own exception naming the level, and nothing is logged.
      */
     public function testRefusesALevelWhichIsNotAPsr3One(): void
     {
         $this->loggingHandlerMock->expects($this->never())->method('log');
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage("Unrecognized log level 'verbose''");
+        $this->expectExceptionMessageMatches("/\AUnrecognized log level 'verbose'\z/");
 
         $this->sut()->log('verbose', self::MESSAGE);
     }

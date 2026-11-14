@@ -94,6 +94,7 @@ class ArrayLoggerTest extends TestCase
     public function testThrowsOnInvalidLogLevel(): void
     {
         $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches("/\AUnrecognized log level 'invalid'\z/");
 
         $this->sut()->log('invalid', 'message');
     }

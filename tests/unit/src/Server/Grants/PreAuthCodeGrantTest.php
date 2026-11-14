@@ -1492,10 +1492,10 @@ class PreAuthCodeGrantTest extends TestCase
 
 
     /**
-     * Nothing in this class calls issueRefreshToken(): respondToAccessTokenRequest() issues no refresh token,
-     * and the parent's path which would is overridden above. The override repeats the parent's, so the
-     * contract is put on record by reflection: the issuer is asked with the grant's own refresh token
-     * lifetime and its attempt limit, and answers for it.
+     * Nothing in this class calls issueRefreshToken(), which it inherits from AuthCodeGrant:
+     * respondToAccessTokenRequest() issues no refresh token, and the parent's path which would is overridden
+     * above. The contract is put on record by reflection all the same: the issuer is asked with the grant's
+     * own refresh token lifetime and its attempt limit, and answers for it.
      */
     public function testIssuesARefreshTokenThroughTheIssuerWithItsOwnLifetimeAndAttemptLimit(): void
     {

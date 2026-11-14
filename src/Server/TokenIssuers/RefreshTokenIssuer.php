@@ -43,7 +43,9 @@ class RefreshTokenIssuer extends AbstractTokenIssuer
             throw OidcServerException::serverError('Unexpected access token entity type.');
         }
 
-        while ($maxGenerationAttempts-- > 0) {
+        $attemptsLeft = $maxGenerationAttempts;
+
+        while ($attemptsLeft-- > 0) {
             try {
                 $refreshToken = $this->refreshTokenEntityFactory->fromData(
                     $this->helpers->random()->getIdentifier(),
@@ -54,7 +56,7 @@ class RefreshTokenIssuer extends AbstractTokenIssuer
                 $this->refreshTokenRepository->persistNewRefreshToken($refreshToken);
                 return $refreshToken;
             } catch (UniqueTokenIdentifierConstraintViolationException $e) {
-                if ($maxGenerationAttempts === 0) {
+                if ($attemptsLeft === 0) {
                     $this->logger->error('Maximum generation attempts reached.', [
                         'maxGenerationAttempts' => $maxGenerationAttempts,
                         'accessTokenId' => $accessToken->getIdentifier(),

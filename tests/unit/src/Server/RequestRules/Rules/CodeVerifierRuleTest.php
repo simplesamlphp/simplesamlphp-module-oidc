@@ -138,6 +138,9 @@ class CodeVerifierRuleTest extends TestCase
                 'outside the unreserved character set',
             ],
             'contains a space' => [str_repeat('a', 42) . ' ', 'containing a space'],
+            // PCRE's $ would match before a final newline without the D modifier.
+            'the shortest allowed, plus a trailing newline' => [str_repeat('a', 43) . "\n", 'ending in a newline'],
+            'the longest allowed, plus a trailing newline' => [str_repeat('a', 128) . "\n", 'ending in a newline'],
         ];
     }
 

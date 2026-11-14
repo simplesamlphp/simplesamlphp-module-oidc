@@ -440,7 +440,7 @@ class BackChannelLogoutHandlerTest extends TestCase
         ]);
 
         $this->loggerServiceMock->expects($this->once())->method('notice')->with(
-            'Backhannel Logout (index 0) - preparing request to: ' .
+            'Backchannel Logout (index 0) - preparing request to: ' .
             $this->sampleRelyingPartyAssociation[0]->getBackChannelLogoutUri(),
         );
         $this->loggerServiceMock->expects($this->once())->method('error')

@@ -85,7 +85,8 @@ class CodeChallengeRule extends AbstractRule
 
         // Validate code_challenge according to RFC-7636
         // @see: https://tools.ietf.org/html/rfc7636#section-4.2
-        if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeChallenge) !== 1) {
+        // D: $ matches at the very end only, not before a final newline as well.
+        if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/D', $codeChallenge) !== 1) {
             $loggerService->notice(
                 'Authorization request rejected: `code_challenge` does not follow RFC-7636 (wrong length or ' .
                 'character set).',

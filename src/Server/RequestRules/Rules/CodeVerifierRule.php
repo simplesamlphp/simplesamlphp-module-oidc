@@ -57,7 +57,8 @@ class CodeVerifierRule extends AbstractRule
 
         // Validate code_verifier according to RFC-7636
         // @see: https://tools.ietf.org/html/rfc7636#section-4.1
-        if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/', $codeVerifier) !== 1) {
+        // D: $ matches at the very end only, not before a final newline as well.
+        if (preg_match('/^[A-Za-z0-9-._~]{43,128}$/D', $codeVerifier) !== 1) {
             $loggerService->notice(
                 'Token request rejected: `code_verifier` does not follow RFC-7636 (wrong length or character set).',
                 ['client_id' => $client->getIdentifier()],

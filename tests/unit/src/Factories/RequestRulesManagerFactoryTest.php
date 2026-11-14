@@ -38,7 +38,6 @@ use SimpleSAML\Module\oidc\Utils\ClaimTranslatorExtractor;
 use SimpleSAML\Module\oidc\Utils\FederationCache;
 use SimpleSAML\Module\oidc\Utils\FederationParticipationValidator;
 use SimpleSAML\Module\oidc\Utils\JwksResolver;
-use SimpleSAML\Module\oidc\Utils\ProtocolCache;
 use SimpleSAML\Module\oidc\Utils\RequestParamsResolver;
 use SimpleSAML\Module\oidc\VerifiableCredentials\ClaimsDescriptionValidator;
 use SimpleSAML\OpenID\Core;
@@ -136,8 +135,6 @@ class RequestRulesManagerFactoryTest extends TestCase
 
     private FederationCache&MockObject $federationCacheMock;
 
-    private ProtocolCache&MockObject $protocolCacheMock;
-
 
     protected function setUp(): void
     {
@@ -169,7 +166,6 @@ class RequestRulesManagerFactoryTest extends TestCase
         $this->claimsDescriptionValidatorMock = $this->createMock(ClaimsDescriptionValidator::class);
         $this->credentialOfferRepositoryMock = $this->createMock(CredentialOfferRepository::class);
         $this->federationCacheMock = $this->createMock(FederationCache::class);
-        $this->protocolCacheMock = $this->createMock(ProtocolCache::class);
     }
 
 
@@ -207,7 +203,6 @@ class RequestRulesManagerFactoryTest extends TestCase
             $this->claimsDescriptionValidatorMock,
             $this->credentialOfferRepositoryMock,
             $withFederationCache ? $this->federationCacheMock : null,
-            $this->protocolCacheMock,
         );
     }
 
@@ -215,9 +210,8 @@ class RequestRulesManagerFactoryTest extends TestCase
     /**
      * The collaborators the factory holds, keyed by the type a rule constructor declares for them.
      *
-     * Two of the factory's own dependencies are deliberately missing. ScopeRepository is here under
-     * ScopeRepositoryInterface, which is the type ScopeRule declares. ProtocolCache is not here at all,
-     * because no rule is given it: the factory takes it in its constructor and never reads it.
+     * ScopeRepository is here under ScopeRepositoryInterface, which is the type ScopeRule declares, rather than
+     * under its own class.
      *
      * @return array<class-string,object>
      */

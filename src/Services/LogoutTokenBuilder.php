@@ -48,12 +48,14 @@ class LogoutTokenBuilder
             );
         }
 
-        $currentTimestamp = $this->core->helpers()->dateTime()->getUtc()->getTimestamp();
+        // Read once, so that the token lives exactly the configured duration from its iat.
+        $now = $this->core->helpers()->dateTime()->getUtc();
+        $currentTimestamp = $now->getTimestamp();
 
         $payload = array_filter([
             ClaimsEnum::Iss->value => $this->moduleConfig->getIssuer(),
             ClaimsEnum::Iat->value => $currentTimestamp,
-            ClaimsEnum::Exp->value => $this->core->helpers()->dateTime()->getUtc()->add(
+            ClaimsEnum::Exp->value => $now->add(
                 $this->moduleConfig->getAuthCodeDuration(),
             )->getTimestamp(),
             ClaimsEnum::Jti->value => $this->core->helpers()->random()->string(),

@@ -158,7 +158,7 @@ class ArrayLogger implements LoggerInterface
             LogLevel::NOTICE => $this->notice($message, $context),
             LogLevel::INFO => $this->info($message, $context),
             LogLevel::DEBUG => $this->debug($message, $context),
-            default => throw new InvalidArgumentException("Unrecognized log level '$level''"),
+            default => throw new InvalidArgumentException("Unrecognized log level '$level'"),
         };
     }
 
