@@ -160,7 +160,7 @@ class CredentialOfferUriFactory
         array $credentialConfigurationIds,
         array $userAttributes,
         bool $useTxCode = false,
-        string $userEmailAttributeName = null,
+        ?string $userEmailAttributeName = null,
         ?string $owner = null,
     ): BuiltCredentialOffer {
         $credentialConfigurationIds = $this->offerableCredentialConfigurationIds($credentialConfigurationIds);
@@ -438,7 +438,7 @@ class CredentialOfferUriFactory
      */
     public function buildTxCode(
         string $description,
-        int|string $txCode = null,
+        int|string|null $txCode = null,
     ): TxCode {
         if (mb_strlen($description) > self::TX_CODE_DESCRIPTION_MAX_LENGTH) {
             throw new RuntimeException(sprintf(
@@ -456,7 +456,7 @@ class CredentialOfferUriFactory
     }
 
 
-    public function sendTxCodeByEmail(TxCode $txCode, string $email, string $subject = null): void
+    public function sendTxCodeByEmail(TxCode $txCode, string $email, ?string $subject = null): void
     {
         $subject ??= 'Your one-time code';
 

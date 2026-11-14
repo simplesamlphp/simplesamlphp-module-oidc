@@ -5,9 +5,11 @@
          xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.5/phpunit.xsd"
          cacheDirectory="./build/phpunit-cache"
          displayDetailsOnTestsThatTriggerWarnings="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
          displayDetailsOnPhpunitNotices="false"
          failOnPhpunitNotice="false"
          failOnRisky="true"
+         failOnDeprecation="true"
          requireCoverageMetadata="true"
 >
   <coverage>

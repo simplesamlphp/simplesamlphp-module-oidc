@@ -13,8 +13,8 @@ class EmailFactory
      */
     public function build(
         string $subject,
-        string $from = null,
-        string $to = null,
+        ?string $from = null,
+        ?string $to = null,
         string $textTemplate = 'mailtxt.twig',
         string $htmlTemplate = 'mailhtml.twig',
     ): EMail {
