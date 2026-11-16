@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Factories;
 
-use Closure;
-use League\OAuth2\Server\CryptKey;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -20,16 +18,14 @@ use SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum;
 /**
  * The factory behind the protocol signing keys.
  *
- * `routing/services/services.yml` names `buildPrivateKey` and `buildPublicKey` as the factories of the
- * `oidc.key.private` and `oidc.key.public` services, League CryptKeys; the AuthorizationServerFactory and the
- * TokenResponseFactory take the private one, and nothing under `src/` takes the public one. What the factory
+ * `routing/services/services.yml` names `buildPrivateKey` as the factory of the `oidc.key.private` service, a
+ * League CryptKey, which the AuthorizationServerFactory and the TokenResponseFactory take. What the factory
  * decides is which key pair that is: the first of the configured protocol signature key pairs, whatever it is
  * keyed by and however many follow, handed to the configuration for validation, or refused as a configuration
- * error when it is not an array at all. Each key is then read from its file: the private key with the
- * configured password and with League's permission check on, which is a notice on a key file readable by
- * others; the public key with neither.
+ * error when it is not an array at all. The key is then read from its file, with the configured password and
+ * with League's permission check on, which is a notice on a key file readable by others.
  *
- * The key files are copies of the test key pair in the temporary directory, since that check reads the file
+ * The key file is a copy of the test private key in the temporary directory, since that check reads the file
  * mode, and the mode of a checked-out file is whatever the umask made it.
  */
 #[CoversClass(CryptKeyFactory::class)]
@@ -57,13 +53,10 @@ class CryptKeyFactoryTest extends TestCase
 
     protected string $privateKeyPath;
 
-    protected string $publicKeyPath;
-
 
     protected function setUp(): void
     {
         $this->privateKeyPath = $this->copyOfTheTestKeyFile('oidc_module.key', 0600);
-        $this->publicKeyPath = $this->copyOfTheTestKeyFile('oidc_module.crt', 0644);
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
     }
@@ -71,10 +64,8 @@ class CryptKeyFactoryTest extends TestCase
 
     protected function tearDown(): void
     {
-        foreach ([$this->privateKeyPath, $this->publicKeyPath] as $path) {
-            if (is_file($path)) {
-                unlink($path);
-            }
+        if (is_file($this->privateKeyPath)) {
+            unlink($this->privateKeyPath);
         }
     }
 
@@ -107,17 +98,18 @@ class CryptKeyFactoryTest extends TestCase
 
 
     /**
-     * The configuration validates the pair it is handed, once per key built, and answers with the absolute
-     * file paths and the password. Only the first pair may be handed to it.
+     * The configuration validates the pair it is handed, once, and answers with the absolute file paths and the
+     * password. Only the first pair may be handed to it.
      */
-    protected function expectTheFirstKeyPairValidated(?string $privateKeyPassword = null, int $builds = 1): void
+    protected function expectTheFirstKeyPairValidated(?string $privateKeyPassword = null): void
     {
-        $this->moduleConfigMock->expects($this->exactly($builds))->method('getValidatedSignatureKeyPairArray')
+        $this->moduleConfigMock->expects($this->once())->method('getValidatedSignatureKeyPairArray')
             ->with($this->identicalTo(self::FIRST_KEY_PAIR))
             ->willReturn([
                 ModuleConfig::KEY_ALGORITHM => SignatureAlgorithmEnum::RS256,
                 ModuleConfig::KEY_PRIVATE_KEY_FILENAME => $this->privateKeyPath,
-                ModuleConfig::KEY_PUBLIC_KEY_FILENAME => $this->publicKeyPath,
+                // Part of the validated shape; the factory reads only the private key.
+                ModuleConfig::KEY_PUBLIC_KEY_FILENAME => '/never/read/oidc_module.crt',
                 ModuleConfig::KEY_PRIVATE_KEY_PASSWORD => $privateKeyPassword,
                 ModuleConfig::KEY_KEY_ID => null,
             ]);
@@ -157,27 +149,10 @@ class CryptKeyFactoryTest extends TestCase
 
 
     /**
-     * The public key is read from the first pair's public key file; the pair's password is the private key's
-     * and is not given to it.
-     */
-    public function testBuildsThePublicKeyFromTheFirstConfiguredKeyPair(): void
-    {
-        $this->expectTheFirstKeyPairValidated(self::PRIVATE_KEY_PASSWORD);
-
-        $publicKey = $this->sut()->buildPublicKey();
-
-        $this->assertSame('file://' . $this->publicKeyPath, $publicKey->getKeyPath());
-        $this->assertStringEqualsFile($this->publicKeyPath, $publicKey->getKeyContents());
-        $this->assertNull($publicKey->getPassPhrase());
-    }
-
-
-    /**
      * A first pair which is not an array is refused before the configuration is asked to validate anything;
      * the configuration's own check would have refused it too, with a message of its own, but never gets it.
      */
-    #[DataProvider('builderProvider')]
-    public function testRefusesAKeyPairsConfigurationWhoseFirstPairIsNotAnArray(Closure $build): void
+    public function testRefusesAKeyPairsConfigurationWhoseFirstPairIsNotAnArray(): void
     {
         $this->moduleConfigMock->expects($this->never())->method('getValidatedSignatureKeyPairArray');
         $sut = $this->sut(firstKeyPair: 'oidc_module.key');
@@ -185,31 +160,22 @@ class CryptKeyFactoryTest extends TestCase
         $this->expectException(ConfigurationError::class);
         $this->expectExceptionMessage('Invalid protocol signature key pairs config.');
 
-        $build($sut);
-    }
-
-
-    public static function builderProvider(): array
-    {
-        return [
-            'the private key' => [static fn(CryptKeyFactory $sut): CryptKey => $sut->buildPrivateKey()],
-            'the public key' => [static fn(CryptKeyFactory $sut): CryptKey => $sut->buildPublicKey()],
-        ];
+        $sut->buildPrivateKey();
     }
 
 
     /**
-     * League's permission check is on for the private key alone: on a key file readable by others it is a
-     * notice naming the file. The public key file, readable by others as such a file is, draws none.
+     * League's permission check is on for the private key: on a key file readable by others it is a notice
+     * naming the file.
      */
-    public function testHasThePermissionsOfThePrivateKeyFileCheckedButNotThePublicKeyFiles(): void
+    public function testHasThePermissionsOfThePrivateKeyFileChecked(): void
     {
         if (PHP_OS_FAMILY === 'Windows') {
             $this->markTestSkipped('League leaves the permission check out on Windows.');
         }
 
         $this->assertTrue(chmod($this->privateKeyPath, 0644));
-        $this->expectTheFirstKeyPairValidated(builds: 2);
+        $this->expectTheFirstKeyPairValidated();
         /** @var list<array{int, string}> $notices */
         $notices = [];
         set_error_handler(
@@ -221,9 +187,7 @@ class CryptKeyFactoryTest extends TestCase
         );
 
         try {
-            $sut = $this->sut();
-            $sut->buildPrivateKey();
-            $sut->buildPublicKey();
+            $this->sut()->buildPrivateKey();
         } finally {
             restore_error_handler();
         }

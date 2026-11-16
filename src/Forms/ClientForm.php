@@ -780,7 +780,13 @@ class ClientForm extends Form
             return;
         }
 
-        if (empty($jwks['keys'])) {
+        // RFC 7517, section 5: the value of `keys` is an array (a JSON array, so a list) of JWKs.
+        if (!is_array($jwks['keys']) || !array_is_list($jwks['keys'])) {
+            $this->addError(sprintf("Keys property in JWKS is not a list: %s", var_export($jwks, true)));
+            return;
+        }
+
+        if ($jwks['keys'] === []) {
             $this->addError(sprintf("Empty keys in JWKS: %s", var_export($jwks, true)));
         }
     }
@@ -1120,9 +1126,13 @@ class ClientForm extends Form
         }
         $values[ClaimsEnum::RequestUris->value] = implode("\n", $stringUris);
 
-        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = is_array(
-            $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES],
-        ) ? $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] : [];
+        /** @var mixed $responseModes */
+        $responseModes = $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] ?? null;
+        $responseModes = is_array($responseModes) ? $responseModes : [];
+        // The field is required, so a client left with none of its stored modes can not be saved without one.
+        $values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES] = array_values(
+            array_intersect($responseModes, array_keys($this->getAllowedResponseModesValues())),
+        );
 
         /** @var mixed $grantTypes */
         $grantTypes = $values[ClaimsEnum::GrantTypes->value] ?? null;
@@ -1147,6 +1157,19 @@ class ClientForm extends Form
             )) ? $tokenEndpointAuthMethod : null;
         $this->isStoredClientAttested =
         $tokenEndpointAuthMethod === TokenEndpointAuthMethodsEnum::AttestJwtClientAuth->value;
+
+        /** @var mixed $idTokenSignedResponseAlg */
+        $idTokenSignedResponseAlg = $values[ClaimsEnum::IdTokenSignedResponseAlg->value] ?? null;
+        // The choices are the algorithms of the configured signing keys, so removing a key pair from the
+        // configuration would otherwise leave every client registered for its algorithm uneditable.
+        $values[ClaimsEnum::IdTokenSignedResponseAlg->value] = (is_string($idTokenSignedResponseAlg) &&
+            in_array($idTokenSignedResponseAlg, $this->getSupportedIdTokenSigningAlgs(), true)) ?
+        $idTokenSignedResponseAlg : null;
+
+        /** @var mixed $applicationType */
+        $applicationType = $values[ClaimsEnum::ApplicationType->value] ?? null;
+        $values[ClaimsEnum::ApplicationType->value] = (is_string($applicationType) &&
+            array_key_exists($applicationType, $this->getSupportedApplicationTypes())) ? $applicationType : null;
 
         /** @var mixed $registrationType */
         $registrationType = $values[ClientEntity::KEY_REGISTRATION_TYPE] ?? null;

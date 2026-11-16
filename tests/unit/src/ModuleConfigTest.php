@@ -59,7 +59,6 @@ use Symfony\Component\Cache\Adapter\ChainAdapter;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
 use Symfony\Component\Cache\Adapter\MemcachedAdapter;
 use Symfony\Component\Cache\Adapter\NullAdapter;
-use ValueError;
 
 /**
  * Two branches are deliberately left uncovered here, both defensive depth rather than reachable
@@ -6924,18 +6923,49 @@ class ModuleConfigTest extends TestCase
 
 
     /**
-     * Note the failure mode: unlike the neighbouring enum-valued options, this one is read with
-     * `from()`, so an unknown mode raises a `ValueError` rather than a `ConfigurationError` naming the
-     * option. Pinned as it stands rather than changed here, since the two behave differently for an
-     * administrator reading the resulting error.
+     * The enum case is accepted as well as its backing value, as for the neighbouring enum-valued options.
      *
      * @throws \Exception
      */
-    public function testRejectsAnUnknownDynamicClientRegistrationAuthMode(): void
+    public function testTheDynamicClientRegistrationAuthModeMayBeGivenAsTheEnumCase(): void
     {
-        $this->expectException(ValueError::class);
+        $this->assertSame(
+            DcrRegistrationAuthEnum::InitialAccessToken,
+            $this->sut(overrides: $this->withOption(
+                ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
+                DcrRegistrationAuthEnum::InitialAccessToken,
+            ))->getDcrRegistrationAuth(),
+        );
+    }
 
-        $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_DCR_REGISTRATION_AUTH, 'invitation'))
+
+    public static function unknownDynamicClientRegistrationAuthModeProvider(): array
+    {
+        return [
+            'an unknown mode' => ['invitation', "'invitation'"],
+            'a value which is not a string' => [42, '42'],
+        ];
+    }
+
+
+    /**
+     * An unknown mode is refused as a configuration error naming the option, what it accepts and what it was
+     * given, as for the neighbouring enum-valued options.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unknownDynamicClientRegistrationAuthModeProvider')]
+    public function testRejectsAnUnknownDynamicClientRegistrationAuthMode(mixed $mode, string $shownAs): void
+    {
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(sprintf(
+            'Invalid value for %s. Expected a %s case or one of "open", "initial_access_token", got %s.',
+            ModuleConfig::OPTION_DCR_REGISTRATION_AUTH,
+            DcrRegistrationAuthEnum::class,
+            $shownAs,
+        ));
+
+        $this->sut(overrides: $this->withOption(ModuleConfig::OPTION_DCR_REGISTRATION_AUTH, $mode))
             ->getDcrRegistrationAuth();
     }
 

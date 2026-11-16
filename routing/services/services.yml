@@ -10,7 +10,6 @@ services:
       League\OAuth2\Server\Repositories\AccessTokenRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\AccessTokenRepository'
       League\OAuth2\Server\Repositories\ScopeRepositoryInterface: '@SimpleSAML\Module\oidc\Repositories\ScopeRepository'
       League\OAuth2\Server\CryptKey|string $privateKey: '@oidc.key.private'
-      League\OAuth2\Server\CryptKey|string $publicKey: '@oidc.key.public'
       Psr\Http\Message\ServerRequestFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
       Psr\Http\Message\RequestFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
       Psr\Http\Message\ResponseFactoryInterface: '@Nyholm\Psr7\Factory\Psr17Factory'
@@ -66,8 +65,10 @@ services:
   SimpleSAML\Module\oidc\Codebooks\:
     resource: '../../src/Codebooks/*'
 
+  # The overview's rows and sections and the menu's items are values built where they are used.
   SimpleSAML\Module\oidc\Admin\:
     resource: '../../src/Admin/*'
+    exclude: '../../src/Admin/{ConfigOverview/Row.php,ConfigOverview/Section.php,Menu/Item.php}'
 
   SimpleSAML\Module\oidc\Stores\:
     resource: '../../src/Stores/*'
@@ -110,10 +111,6 @@ services:
     class: League\OAuth2\Server\CryptKey
     factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPrivateKey']
 
-  oidc.key.public:
-    class: League\OAuth2\Server\CryptKey
-    factory: ['@SimpleSAML\Module\oidc\Factories\CryptKeyFactory', 'buildPublicKey']
-
   SimpleSAML\Module\oidc\Factories\AuthorizationServerFactory:
     arguments:
       $privateKey: '@oidc.key.private'
@@ -151,8 +148,6 @@ services:
     factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forFederation'] # Can return null
   SimpleSAML\Module\oidc\Utils\ProtocolCache:
     factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forProtocol'] # Can return null
-  SimpleSAML\Module\oidc\Utils\VciCache:
-    factory: ['@SimpleSAML\Module\oidc\Factories\CacheFactory', 'forVci'] # Can return null
 
   # Use Nyholm\Psr7 package as PSR HTTP Factories.
   Nyholm\Psr7\Factory\Psr17Factory: ~
@@ -179,10 +174,6 @@ services:
   # Reads and validates the certificate chains of the credential signing keys; the trust store of each validation is
   # written to the system's temporary directory.
   SimpleSAML\OpenID\X509: ~
-  # Resolution is driven by identifiers supplied from outside, so this gets a destination policy of its
-  # own rather than the shared one above.
-  SimpleSAML\OpenID\Did:
-    factory: [ '@SimpleSAML\Module\oidc\Factories\DidFactory', 'build' ]
   SimpleSAML\OpenID\Jws:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwsFactory', 'build' ]
   SimpleSAML\OpenID\OAuth2:

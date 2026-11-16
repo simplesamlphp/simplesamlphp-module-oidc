@@ -532,13 +532,21 @@ class ClientEntityFactory
      */
     public function fromState(array $state): ClientEntityInterface
     {
+        // A type which is not one of the cases (a row written by hand, or by a later version before a
+        // downgrade) leaves the row as unreadable as a required column which is not a string.
+        /** @var mixed $storedRegistrationType */
+        $storedRegistrationType = $state[ClientEntity::KEY_REGISTRATION_TYPE] ?? null;
+        $registrationType = is_string($storedRegistrationType) ?
+        RegistrationTypeEnum::tryFrom(trim($storedRegistrationType)) :
+        null;
+
         if (
             !is_string($state[ClientEntity::KEY_ID]) ||
             !is_string($state[ClientEntity::KEY_SECRET]) ||
             !is_string($state[ClientEntity::KEY_NAME]) ||
             !is_string($state[ClientEntity::KEY_REDIRECT_URI]) ||
             !is_string($state[ClientEntity::KEY_SCOPES]) ||
-            !is_string($state[ClientEntity::KEY_REGISTRATION_TYPE])
+            !$registrationType instanceof RegistrationTypeEnum
         ) {
             throw OidcServerException::serverError('Invalid Client Entity state');
         }
@@ -565,12 +573,9 @@ class ClientEntityFactory
         $owner = empty($state[ClientEntity::KEY_OWNER]) ? null : (string)$state[ClientEntity::KEY_OWNER];
 
         /** @var string[] $postLogoutRedirectUris */
-        $postLogoutRedirectUris = json_decode(
-            (string)($state[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI] ?? "[]"),
-            true,
-            512,
-            JSON_THROW_ON_ERROR,
-        );
+        $postLogoutRedirectUris = empty($state[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI]) ?
+        [] :
+        json_decode((string)$state[ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI], true, 512, JSON_THROW_ON_ERROR);
 
         $backChannelLogoutUri = empty($state[ClientEntity::KEY_BACKCHANNEL_LOGOUT_URI]) ?
         null :
@@ -599,8 +604,6 @@ class ClientEntityFactory
         $signedJwksUri = empty($state[ClientEntity::KEY_SIGNED_JWKS_URI]) ?
         null :
         (string)$state[ClientEntity::KEY_SIGNED_JWKS_URI];
-
-        $registrationType = RegistrationTypeEnum::from(trim($state[ClientEntity::KEY_REGISTRATION_TYPE]));
 
         $updatedAt = empty($state[ClientEntity::KEY_UPDATED_AT]) ? null :
         $this->helpers->dateTime()->getUtc((string)$state[ClientEntity::KEY_UPDATED_AT]);

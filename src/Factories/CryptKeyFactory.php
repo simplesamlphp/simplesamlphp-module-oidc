@@ -35,17 +35,6 @@ class CryptKeyFactory
 
 
     /**
-     * @throws \Exception
-     */
-    public function buildPublicKey(): CryptKey
-    {
-        $defaultSignatureKeyPairConfig = $this->getDefaultProtocolSignatureKeyPairConfig();
-        $publicKeyFilename = $defaultSignatureKeyPairConfig[ModuleConfig::KEY_PUBLIC_KEY_FILENAME];
-        return new CryptKey($publicKeyFilename, null, false);
-    }
-
-
-    /**
      * @return array{
      *      algorithm: \SimpleSAML\OpenID\Algorithms\SignatureAlgorithmEnum,
      *      private_key_filename: non-empty-string,

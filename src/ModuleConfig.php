@@ -3421,14 +3421,35 @@ class ModuleConfig
     /**
      * Access-control mode for the registration endpoint: open registration
      * (default) or gated behind an Initial Access Token.
+     *
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function getDcrRegistrationAuth(): DcrRegistrationAuthEnum
     {
-        return DcrRegistrationAuthEnum::from(
-            $this->config()->getOptionalString(
+        /** @psalm-suppress MixedAssignment */
+        $mode = $this->config()->getOptionalValue(
+            self::OPTION_DCR_REGISTRATION_AUTH,
+            DcrRegistrationAuthEnum::Open,
+        );
+
+        if ($mode instanceof DcrRegistrationAuthEnum) {
+            return $mode;
+        }
+
+        // The configuration template writes the backing value; the case reads as naturally.
+        if (is_string($mode) && ($case = DcrRegistrationAuthEnum::tryFrom($mode)) !== null) {
+            return $case;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Invalid value for %s. Expected a %s case or one of "%s", got %s.',
                 self::OPTION_DCR_REGISTRATION_AUTH,
-                DcrRegistrationAuthEnum::Open->value,
+                DcrRegistrationAuthEnum::class,
+                implode('", "', array_column(DcrRegistrationAuthEnum::cases(), 'value')),
+                var_export($mode, true),
             ),
+            self::DEFAULT_FILE_NAME,
         );
     }
 

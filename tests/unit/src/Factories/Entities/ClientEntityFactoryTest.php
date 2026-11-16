@@ -28,7 +28,6 @@ use SimpleSAML\OpenID\Codebooks\ErrorsEnum;
 use SimpleSAML\OpenID\Codebooks\GrantTypesEnum;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
 use SimpleSAML\Utils\Random;
-use ValueError;
 
 #[CoversClass(ClientEntityFactory::class)]
 #[UsesClass(ClientEntity::class)]
@@ -1249,6 +1248,7 @@ class ClientEntityFactoryTest extends TestCase
     /**
      * Each of the six required columns is guarded, and each on its own: a guard which only ever looked
      * at the first would still let a malformed row through as some other kind of failure further down.
+     * The registration type is also guarded against a value which names none of the types, below.
      *
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -1281,6 +1281,7 @@ class ClientEntityFactoryTest extends TestCase
         $client = $this->sut()->fromState(self::clientState([
             ClientEntity::KEY_AUTH_SOURCE => '',
             ClientEntity::KEY_OWNER => '',
+            ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI => '',
             ClientEntity::KEY_BACKCHANNEL_LOGOUT_URI => '',
             ClientEntity::KEY_ENTITY_IDENTIFIER => '',
             ClientEntity::KEY_CLIENT_REGISTRATION_TYPES => '',
@@ -1297,6 +1298,8 @@ class ClientEntityFactoryTest extends TestCase
 
         $this->assertNull($client->getAuthSourceId());
         $this->assertNull($client->getOwner());
+        // An empty list rather than null, which is also what a null column reads as.
+        $this->assertSame([], $client->getPostLogoutRedirectUri());
         $this->assertNull($client->getBackChannelLogoutUri());
         $this->assertNull($client->getEntityIdentifier());
         $this->assertNull($client->getFederationJwks());
@@ -1344,29 +1347,8 @@ class ClientEntityFactoryTest extends TestCase
 
 
     /**
-     * Pinned rather than endorsed, and queued as a production fix. `post_logout_redirect_uri` is the one
-     * optional JSON column read as `(string)($state[...] ?? "[]")` rather than
-     * `empty($state[...]) ? null : ...`, and `??` coalesces only null. So a column holding an empty
-     * string reaches `json_decode('')`, which under JSON_THROW_ON_ERROR throws, and hydrating the
-     * client fails where every other empty optional column reads as unset.
-     *
-     * This is why that column is absent from the fixture in
-     * testFromStateTreatsAnEmptyOptionalColumnAsUnset.
-     *
-     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
-     */
-    public function testFromStateFailsOnAnEmptyPostLogoutRedirectUriColumn(): void
-    {
-        $this->expectException(JsonException::class);
-
-        $this->sut()->fromState(self::clientState([
-            ClientEntity::KEY_POST_LOGOUT_REDIRECT_URI => '',
-        ]));
-    }
-
-
-    /**
-     * A null in that column is handled, which is what the schema allows it to hold.
+     * A null in the post-logout redirect URI column reads as no URIs, as an empty one does
+     * (testFromStateTreatsAnEmptyOptionalColumnAsUnset); the schema allows the column to hold null.
      *
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
@@ -1413,17 +1395,16 @@ class ClientEntityFactoryTest extends TestCase
 
 
     /**
-     * Pinned rather than endorsed, and queued as a production fix. A stored registration type which is
-     * not one of the enum's cases raises a bare `ValueError` naming neither the client nor the column,
-     * where every other malformed column in this method produces `Invalid Client Entity state`. Same
-     * shape as the queued `getDcrRegistrationAuth()` fix.
+     * A stored registration type which names none of the types is refused as the other malformed required
+     * columns are, rather than as a bare `ValueError` naming neither the client nor the column.
      *
      * @throws \JsonException
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
-    public function testFromStateRaisesAValueErrorForAnUnknownStoredRegistrationType(): void
+    public function testFromStateRejectsAStoredRegistrationTypeWhichNamesNoType(): void
     {
-        $this->expectException(ValueError::class);
+        $this->expectException(OidcServerException::class);
+        $this->expectExceptionMessage('Invalid Client Entity state');
 
         $this->sut()->fromState(self::clientState([
             ClientEntity::KEY_REGISTRATION_TYPE => 'no_such_registration_type',

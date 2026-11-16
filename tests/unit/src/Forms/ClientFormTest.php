@@ -1760,6 +1760,12 @@ class ClientFormTest extends TestCase
             'a string' => ['{"keys": []}', 'Invalid JWKS format'],
             'an array with no keys property' => [['kid' => 'sig-1'], 'No keys property in JWKS'],
             'an array whose keys property is empty' => [['keys' => []], 'Empty keys in JWKS'],
+            'a keys property which is a string' => [['keys' => 'not-a-list'], 'Keys property in JWKS is not a list'],
+            'a keys property which is a number' => [['keys' => 123], 'Keys property in JWKS is not a list'],
+            'a keys property which is a JSON object' => [
+                ['keys' => ['sig-1' => ['kty' => 'RSA']]],
+                'Keys property in JWKS is not a list',
+            ],
         ];
     }
 
@@ -1787,23 +1793,6 @@ class ClientFormTest extends TestCase
         $sut = $this->sut();
         $sut->validateJwks(null);
         $sut->validateJwks(['keys' => [['kid' => 'sig-1']]]);
-
-        $this->assertSame([], $this->ownErrors($sut));
-    }
-
-
-    /**
-     * Pinned, not endorsed. validateJwks() checks that `keys` is present and not empty, but never that it is
-     * a list, so a JWKS whose `keys` property is a non-empty scalar passes the form and is stored. Queued in
-     * the release-readiness handoff; a fix has to update this test deliberately.
-     *
-     * @throws \Exception
-     */
-    public function testAJwksWhoseKeysPropertyIsNotAListIsAccepted(): void
-    {
-        $sut = $this->sut();
-        $sut->validateJwks(['keys' => 'not-a-list']);
-        $sut->validateJwks(['keys' => 123]);
 
         $this->assertSame([], $this->ownErrors($sut));
     }
@@ -1942,41 +1931,16 @@ class ClientFormTest extends TestCase
 
 
     /**
-     * Pinned, not endorsed. Of the multi-selects setDefaults() fills, allowed_response_modes is the only one
-     * whose stored value is not filtered against what the OP currently supports -- scopes, grant types,
-     * response types and default ACR values all are, and an unsupported token endpoint auth method is nulled.
-     * A stored value outside the supported set therefore reaches the control, which refuses it, and the edit
-     * screen of that client fails with a Nette exception instead of quietly dropping the stale value the way
-     * every neighbouring field does.
-     *
-     * Not reachable from configuration today: ModuleConfig::getSupportedResponseModes() is a hardcoded list
-     * of three, and the field is written only by this form. It is reachable for a row written by hand or by
-     * other tooling, and it is what would happen to every stored client holding a mode that a later version
-     * of the module stopped supporting -- which is exactly the case the neighbouring fields defend against.
-     *
-     * Queued in the release-readiness handoff; this test asserts the present behaviour so that a fix has to
-     * update it deliberately.
+     * Of the fields setDefaults() fills from a stored client, each select and multi-select drops a stored value
+     * the form no longer offers, a select being left unset. Such a value would otherwise reach its control, which
+     * refuses it with a Nette exception, and the edit screen of that client would fail. Reachable for a row
+     * written by hand or by other tooling, for every stored client holding a value which a later version of the
+     * module stops supporting, and, for the ID token signing algorithm, by removing a signing key pair from the
+     * configuration.
      *
      * @throws \Exception
      */
-    public function testEditingAClientHoldingAnUnsupportedResponseModeFails(): void
-    {
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('web_message');
-
-        $this->sut()->setDefaults(array_merge($this->clientDataSample, [
-            ClientEntity::KEY_ALLOWED_RESPONSE_MODES => ['query', 'web_message'],
-        ]));
-    }
-
-
-    /**
-     * The contrast to the test above, over every neighbouring field its docblock names: each drops or nulls
-     * the value the OP no longer offers, and the admin can still open the client.
-     *
-     * @throws \Exception
-     */
-    public function testStaleValuesInEveryOtherMultiSelectAreDroppedRatherThanFatal(): void
+    public function testStaleValuesInEverySelectAreDroppedRatherThanFatal(): void
     {
         $this->moduleConfigMock->method('getScopes')->willReturn([
             'openid' => ['description' => 'openid'],
@@ -1993,6 +1957,12 @@ class ClientFormTest extends TestCase
             ClaimsEnum::ResponseTypes->value => ['code', 'retired_response_type'],
             ClaimsEnum::DefaultAcrValues->value => ['urn:mace:incommon:iap:silver', 'urn:retired'],
             ClaimsEnum::TokenEndpointAuthMethod->value => 'retired_auth_method',
+            ClientEntity::KEY_ALLOWED_RESPONSE_MODES => ['query', 'web_message'],
+            'client_registration_types' => ['automatic', 'retired_registration_type'],
+            'auth_source' => 'retired-auth-source',
+            // None of the configured key pairs (RS256 and ES256 here) signs with it.
+            ClaimsEnum::IdTokenSignedResponseAlg->value => 'PS512',
+            ClaimsEnum::ApplicationType->value => 'retired_application_type',
         ]))->getValues();
 
         $this->assertSame(['openid', 'profile'], array_values($values['scopes']));
@@ -2001,6 +1971,27 @@ class ClientFormTest extends TestCase
         $this->assertSame(['code'], $values[ClaimsEnum::ResponseTypes->value]);
         $this->assertSame(['urn:mace:incommon:iap:silver'], $values[ClaimsEnum::DefaultAcrValues->value]);
         $this->assertNull($values[ClaimsEnum::TokenEndpointAuthMethod->value]);
+        $this->assertSame(['query'], array_values($values[ClientEntity::KEY_ALLOWED_RESPONSE_MODES]));
+        $this->assertSame(['automatic'], array_values($values['client_registration_types']));
+        $this->assertNull($values['auth_source']);
+        $this->assertNull($values[ClaimsEnum::IdTokenSignedResponseAlg->value]);
+        $this->assertNull($values[ClaimsEnum::ApplicationType->value]);
+    }
+
+
+    /**
+     * The other side of the test above for the one select whose choices are a list of names rather than a map:
+     * a stored algorithm which a configured key pair signs with is kept.
+     *
+     * @throws \Exception
+     */
+    public function testAStoredIdTokenSigningAlgorithmWhichTheOpSignsWithIsKept(): void
+    {
+        $this->assertSame(
+            'ES256',
+            $this->filledForm([ClaimsEnum::IdTokenSignedResponseAlg->value => 'ES256'])
+                ->getValues()[ClaimsEnum::IdTokenSignedResponseAlg->value],
+        );
     }
 
 
