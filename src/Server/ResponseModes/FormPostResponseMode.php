@@ -18,6 +18,11 @@ class FormPostResponseMode implements ResponseModeInterface
 
     public function buildResponse(string $redirectUri, array $params): AbstractResponseType
     {
+        // A parameter without a value is left out, as http_build_query() leaves it out of the other two modes: the
+        // template posts every parameter it is given, and a response carries `state` only when the request did (RFC
+        // 6749 sections 4.1.2 and 4.2.2), not empty. Only null: a state of "0" is a value the client sent.
+        $params = array_filter($params, static fn(mixed $value): bool => $value !== null);
+
         $template = $this->templateFactory->build(
             templateName: 'oidc:formpost.twig',
             data: [

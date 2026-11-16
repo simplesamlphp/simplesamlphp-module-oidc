@@ -10,7 +10,7 @@ use League\OAuth2\Server\Entities\ClientEntityInterface;
 use League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException;
 use Psr\Http\Message\ServerRequestInterface;
 use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
-use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
+use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\Repositories\Interfaces\AccessTokenRepositoryInterface;
@@ -62,6 +62,8 @@ trait IssueAccessTokenTrait
      * which the token carries (AccessTokenEntity::getOfferClaims()); null for every other grant.
      * @param string|null $offerId The Credential Offer the token is minted for, from the pre-authorized code or the
      * issuer state it is redeemed with; null for a token of no offer.
+     * @param bool $persist False for a token which never leaves the server, which is then not stored: the implicit
+     * grant's plain `id_token` response builds one only for the ID Token to be built from (IdTokenBuilder::buildFor()).
      * @throws \League\OAuth2\Server\Exception\OAuthServerException
      * @throws \League\OAuth2\Server\Exception\UniqueTokenIdentifierConstraintViolationException
      */
@@ -82,7 +84,8 @@ trait IssueAccessTokenTrait
         ?string $dpopJkt = null,
         ?array $offerClaims = null,
         ?string $offerId = null,
-    ): AccessTokenEntityInterface {
+        bool $persist = true,
+    ): AccessTokenEntity {
         $maxGenerationAttempts = self::MAX_RANDOM_TOKEN_GENERATION_ATTEMPTS;
 
         /** Since we are using our own repository interface, check for proper type. */
@@ -139,7 +142,9 @@ trait IssueAccessTokenTrait
                     offerClaims: $offerClaims,
                     offerId: $offerId,
                 );
-                $this->accessTokenRepository->persistNewAccessToken($accessToken);
+                if ($persist) {
+                    $this->accessTokenRepository->persistNewAccessToken($accessToken);
+                }
                 return $accessToken;
             } catch (UniqueTokenIdentifierConstraintViolationException $e) {
                 if ($maxGenerationAttempts === 0) {

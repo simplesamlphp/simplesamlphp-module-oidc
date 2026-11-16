@@ -20,11 +20,8 @@ use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
-use RuntimeException;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
-use SimpleSAML\Module\oidc\Entities\Interfaces\AccessTokenEntityInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\ScopeEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
@@ -88,20 +85,6 @@ use SimpleSAML\OpenID\Core\IdTokenHint;
  * is not in its list, and the value is in both bags only because the caller resolved it beforehand. In
  * production the two bags are the same object, since the manager is handed the incoming one to fill and
  * returns it, so the two bags here deliberately hold different modes.
- *
- * Two guards in completeOidcAuthorizationRequest() reject an issued access token that has no string
- * representation, or that is not the module's own AccessTokenEntity. Neither can fire in production: the
- * token comes from AccessTokenEntityFactory::fromData(), whose declared return type is AccessTokenEntity,
- * which satisfies both, and return type covariance stops a subclass from widening that. The first is
- * reachable from a test all the same, because issueAccessToken() is declared to return the wider
- * AccessTokenEntityInterface, and it is covered below by stubbing that one method on the grant.
- *
- * The second guard is this file's only uncovered statements, and it is unreachable rather than skipped.
- * Failing it while passing the first needs a class which implements both AccessTokenEntityInterface and
- * EntityStringRepresentationInterface without extending AccessTokenEntity, and the module has no such
- * class -- AccessTokenEntity is the only implementor of that interface in it. Nor can PHPUnit synthesise
- * one: League's AccessTokenEntityInterface already declares toString(), the single method
- * EntityStringRepresentationInterface exists to require, so the two cannot be mocked as an intersection.
  */
 #[CoversClass(ImplicitGrant::class)]
 #[UsesClass(AuthorizationRequest::class)]
@@ -901,8 +884,8 @@ class ImplicitGrantTest extends TestCase
 
     /**
      * A plain `id_token` request gets no access token in the response; the ID Token is the whole answer. One
-     * is still issued and persisted, because the ID Token is built from it, but it never reaches the client,
-     * so nobody can present it at the UserInfo endpoint either.
+     * is still built, because the ID Token is built from it (its client, subject, scopes, requested claims and
+     * expiry), but it is not stored: it never reaches the client, so nobody could present it.
      */
     public function testTheAccessTokenIsWithheldForThePlainIdTokenResponseType(): void
     {
@@ -911,22 +894,43 @@ class ImplicitGrantTest extends TestCase
         $accessToken->method('getScopes')->willReturn([new ScopeEntity('openid')]);
         $this->idTokenIsBuilt('the-id-token');
 
-        // The token is still issued and stored, which is what the docblock above rests on.
-        $this->accessTokenRepositoryMock->expects($this->once())
-            ->method('persistNewAccessToken')
-            ->with($accessToken);
+        $this->accessTokenRepositoryMock->expects($this->never())->method('persistNewAccessToken');
 
         $params = $this->paramsIn(
             $this->locationOf($this->completed($this->authorizationRequest(responseType: 'id_token'))),
             PHP_URL_FRAGMENT,
         );
 
+        $this->assertSame($accessToken, $this->idTokenArguments[1]);
         $this->assertArrayNotHasKey('access_token', $params);
         $this->assertArrayNotHasKey('token_type', $params);
         $this->assertArrayNotHasKey('expires_in', $params);
         $this->assertArrayNotHasKey('scope', $params);
         $this->assertSame('the-id-token', $params['id_token']);
         $this->assertSame(self::STATE, $params['state']);
+    }
+
+
+    /**
+     * The access token `id_token token` hands out is stored, as every token which leaves the server is: the
+     * UserInfo endpoint refuses one it can not find (AccessTokenRepository::isAccessTokenRevoked()).
+     */
+    public function testTheAccessTokenReturnedForTheIdTokenTokenResponseTypeIsStored(): void
+    {
+        $this->scopesAreFinalizedAs(new ScopeEntity('openid'));
+        $accessToken = $this->accessTokenIsIssued('the-access-token');
+        $this->idTokenIsBuilt('the-id-token');
+
+        $this->accessTokenRepositoryMock->expects($this->once())
+            ->method('persistNewAccessToken')
+            ->with($accessToken);
+
+        $params = $this->paramsIn(
+            $this->locationOf($this->completed($this->authorizationRequest(responseType: 'id_token token'))),
+            PHP_URL_FRAGMENT,
+        );
+
+        $this->assertSame('the-access-token', $params['access_token']);
     }
 
 
@@ -964,11 +968,8 @@ class ImplicitGrantTest extends TestCase
 
     /**
      * state is optional, and a request without one gets a response without one: http_build_query() drops the
-     * null the grant puts in the response parameters unconditionally, so neither redirect mode emits it.
-     *
-     * That null does survive into form_post, which is also a supported response mode: FormPostResponseMode
-     * hands the parameters to formpost.twig, whose loop renders every one of them, so a stateless request
-     * answered that way posts back an empty state field. Recorded rather than fixed here.
+     * null the grant puts in the response parameters unconditionally, so neither redirect mode emits it, and
+     * FormPostResponseMode leaves it out of the form likewise (FormPostResponseModeTest).
      */
     public function testAResponseToARequestWithoutStateCarriesNoStateBack(): void
     {
@@ -1135,29 +1136,6 @@ class ImplicitGrantTest extends TestCase
         $this->assertSame($client, $this->accessTokenArguments[1]);
         $this->assertSame(['userinfo' => ['email' => null]], $this->accessTokenArguments[6]);
         $this->assertEqualsWithDelta(time() + 1500, $this->accessTokenArguments[3]->getTimestamp(), 5);
-    }
-
-
-    /**
-     * The first guard on the issued access token. It cannot fire in production, since the factory's declared
-     * return type is AccessTokenEntity and that satisfies it, but issueAccessToken() is declared to return
-     * the wider AccessTokenEntityInterface, so a grant with that one method stubbed reaches it. It is pinned
-     * so that widening the factory's return type later does not quietly take the check with it.
-     */
-    public function testAnIssuedAccessTokenWithNoStringRepresentationIsRejected(): void
-    {
-        $this->loggerServiceMock->expects($this->once())
-            ->method('error')
-            ->with(
-                $this->stringContains(EntityStringRepresentationInterface::class),
-                ['client_id' => self::CLIENT_ID],
-            );
-
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage(EntityStringRepresentationInterface::class);
-
-        $this->sutIssuing($this->createMock(AccessTokenEntityInterface::class))
-            ->completeAuthorizationRequest($this->authorizationRequest());
     }
 
 
@@ -1418,38 +1396,6 @@ class ImplicitGrantTest extends TestCase
         $client->method('getRedirectUri')->willReturn($redirectUri);
 
         return $client;
-    }
-
-
-    /**
-     * A grant whose issueAccessToken() hands back the given token instead of building one, which is the only
-     * way to put a token the type guards reject in front of them.
-     */
-    private function sutIssuing(AccessTokenEntityInterface $accessToken): ImplicitGrant&MockObject
-    {
-        $sut = $this->getMockBuilder(ImplicitGrant::class)
-            ->setConstructorArgs([
-                $this->idTokenBuilderMock,
-                $this->accessTokenTtl1h,
-                $this->accessTokenRepositoryMock,
-                $this->requestRulesManagerMock,
-                $this->requestParamsResolverMock,
-                $this->accessTokenEntityFactoryMock,
-                $this->loggerServiceMock,
-                $this->userRepositoryMock,
-                $this->subjectResolverMock,
-                $this->accessTokenClaimsResolverMock,
-                $this->moduleConfigMock,
-                $this->responseModeResolver(),
-            ])
-            ->onlyMethods(['issueAccessToken'])
-            ->getMock();
-
-        $sut->setScopeRepository($this->scopeRepositoryMock);
-        $sut->setDefaultScope(self::DEFAULT_SCOPE);
-        $sut->method('issueAccessToken')->willReturn($accessToken);
-
-        return $sut;
     }
 
 

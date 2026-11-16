@@ -73,6 +73,37 @@ class FormPostResponseModeTest extends TestCase
 
 
     /**
+     * A parameter without a value is not posted, as http_build_query() leaves it out of the redirect modes: a
+     * response to a request without `state` carries none back (RFC 6749 sections 4.1.2 and 4.2.2), rather than
+     * an empty field.
+     */
+    public function testAParameterWithoutAValueIsNotPosted(): void
+    {
+        $body = (string)$this->sut->buildResponse(
+            'https://example.org/callback',
+            ['code' => 'abc123', 'state' => null],
+        )->generateHttpResponse(new Response())->getBody();
+
+        $this->assertStringNotContainsString('name="state"', $body);
+        $this->assertStringContainsString('name="code" value="abc123"', $body);
+    }
+
+
+    /**
+     * Only a null is left out: a state of "0" is a value the client sent, and it goes back as it came.
+     */
+    public function testAStateOfZeroIsPosted(): void
+    {
+        $body = (string)$this->sut->buildResponse(
+            'https://example.org/callback',
+            ['code' => 'abc123', 'state' => '0'],
+        )->generateHttpResponse(new Response())->getBody();
+
+        $this->assertStringContainsString('name="state" value="0"', $body);
+    }
+
+
+    /**
      * The value it is kept by where it can not go itself (ResponseModeResolver).
      */
     public function testItsValueIsFormPost(): void

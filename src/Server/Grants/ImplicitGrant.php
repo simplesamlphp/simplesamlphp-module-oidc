@@ -11,10 +11,7 @@ use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface as OAuth2Aut
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use LogicException;
 use Psr\Http\Message\ServerRequestInterface;
-use RuntimeException;
-use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\Interfaces\ClientEntityInterface;
-use SimpleSAML\Module\oidc\Entities\Interfaces\EntityStringRepresentationInterface;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Factories\Entities\AccessTokenEntityFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
@@ -341,8 +338,12 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             'state' => $authorizationRequest->getState(),
         ];
 
+        $returnAccessToken = $authorizationRequest->shouldReturnAccessTokenInAuthorizationResponse();
+
         // The grant holds the user already, so the mint resolves the subject and the access token claims from it
-        // without a lookup; the ID token below takes the same subject from the token.
+        // without a lookup; the ID token below takes the same subject from the token. For `id_token` alone the
+        // token never leaves the server: it only carries what the ID Token is built from (its client, subject,
+        // scopes, requested claims and expiry), so it is not stored.
         $accessToken = $this->issueAccessToken(
             $this->accessTokenTTL,
             $authorizationRequest->getClient(),
@@ -351,26 +352,11 @@ class ImplicitGrant extends OAuth2ImplicitGrant implements AuthorizationValidata
             null,
             $authorizationRequest->getClaims(),
             user: $user,
+            persist: $returnAccessToken,
         );
 
-        if ($accessToken instanceof EntityStringRepresentationInterface === false) {
-            $this->loggerService->error(
-                'Implicit grant failed: issued access token does not implement ' .
-                EntityStringRepresentationInterface::class . '.',
-                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
-            );
-            throw new RuntimeException('AccessToken must implement ' . EntityStringRepresentationInterface::class);
-        }
-        if ($accessToken instanceof AccessTokenEntity === false) {
-            $this->loggerService->error(
-                'Implicit grant failed: issued access token is not an instance of ' . AccessTokenEntity::class . '.',
-                ['client_id' => $authorizationRequest->getClient()->getIdentifier()],
-            );
-            throw new RuntimeException('AccessToken must be ' . AccessTokenEntity::class);
-        }
-
         $addAccessTokenHashToIdToken = false;
-        if ($authorizationRequest->shouldReturnAccessTokenInAuthorizationResponse()) {
+        if ($returnAccessToken) {
             $addAccessTokenHashToIdToken = true;
 
             $responseParams['access_token'] = $accessToken->toString();
