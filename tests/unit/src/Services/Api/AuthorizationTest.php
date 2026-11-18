@@ -32,9 +32,10 @@ use Symfony\Component\HttpFoundation\Request;
  * first. requireAdminOrTokenForAnyOfScope() takes that session when there is one and otherwise an API token, from
  * the Authorization header or, failing that, the token request parameter. requireBearerTokenForAnyOfScope()
  * takes the header and nothing else, and says who the token belongs to; its own docblock explains why.
- * requireCallerForAnyOfScope() is requireAdminOrTokenForAnyOfScope() saying who the caller is. The two the Verifiable
- * Credential endpoints call, requireAdminOrTokenForAnyOfScope() and requireBearerTokenForAnyOfScope(), also say which
- * credential configurations the caller may act on.
+ * requireCallerForAnyOfScope() takes the session, or otherwise a token from the header and nothing else, and says who
+ * the caller is: at the token introspection endpoint, which calls it, the token request parameter is the token to be
+ * introspected. The two the Verifiable Credential endpoints call, requireAdminOrTokenForAnyOfScope() and
+ * requireBearerTokenForAnyOfScope(), also say which credential configurations the caller may act on.
  *
  * The bearer token is read through the real Helpers, so the Authorization header is built into a Request
  * rather than stubbed.
@@ -479,8 +480,8 @@ class AuthorizationTest extends TestCase
 
 
     /**
-     * requireCallerForAnyOfScope() authorizes exactly as requireAdminOrTokenForAnyOfScope() does, and says who by: an
-     * administrator's session is the administrator, whose session names no one in particular.
+     * requireCallerForAnyOfScope() takes an administrator's session as requireAdminOrTokenForAnyOfScope() does, and
+     * says who by: the session is the administrator, whose session names no one in particular.
      */
     public function testNamesAnAdminSessionAsTheAdministrator(): void
     {
@@ -496,18 +497,10 @@ class AuthorizationTest extends TestCase
 
 
     /**
-     * An API token is named by what it stands for, resolved from the token which authorized, from the header
-     * or from the request parameter alike, never the token itself.
+     * An API token is named by what it stands for, resolved from the token which authorized, never the token itself.
      */
-    #[DataProvider('tokenCarrierProvider')]
-    public function testNamesAnApiTokenByItsPrincipal(bool $inTheHeader): void
+    public function testNamesAnApiTokenByItsPrincipal(): void
     {
-        if ($inTheHeader) {
-            $request = $this->requestWithBearerToken();
-        } else {
-            $request = $this->request(query: ['token' => self::TOKEN]);
-            $this->tokenParameterAnswered($request, self::TOKEN);
-        }
         $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([ApiScopesEnum::All]);
 
         $resolver = $this->createMock(ApiTokenPrincipalResolver::class);
@@ -519,8 +512,49 @@ class AuthorizationTest extends TestCase
 
         $this->assertSame(
             'the-resolved-principal',
-            $this->sut()->requireCallerForAnyOfScope($request, $this->requiredScopes()),
+            $this->sut()->requireCallerForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes()),
         );
+    }
+
+
+    /**
+     * At the token introspection endpoint the token request parameter is the token to be introspected, so it is
+     * never looked up as the caller's API token: a request with nothing in the Authorization header carries no token,
+     * whatever its parameters say, and is told so as a request which carries none.
+     */
+    public function testDoesNotTakeTheCallersTokenFromTheTokenRequestParameter(): void
+    {
+        $this->requestParamsResolverMock->expects($this->never())->method('getFromRequestBasedOnAllowedMethods');
+        $this->moduleConfigMock->expects($this->never())->method('getApiTokenScopes');
+        $this->apiTokenPrincipalResolverMock->expects($this->never())->method('resolve');
+
+        $this->expectException(MissingTokenException::class);
+        $this->expectExceptionMessage('Authorization token not provided in the Authorization header.');
+
+        $this->sut()->requireCallerForAnyOfScope(
+            $this->request(query: ['token' => self::TOKEN]),
+            $this->requiredScopes(),
+        );
+    }
+
+
+    /**
+     * A token in the header which is not configured, or is configured without scopes, is refused as one which is
+     * not usable: neither a token which never arrived nor a good one short of a scope.
+     */
+    public function testRefusesACallerWhoseTokenHasNoScopes(): void
+    {
+        $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)->willReturn([]);
+        $this->apiTokenPrincipalResolverMock->expects($this->never())->method('resolve');
+
+        try {
+            $this->sut()->requireCallerForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
+            $this->fail('A token without scopes was accepted.');
+        } catch (AuthorizationException $exception) {
+            $this->assertNotInstanceOf(MissingTokenException::class, $exception);
+            $this->assertNotInstanceOf(InsufficientScopeException::class, $exception);
+            $this->assertSame('Authorization token does not have defined scopes.', $exception->getMessage());
+        }
     }
 
 
@@ -615,14 +649,16 @@ class AuthorizationTest extends TestCase
 
 
     /**
-     * A refused token is refused before anyone is named, so the principal is never resolved for it.
+     * A refused token is refused before anyone is named, so the principal is never resolved for it. A known token
+     * short of a scope is told apart from one which is not usable at all, as at requireBearerTokenForAnyOfScope().
      */
     public function testRefusesACallerWhoseTokenDoesNotCoverTheRequiredScopes(): void
     {
         $this->moduleConfigMock->method('getApiTokenScopes')->with(self::TOKEN)
             ->willReturn([ApiScopesEnum::OAuth2TokenIntrospection]);
         $this->apiTokenPrincipalResolverMock->expects($this->never())->method('resolve');
-        $this->expectAuthorizationRefused('Authorization token is not authorized for this action.');
+        $this->expectException(InsufficientScopeException::class);
+        $this->expectExceptionMessage('Authorization token is not authorized for this action.');
 
         $this->sut()->requireCallerForAnyOfScope($this->requestWithBearerToken(), $this->requiredScopes());
     }

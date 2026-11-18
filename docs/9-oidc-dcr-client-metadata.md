@@ -33,7 +33,7 @@ contract for what was honored.
 | `client_name` | Honored | Honored | Defaults to client_id. |
 | `scope` | Honored | Honored | DCR default = `OPTION_DCR_DEFAULT_SCOPES`. Unsupported values dropped; `offline_access` is one of them while the `refresh_token` grant is not in `enabled_grant_types`. |
 | `grant_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["authorization_code"]` stored at registration. Unsupported values rejected (`ModuleConfig`, honouring `enabled_grant_types`). Enforced for the code grant (presence + non-empty); refresh grant exempt (see note). |
-| `response_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["code"]` stored at registration. Unsupported values rejected (those whose grant type is not enabled included). Enforced at the authorization endpoint (presence + non-empty). |
+| `response_types` | **Honored** (persist + echo + enforce) | Honored | DCR default `["code"]` stored at registration. Unsupported values rejected (those whose grant type is not enabled included). Enforced at the authorization and pushed authorization request endpoints (presence + non-empty): a response type the client did not register is refused with `unauthorized_client`. |
 | `token_endpoint_auth_method` | **Honored** (persist + echo + enforce) | Honored | DCR default `client_secret_basic` (or `none` for public) stored at registration. Unsupported values rejected. Enforced at the token endpoint (presence). Also the primary signal for the client type (see below): `none` ⇒ public, any real method ⇒ confidential. |
 | `jwks` | Honored | Honored | Stored (column). |
 | `jwks_uri` | Honored | Honored | Stored (column); fetched for client auth / request objects. |

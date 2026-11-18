@@ -23,6 +23,8 @@ use SimpleSAML\Module\oidc\Entities\ClaimSetEntity;
 use SimpleSAML\Module\oidc\Entities\ClientEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
+use SimpleSAML\Module\oidc\Exceptions\InsufficientScopeException;
+use SimpleSAML\Module\oidc\Exceptions\MissingTokenException;
 use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\Exceptions\UpstreamIntrospectionException;
 use SimpleSAML\Module\oidc\Factories\Entities\ClaimSetEntityFactory;
@@ -280,33 +282,68 @@ class TokenIntrospectionControllerTest extends TestCase
     }
 
 
-    public function testInvokeReturnsUnauthorizedOnAuthorizationException(): void
-    {
+    /**
+     * An API token presented in the Authorization header and refused, as not usable or as short of a scope, is
+     * answered 401 (RFC 7662 section 2.3 answers a token "invalid or not authorized" so) with the challenge of RFC
+     * 6750 section 3 and the refusal's own message. The challenge tells the two apart, so that the holder of a good
+     * token short of a scope is not sent to replace it, and the error code goes with it: `insufficient_scope`, as at
+     * the credential status endpoint, or the code the other API endpoints use.
+     */
+    #[DataProvider('refusedApiTokenProvider')]
+    public function testInvokeAnswersARefusedApiTokenAsUnauthorizedWithItsChallenge(
+        AuthorizationException $refusal,
+        string $expectedError,
+        string $expectedChallenge,
+    ): void {
         $requestMock = $this->createMock(Request::class);
         $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')
             ->willReturn(null);
 
         $this->apiAuthorizationMock->expects($this->once())
             ->method('requireCallerForAnyOfScope')
-            ->willThrowException(new AuthorizationException('Unauthorized client.'));
+            ->willThrowException($refusal);
 
         $this->loggerServiceMock->expects($this->once())
             ->method('error')
-            ->with($this->stringContains('AuthorizationException: Unauthorized client.'));
+            ->with($this->stringContains('AuthorizationException: ' . $refusal->getMessage()));
 
         $responseMock = $this->createMock(JsonResponse::class);
         $this->routesMock->expects($this->once())
             ->method('newJsonErrorResponse')
-            ->with('unauthorized', 'Unauthorized client.', 401)
+            ->with(
+                $expectedError,
+                $refusal->getMessage(),
+                401,
+                ['WWW-Authenticate' => $expectedChallenge],
+            )
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
     }
 
 
+    public static function refusedApiTokenProvider(): array
+    {
+        return [
+            'a token which is not usable' => [
+                new AuthorizationException('Authorization token does not have defined scopes.'),
+                'unauthorized',
+                'Bearer error="invalid_token"',
+            ],
+            'a token short of a scope' => [
+                new InsufficientScopeException('Authorization token is not authorized for this action.'),
+                'insufficient_scope',
+                'Bearer error="insufficient_scope", scope="oauth2_token_introspection"',
+            ],
+        ];
+    }
+
+
     /**
      * Attestation-based client authentication is not among the methods this endpoint advertises, so a client which
-     * authenticated so is refused, and the API token is not tried instead.
+     * authenticated so is refused as RFC 6749 section 5.2 refuses an unsupported authentication method, with
+     * `invalid_client`, and the API token is not tried instead. It came in no Authorization header, so it is sent no
+     * challenge.
      */
     public function testInvokeRefusesAClientWhichAuthenticatedByAttestation(): void
     {
@@ -322,13 +359,112 @@ class TokenIntrospectionControllerTest extends TestCase
         $this->routesMock->expects($this->once())
             ->method('newJsonErrorResponse')
             ->with(
-                'unauthorized',
+                'invalid_client',
                 'Attestation-based client authentication is not accepted at the token introspection endpoint.',
                 401,
+                [],
             )
             ->willReturn($responseMock);
 
         $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    /**
+     * Client credentials which were presented and refused are a failed client authentication, answered as RFC 6749
+     * section 5.2 has it (RFC 7662 section 2.3 refers there): `invalid_client`, with the challenge of the Basic
+     * scheme when the client tried the Authorization header with it. The administrative path is not tried instead,
+     * so this endpoint's `token` parameter is never looked up as an API token for such a request, and the answer
+     * says nothing of API tokens.
+     */
+    #[DataProvider('refusedClientCredentialsProvider')]
+    public function testInvokeAnswersRefusedClientCredentialsAsInvalidClient(
+        bool $presentsBasicAuthorization,
+        array $expectedHeaders,
+    ): void {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn(null);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')
+            ->with($this->identicalTo($requestMock))
+            ->willReturn(true);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsBasicAuthorization')
+            ->with($this->identicalTo($requestMock))
+            ->willReturn($presentsBasicAuthorization);
+        $this->apiAuthorizationMock->expects($this->never())->method('requireCallerForAnyOfScope');
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('warning')
+            ->with('TokenIntrospectionController::invoke: invalid_client: Client authentication failed.');
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with('invalid_client', 'Client authentication failed.', 401, $expectedHeaders)
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public static function refusedClientCredentialsProvider(): array
+    {
+        return [
+            'client_secret_basic, which tried the Authorization header' => [
+                true,
+                ['WWW-Authenticate' => 'Basic realm="OAuth"'],
+            ],
+            'client_secret_post or private_key_jwt, which did not' => [false, []],
+        ];
+    }
+
+
+    /**
+     * A request which carries no credentials of any kind - none for a client (a bare client_id authenticates no one),
+     * no API token in the Authorization header, no administrator's session - is answered as RFC 6749 section 5.2
+     * lists "no client authentication included", with `invalid_client`, as the token and pushed authorization request
+     * endpoints answer it; not as an API token refused. It tried no Authorization header, so it is sent no challenge.
+     */
+    #[DataProvider('noClientAuthenticationProvider')]
+    public function testInvokeAnswersARequestWithNoCredentialsAsInvalidClient(bool $identifiesAPublicClient): void
+    {
+        $requestMock = $this->createMock(Request::class);
+        $this->authenticatedOAuth2ClientResolverMock->method('forAnySupportedMethod')->willReturn(
+            $identifiesAPublicClient ?
+            new ResolvedClientAuthenticationMethod(
+                $this->createMock(ClientEntity::class),
+                ClientAuthenticationMethodsEnum::None,
+            ) :
+            null,
+        );
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsClientCredentials')->willReturn(false);
+        $this->authenticatedOAuth2ClientResolverMock->method('presentsBasicAuthorization')->willReturn(false);
+        $this->apiAuthorizationMock->expects($this->once())
+            ->method('requireCallerForAnyOfScope')
+            ->willThrowException(
+                new MissingTokenException('Authorization token not provided in the Authorization header.'),
+            );
+
+        $responseMock = $this->createMock(JsonResponse::class);
+        $this->routesMock->expects($this->once())
+            ->method('newJsonErrorResponse')
+            ->with(
+                'invalid_client',
+                'The request includes no client authentication, and no API token in the Authorization header.',
+                401,
+                [],
+            )
+            ->willReturn($responseMock);
+
+        $this->assertSame($responseMock, $this->sut()->__invoke($requestMock));
+    }
+
+
+    public static function noClientAuthenticationProvider(): array
+    {
+        return [
+            'nothing at all' => [false],
+            'a bare client_id, resolved as a public client' => [true],
+        ];
     }
 
 

@@ -37,6 +37,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\DpopJktRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IssuerStateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\Validators\DpopProofVerifier;
@@ -861,6 +862,43 @@ class PushedAuthorizationControllerTest extends TestCase
         } catch (OidcServerException $exception) {
             $this->assertSame($refusal, $exception);
         }
+    }
+
+
+    /**
+     * The response type of a pushed request is judged as at the authorization endpoint, where it is redeemed: one the
+     * OP does not offer, or the client did not register, could never be served, so it is refused here rather than
+     * given a request_uri (RFC 9126 section 2.1). The rule reads the redirect URI and the state its refusal carries
+     * from the result bag, so it runs after the rules which put them there.
+     */
+    public function testJudgesTheResponseTypeAfterTheRulesItReadsFrom(): void
+    {
+        $this->serverRequestMock->method('getMethod')->willReturn('POST');
+        $this->serverRequestMock->method('getParsedBody')->willReturn(['response_type' => 'code']);
+        $this->prepareAuthenticatedClient();
+        $this->pushedAuthorizationRequestEntityFactoryMock->method('fromData')->willReturn($this->parEntityMock);
+        // The scopes ScopeRule found for a request without a scope parameter: none.
+        $this->resultBagMock->method('getOrFail')->willReturn(new Result(ScopeRule::class, []));
+
+        $checkedRules = null;
+        $this->requestRulesManagerMock = $this->createMock(RequestRulesManager::class);
+        $this->requestRulesManagerMock->expects($this->once())->method('check')->willReturnCallback(
+            function (ServerRequestInterface $request, array $rules) use (&$checkedRules): ResultBag {
+                $checkedRules = $rules;
+
+                return $this->resultBagMock;
+            },
+        );
+
+        $this->sut()->__invoke($this->serverRequestMock);
+
+        $this->assertIsArray($checkedRules);
+        $position = array_search(ResponseTypeRule::class, $checkedRules, true);
+        $this->assertIsInt($position, 'The response type of a pushed request is not judged.');
+        $this->assertIsInt(array_search(StateRule::class, $checkedRules, true));
+        $this->assertIsInt(array_search(ClientRedirectUriRule::class, $checkedRules, true));
+        $this->assertGreaterThan(array_search(StateRule::class, $checkedRules, true), $position);
+        $this->assertGreaterThan(array_search(ClientRedirectUriRule::class, $checkedRules, true), $position);
     }
 
 

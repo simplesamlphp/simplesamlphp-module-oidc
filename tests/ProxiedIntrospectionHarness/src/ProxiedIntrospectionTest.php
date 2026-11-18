@@ -132,6 +132,64 @@ final class ProxiedIntrospectionTest extends TestCase
     }
 
 
+    /**
+     * A client whose secret is wrong - a hub whose secret was mistyped on either side, say - is answered as RFC 7662
+     * section 2.3 has it, as RFC 6749 section 5.2 does: 401 `invalid_client`, with the challenge of the Basic scheme
+     * when it tried the Authorization header with it. Nothing is said of API tokens: the token parameter is the token
+     * to introspect, and is not looked up as one.
+     */
+    #[DataProvider('clientAuthenticationProvider')]
+    public function testAClientWithAWrongSecretIsAnsweredInvalidClient(string $clientAuthentication): void
+    {
+        $answer = $this->harness->introspect(
+            'b',
+            'hub-h',
+            'dummy',
+            clientAuthentication: $clientAuthentication,
+            clientSecret: 'not-the-secret',
+        );
+
+        $this->assertSame(401, $answer->status, $answer->describe());
+        $this->assertSame(
+            ['error' => 'invalid_client', 'error_description' => 'Client authentication failed.'],
+            $answer->json(),
+            $answer->describe(),
+        );
+        $this->assertSame(
+            $clientAuthentication === Harness::CLIENT_SECRET_POST ? '' : 'Basic realm="OAuth"',
+            $answer->wwwAuthenticate,
+        );
+    }
+
+
+    /**
+     * A request with no credentials of any kind, carrying a token as every introspection request does, is answered
+     * as RFC 6749 section 5.2 answers one with no client authentication, and the token is not looked up as an API
+     * token.
+     */
+    public function testARequestWithNoCredentialsIsAnsweredInvalidClient(): void
+    {
+        $answer = $this->harness->introspect(
+            'b',
+            'hub-h',
+            'dummy',
+            clientAuthentication: Harness::NO_CLIENT_AUTHENTICATION,
+        );
+
+        $this->assertSame(401, $answer->status, $answer->describe());
+        $this->assertSame(
+            [
+                'error' => 'invalid_client',
+                'error_description' =>
+                    'The request includes no client authentication, and no API token in the Authorization header.',
+            ],
+            $answer->json(),
+            $answer->describe(),
+        );
+        $this->assertSame('', $answer->wwwAuthenticate);
+    }
+
+
     public function testTheHubAskingBAboutATokenOfAIsAnsweredInactive(): void
     {
         $token = $this->tokenOfA();

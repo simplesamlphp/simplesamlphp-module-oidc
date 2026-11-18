@@ -13,6 +13,9 @@ use SimpleSAML\Module\oidc\Codebooks\FlowTypeEnum;
 use SimpleSAML\Module\oidc\Entities\AccessTokenEntity;
 use SimpleSAML\Module\oidc\Entities\UserEntity;
 use SimpleSAML\Module\oidc\Exceptions\AuthorizationException;
+use SimpleSAML\Module\oidc\Exceptions\InsufficientScopeException;
+use SimpleSAML\Module\oidc\Exceptions\InvalidClientException;
+use SimpleSAML\Module\oidc\Exceptions\MissingTokenException;
 use SimpleSAML\Module\oidc\Exceptions\TokenNotFoundException;
 use SimpleSAML\Module\oidc\Exceptions\UpstreamIntrospectionException;
 use SimpleSAML\Module\oidc\Factories\IntrospectionReleasePolicyFactory;
@@ -48,6 +51,21 @@ use Throwable;
 
 class TokenIntrospectionController
 {
+    final public const string HEADER_WWW_AUTHENTICATE = 'WWW-Authenticate';
+
+    /**
+     * The challenge a client refused after authenticating with a Basic Authorization header is sent, the one the
+     * token and pushed authorization request endpoints send it (League's).
+     */
+    final public const string CHALLENGE_BASIC = 'Basic realm="OAuth"';
+
+    /**
+     * The challenge an API token refused in the Authorization header is sent (RFC 6750 section 3), unless it is only
+     * short of a scope.
+     */
+    final public const string CHALLENGE_INVALID_TOKEN = 'Bearer error="invalid_token"';
+
+
     /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
@@ -84,14 +102,44 @@ class TokenIntrospectionController
     {
         try {
             $introspectionAuthorization = $this->resolveIntrospectionAuthorization($request);
+        } catch (InvalidClientException $e) {
+            // RFC 7662 section 2.3 answers a caller whose client credentials are invalid as RFC 6749 section 5.2
+            // does, which has a client that tried the Authorization header sent the challenge of its scheme. Logged
+            // as the other endpoints log their invalid_client (ErrorResponder); why the credentials were refused,
+            // the resolver has logged, and the answer does not say.
+            $this->loggerService->warning(
+                'TokenIntrospectionController::invoke: invalid_client: ' . $e->getMessage(),
+            );
+            return $this->routes->newJsonErrorResponse(
+                error: 'invalid_client',
+                description: $e->getMessage(),
+                httpCode: Response::HTTP_UNAUTHORIZED,
+                headers: $this->authenticatedOAuth2ClientResolver->presentsBasicAuthorization($request) ?
+                [self::HEADER_WWW_AUTHENTICATE => self::CHALLENGE_BASIC] :
+                [],
+            );
         } catch (AuthorizationException $e) {
+            // An API token presented in the Authorization header and refused: not configured, configured without
+            // scopes, or without one this endpoint takes. RFC 7662 section 2.3 answers a token "invalid or not
+            // authorized" with a 401 as RFC 6750 section 3 describes, with its challenge, which tells the two apart:
+            // a token which is good but short of a scope is not to be replaced, and its holder is told which scope
+            // it lacks, as the credential status endpoint tells it.
             $this->loggerService->error(
                 'TokenIntrospectionController::invoke: AuthorizationException: ' . $e->getMessage(),
             );
+            $isShortOfAScope = $e instanceof InsufficientScopeException;
             return $this->routes->newJsonErrorResponse(
-                error: 'unauthorized',
+                error: $isShortOfAScope ? 'insufficient_scope' : 'unauthorized',
                 description: $e->getMessage(),
                 httpCode: Response::HTTP_UNAUTHORIZED,
+                headers: [
+                    self::HEADER_WWW_AUTHENTICATE => $isShortOfAScope ?
+                    sprintf(
+                        'Bearer error="insufficient_scope", scope="%s"',
+                        ApiScopesEnum::OAuth2TokenIntrospection->value,
+                    ) :
+                    self::CHALLENGE_INVALID_TOKEN,
+                ],
             );
         } catch (Throwable $e) {
             // Not a verdict on the caller: a database or cache which did not answer while the caller was being
@@ -721,7 +769,15 @@ class TokenIntrospectionController
      * upstream hub, in the configuration only - and the administrative path (a logged in administrator, an API
      * token) is its own role; see IntrospectionCallerRoleEnum.
      *
-     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * The administrative path is taken only by a request which presents no client credentials. One which presents
+     * them and is refused has failed client authentication, whatever else it carries, and so has one which carries
+     * nothing at all. Its API token is read from the Authorization header only: this endpoint's `token` parameter
+     * is the token to be introspected.
+     *
+     * @throws \SimpleSAML\Module\oidc\Exceptions\InvalidClientException When client authentication failed:
+     * credentials refused, a method this endpoint does not take, or no credentials of any kind.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException When an API token in the Authorization
+     * header is refused.
      * @throws \SimpleSAML\Error\ConfigurationError When a client is given two roles, or there is no key to
      * fingerprint an API token which has no name.
      * @throws \Exception
@@ -740,7 +796,7 @@ class TokenIntrospectionController
             $resolvedClientAuthenticationMethod?->getClientAuthenticationMethod() ===
             ClientAuthenticationMethodsEnum::AttestJwtClientAuth
         ) {
-            throw new AuthorizationException(
+            throw new InvalidClientException(
                 'Attestation-based client authentication is not accepted at the token introspection endpoint.',
             );
         }
@@ -815,13 +871,28 @@ class TokenIntrospectionController
             return IntrospectionAuthorization::forClient($clientId);
         }
 
+        // Client credentials which were presented and refused (the resolver has logged why): neither an API token
+        // nor an administrator's session stands in for them.
+        if ($this->authenticatedOAuth2ClientResolver->presentsClientCredentials($request)) {
+            throw new InvalidClientException('Client authentication failed.');
+        }
+
         $this->loggerService->debug('No regular OAuth2 client authentication method found.');
         $this->loggerService->debug('Trying API client authentication method.');
 
-        $principal = $this->apiAuthorization->requireCallerForAnyOfScope(
-            $request,
-            [ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::OAuth2All, ApiScopesEnum::All],
-        );
+        try {
+            $principal = $this->apiAuthorization->requireCallerForAnyOfScope(
+                $request,
+                [ApiScopesEnum::OAuth2TokenIntrospection, ApiScopesEnum::OAuth2All, ApiScopesEnum::All],
+            );
+        } catch (MissingTokenException $exception) {
+            // No credentials of any kind. RFC 6749 section 5.2 lists "no client authentication included" under
+            // invalid_client, and the token and pushed authorization request endpoints answer it so.
+            throw new InvalidClientException(
+                'The request includes no client authentication, and no API token in the Authorization header.',
+                previous: $exception,
+            );
+        }
 
         $this->loggerService->debug(sprintf('API client %s authenticated.', $principal));
 

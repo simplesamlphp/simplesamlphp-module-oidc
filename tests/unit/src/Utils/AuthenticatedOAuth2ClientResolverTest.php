@@ -1851,6 +1851,57 @@ class AuthenticatedOAuth2ClientResolverTest extends TestCase
     }
 
     // -----------------------------------------------------------------------
+    // presentsBasicAuthorization
+    // -----------------------------------------------------------------------
+
+    /**
+     * A Basic Authorization header counts as presentsClientCredentials() counts one: the scheme in any case, a bare
+     * scheme and credentials which can not be decoded included. Any other header, or none, does not, and neither do
+     * credentials sent another way, here a client secret in the body: a client which sent that did not try the
+     * Authorization header.
+     */
+    #[DataProvider('basicAuthorizationProvider')]
+    public function testPresentsBasicAuthorizationOnlyForABasicHeader(
+        array $authorizationHeader,
+        bool $expected,
+    ): void {
+        $this->serverRequestMock->method('getHeader')->with('Authorization')->willReturn($authorizationHeader);
+        $this->requestParamsResolverMock->method('getFromRequestBasedOnAllowedMethods')
+            ->willReturnCallback(static fn(string $paramKey): ?string =>
+                $paramKey === ParamsEnum::ClientSecret->value ? self::CLIENT_SECRET : null);
+
+        $this->assertSame($expected, $this->sut()->presentsBasicAuthorization($this->serverRequestMock));
+    }
+
+
+    public static function basicAuthorizationProvider(): array
+    {
+        return [
+            'a Basic Authorization header' => [['Basic ' . base64_encode('id:secret')], true],
+            'the scheme in lower case' => [['basic ' . base64_encode('id:secret')], true],
+            'credentials which do not decode' => [['Basic !!!'], true],
+            'a bare Basic scheme' => [['Basic'], true],
+            'a Bearer Authorization header' => [['Bearer some-token'], false],
+            'a scheme which merely starts with Basic' => [['Basically nothing'], false],
+            'no Authorization header' => [[], false],
+        ];
+    }
+
+
+    public function testPresentsBasicAuthorizationConvertsSymfonyRequestToPsr(): void
+    {
+        $symfonyRequest = Request::create('/', 'POST');
+        $psrRequest = $this->createMock(ServerRequestInterface::class);
+        $psrRequest->method('getHeader')->with('Authorization')->willReturn(['Basic abc']);
+        $this->psrHttpFactoryMock->expects($this->once())
+            ->method('createRequest')
+            ->with($symfonyRequest)
+            ->willReturn($psrRequest);
+
+        $this->assertTrue($this->sut()->presentsBasicAuthorization($symfonyRequest));
+    }
+
+    // -----------------------------------------------------------------------
     // forClientAttestation
     // -----------------------------------------------------------------------
 

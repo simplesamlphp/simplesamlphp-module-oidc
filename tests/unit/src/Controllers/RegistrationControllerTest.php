@@ -92,6 +92,7 @@ class RegistrationControllerTest extends TestCase
         $this->clientMetadataValidator = new ClientMetadataValidator(
             $this->moduleConfigMock,
             new DestinationPolicy(allowedHosts: ['client.example.org', 'op.example.org']),
+            new Helpers(),
         );
         $this->helpers = new Helpers();
 
@@ -201,6 +202,23 @@ class RegistrationControllerTest extends TestCase
     public function testInvalidJsonReturns400InvalidClientMetadata(): void
     {
         $response = $this->sut()->registration($this->postRequest('not-json'));
+
+        $this->assertSame(400, $response->getStatusCode());
+        $this->assertSame('invalid_client_metadata', $this->decode($response)['error']);
+    }
+
+
+    /**
+     * A jwks whose keys are not a list of JWKs is refused before anything is built from the metadata, so it is
+     * never stored for the client's authentication and Request Objects to be verified against.
+     */
+    public function testAJwksWhichIsNotAJwkSetIsRefusedAndNothingStored(): void
+    {
+        $this->expectNothingWritten();
+
+        $response = $this->sut()->registration(
+            $this->postRequest('{"redirect_uris":["https://client.example.org/cb"],"jwks":{"keys":"x"}}'),
+        );
 
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame('invalid_client_metadata', $this->decode($response)['error']);

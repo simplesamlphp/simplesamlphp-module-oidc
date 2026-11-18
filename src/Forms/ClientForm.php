@@ -764,30 +764,19 @@ class ClientForm extends Form
     }
 
 
+    /**
+     * The same check Dynamic Client Registration makes of a client's `jwks` (Helpers\Jwks::keySetProblem()).
+     */
     public function validateJwks(mixed $jwks): void
     {
         if (is_null($jwks)) {
             return;
         }
 
-        if (!is_array($jwks)) {
-            $this->addError(sprintf("Invalid JWKS format: %s", var_export($jwks, true)));
-            return;
-        }
+        $problem = $this->helpers->jwks()->keySetProblem($jwks);
 
-        if (!array_key_exists('keys', $jwks)) {
-            $this->addError(sprintf("No keys property in JWKS: %s", var_export($jwks, true)));
-            return;
-        }
-
-        // RFC 7517, section 5: the value of `keys` is an array (a JSON array, so a list) of JWKs.
-        if (!is_array($jwks['keys']) || !array_is_list($jwks['keys'])) {
-            $this->addError(sprintf("Keys property in JWKS is not a list: %s", var_export($jwks, true)));
-            return;
-        }
-
-        if ($jwks['keys'] === []) {
-            $this->addError(sprintf("Empty keys in JWKS: %s", var_export($jwks, true)));
+        if ($problem !== null) {
+            $this->addError(sprintf('%s: %s', $problem, var_export($jwks, true)));
         }
     }
 

@@ -29,6 +29,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
@@ -142,6 +143,19 @@ class AuthorizationServer extends OAuth2AuthorizationServer
         $state = $resultBag->getOrFail(StateRule::class)->getValue();
         $redirectUri = $resultBag->getOrFail(ClientRedirectUriRule::class)->getValue();
         $responseMode = $resultBag->getOrFail(ResponseModeRule::class)->getValue();
+
+        // The response type is judged once the redirect URI and the response mode are established, and before a grant
+        // is chosen: a grant applies its own policy, and may send the End-User to log in (prompt, max_age), before
+        // its rules come to the response type, and a request which can not be served is refused before either, as
+        // one the OP does not offer (unsupported_response_type) or the client did not register
+        // (unauthorized_client), to the redirect URI. A request without one is left to the grants, none of which
+        // takes it. The grants run the rule again with their other rules, and it answers the same.
+        $this->requestRulesManager->check(
+            $request,
+            [ResponseTypeRule::class],
+            $responseMode,
+            [HttpMethodsEnum::GET, HttpMethodsEnum::POST],
+        );
 
         foreach ($this->enabledGrantTypes as $grantType) {
             $this->loggerService?->debug(

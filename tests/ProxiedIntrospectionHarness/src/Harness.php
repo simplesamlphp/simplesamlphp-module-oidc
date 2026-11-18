@@ -39,6 +39,11 @@ final class Harness
     public const string CLIENT_SECRET_POST = 'client_secret_post';
 
     /**
+     * No credentials of any kind: the client ID is not sent either.
+     */
+    public const string NO_CLIENT_AUTHENTICATION = 'no client authentication';
+
+    /**
      * Redirects a login may take: authorization endpoint to login page, and back through SimpleSAMLphp.
      */
     private const int MAX_REDIRECTS = 10;
@@ -187,6 +192,8 @@ final class Harness
     /**
      * The node's introspection answer to the client, which authenticates with its secret: by default with
      * client_secret_basic, the client ID and secret joined as they are, as many clients send them.
+     *
+     * @param ?string $clientSecret The secret to send in place of the client's own, for a client which got it wrong.
      */
     public function introspect(
         string $node,
@@ -194,13 +201,14 @@ final class Harness
         string $token,
         ?string $tokenTypeHint = null,
         string $clientAuthentication = self::CLIENT_SECRET_BASIC_AS_IS,
+        ?string $clientSecret = null,
     ): IntrospectionAnswer {
         $formParams = ['token' => $token];
         if (!is_null($tokenTypeHint)) {
             $formParams['token_type_hint'] = $tokenTypeHint;
         }
 
-        $clientSecret = $this->clientSecret($node, $clientId);
+        $clientSecret ??= $this->clientSecret($node, $clientId);
         $headers = ['Accept' => 'application/json'];
         $options = [];
 
@@ -217,6 +225,8 @@ final class Harness
                 $formParams['client_id'] = $clientId;
                 $formParams['client_secret'] = $clientSecret;
                 break;
+            case self::NO_CLIENT_AUTHENTICATION:
+                break;
             default:
                 throw new RuntimeException('No such way to authenticate a client: ' . $clientAuthentication);
         }
@@ -230,6 +240,7 @@ final class Harness
             $response->getStatusCode(),
             $response->getHeaderLine('Content-Type'),
             (string)$response->getBody(),
+            $response->getHeaderLine('WWW-Authenticate'),
         );
     }
 

@@ -5070,11 +5070,34 @@ class ModuleConfig
 
 
     /**
+     * The configured API tokens, each under its token. An entry the option holds under an integer key is left out, as
+     * no token: PHP numbers an entry written without its token from 0, so `Authorization: Bearer 0` would otherwise
+     * present it, and it keys a token which reads as a decimal integer (`123456`; not `0123`, nor one beyond
+     * PHP_INT_MAX, which stay strings) as an integer too, which no token worth the name is (the option's keys are
+     * strong random strings). So neither is looked up nor counted, on the configuration overview included.
+     *
      * @return mixed[]|null
      */
     public function getApiTokens(): ?array
     {
-        return $this->config()->getOptionalArray(self::OPTION_API_TOKENS, null);
+        $apiTokens = $this->config()->getOptionalArray(self::OPTION_API_TOKENS, null);
+
+        return is_null($apiTokens) ? null : array_filter($apiTokens, is_string(...), ARRAY_FILTER_USE_KEY);
+    }
+
+
+    /**
+     * What an API token is configured with, or null when it is not configured (getApiTokens()). Looked up in the
+     * option itself, so that a lookup does not filter every entry again: a token PHP keys as an integer, which is
+     * exactly what getApiTokens() leaves out, is refused first, PHP itself telling which it is.
+     */
+    protected function apiTokenEntry(string $token): mixed
+    {
+        if (is_int(array_key_first([$token => null]))) {
+            return null;
+        }
+
+        return $this->config()->getOptionalArray(self::OPTION_API_TOKENS, null)[$token] ?? null;
     }
 
 
@@ -5085,7 +5108,7 @@ class ModuleConfig
     public function getApiTokenScopes(string $token): ?array
     {
         /** @var mixed $entry */
-        $entry = $this->getApiTokens()[$token] ?? null;
+        $entry = $this->apiTokenEntry($token);
 
         if (!is_array($entry)) {
             return null;
@@ -5138,7 +5161,7 @@ class ModuleConfig
     public function getApiTokenName(string $token): ?string
     {
         /** @var mixed $entry */
-        $entry = $this->getApiTokens()[$token] ?? null;
+        $entry = $this->apiTokenEntry($token);
 
         if (!is_array($entry)) {
             return null;
@@ -5186,7 +5209,7 @@ class ModuleConfig
     public function getApiTokenCredentialConfigurationIds(string $token): ?array
     {
         /** @var mixed $entry */
-        $entry = $this->getApiTokens()[$token] ?? null;
+        $entry = $this->apiTokenEntry($token);
 
         if (!is_array($entry) || !array_key_exists(self::KEY_API_TOKEN_CREDENTIAL_CONFIGURATION_IDS, $entry)) {
             return null;

@@ -1766,6 +1766,14 @@ class ClientFormTest extends TestCase
                 ['keys' => ['sig-1' => ['kty' => 'RSA']]],
                 'Keys property in JWKS is not a list',
             ],
+            'a key which is not a JSON object' => [
+                ['keys' => ['sig-1']],
+                'Key in JWKS is not a JSON object with a key type (kty)',
+            ],
+            'a key without a key type' => [
+                ['keys' => [['kid' => 'sig-1']]],
+                'Key in JWKS is not a JSON object with a key type (kty)',
+            ],
         ];
     }
 
@@ -1792,7 +1800,7 @@ class ClientFormTest extends TestCase
     {
         $sut = $this->sut();
         $sut->validateJwks(null);
-        $sut->validateJwks(['keys' => [['kid' => 'sig-1']]]);
+        $sut->validateJwks(['keys' => [['kty' => 'RSA', 'kid' => 'sig-1']]]);
 
         $this->assertSame([], $this->ownErrors($sut));
     }

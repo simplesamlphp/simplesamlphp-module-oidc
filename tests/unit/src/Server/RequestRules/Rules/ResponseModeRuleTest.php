@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\Server\RequestRules\Rules;
 
+use ErrorException;
 use LogicException;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -245,6 +246,73 @@ class ResponseModeRuleTest extends TestCase
 
         $this->assertNotNull($result);
         $this->assertSame($this->queryResponseModeStub, $result->getValue());
+    }
+
+
+    /**
+     * The rule under a handler which makes a warning an exception, so that a cast of a value which is not a string
+     * fails the test instead of passing with a warning beside it.
+     */
+    protected function checkRuleWithoutWarnings(array $params): ?Result
+    {
+        $this->requestParamsResolverStub->method('getAllBasedOnAllowedMethods')->willReturn($params);
+
+        set_error_handler(static function (int $severity, string $message): never {
+            throw new ErrorException($message, 0, $severity);
+        });
+
+        try {
+            return $this->sut()->checkRule(
+                $this->requestStub,
+                $this->resultBag,
+                $this->loggerServiceStub,
+                [],
+                $this->responseModeStub,
+            );
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+
+    /**
+     * A response type which is not a string - an array from the query, a number from a Request Object - is read as
+     * none when the default response mode is chosen, with no warning: ResponseTypeRule refuses it after this rule.
+     */
+    #[DataProvider('valueWhichIsNotAStringProvider')]
+    public function testReadsAResponseTypeWhichIsNotAStringAsNone(mixed $responseType): void
+    {
+        $result = $this->checkRuleWithoutWarnings(['client_id' => 'client123', 'response_type' => $responseType]);
+
+        $this->assertSame($this->queryResponseModeStub, $result?->getValue());
+    }
+
+
+    /**
+     * A response mode which is not a string is refused as one which is not supported, with no warning, rather than
+     * cast to one.
+     */
+    #[DataProvider('valueWhichIsNotAStringProvider')]
+    public function testRefusesAResponseModeWhichIsNotAString(mixed $responseMode): void
+    {
+        try {
+            $this->checkRuleWithoutWarnings(
+                ['client_id' => 'client123', 'response_type' => 'code', 'response_mode' => $responseMode],
+            );
+            $this->fail('A response mode which is not a string was accepted.');
+        } catch (OidcServerException $exception) {
+            $this->assertSame('invalid_request', $exception->getErrorType());
+            $this->assertSame('Invalid response_mode', $exception->getHint());
+        }
+    }
+
+
+    public static function valueWhichIsNotAStringProvider(): array
+    {
+        return [
+            'an array' => [['query']],
+            'a number' => [1],
+        ];
     }
 
 

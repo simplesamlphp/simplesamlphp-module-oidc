@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Server\Registration\ClientMetadataValidator;
@@ -51,7 +52,7 @@ class ClientMetadataValidatorTest extends TestCase
 
     protected function sut(): ClientMetadataValidator
     {
-        return new ClientMetadataValidator($this->moduleConfigMock, $this->destinationPolicyMock);
+        return new ClientMetadataValidator($this->moduleConfigMock, $this->destinationPolicyMock, new Helpers());
     }
 
 
@@ -160,6 +161,51 @@ class ClientMetadataValidatorTest extends TestCase
         ];
 
         $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+
+    public function testAJwkSetPasses(): void
+    {
+        $metadata = [
+            'redirect_uris' => ['https://client.example.org/cb'],
+            'jwks' => ['keys' => [['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x', 'y' => 'y']]],
+        ];
+
+        $this->assertSame($metadata, $this->sut()->validate($metadata));
+    }
+
+
+    /**
+     * A jwks which is not a JWK Set is refused with invalid_client_metadata, saying what is wrong with it, as the
+     * client administration form refuses it: one whose keys are not a list of JWKs would be stored as it came, and one
+     * the OP can not use at all would be dropped without a word. Null is a value sent, not an absent one.
+     */
+    #[DataProvider('notAJwkSetProvider')]
+    public function testAJwksWhichIsNotAJwkSetIsRejected(mixed $jwks, string $problem): void
+    {
+        $this->assertRejected(
+            ['redirect_uris' => ['https://client.example.org/cb'], 'jwks' => $jwks],
+            'invalid_client_metadata',
+            sprintf('jwks must be a JWK Set (RFC 7517 section 5): %s.', $problem),
+        );
+    }
+
+
+    public static function notAJwkSetProvider(): array
+    {
+        $jwk = ['kty' => 'EC', 'crv' => 'P-256', 'x' => 'x', 'y' => 'y'];
+        $notAJwk = 'Key in JWKS is not a JSON object with a key type (kty)';
+
+        return [
+            'keys which is a string' => [['keys' => 'x'], 'Keys property in JWKS is not a list'],
+            'keys which is an object' => [['keys' => ['a' => $jwk]], 'Keys property in JWKS is not a list'],
+            'a key which is not an object' => [['keys' => ['x']], $notAJwk],
+            'a key without a key type' => [['keys' => [$jwk, ['kid' => 'signing']]], $notAJwk],
+            'keys which is empty' => [['keys' => []], 'Empty keys in JWKS'],
+            'no keys' => [['kid' => 'sig-1'], 'No keys property in JWKS'],
+            'a string' => ['x', 'Invalid JWKS format'],
+            'null' => [null, 'Invalid JWKS format'],
+        ];
     }
 
 
@@ -523,7 +569,8 @@ class ClientMetadataValidatorTest extends TestCase
 
         $this->assertSame(
             $metadata,
-            (new ClientMetadataValidator($moduleConfigMock, $this->destinationPolicyMock))->validate($metadata),
+            (new ClientMetadataValidator($moduleConfigMock, $this->destinationPolicyMock, new Helpers()))
+                ->validate($metadata),
         );
     }
 

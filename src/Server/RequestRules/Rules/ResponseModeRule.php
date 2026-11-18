@@ -67,15 +67,29 @@ class ResponseModeRule extends AbstractRule
             );
         }
 
-        $responseModeValue = isset($requestParams[ParamsEnum::ResponseMode->value]) ?
-        (string)$requestParams[ParamsEnum::ResponseMode->value] : null;
+        // Read as strings only: an array (`response_mode[]=` in the query) or a number (in a Request Object) is no
+        // response mode, and casting one would raise a warning before anything refused it.
+        /** @psalm-suppress MixedAssignment */
+        $responseModeParam = $requestParams[ParamsEnum::ResponseMode->value] ?? null;
+
+        if ($responseModeParam !== null && !is_string($responseModeParam)) {
+            $loggerService->notice('Authorization request rejected: `response_mode` is not a string.');
+            throw OidcServerException::invalidRequest(
+                ParamsEnum::ResponseMode->value,
+                'Invalid response_mode',
+            );
+        }
+
+        $responseModeValue = $responseModeParam;
         $loggerService->debug('ResponseModeRule: response_mode requestParams value: ' . ($responseModeValue ?? 'null'));
 
 
         // if response_mode is not set, we set the default
-        //  to 'code' if not set. Error will be thrown by ResponseTypeRule.
-        $responseType = isset($requestParams[ParamsEnum::ResponseType->value]) ?
-        (string)$requestParams[ParamsEnum::ResponseType->value] : 'code';
+        //  to 'code' if not set. Error will be thrown by ResponseTypeRule, which also refuses a response type
+        //  which is not a string, read here as none.
+        /** @psalm-suppress MixedAssignment */
+        $responseTypeParam = $requestParams[ParamsEnum::ResponseType->value] ?? null;
+        $responseType = is_string($responseTypeParam) ? $responseTypeParam : 'code';
         if (!$responseModeValue) {
             $responseModeValue = str_contains($responseType, 'token') ?
             ResponseModesEnum::Fragment->value : ResponseModesEnum::Query->value;

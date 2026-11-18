@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Server\Registration;
 
+use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
 use SimpleSAML\Module\oidc\Utils\ResponseTypeGrantTypeCorrespondence;
@@ -102,6 +103,7 @@ class ClientMetadataValidator
     public function __construct(
         private readonly ModuleConfig $moduleConfig,
         private readonly DestinationPolicy $destinationPolicy,
+        private readonly Helpers $helpers,
     ) {
     }
 
@@ -123,6 +125,7 @@ class ClientMetadataValidator
         $redirectUris = $this->validateRedirectUris($metadata);
         $this->validateInformationalUris($metadata);
         $this->validateRequestUris($metadata);
+        $this->validateJwks($metadata);
         $this->validateFetchedUriDestinations($metadata, $isCallerAuthenticated);
         $this->validateContacts($metadata);
         $this->validateApplicationType($metadata);
@@ -238,6 +241,32 @@ class ClientMetadataValidator
                     'Each request_uris value must be a valid https URI.',
                 );
             }
+        }
+    }
+
+
+    /**
+     * jwks, when present, must be a JWK Set: an object whose `keys` member is a non-empty array of JWKs (RFC 7517
+     * section 5), checked as the client administration form checks one (Helpers\Jwks::keySetProblem()). An object
+     * whose `keys` holds something other than a list of JWKs would otherwise be stored as it came, and the client's
+     * private_key_jwt authentication and signed Request Objects verified against a set which is not one; a value
+     * ClientEntityFactory can not use at all (not an object, without `keys`, with none in them) would be dropped
+     * without a word. Both are refused: the OP honours a value or rejects it.
+     *
+     * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
+     */
+    private function validateJwks(array $metadata): void
+    {
+        if (!array_key_exists(ClaimsEnum::Jwks->value, $metadata)) {
+            return;
+        }
+
+        $problem = $this->helpers->jwks()->keySetProblem($metadata[ClaimsEnum::Jwks->value]);
+
+        if ($problem !== null) {
+            throw OidcServerException::invalidClientMetadata(
+                sprintf('jwks must be a JWK Set (RFC 7517 section 5): %s.', $problem),
+            );
         }
     }
 

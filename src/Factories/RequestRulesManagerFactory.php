@@ -182,7 +182,7 @@ class RequestRulesManagerFactory
             new RequestedClaimsRule($this->requestParamsResolver, $this->helpers, $this->claimTranslatorExtractor),
             new AddClaimsToIdTokenRule($this->requestParamsResolver, $this->helpers),
             new RequiredNonceRule($this->requestParamsResolver, $this->helpers),
-            new ResponseTypeRule($this->requestParamsResolver, $this->helpers),
+            new ResponseTypeRule($this->requestParamsResolver, $this->helpers, $this->moduleConfig),
             new IdTokenHintRule(
                 $this->requestParamsResolver,
                 $this->helpers,

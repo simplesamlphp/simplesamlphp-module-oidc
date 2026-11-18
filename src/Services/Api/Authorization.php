@@ -91,21 +91,38 @@ class Authorization
 
 
     /**
-     * {@see requireAdminOrTokenForAnyOfScope()}, saying only who the request is made by: for an endpoint whose answer
-     * depends on who is asking, and not only on whether they may ask at all.
+     * Authorize a request by a logged in SimpleSAMLphp administrator, or by an API token holding one of the scopes
+     * in the Authorization header, and say who it is made by: for an endpoint whose answer depends on who is asking,
+     * and not only on whether they may ask at all.
+     *
+     * Not {@see requireAdminOrTokenForAnyOfScope()}, which falls back to reading the API token from the `token`
+     * request parameter. At the token introspection endpoint, which this serves, that parameter is the token to be
+     * introspected (RFC 7662 section 2.1), and it would be looked up as an API token whenever the caller sent none,
+     * so that a client whose credentials were refused would be told about an API token it never sent.
      *
      * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
      * @return string ADMIN_PRINCIPAL for a logged in SimpleSAMLphp administrator; for an API token, who it
      * stands for as {@see ApiTokenPrincipalResolver} resolves it: its configured name, or a fingerprint.
      * Never the token itself. Two tokens configured under one name are therefore one caller.
-     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\MissingTokenException When the request is not an administrator's
+     * and carries no token in the Authorization header.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\InsufficientScopeException When the token is known and holds none
+     * of the scopes.
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException When the token is not usable.
      * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function requireCallerForAnyOfScope(Request $request, array $requiredScopes): string
     {
-        $token = $this->authorizeForAnyOfScope($request, $requiredScopes);
+        try {
+            $this->requireSimpleSAMLphpAdmin();
+            return self::ADMIN_PRINCIPAL;
+        } catch (Throwable) {
+            // Not admin, check for token.
+        }
 
-        return is_null($token) ? self::ADMIN_PRINCIPAL : $this->apiTokenPrincipalResolver->resolve($token);
+        return $this->apiTokenPrincipalResolver->resolve(
+            $this->bearerTokenForAnyOfScope($request, $requiredScopes),
+        );
     }
 
 
@@ -168,6 +185,25 @@ class Authorization
      */
     public function requireBearerTokenForAnyOfScope(Request $request, array $requiredScopes): ApiCaller
     {
+        $token = $this->bearerTokenForAnyOfScope($request, $requiredScopes);
+
+        return new ApiCaller(
+            $this->apiTokenPrincipalResolver->resolve($token),
+            $this->credentialConfigurationLimitOf($token),
+        );
+    }
+
+
+    /**
+     * The API token in the request's Authorization header, when it holds one of the scopes.
+     *
+     * @param \SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum[] $requiredScopes
+     * @throws \SimpleSAML\Module\oidc\Exceptions\MissingTokenException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\InsufficientScopeException
+     * @throws \SimpleSAML\Module\oidc\Exceptions\AuthorizationException
+     */
+    protected function bearerTokenForAnyOfScope(Request $request, array $requiredScopes): string
+    {
         $token = $this->helpers->http()->getBearerToken($request->headers->get(self::KEY_AUTHORIZATION));
 
         if ($token === null || trim($token) === '') {
@@ -199,10 +235,7 @@ class Authorization
             );
         }
 
-        return new ApiCaller(
-            $this->apiTokenPrincipalResolver->resolve($token),
-            $this->credentialConfigurationLimitOf($token),
-        );
+        return $token;
     }
 
 

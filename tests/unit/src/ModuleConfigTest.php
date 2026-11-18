@@ -2162,6 +2162,74 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * PHP numbers an entry written without its token from 0, and keys a token of digits alone as an integer too, so
+     * neither is a token: `Authorization: Bearer 0` must not present the first, whatever it is configured with.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('integerKeyedApiTokenProvider')]
+    public function testReadsNothingForAnEntryUnderAnIntegerKey(array $apiTokens, string $presented): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_TOKENS => $apiTokens],
+        ));
+
+        $this->assertNull($sut->getApiTokenScopes($presented));
+        $this->assertNull($sut->getApiTokenName($presented));
+        $this->assertNull($sut->getApiTokenCredentialConfigurationIds($presented));
+        // The string token beside it is read as ever, and is the only one there is, which is what the configuration
+        // overview counts.
+        $this->assertSame([ApiScopesEnum::All], $sut->getApiTokenScopes('a-token'));
+        $this->assertSame(['a-token'], array_keys($sut->getApiTokens() ?? []));
+    }
+
+
+    /**
+     * PHP keeps a key of digits as a string when it does not read as a decimal integer - with a leading zero, or
+     * beyond PHP_INT_MAX - and such a token is configured like any other.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('digitTokenKeptAsAStringProvider')]
+    public function testReadsATokenOfDigitsWhichPhpKeepsAsAString(string $token): void
+    {
+        $sut = $this->sut(overrides: array_merge(
+            $this->overrides,
+            [ModuleConfig::OPTION_API_TOKENS => [$token => ['name' => 'Ops', 'scopes' => [ApiScopesEnum::All]]]],
+        ));
+
+        $this->assertSame([ApiScopesEnum::All], $sut->getApiTokenScopes($token));
+        $this->assertSame('Ops', $sut->getApiTokenName($token));
+        $this->assertSame([$token], array_keys($sut->getApiTokens() ?? []));
+    }
+
+
+    public static function digitTokenKeptAsAStringProvider(): array
+    {
+        return [
+            'a leading zero' => ['0123456'],
+            'beyond PHP_INT_MAX' => ['99999999999999999999999999'],
+        ];
+    }
+
+
+    public static function integerKeyedApiTokenProvider(): array
+    {
+        $settings = [
+            'name' => 'Ops',
+            'scopes' => [ApiScopesEnum::OAuth2TokenIntrospection],
+            'credential_configuration_ids' => ['*'],
+        ];
+
+        return [
+            'an entry written without its token' => [['a-token' => [ApiScopesEnum::All], $settings], '0'],
+            'a token of digits alone' => [['a-token' => [ApiScopesEnum::All], '123456' => $settings], '123456'],
+        ];
+    }
+
+
+    /**
      * @throws \Exception
      */
     public function testReadsNothingForAnUnknownApiToken(): void

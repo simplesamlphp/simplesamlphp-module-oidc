@@ -20,6 +20,9 @@ once this option and the ones listed with that endpoint below are all `true`.
 
 API access tokens are defined in file `config/module_oidc.php`, under option `ModuleConfig::OPTION_API_TOKENS`.
 This option is an associative array, where keys are the API access tokens, and values are arrays of scopes.
+An entry written without its key, which PHP numbers from 0, is not taken as a token, and neither is one whose token
+PHP keeps as an integer key (one which reads as a decimal integer, such as `123456`): give each token a key of random
+characters.
 
 ```php
 use SimpleSAML\Module\oidc\Codebooks\ApiScopesEnum;
@@ -641,8 +644,25 @@ Access is granted if:
 authentication methods (`client_secret_basic`, `client_secret_post`,
 `private_key_jwt`). A bare `client_id` does not count.
 * Or, if the request is authorized using an API Bearer Token with
-the appropriate scope.
+the appropriate scope, in the `Authorization` header (`Authorization: Bearer
+<token>`). The `token` request parameter is the token to introspect, and is
+never read as the API token.
 * Or, if the request is made by a logged in SimpleSAMLphp administrator.
+
+A request which presents client credentials is judged by them alone. If they
+are refused, the endpoint answers `401` `invalid_client` (RFC 6749 section
+5.2), with a `WWW-Authenticate: Basic realm="OAuth"` challenge when they came in
+a Basic `Authorization` header, and neither an API token nor an administrator's
+session is tried instead; why they were refused is logged, not answered. A
+client which authenticates with a method this endpoint does not offer
+(attestation-based client authentication), and a request with no credentials of
+any kind, are answered `401` `invalid_client` too. An API token in the
+`Authorization` header which is not configured is answered `401`
+`unauthorized` with a `WWW-Authenticate: Bearer error="invalid_token"`
+challenge, and so is one configured without any scopes. One which holds scopes,
+none of them an introspection scope, is answered `401` `insufficient_scope` with
+a `WWW-Authenticate: Bearer error="insufficient_scope",
+scope="oauth2_token_introspection"` challenge (RFC 7662 section 2.3).
 
 Authenticating is not on its own permission to introspect any given token.
 A client which authenticates as itself is told about tokens issued to it, and

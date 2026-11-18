@@ -117,6 +117,22 @@ class AuthenticatedOAuth2ClientResolver
 
 
     /**
+     * Whether the request carries a Basic Authorization header (client_secret_basic), counted as
+     * presentsClientCredentials() counts one: a bare scheme, and credentials which can not be decoded, included. A
+     * client refused after presenting one tried to authenticate through the Authorization header, and RFC 6749
+     * section 5.2 answers it with the challenge of that scheme.
+     */
+    public function presentsBasicAuthorization(Request|ServerRequestInterface $request): bool
+    {
+        if ($request instanceof Request) {
+            $request = $this->psrHttpBridge->getPsrHttpFactory()->createRequest($request);
+        }
+
+        return $this->basicAuthorizationCredentials($request) !== null;
+    }
+
+
+    /**
      * Whether the request carries client credentials of a method other than attest_jwt_client_auth, counted as
      * presentsClientCredentials() counts them.
      */

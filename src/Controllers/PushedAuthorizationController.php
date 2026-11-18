@@ -29,6 +29,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\OfferedCredentialsRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestObjectRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequiredOpenIdScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ScopeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\ResponseModes\QueryResponseMode;
@@ -189,6 +190,10 @@ class PushedAuthorizationController
             ClientRedirectUriRule::class,
             RequestObjectRule::class,
             ResponseModeRule::class,
+            // As at the authorization endpoint, which the pushed request is redeemed at: one the OP does not offer,
+            // or the client did not register, could never be served, so it gets its error here and not a request_uri
+            // (RFC 9126 section 2.1).
+            ResponseTypeRule::class,
             ScopeRule::class,
             RequiredOpenIdScopeRule::class,
             CodeChallengeRule::class,

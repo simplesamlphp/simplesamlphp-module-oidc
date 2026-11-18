@@ -34,6 +34,7 @@ use SimpleSAML\Module\oidc\Server\RequestRules\Rules\IdTokenHintRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\PostLogoutRedirectUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\RequestUriRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseModeRule;
+use SimpleSAML\Module\oidc\Server\RequestRules\Rules\ResponseTypeRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\StateRule;
 use SimpleSAML\Module\oidc\Server\RequestRules\Rules\UiLocalesRule;
 use SimpleSAML\Module\oidc\Server\RequestTypes\AuthorizationRequest;
@@ -81,8 +82,17 @@ class AuthorizationServerTest extends TestCase
     /** Thrown by the rules manager instead of returning a result bag. */
     protected ?OidcServerException $ruleException = null;
 
-    /** @var array{0: array<string>, 1: array<\SimpleSAML\OpenID\Codebooks\HttpMethodsEnum>}|null */
+    /** @var array{0: array<string>, 1: array<\SimpleSAML\OpenID\Codebooks\HttpMethodsEnum>}|null The first check. */
     protected ?array $checkedWith = null;
+
+    /** @var list<array{0: array<string>, 1: mixed, 2: array<\SimpleSAML\OpenID\Codebooks\HttpMethodsEnum>}> */
+    protected array $checks = [];
+
+    /** Thrown by the rules manager when it checks ResponseTypeRule alone, instead of returning the result bag. */
+    protected ?OidcServerException $responseTypeRuleException = null;
+
+    /** @var list<string> What happened, in order: each check of the rules, each grant type asked. */
+    protected array $events = [];
 
 
     protected function setUp(): void
@@ -97,6 +107,9 @@ class AuthorizationServerTest extends TestCase
         );
         $this->ruleException = null;
         $this->checkedWith = null;
+        $this->checks = [];
+        $this->responseTypeRuleException = null;
+        $this->events = [];
 
         // A real key, since the parent turns anything else into one and validates it on the way.
         $this->privateKey = new CryptKey(dirname(__DIR__, 3) . '/cert/oidc_module.key', null, false);
@@ -129,10 +142,19 @@ class AuthorizationServerTest extends TestCase
                 mixed $responseMode = null,
                 array $allowedServerRequestMethods = [],
             ): ResultBagInterface {
-                $this->checkedWith = [$ruleKeysToExecute, $allowedServerRequestMethods];
+                $this->checkedWith ??= [$ruleKeysToExecute, $allowedServerRequestMethods];
+                $this->checks[] = [$ruleKeysToExecute, $responseMode, $allowedServerRequestMethods];
+                $this->events[] = 'check ' . implode(', ', array_map(
+                    static fn(string $rule): string => substr($rule, (int)strrpos($rule, '\\') + 1),
+                    $ruleKeysToExecute,
+                ));
 
                 if ($this->ruleException !== null) {
                     throw $this->ruleException;
+                }
+
+                if ($this->responseTypeRuleException !== null && $ruleKeysToExecute === [ResponseTypeRule::class]) {
+                    throw $this->responseTypeRuleException;
                 }
 
                 return $this->resultBagMock;
@@ -282,6 +304,71 @@ class AuthorizationServerTest extends TestCase
         );
         // Both, since an authorization request may arrive either way.
         $this->assertSame([HttpMethodsEnum::GET, HttpMethodsEnum::POST], $this->checkedWith[1] ?? null);
+    }
+
+
+    /**
+     * The response type is judged once the redirect URI and the response mode are established and before any grant
+     * type is asked whether it can respond: a grant applies its own policy, and may send the End-User to log in,
+     * before its own rules come to the response type. Judged with the response mode the request resolved to, so that
+     * a refusal goes back the way the client asked for responses, and read as the other rules read the request.
+     *
+     * @throws \Throwable
+     */
+    public function testJudgesTheResponseTypeBeforeAnyGrantTypeIsAsked(): void
+    {
+        $grantType = $this->createMockForIntersectionOfInterfaces([
+            GrantTypeInterface::class,
+            AuthorizationValidatableWithRequestRules::class,
+        ]);
+        $grantType->method('getIdentifier')->willReturn('authorization_code');
+        $grantType->method('canRespondToAuthorizationRequest')->willReturnCallback(function (): bool {
+            $this->events[] = 'grant asked';
+
+            return true;
+        });
+        $grantType->method('validateAuthorizationRequestWithRequestRules')->willReturn(new AuthorizationRequest());
+        $sut = $this->sut();
+        /** @var \League\OAuth2\Server\Grant\GrantTypeInterface $grantType */
+        $sut->enableGrantType($grantType);
+
+        $sut->validateAuthorizationRequest($this->requestMock);
+
+        $this->assertSame(
+            [
+                'check StateRule, ClientRule, RequestUriRule, ClientRedirectUriRule, ResponseModeRule',
+                'check ResponseTypeRule',
+                'grant asked',
+            ],
+            $this->events,
+        );
+        $this->assertSame($this->results[ResponseModeRule::class], $this->checks[1][1] ?? null);
+        $this->assertSame([HttpMethodsEnum::GET, HttpMethodsEnum::POST], $this->checks[1][2] ?? null);
+    }
+
+
+    /**
+     * A response type the rule refuses - one the OP does not offer, one the client did not register - is refused as
+     * the rule refuses it, to the redirect URI, and no grant type is asked about the request: unlike a failure of
+     * the rules before it, which have not established a redirect URI, it is not turned into a Bad Request.
+     *
+     * @throws \Throwable
+     */
+    public function testPassesTheResponseTypeRefusalOnBeforeAnyGrantTypeIsAsked(): void
+    {
+        $this->responseTypeRuleException = OidcServerException::unsupportedResponseType(
+            self::REDIRECT_URI,
+            self::STATE,
+        );
+        $grantType = $this->createMock(GrantTypeInterface::class);
+        $grantType->method('getIdentifier')->willReturn('implicit');
+        $grantType->expects($this->never())->method('canRespondToAuthorizationRequest');
+        $sut = $this->sut();
+        $sut->enableGrantType($grantType);
+
+        $this->expectExceptionObject($this->responseTypeRuleException);
+
+        $sut->validateAuthorizationRequest($this->requestMock);
     }
 
 

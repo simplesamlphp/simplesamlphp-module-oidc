@@ -9,10 +9,14 @@ namespace SimpleSAML\Test\Module\oidc\ProxiedIntrospectionHarness;
  */
 final readonly class IntrospectionAnswer
 {
+    /**
+     * @param string $wwwAuthenticate The WWW-Authenticate header field, empty when there is none.
+     */
     public function __construct(
         public int $status,
         public string $contentType,
         public string $body,
+        public string $wwwAuthenticate = '',
     ) {
     }
 

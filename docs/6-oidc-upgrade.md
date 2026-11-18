@@ -777,6 +777,15 @@ RFC 6749 (sections 5.1 and 4.2.2) requires it whenever the scopes granted
 differ from those requested, as they do when a scope value was ignored or the
 client is not registered for a scope it asked for; the OP states it every
 time. A client which does not read the member is unaffected.
+- An authorization request whose `response_type` is not one the OP offers
+(`code`, and while the implicit grant is enabled `id_token` and `id_token
+token`) is now refused with `unsupported_response_type`, as RFC 6749 (section
+3.1.1) has a response type which is not understood refused, before the End-User
+is asked to log in; so is a pushed authorization request, which gets no
+`request_uri`. Previously the implicit grant served any value with `id_token`
+and without `code` in it, `id_token example_extension` for one, and the pushed
+authorization request endpoint took any value. The values of a composite
+response type may come in any order (`token id_token` is `id_token token`).
 - The `error_description` of every OAuth error response, in a JSON body or sent
 back to the redirect URI, now keeps only the characters RFC 6749 allows in it
 (sections 4.1.2.1, 4.2.2.1 and 5.2: printable ASCII except the double quote and
