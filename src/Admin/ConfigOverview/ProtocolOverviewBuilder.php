@@ -41,8 +41,6 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
 
     protected const string SCOPE_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
-    protected const string SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
-
 
     /**
      * Note the factory rather than the extractor itself. Building one reads the translation table and the
@@ -1543,8 +1541,7 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
      *     description: string,
      *     origin: string,
      *     claims: string[],
-     *     claimNamePrefix: ?string,
-     *     areMultipleClaimValuesAllowed: bool
+     *     claimNamePrefix: ?string
      * }>
      * @throws \Exception
      */
@@ -1585,8 +1582,6 @@ class ProtocolOverviewBuilder extends AbstractOverviewBuilder
                 'claimNamePrefix' => (is_string($claimNamePrefix) && $claimNamePrefix !== '') ?
                     $claimNamePrefix :
                     null,
-                'areMultipleClaimValuesAllowed' =>
-                    (bool)($scopeConfig[self::SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED] ?? false),
             ];
         }
 

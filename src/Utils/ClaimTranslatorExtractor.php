@@ -68,6 +68,15 @@ class ClaimTranslatorExtractor
         'updated_at',
     ];
 
+    /**
+     * The key of a translation table entry which sets the claim's shape: `true` releases every value of the
+     * attribute the claim is read from as a list, even a single one, and `false`, like leaving the key out,
+     * releases the first value alone. The shape is the claim's own, so it is the same under every scope which
+     * releases the claim. It is read on a member of a 'json' claim too. The standard single-value claims and the
+     * identity claims are a single value whatever their entry says (isSingleValueClaim()).
+     */
+    final public const string MAPPING_KEY_MULTI_VALUED = 'multi_valued';
+
 
     /** @var array<string, \SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface> */
     protected array $claimSets = [];
@@ -156,7 +165,7 @@ class ClaimTranslatorExtractor
      * @param \SimpleSAML\Module\oidc\Entities\Interfaces\ClaimSetEntityInterface[] $claimSets
      * @param string[] $identityClaims Claims which identify the subject next to 'sub'. They join the 'openid'
      * claim set, so they are released wherever 'sub' is, and they are translated to a single value like 'sub'
-     * whatever the multi-value setting of a scope which also carries them.
+     * whatever their translation table entry says.
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function __construct(
@@ -164,7 +173,6 @@ class ClaimTranslatorExtractor
         protected readonly ClaimSetEntityFactory $claimSetEntityFactory,
         array $claimSets = [],
         array $translationTable = [],
-        protected array $allowedMultiValueClaims = [],
         protected array $identityClaims = [],
     ) {
         // By default, add the user identifier attribute(s) as attributes for the
@@ -277,19 +285,30 @@ class ClaimTranslatorExtractor
     }
 
 
-    private function translateSamlAttributesToClaims(array $translationTable, array $samlAttributes): array
-    {
+    /**
+     * @param bool $areMembers Whether the table holds the members of a 'json' claim rather than claims: a member's
+     * shape is read from its own entry alone, since its name is not a claim's.
+     */
+    private function translateSamlAttributesToClaims(
+        array $translationTable,
+        array $samlAttributes,
+        bool $areMembers = false,
+    ): array {
         $claims = [];
         /**
          * @var string $claim
          * @var array $mappingConfig
          */
         foreach ($translationTable as $claim => $mappingConfig) {
+            $isSingleValue = $areMembers ?
+            !$this->isMultiValuedMapping($mappingConfig) :
+            $this->isSingleValueMapping($claim, $mappingConfig);
             $type = (string)($mappingConfig['type'] ?? 'string');
-            unset($mappingConfig['type']);
+            // Neither key names an attribute, which the legacy style below would take it for.
+            unset($mappingConfig['type'], $mappingConfig[self::MAPPING_KEY_MULTI_VALUED]);
             if ($type === 'json') {
                 $mappingConfigClaims = is_array($mappingConfig['claims']) ? $mappingConfig['claims'] : [];
-                $subClaims = $this->translateSamlAttributesToClaims($mappingConfigClaims, $samlAttributes);
+                $subClaims = $this->translateSamlAttributesToClaims($mappingConfigClaims, $samlAttributes, true);
                 $claims[$claim] = $subClaims;
                 continue;
             }
@@ -302,7 +321,7 @@ class ClaimTranslatorExtractor
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
                     /** @psalm-suppress MixedAssignment, MixedArgument */
-                    $values = $this->isSingleValueClaim($claim) ?
+                    $values = $isSingleValue ?
                     current($samlAttributes[$samlMatch]) :
                     $samlAttributes[$samlMatch];
                     /** @psalm-suppress MixedAssignment */
@@ -316,16 +335,31 @@ class ClaimTranslatorExtractor
 
 
     /**
-     * A claim is translated to its first attribute value unless a scope allows it multiple values -- and the
-     * standard single-value claims and the identity claims are never allowed them: an identity claim is 'sub'-like
-     * in every location it appears in, so a multi-value flag on any scope which also carries it (granted or not:
-     * translation happens before the scope filtering) must not turn it into an array.
+     * A claim is translated to its first attribute value unless its translation table entry sets
+     * MAPPING_KEY_MULTI_VALUED to true -- and the standard single-value claims and the identity claims are a single
+     * value whatever their entry says: an identity claim is 'sub'-like in every location it appears in. The factory
+     * refuses such an entry at configuration time; this holds for an extractor built without it.
      */
     public function isSingleValueClaim(int|string $claim): bool
     {
+        return $this->isSingleValueMapping($claim, $this->translationTable[$claim] ?? null);
+    }
+
+
+    private function isSingleValueMapping(int|string $claim, mixed $mappingConfig): bool
+    {
         return in_array($claim, self::MANDATORY_SINGLE_VALUE_CLAIMS, true) ||
         in_array($claim, $this->identityClaims, true) ||
-        !in_array($claim, $this->allowedMultiValueClaims, true);
+        !$this->isMultiValuedMapping($mappingConfig);
+    }
+
+
+    /**
+     * Only `true` makes a list: any other value, which the factory refuses, leaves a single value.
+     */
+    private function isMultiValuedMapping(mixed $mappingConfig): bool
+    {
+        return is_array($mappingConfig) && ($mappingConfig[self::MAPPING_KEY_MULTI_VALUED] ?? null) === true;
     }
 
 
@@ -485,11 +519,20 @@ class ClaimTranslatorExtractor
 
     /**
      * Get supported claims for this OP. This will return all the claims for which the "SAML attribute to OIDC claim
-     * translation" has been defined in module config, meaning it is expected for OP to release those claims.
+     * translation" has been defined in module config, meaning it is expected for OP to release those claims. The
+     * multi-value setting is no translation: an entry which holds it alone is left out, since an entry replaces the
+     * default one whole and so leaves the claim no attribute to read.
      */
     public function getSupportedClaims(): array
     {
-        return array_keys(array_filter($this->translationTable));
+        return array_keys(array_filter(
+            $this->translationTable,
+            fn(mixed $mappingConfig): bool => !empty(
+                is_array($mappingConfig) ?
+                array_diff_key($mappingConfig, [self::MAPPING_KEY_MULTI_VALUED => null]) :
+                $mappingConfig
+            ),
+        ));
     }
 
 
@@ -515,7 +558,7 @@ class ClaimTranslatorExtractor
         }
 
         $type = (string)($mappingConfig['type'] ?? 'string');
-        unset($mappingConfig['type']);
+        unset($mappingConfig['type'], $mappingConfig[self::MAPPING_KEY_MULTI_VALUED]);
 
         if ($type === 'json') {
             /** @var mixed $subClaims */

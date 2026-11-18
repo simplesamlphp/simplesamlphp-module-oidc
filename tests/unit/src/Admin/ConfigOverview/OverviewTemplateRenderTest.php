@@ -167,7 +167,6 @@ class OverviewTemplateRenderTest extends TestCase
                 'private' => [
                     'description' => 'private scope',
                     'claim_name_prefix' => 'prefix_',
-                    'are_multiple_claim_values_allowed' => true,
                     'claims' => ['national_document_id'],
                 ],
             ],

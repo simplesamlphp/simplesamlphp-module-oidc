@@ -44,7 +44,6 @@ class ClaimTranslatorExtractorTest extends TestCase
     protected function mock(
         array $claimSets = [],
         array $translationTable = [],
-        array $allowedMultiValueClaims = [],
         array $identityClaims = [],
     ): ClaimTranslatorExtractor {
         return new ClaimTranslatorExtractor(
@@ -52,7 +51,6 @@ class ClaimTranslatorExtractorTest extends TestCase
             $this->claimSetEntityFactoryStub,
             $claimSets,
             $translationTable,
-            $allowedMultiValueClaims,
             $identityClaims,
         );
     }
@@ -365,6 +363,20 @@ class ClaimTranslatorExtractorTest extends TestCase
     }
 
 
+    /**
+     * The multi-value setting is no translation, so an entry which holds it alone is not advertised: an entry
+     * replaces the default one whole, so `'nickname' => ['multi_valued' => false]` leaves nickname nothing to read.
+     */
+    public function testAnEntryHoldingTheMultiValueSettingAloneIsNotSupported(): void
+    {
+        $translate = ['nickname' => [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => false]];
+        $this->assertNotContains('nickname', $this->mock([], $translate)->getSupportedClaims());
+
+        $translate['nickname'][] = 'eduPersonNickname';
+        $this->assertContains('nickname', $this->mock([], $translate)->getSupportedClaims());
+    }
+
+
     public function testCanReleaseMultiValueClaims(): void
     {
         $claimSet = new ClaimSetEntity(
@@ -374,7 +386,8 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $translate = [
             'multiValueClaim' => [
-                'multiValueAttribute',
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                'attributes' => ['multiValueAttribute'],
             ],
         ];
 
@@ -383,7 +396,7 @@ class ClaimTranslatorExtractorTest extends TestCase
         ];
 
 
-        $claimTranslator = $this->mock([$claimSet], $translate, ['multiValueClaim']);
+        $claimTranslator = $this->mock([$claimSet], $translate);
 
         $releasedClaims = $claimTranslator->extract(
             ['multiValueClaimsScope'],
@@ -416,7 +429,7 @@ class ClaimTranslatorExtractorTest extends TestCase
             'multiValueAttribute' => ['1', '2', '3'],
         ];
 
-        $claimTranslator = $this->mock([$claimSet], $translate, []);
+        $claimTranslator = $this->mock([$claimSet], $translate);
 
         $releasedClaims = $claimTranslator->extract(
             ['multiValueClaimsScope'],
@@ -426,6 +439,113 @@ class ClaimTranslatorExtractorTest extends TestCase
         $expectedClaims = ['multiValueClaim' => '1'];
 
         $this->assertSame($expectedClaims, $releasedClaims);
+
+        // An explicit false is the default.
+        $translate['multiValueClaim'] = [
+            ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => false,
+            'attributes' => ['multiValueAttribute'],
+        ];
+
+        $this->assertSame(
+            $expectedClaims,
+            $this->mock([$claimSet], $translate)->extract(['multiValueClaimsScope'], $userAttributes),
+        );
+
+        // So is any value but true, which the factory refuses.
+        $translate['multiValueClaim'][ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED] = 'yes';
+
+        $this->assertSame(
+            $expectedClaims,
+            $this->mock([$claimSet], $translate)->extract(['multiValueClaimsScope'], $userAttributes),
+        );
+    }
+
+
+    /**
+     * Issue #360: a scope carrying a claim which is a list next to one which is not. Each claim has its own
+     * shape -- the list a list even with a single value, the other a string even with several -- and keeps it
+     * under every scope which releases it, alone or with others.
+     */
+    public function testEachClaimHasItsOwnShapeUnderEveryScope(): void
+    {
+        $translate = [
+            'eduperson_principal_name' => [
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => false,
+                'attributes' => ['eduPersonPrincipalName'],
+            ],
+            'eduperson_affiliation' => [
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                'attributes' => ['eduPersonAffiliation'],
+            ],
+        ];
+        $claimTranslator = $this->mock(
+            [
+                new ClaimSetEntity('eduperson', ['eduperson_principal_name', 'eduperson_affiliation']),
+                new ClaimSetEntity('affiliation', ['eduperson_affiliation']),
+                new ClaimSetEntity('principal', ['eduperson_principal_name']),
+            ],
+            $translate,
+        );
+        $userAttributes = [
+            'eduPersonPrincipalName' => ['u1@example.org', 'u1-old@example.org'],
+            'eduPersonAffiliation' => ['member'],
+        ];
+
+        foreach ([['eduperson'], ['affiliation', 'principal'], ['principal', 'eduperson']] as $scopes) {
+            $released = $claimTranslator->extract($scopes, $userAttributes);
+
+            $this->assertSame('u1@example.org', $released['eduperson_principal_name'] ?? null);
+            $this->assertSame(['member'], $released['eduperson_affiliation'] ?? null);
+        }
+    }
+
+
+    /**
+     * A member of a 'json' claim takes its shape from its own entry, as a claim does; a member is no claim, so one
+     * named like a standard claim is a list when its entry says so, and one named like a list claim is not a list
+     * unless its own entry says so.
+     */
+    public function testAMemberOfAJsonClaimTakesItsShapeFromItsOwnEntry(): void
+    {
+        $translate = [
+            'eduperson_affiliation' => [
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                'attributes' => ['eduPersonAffiliation'],
+            ],
+            'contact' => [
+                'type' => 'json',
+                'claims' => [
+                    'email' => [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true, 'attributes' => ['mail']],
+                    'eduperson_affiliation' => ['eduPersonAffiliation'],
+                ],
+            ],
+        ];
+        $userAttributes = [
+            'mail' => ['m1', 'm2'],
+            'eduPersonAffiliation' => ['member', 'staff'],
+        ];
+
+        $this->assertSame(
+            ['contact' => ['email' => ['m1', 'm2'], 'eduperson_affiliation' => 'member']],
+            $this->mock([new ClaimSetEntity('contact', ['contact'])], $translate)
+                ->extract(['contact'], $userAttributes),
+        );
+    }
+
+
+    /**
+     * In an entry which lists its attributes directly, the setting sits in that list and is not taken for an
+     * attribute to read: `true` would be looked up as the attribute key 1.
+     */
+    public function testTheSettingInAnEntryListingItsAttributesIsNoAttribute(): void
+    {
+        $translate = ['claim' => [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true, 'attribute']];
+        $userAttributes = [1 => ['not this'], 'attribute' => ['a1', 'a2']];
+
+        $this->assertSame(
+            ['claim' => ['a1', 'a2']],
+            $this->mock([new ClaimSetEntity('scope', ['claim'])], $translate)->extract(['scope'], $userAttributes),
+        );
     }
 
 
@@ -508,32 +628,13 @@ class ClaimTranslatorExtractorTest extends TestCase
             'updatedAtAttribute' => [123, 456],
         ];
 
-        $claimTranslator = $this->mock(
-            [$claimSet],
+        // Every entry asks for a list, which a standard claim never is.
+        $translate = array_map(
+            fn(array $mapping): array => [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true, ...$mapping],
             $translate,
-            [
-                'sub',
-                'name',
-                'given_name',
-                'family_name',
-                'middle_name',
-                'nickname',
-                'preferred_username',
-                'profile',
-                'picture',
-                'website',
-                'email',
-                'email_verified',
-                'gender',
-                'birthdate',
-                'zoneinfo',
-                'locale',
-                'phone_number',
-                'phone_number_verified',
-                'address',
-                'updated_at',
-            ],
         );
+
+        $claimTranslator = $this->mock([$claimSet], $translate);
 
         $releasedClaims = $claimTranslator->extract(
             ['customScope'],
@@ -578,7 +679,6 @@ class ClaimTranslatorExtractorTest extends TestCase
         $claimTranslator = $this->mock(
             [],
             ['voperson_id' => ['voPersonID']],
-            [],
             ['voperson_id', 'sub', 'voperson_id'],
         );
 
@@ -591,29 +691,34 @@ class ClaimTranslatorExtractorTest extends TestCase
 
 
     /**
-     * Like the standard single-value claims, an identity claim is translated to its first value even when a
-     * scope allows it multiple values, since it identifies the subject in every location it is released in.
+     * Like the standard single-value claims, an identity claim is translated to its first value even when its
+     * entry asks for a list, since it identifies the subject in every location it is released in.
      */
-    public function testAnIdentityClaimIsSingleValuedEvenWhereMultipleValuesAreAllowed(): void
+    public function testAnIdentityClaimIsSingleValuedEvenWhereItsEntryAsksForAList(): void
     {
         $claimSet = new ClaimSetEntity('bundle', ['voperson_id', 'eduperson_entitlement']);
         $translate = [
-            'voperson_id' => ['voPersonID'],
-            'eduperson_entitlement' => ['eduPersonEntitlement'],
+            'voperson_id' => [
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                'attributes' => ['voPersonID'],
+            ],
+            'eduperson_entitlement' => [
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                'attributes' => ['eduPersonEntitlement'],
+            ],
         ];
         $userAttributes = [
             'uid' => ['u1'],
             'voPersonID' => ['v1', 'v2'],
             'eduPersonEntitlement' => ['e1', 'e2'],
         ];
-        $allowedMultiValueClaims = ['voperson_id', 'eduperson_entitlement'];
 
         $this->assertSame(
             ['voperson_id' => ['v1', 'v2'], 'eduperson_entitlement' => ['e1', 'e2']],
-            $this->mock([$claimSet], $translate, $allowedMultiValueClaims)->extract(['bundle'], $userAttributes),
+            $this->mock([$claimSet], $translate)->extract(['bundle'], $userAttributes),
         );
 
-        $claimTranslator = $this->mock([$claimSet], $translate, $allowedMultiValueClaims, ['voperson_id']);
+        $claimTranslator = $this->mock([$claimSet], $translate, ['voperson_id']);
 
         $this->assertSame(
             ['voperson_id' => 'v1', 'eduperson_entitlement' => ['e1', 'e2']],
@@ -652,6 +757,11 @@ class ClaimTranslatorExtractorTest extends TestCase
             'attributes key, empty' => [['type' => 'string', 'attributes' => []], false],
             'json without sub-claims' => [['type' => 'json', 'claims' => []], false],
             'json without the claims key' => [['type' => 'json'], false],
+            'the multi-value setting alone' => [[ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true], false],
+            'the multi-value setting, attributes listed directly' => [
+                [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true, 'attribute'],
+                true,
+            ],
             'json whose sub-claims translate nothing' => [['type' => 'json', 'claims' => ['level' => []]], false],
             'json with a nested json which translates' => [
                 ['type' => 'json', 'claims' => ['inner' => ['type' => 'json', 'claims' => ['leaf' => ['attr']]]]],
@@ -685,12 +795,12 @@ class ClaimTranslatorExtractorTest extends TestCase
     public function testRefusesAnIdentityClaimWhichIsNotANonEmptyString(array $attributeValue): void
     {
         $translate = ['voperson_id' => ['voPersonID'], 'other' => ['otherAttribute']];
-        $claimTranslator = $this->mock([], $translate, [], ['voperson_id']);
+        $claimTranslator = $this->mock([], $translate, ['voperson_id']);
 
         // Not an identity claim: the same value passes through as before.
         $this->assertArrayHasKey(
             'other',
-            $this->mock([new ClaimSetEntity('scope', ['other'])], $translate, [], ['voperson_id'])
+            $this->mock([new ClaimSetEntity('scope', ['other'])], $translate, ['voperson_id'])
                 ->extract(['scope'], ['otherAttribute' => $attributeValue]),
         );
         $this->assertSame(
@@ -720,7 +830,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     public function testRefusesAnIdentityClaimWhichIsNotANonEmptyStringWhenIndividuallyRequested(): void
     {
-        $claimTranslator = $this->mock([], ['voperson_id' => ['voPersonID']], [], ['voperson_id']);
+        $claimTranslator = $this->mock([], ['voperson_id' => ['voPersonID']], ['voperson_id']);
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage("The 'voperson_id' identity claim must be a non-empty string");
@@ -740,7 +850,7 @@ class ClaimTranslatorExtractorTest extends TestCase
      */
     public function testExtractsTheSubjectAloneWithoutTheIdentityClaims(): void
     {
-        $claimTranslator = $this->mock([], ['voperson_id' => ['voPersonID']], [], ['voperson_id']);
+        $claimTranslator = $this->mock([], ['voperson_id' => ['voPersonID']], ['voperson_id']);
 
         $this->assertSame('u1', $claimTranslator->extractSubject(['uid' => ['u1'], 'voPersonID' => []]));
         $this->assertSame('u1', $claimTranslator->extractSubject(['uid' => ['u1'], 'voPersonID' => [['v1', 'v2']]]));

@@ -42,7 +42,10 @@ class AccessTokenClaimsResolverTest extends TestCase
 
     protected const array TRANSLATION_TABLE = [
         'voperson_id' => ['voPersonID'],
-        'eduperson_assurance' => ['eduPersonAssurance'],
+        'eduperson_assurance' => [
+            ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+            'attributes' => ['eduPersonAssurance'],
+        ],
     ];
 
 
@@ -71,13 +74,12 @@ class AccessTokenClaimsResolverTest extends TestCase
                 ['uid'],
                 $claimSetEntityFactory,
                 [
-                    // A private scope carrying the assurance, allowed multiple values.
+                    // A private scope carrying the assurance, a list.
                     $claimSetEntityFactory->build('aarc', ['eduperson_assurance']),
                     // The scope a VCI authorization_details request adds under its credential configuration id.
                     $claimSetEntityFactory->build('UniversityDegreeCredential', ['eduperson_assurance']),
                 ],
                 self::TRANSLATION_TABLE,
-                ['eduperson_assurance'],
                 $identityClaims,
             ),
             $this->moduleConfigMock,

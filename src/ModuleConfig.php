@@ -199,6 +199,13 @@ class ModuleConfig
 
     final public const string SCOPE_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
+    /**
+     * v6's switch which made every claim of the scope a list, under every scope which released the claim. Read
+     * only to refuse it (validate()): a claim's shape is its own now, set on its translation table entry
+     * (ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED).
+     */
+    final public const string SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
+
     final public const string OPTION_AUTH_ACR_VALUES_SUPPORTED = 'acrValuesSupported';
 
     final public const string OPTION_AUTH_SOURCES_TO_ACR_VALUES_MAP = 'authSourcesToAcrValuesMap';
@@ -634,6 +641,25 @@ class ModuleConfig
                 if (!array_key_exists('description', $scope)) {
                     throw new ConfigurationError(
                         'Scope [' . $name . '] description not defined',
+                        self::DEFAULT_FILE_NAME,
+                    );
+                }
+                // Set the way v6 read it. Refused rather than ignored, since ignoring it would release a single
+                // value where the claim was a list; set to false it changed nothing, and still does not.
+                if (!empty($scope[self::SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED])) {
+                    /** @var mixed $claims */
+                    $claims = $scope[self::SCOPE_KEY_CLAIMS] ?? [];
+                    throw new ConfigurationError(
+                        sprintf(
+                            'Scope [%s] sets "%s", which is no longer read: a claim is a list when its entry in ' .
+                            'the "%s" table sets "%s" to true. Set it there on each of the scope\'s claims which ' .
+                            'is a list (the scope carries: %s), and remove it from the scope.',
+                            $name,
+                            self::SCOPE_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED,
+                            self::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                            ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED,
+                            is_array($claims) ? implode(', ', array_filter($claims, 'is_string')) : '',
+                        ),
                         self::DEFAULT_FILE_NAME,
                     );
                 }

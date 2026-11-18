@@ -1196,7 +1196,6 @@ class ProtocolOverviewBuilderTest extends TestCase
                     'private' => [
                         'description' => 'private scope',
                         'claim_name_prefix' => 'prefix_',
-                        'are_multiple_claim_values_allowed' => true,
                         'claims' => ['national_document_id'],
                     ],
                 ],
@@ -1215,7 +1214,6 @@ class ProtocolOverviewBuilderTest extends TestCase
         $this->assertSame('Standard', $scopesByName['openid']['origin']);
         $this->assertSame('Custom', $scopesByName['private']['origin']);
         $this->assertSame('prefix_', $scopesByName['private']['claimNamePrefix']);
-        $this->assertTrue($scopesByName['private']['areMultipleClaimValuesAllowed']);
         $this->assertSame(['national_document_id'], $scopesByName['private']['claims']);
     }
 

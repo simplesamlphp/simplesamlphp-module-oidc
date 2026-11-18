@@ -378,6 +378,10 @@ $config = [
          *     'type' => 'string|int|bool|json',
          *      // For non-JSON types
          *     'attributes' => ['samlAttribute1', 'samlAttribute2']
+         *      // Optional, for non-JSON types: true releases the claim as a
+         *      // list of all the attribute's values, even a single one; false,
+         *      // the default, as the first value alone
+         *     'multi_valued' => false,
          *      // For JSON types
          *     'claims => [
          *          'subclaim' => [ 'type' => 'string', 'attributes' => ['saml1']]
@@ -387,6 +391,11 @@ $config = [
          * For convenience the default type is "string" so the type does not
          * need to be defined. If the "attributes" key is not set, then it is
          *  assumed that the rest of the values are SAML attribute names.
+         *
+         * A claim's shape is its own: a list or a single value wherever it is
+         * released, under every scope which releases it. The OpenID Connect
+         * standard claims and the identity claims are single values, so
+         * 'multi_valued' => true is refused on them, and on a JSON type.
          *
          * Note on the 'sub' claim: by default, the list of attributes for 'sub'
          * claim will also contain an attribute defined in the
@@ -483,6 +492,10 @@ $config = [
 //        'national_document_id' => [
 //            'schacPersonalUniqueId',
 //        ],
+//        'eduperson_entitlement' => [
+//            'multi_valued' => true, // A list, even when the user has one entitlement
+//            'attributes' => ['eduPersonEntitlement'],
+//        ],
     ],
 
     /**
@@ -493,7 +506,6 @@ $config = [
 //        'private' => [ // The key represents the scope name.
 //            'description' => 'private scope',
 //            'claim_name_prefix' => '', // Prefix to apply for all claim names from this scope
-//            'are_multiple_claim_values_allowed' => false, // Are claims for this scope allowed to have multiple values
 //            'claims' => ['national_document_id'] // Claims from the translation table which this scope will contain
 //        ],
     ],

@@ -2826,7 +2826,6 @@ class TokenIntrospectionControllerTest extends TestCase
             new ClaimSetEntityFactory(),
             [],
             ['voperson_id' => ['voPersonID'], 'name' => ['displayName']],
-            [],
             ['voperson_id'],
         );
 

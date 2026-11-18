@@ -588,6 +588,78 @@ class ModuleConfigTest extends TestCase
 
 
     /**
+     * v6's per-scope multi-value switch is no longer read: a claim's shape is set on its translation table entry.
+     * A scope which sets it the way v6 read it is refused, since ignoring it would release a single value where
+     * the claim was a list, and the message names the scope's claims, which are where the setting goes.
+     */
+    #[DataProvider('v6MultiValueSwitchOnProvider')]
+    public function testRefusesAPrivateScopeWhichSetsV6sMultiValueSwitch(mixed $value): void
+    {
+        $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [
+            'eduperson' => [
+                'description' => 'd',
+                'claims' => ['eduperson_principal_name', 'eduperson_affiliation'],
+                'are_multiple_claim_values_allowed' => $value,
+            ],
+        ];
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(
+            'Scope [eduperson] sets "are_multiple_claim_values_allowed", which is no longer read: a claim is a ' .
+            'list when its entry in the "translate" table sets "multi_valued" to true. Set it there on each of ' .
+            'the scope\'s claims which is a list (the scope carries: eduperson_principal_name, ' .
+            'eduperson_affiliation), and remove it from the scope.',
+        );
+
+        $this->sut();
+    }
+
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function v6MultiValueSwitchOnProvider(): array
+    {
+        return [
+            'true' => [true],
+            'one' => [1],
+            'a string' => ['yes'],
+        ];
+    }
+
+
+    /**
+     * Set off, v6's switch changed nothing, and it still does not: the scope is accepted.
+     */
+    #[DataProvider('v6MultiValueSwitchOffProvider')]
+    public function testAcceptsAPrivateScopeWhichSetsV6sMultiValueSwitchOff(mixed $value): void
+    {
+        $this->overrides[ModuleConfig::OPTION_AUTH_CUSTOM_SCOPES] = [
+            'eduperson' => [
+                'description' => 'd',
+                'claims' => ['eduperson_principal_name'],
+                'are_multiple_claim_values_allowed' => $value,
+            ],
+        ];
+
+        $this->assertArrayHasKey('eduperson', $this->sut()->getPrivateScopes());
+    }
+
+
+    /**
+     * @return array<string, array{0: mixed}>
+     */
+    public static function v6MultiValueSwitchOffProvider(): array
+    {
+        return [
+            'false' => [false],
+            'zero' => [0],
+            'null' => [null],
+        ];
+    }
+
+
+    /**
      * A granted scope goes into the "scope" claim of the JWT access token, which the library holds to the
      * RFC 6749 section 3.3 scope-token grammar; a private scope named outside it would be accepted here and
      * refused at the token endpoint, for every grant carrying it (found by review).

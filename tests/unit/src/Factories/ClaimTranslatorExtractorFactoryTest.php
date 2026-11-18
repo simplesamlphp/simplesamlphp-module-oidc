@@ -67,7 +67,6 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
                     ],
                     'customScope3' => [
                         'claims' => ['testClaim3', 'boolClaim'],
-                        'are_multiple_claim_values_allowed' => true,
                     ],
                 ],
             );
@@ -320,53 +319,198 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
 
 
     /**
-     * Translation happens before the scope filtering, so a multi-value flag on a scope which also carries an
-     * identity claim would turn it into an array in every location, whether or not that scope is granted.
-     * An identity claim is 'sub'-like and stays a single string; the same claim released through the
-     * multi-value scope is single-valued too, and the scope's other claims keep their multiple values.
+     * An identity claim is 'sub'-like, a single value in every location, and the extractor keeps it one whatever
+     * its entry says; so an entry which asks for a list is refused rather than ignored. The same entry is a list
+     * for a claim which is not an identity claim, and `false` is accepted for one which is.
      *
      * @throws \Exception
      */
-    public function testAnIdentityClaimIsSingleValuedWhateverAScopesMultiValueSetting(): void
+    public function testRefusesAnIdentityClaimWhoseEntryAsksForAList(): void
     {
-        $privateScopes = [
-            'bundle' => [
-                'claims' => ['voperson_id', 'eduperson_entitlement'],
-                'are_multiple_claim_values_allowed' => true,
+        $translationTable = [
+            'voperson_id' => [
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                'attributes' => ['voPersonID'],
             ],
         ];
-        $translationTable = [
-            'voperson_id' => ['voPersonID'],
-            'eduperson_entitlement' => ['eduPersonEntitlement'],
-        ];
-        $attributes = [
-            'uid' => ['u1'],
-            'voPersonID' => ['v1', 'v2'],
-            'eduPersonEntitlement' => ['e1', 'e2'],
-        ];
 
-        // Without the identity claim the scope's setting applies, which is what makes the case below a check.
         $this->assertSame(
-            ['voperson_id' => ['v1', 'v2'], 'eduperson_entitlement' => ['e1', 'e2']],
-            $this->factory($this->moduleConfig(privateScopes: $privateScopes, translationTable: $translationTable))
-                ->build()
-                ->extract(['bundle'], $attributes),
+            ['voperson_id' => ['v1', 'v2']],
+            $this->factory($this->moduleConfig(
+                privateScopes: ['bundle' => ['claims' => ['voperson_id']]],
+                translationTable: $translationTable,
+            ))->build()->extract(['bundle'], ['uid' => ['u1'], 'voPersonID' => ['v1', 'v2']]),
         );
 
-        $extractor = $this->factory($this->moduleConfig(
+        $this->factory($this->moduleConfig(
             identityClaims: ['voperson_id'],
-            privateScopes: $privateScopes,
-            translationTable: $translationTable,
+            translationTable: [
+                'voperson_id' => [
+                    ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => false,
+                    'attributes' => ['voPersonID'],
+                ],
+            ],
         ))->build();
 
-        $this->assertSame(
-            ['sub' => 'u1', 'voperson_id' => 'v1'],
-            $extractor->extract(['openid'], $attributes),
-        );
-        $this->assertSame(
-            ['voperson_id' => 'v1', 'eduperson_entitlement' => ['e1', 'e2']],
-            $extractor->extract(['bundle'], $attributes),
-        );
+        $factory = $this->factory($this->moduleConfig(
+            identityClaims: ['voperson_id'],
+            translationTable: $translationTable,
+        ));
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage(sprintf(
+            'Invalid value in %s. Claim "voperson_id" sets "multi_valued" to true in the "%s" table, but an ' .
+            'identity claim is a single value.',
+            ModuleConfig::OPTION_AUTH_IDENTITY_CLAIMS,
+            ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+        ));
+
+        $factory->build();
+    }
+
+
+    /**
+     * A multi-value setting is refused where it can not be honoured, by build() and by the effective table the
+     * configuration overview shows.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unhonourableMultiValuedSettingProvider')]
+    public function testRefusesAMultiValuedSettingWhichCanNotBeHonoured(array $translationTable, string $message): void
+    {
+        $factory = $this->factory($this->moduleConfig(translationTable: $translationTable));
+
+        try {
+            $factory->effectiveTranslationTable();
+            $this->fail('The effective table was given with the setting in it.');
+        } catch (ConfigurationError $error) {
+            $this->assertStringContainsString($message, $error->getMessage());
+        }
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage($message);
+
+        $factory->build();
+    }
+
+
+    /**
+     * @return array<string, array{0: array, 1: string}>
+     */
+    public static function unhonourableMultiValuedSettingProvider(): array
+    {
+        $key = ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED;
+        $prefix = 'Invalid value in ' . ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE . '. ';
+        $notABoolean = '; it takes true (the claim is a list) or false (a single value).';
+        $json = ' to true, but it is translated to type \'json\', which yields a JSON object, not a list.';
+        $standard = ' an OpenID Connect standard claim (OpenID Connect Core 1.0 section 5.1), which is a single ' .
+        'value.';
+
+        return [
+            'a string' => [
+                ['eduperson_affiliation' => [$key => 'yes', 'attributes' => ['eduPersonAffiliation']]],
+                $prefix . 'Claim "eduperson_affiliation" sets "multi_valued" to a value of type string' . $notABoolean,
+            ],
+            'an integer, attributes listed directly' => [
+                ['eduperson_affiliation' => [$key => 1, 'eduPersonAffiliation']],
+                $prefix . 'Claim "eduperson_affiliation" sets "multi_valued" to a value of type int' . $notABoolean,
+            ],
+            'null' => [
+                ['eduperson_affiliation' => [$key => null, 'attributes' => ['eduPersonAffiliation']]],
+                $prefix . 'Claim "eduperson_affiliation" sets "multi_valued" to a value of type null' . $notABoolean,
+            ],
+            'not a boolean, on a member' => [
+                ['affiliation' => ['type' => 'json', 'claims' => ['all' => [$key => 'no', 'attributes' => ['a']]]]],
+                $prefix . 'Claim "affiliation.all" sets "multi_valued" to a value of type string' . $notABoolean,
+            ],
+            'true on a json claim' => [
+                ['affiliation' => ['type' => 'json', $key => true, 'claims' => ['all' => ['eduPersonAffiliation']]]],
+                $prefix . 'Claim "affiliation" sets "multi_valued"' . $json,
+            ],
+            'true on a json member' => [
+                [
+                    'outer' => [
+                        'type' => 'json',
+                        'claims' => ['inner' => ['type' => 'json', $key => true, 'claims' => ['leaf' => ['a']]]],
+                    ],
+                ],
+                $prefix . 'Claim "outer.inner" sets "multi_valued"' . $json,
+            ],
+            'true on a standard claim' => [
+                ['email' => [$key => true, 'attributes' => ['mail']]],
+                $prefix . 'Claim "email" sets "multi_valued" to true, but it is' . $standard,
+            ],
+            'true on sub' => [
+                ['sub' => [$key => true, 'uid']],
+                $prefix . 'Claim "sub" sets "multi_valued" to true, but it is' . $standard,
+            ],
+            'true on a member of a standard claim' => [
+                ['address' => ['type' => 'json', 'claims' => ['formatted' => [$key => true, 'postalAddress']]]],
+                $prefix . 'Claim "address.formatted" sets "multi_valued" to true, but it is part of "address",' .
+                $standard,
+            ],
+        ];
+    }
+
+
+    /**
+     * False is accepted anywhere, and true where it can be honoured. A standard claim's name is a standard claim
+     * only at the top of the effective table: a member named like one is not, and neither is a claim which a
+     * private scope renames, whose setting follows it to the prefixed name.
+     *
+     * @throws \Exception
+     */
+    public function testAcceptsAMultiValuedSettingWhichCanBeHonoured(): void
+    {
+        $key = ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED;
+        $extractor = $this->factory($this->moduleConfig(
+            privateScopes: [
+                'contact' => ['claims' => ['contacts']],
+                'aarc' => ['claims' => ['eduperson_assurance', 'nickname'], 'claim_name_prefix' => 'aarc_'],
+            ],
+            translationTable: [
+                'email' => [$key => false, 'attributes' => ['mail']],
+                'contacts' => ['type' => 'json', 'claims' => ['email' => [$key => true, 'attributes' => ['mail']]]],
+                'eduperson_assurance' => [$key => true, 'attributes' => ['eduPersonAssurance']],
+                'nickname' => [$key => true, 'attributes' => ['nick']],
+            ],
+        ))->build();
+        $attributes = ['uid' => ['u1'], 'mail' => ['m1', 'm2'], 'eduPersonAssurance' => ['a1'], 'nick' => ['n1', 'n2']];
+
+        $this->assertSame(['email' => 'm1'], $extractor->extract(['email'], $attributes));
+        $this->assertSame(['contacts' => ['email' => ['m1', 'm2']]], $extractor->extract(['contact'], $attributes));
+
+        $aarc = $extractor->extract(['aarc'], $attributes);
+        $this->assertSame(['a1'], $aarc['aarc_eduperson_assurance'] ?? null);
+        $this->assertSame(['n1', 'n2'], $aarc['aarc_nickname'] ?? null);
+    }
+
+
+    /**
+     * The configuration overview reports a fault in the table's multi-value settings on the table's row, and
+     * each claim option on its own: their checks do not read the settings of the table's other claims.
+     *
+     * @throws \Exception
+     */
+    public function testAMultiValuedFaultFailsTheTableAndNotTheClaimOptionChecks(): void
+    {
+        $factory = $this->factory($this->moduleConfig(
+            identityClaims: ['voperson_id'],
+            accessTokenClaims: ['voperson_id'],
+            translationTable: [
+                'voperson_id' => ['voPersonID'],
+                'eduperson_affiliation' => [
+                    ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => 'yes',
+                    'attributes' => ['eduPersonAffiliation'],
+                ],
+            ],
+        ));
+
+        $factory->checkIdentityClaims();
+        $factory->checkAccessTokenClaims();
+
+        $this->expectException(ConfigurationError::class);
+        $factory->effectiveTranslationTable();
     }
 
 
@@ -417,20 +561,20 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     /**
      * RFC 9068 section 2.2.3.1 has "groups", "roles" and "entitlements" carry lists, and the library refuses to
      * mint an access token with one of them carrying anything else; so an access token claim of one of these
-     * names is accepted only when its translation yields a list, that is, when a private scope allows it
-     * multiple values.
+     * names is accepted only when its translation yields a list, that is, when its entry sets "multi_valued" to
+     * true.
      *
      * @throws \Exception
      */
     #[DataProvider('accessTokenListClaimProvider')]
-    public function testAcceptsAnAccessTokenListClaimWhichAScopeAllowsMultipleValues(string $claimName): void
+    public function testAcceptsAnAccessTokenListClaimTranslatedToAList(string $claimName): void
     {
         $extractor = $this->factory($this->moduleConfig(
             accessTokenClaims: [$claimName],
-            privateScopes: [
-                'authz' => ['claims' => [$claimName], 'are_multiple_claim_values_allowed' => true],
+            privateScopes: ['authz' => ['claims' => [$claimName]]],
+            translationTable: [
+                $claimName => [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true, 'isMemberOf'],
             ],
-            translationTable: [$claimName => ['isMemberOf']],
         ))->build();
 
         $this->assertSame(
@@ -443,21 +587,22 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     /**
      * @throws \Exception
      */
-    #[DataProvider('accessTokenListClaimProvider')]
-    public function testRefusesAnAccessTokenListClaimTranslatedToASingleValue(string $claimName): void
+    #[DataProvider('accessTokenListClaimTranslatedToASingleValueProvider')]
+    public function testRefusesAnAccessTokenListClaimTranslatedToASingleValue(string $claimName, array $mapping): void
     {
         $factory = $this->factory($this->moduleConfig(
             accessTokenClaims: [$claimName],
             privateScopes: ['authz' => ['claims' => [$claimName]]],
-            translationTable: [$claimName => ['isMemberOf']],
+            translationTable: [$claimName => $mapping],
         ));
 
         $this->expectException(ConfigurationError::class);
         $this->expectExceptionMessage(sprintf(
             'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section 2.2.3.1), but ' .
-            'its translation yields a single value',
+            'its translation yields a single value -- set "multi_valued" to true on its entry in the "%s" table.',
             ModuleConfig::OPTION_TOKEN_ACCESS_TOKEN_CLAIMS,
             $claimName,
+            ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
         ));
 
         $factory->build();
@@ -465,7 +610,26 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
 
 
     /**
-     * A 'json' translation yields an object, whatever the multi-value setting of the scope.
+     * @return array<string, array{0: string, 1: array}>
+     */
+    public static function accessTokenListClaimTranslatedToASingleValueProvider(): array
+    {
+        $cases = [];
+
+        foreach (self::accessTokenListClaimProvider() as $label => [$claimName]) {
+            $cases[$label . ', no setting'] = [$claimName, ['isMemberOf']];
+            $cases[$label . ', set to false'] = [
+                $claimName,
+                [ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => false, 'attributes' => ['isMemberOf']],
+            ];
+        }
+
+        return $cases;
+    }
+
+
+    /**
+     * A 'json' translation yields an object.
      *
      * @throws \Exception
      */
@@ -473,7 +637,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $factory = $this->factory($this->moduleConfig(
             accessTokenClaims: ['groups'],
-            privateScopes: ['authz' => ['claims' => ['groups'], 'are_multiple_claim_values_allowed' => true]],
+            privateScopes: ['authz' => ['claims' => ['groups']]],
             translationTable: ['groups' => ['type' => 'json', 'claims' => ['names' => ['isMemberOf']]]],
         ));
 
@@ -489,7 +653,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
 
 
     /**
-     * An identity claim is single-valued whatever any scope says, so it can never be one of the list claims.
+     * An identity claim is a single value, so it can never be one of the list claims.
      *
      * @throws \Exception
      */
@@ -498,9 +662,7 @@ class ClaimTranslatorExtractorFactoryTest extends TestCase
     {
         $factory = $this->factory($this->moduleConfig(
             identityClaims: [$claimName],
-            privateScopes: [
-                'authz' => ['claims' => [$claimName], 'are_multiple_claim_values_allowed' => true],
-            ],
+            privateScopes: ['authz' => ['claims' => [$claimName]]],
             translationTable: [$claimName => ['isMemberOf']],
         ));
 

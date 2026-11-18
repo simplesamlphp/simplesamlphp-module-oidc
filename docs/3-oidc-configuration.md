@@ -1215,12 +1215,16 @@ $config = [
         'private' => [
             'description' => 'private scope',
             'claim_name_prefix' => '',
-            'are_multiple_claim_values_allowed' => false,
             'claims' => ['national_document_id'],
         ],
     ],
 ];
 ```
+
+Whether a claim is a single value or a list is set on the claim, not on the
+scope: see [Single and multiple values](#single-and-multiple-values). A
+private scope which still sets v6's `are_multiple_claim_values_allowed` to
+`true` is refused when the configuration is read.
 
 A scope name is a `scope-token` of RFC 6749 section 3.3: printable ASCII
 without space, double quote or backslash (`!`, `#`–`[`, `]`–`~`). A private
@@ -1279,6 +1283,47 @@ To expose newly created or custom claims in the UserInfo endpoint or ID token,
 they must also be assigned to a custom scope in `OPTION_AUTH_CUSTOM_SCOPES`,
 enabled for the client, and requested by the client.
 
+### Single and multiple values
+
+A claim is released as a single value, the first value of the attribute it is
+read from, unless its entry sets `multi_valued` to `true`: it is then released
+as a list of all the attribute's values, even when there is only one.
+
+```php
+<?php
+
+$config = [
+    \SimpleSAML\Module\oidc\ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE => [
+        // A string.
+        'eduperson_principal_name' => ['eduPersonPrincipalName'],
+        // A list.
+        'eduperson_affiliation' => [
+            'multi_valued' => true,
+            'attributes' => ['eduPersonAffiliation'],
+        ],
+    ],
+];
+```
+
+The shape belongs to the claim, so it is the same wherever the claim is
+released (the ID token, the UserInfo response, the JWT access token and the
+introspection response) and whichever scope releases it: a client can rely on
+it. An entry replaces the module's default entry for the claim whole, so give
+the attributes along with the setting. In an entry which lists its attributes
+directly, the setting can sit in that list
+(`['multi_valued' => true, 'eduPersonAffiliation']`), and it is read on a
+member of a `json` claim too. It is refused when the configuration is read:
+
+- when it is neither `true` nor `false`;
+- set to `true` on a `json` claim, which is a JSON object;
+- set to `true` on an OpenID Connect standard claim (`sub`, `email`, `address`
+  and the others of OpenID Connect Core 1.0 section 5.1) or on a member of one,
+  or on an [identity claim](#identity-claims-and-access-token-claims): these
+  are single values.
+
+`groups`, `roles` and `entitlements` need it set to `true` to be
+[access token claims](#identity-claims-and-access-token-claims).
+
 ### The subject
 
 The `sub` claim of every token the module issues for a user — the ID token,
@@ -1327,9 +1372,9 @@ $config = [
 and go wherever `sub` goes: into the ID token — placed like `sub`, whatever
 the client's `add_claims_to_id_token` setting — the UserInfo response, the
 JWT access token and the [introspection response](8-api.md#token-introspection)
-for it. They are single-valued like `sub`, whatever the
-`are_multiple_claim_values_allowed` setting of a private scope which also
-carries them, and like `sub` they are released only as a non-empty string —
+for it. They are single-valued like `sub` (an entry which sets `multi_valued`
+to `true` for one is refused), and like `sub` they are released only as a
+non-empty string —
 an attribute value which is not one (a nested array from an authentication
 processing filter, an empty value) is an error at release time, not a claim
 with an odd value. A federation profile may
@@ -1374,8 +1419,8 @@ the administration area reports a fault on the option's own row:
 - `groups`, `roles` and `entitlements` are lists in a JWT access token (RFC
   9068 section 2.2.3.1), and the token can not be minted with one of them
   carrying anything else, so as an access token claim each of them needs a
-  translation which yields a list — a private scope carrying the claim with
-  `are_multiple_claim_values_allowed` set, and not a `json` mapping — and none
+  translation which yields a list — an entry which sets `multi_valued` to
+  `true`, and not a `json` mapping — and none
   of them can be an identity claim, which is a single value.
 
 ## Token introspection

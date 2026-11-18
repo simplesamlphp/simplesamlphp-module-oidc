@@ -14,8 +14,6 @@ class ClaimTranslatorExtractorFactory
 {
     protected const string CONFIG_KEY_CLAIM_NAME_PREFIX = 'claim_name_prefix';
 
-    protected const string CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED = 'are_multiple_claim_values_allowed';
-
     /**
      * The claims the JWT access token profile defines for authorization decisions (RFC 9068 section 2.2.3.1),
      * each a list (RFC 7643 section 4.1.2). The library's JwtAccessToken holds them to that shape, so an
@@ -37,9 +35,10 @@ class ClaimTranslatorExtractorFactory
 
 
     /**
-     * The identity claims and the access token claims are checked here rather than in ModuleConfig, since this
-     * is the only place which knows the effective translation table: the defaults with the configured table
-     * merged over them and the per-scope claim name prefixes applied. ModuleConfig checks the raw options.
+     * The multi-value settings of the translation table, the identity claims and the access token claims are
+     * checked here rather than in ModuleConfig, since this is the only place which knows the effective
+     * translation table: the defaults with the configured table merged over them and the per-scope claim name
+     * prefixes applied. ModuleConfig checks the raw options.
      *
      * @throws \Exception
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -49,6 +48,7 @@ class ClaimTranslatorExtractorFactory
         $identityClaims = $this->moduleConfig->getIdentityClaims();
         $claimTranslatorExtractor = $this->buildWith($identityClaims);
 
+        $this->ensureMultiValuedSettingsAreValid($claimTranslatorExtractor->getTranslationTable());
         $this->ensureIdentityClaimsAreTranslated($claimTranslatorExtractor, $identityClaims);
         $this->ensureAccessTokenClaimsAreTranslated($claimTranslatorExtractor);
 
@@ -85,13 +85,19 @@ class ClaimTranslatorExtractorFactory
 
 
     /**
-     * The effective translation table, which is buildable whatever the two claim options say.
+     * The effective translation table, which is buildable whatever the two claim options say. Its multi-value
+     * settings are checked as build() checks them, so a fault in the table is reported with the table.
      *
      * @throws \Exception
+     * @throws \SimpleSAML\Error\ConfigurationError
      */
     public function effectiveTranslationTable(): array
     {
-        return $this->buildWith([])->getTranslationTable();
+        $translationTable = $this->buildWith([])->getTranslationTable();
+
+        $this->ensureMultiValuedSettingsAreValid($translationTable);
+
+        return $translationTable;
     }
 
 
@@ -107,7 +113,6 @@ class ClaimTranslatorExtractorFactory
         $privateScopes = $this->moduleConfig->getPrivateScopes();
 
         $claimSet = [];
-        $allowedMultipleValueClaims = [];
 
         /**
          * @var string $scopeName
@@ -124,10 +129,6 @@ class ClaimTranslatorExtractorFactory
             }
 
             $claimSet[] = $this->claimSetEntityFactory->build($scopeName, $claims);
-
-            if ($this->doesScopeAllowMultipleClaimValues($scopeConfig)) {
-                $allowedMultipleValueClaims = array_merge($allowedMultipleValueClaims, $claims);
-            }
         }
 
         $userIdAttrs = $this->moduleConfig->getUserIdentifierAttributes();
@@ -137,8 +138,112 @@ class ClaimTranslatorExtractorFactory
             $this->claimSetEntityFactory,
             $claimSet,
             $translatorTable,
-            $allowedMultipleValueClaims,
             $identityClaims,
+        );
+    }
+
+
+    /**
+     * A claim's multi-value setting (ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED) is true or false, and
+     * `true`, a list, is refused where it can not be honoured: on a 'json' mapping, which yields a JSON object,
+     * and on an OpenID Connect standard claim or a member of one, which the module releases as a single value.
+     * The extractor would release a standard claim as a single value whatever its entry says, so an explicit
+     * `true` is refused rather than silently ignored. Read on the effective table, so a claim which a private
+     * scope prefixes is checked under its prefixed name, which is no standard claim's; and a member of a 'json'
+     * claim is no standard claim whatever its name.
+     *
+     * @param string|null $standardClaim The standard claim the table's entries are members of, if any.
+     * @param string $parentPath The claim the entries are members of, with a trailing dot; '' for the table.
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureMultiValuedSettingsAreValid(
+        array $translationTable,
+        ?string $standardClaim = null,
+        string $parentPath = '',
+    ): void {
+        /** @var mixed $mapping */
+        foreach ($translationTable as $claim => $mapping) {
+            if (!is_array($mapping)) {
+                continue;
+            }
+
+            $path = $parentPath . $claim;
+            $isStandardClaim = $parentPath === '' &&
+            in_array($claim, ClaimTranslatorExtractor::MANDATORY_SINGLE_VALUE_CLAIMS, true);
+            $ownStandardClaim = $standardClaim ?? ($isStandardClaim ? $path : null);
+            // Read the way ClaimTranslatorExtractor reads it.
+            $type = (string)($mapping['type'] ?? 'string');
+
+            if (array_key_exists(ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED, $mapping)) {
+                $this->ensureMultiValuedSettingIsValid(
+                    $path,
+                    $mapping[ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED],
+                    $type,
+                    $ownStandardClaim,
+                );
+            }
+
+            /** @var mixed $members */
+            $members = $mapping['claims'] ?? null;
+
+            if ($type === 'json' && is_array($members)) {
+                $this->ensureMultiValuedSettingsAreValid($members, $ownStandardClaim, $path . '.');
+            }
+        }
+    }
+
+
+    /**
+     * @throws \SimpleSAML\Error\ConfigurationError
+     */
+    protected function ensureMultiValuedSettingIsValid(
+        string $path,
+        mixed $multiValued,
+        string $type,
+        ?string $standardClaim,
+    ): void {
+        if (!is_bool($multiValued)) {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid value in %s. Claim "%s" sets "%s" to a value of type %s; it takes true (the claim is ' .
+                    'a list) or false (a single value).',
+                    ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                    $path,
+                    ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED,
+                    get_debug_type($multiValued),
+                ),
+            );
+        }
+
+        if (!$multiValued) {
+            return;
+        }
+
+        if ($type === 'json') {
+            throw new ConfigurationError(
+                sprintf(
+                    'Invalid value in %s. Claim "%s" sets "%s" to true, but it is translated to type \'json\', ' .
+                    'which yields a JSON object, not a list.',
+                    ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                    $path,
+                    ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED,
+                ),
+            );
+        }
+
+        if ($standardClaim === null) {
+            return;
+        }
+
+        throw new ConfigurationError(
+            sprintf(
+                'Invalid value in %s. Claim "%s" sets "%s" to true, but %s an OpenID Connect standard claim ' .
+                '(OpenID Connect Core 1.0 section 5.1), which is a single value.',
+                ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                $path,
+                ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED,
+                $path === $standardClaim ? 'it is' : sprintf('it is part of "%s",', $standardClaim),
+            ),
         );
     }
 
@@ -216,7 +321,8 @@ class ClaimTranslatorExtractorFactory
 
     /**
      * An identity claim is 'sub'-like, so its translation must yield a string: a 'json', 'int' or 'bool' type
-     * would put a non-string identifier next to 'sub'.
+     * would put a non-string identifier next to 'sub'. And a single one: the extractor keeps an identity claim a
+     * single value whatever its entry says, so an entry which makes it a list is refused rather than ignored.
      *
      * @param string[] $claimNames
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -244,6 +350,22 @@ class ClaimTranslatorExtractorFactory
                     ),
                 );
             }
+
+            if (
+                is_array($mapping) &&
+                ($mapping[ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED] ?? null) === true
+            ) {
+                throw new ConfigurationError(
+                    sprintf(
+                        'Invalid value in %s. Claim "%s" sets "%s" to true in the "%s" table, but an identity ' .
+                        'claim is a single value.',
+                        $option,
+                        $claimName,
+                        ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED,
+                        ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
+                    ),
+                );
+            }
         }
     }
 
@@ -251,7 +373,7 @@ class ClaimTranslatorExtractorFactory
     /**
      * One of ACCESS_TOKEN_LIST_CLAIMS is placed in the access token as a list, or the token can not be minted:
      * its translation has to yield one, which a 'json' mapping (a JSON object) never does and any other
-     * mapping does only when a private scope allows the claim multiple values.
+     * mapping does only when it sets ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED to true.
      *
      * @param string[] $claimNames
      * @throws \SimpleSAML\Error\ConfigurationError
@@ -285,11 +407,12 @@ class ClaimTranslatorExtractorFactory
                 throw new ConfigurationError(
                     sprintf(
                         'Invalid value in %s. Claim "%s" is a list in a JWT access token (RFC 9068 section ' .
-                        '2.2.3.1), but its translation yields a single value -- set "%s" in a private scope ' .
-                        'which carries it.',
+                        '2.2.3.1), but its translation yields a single value -- set "%s" to true on its entry ' .
+                        'in the "%s" table.',
                         $option,
                         $claimName,
-                        self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED,
+                        ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED,
+                        ModuleConfig::OPTION_AUTH_SAML_TO_OIDC_TRANSLATE_TABLE,
                     ),
                 );
             }
@@ -372,15 +495,5 @@ class ClaimTranslatorExtractorFactory
         return isset($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
         is_string($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]) &&
         !empty($scopeConfig[self::CONFIG_KEY_CLAIM_NAME_PREFIX]);
-    }
-
-
-    /**
-     * Check if the scope allows claims to have multiple values.
-     */
-    protected function doesScopeAllowMultipleClaimValues(array $scopeConfig): bool
-    {
-        return isset($scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED]) &&
-        $scopeConfig[self::CONFIG_KEY_MULTIPLE_CLAIM_VALUES_ALLOWED];
     }
 }

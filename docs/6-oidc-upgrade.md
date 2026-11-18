@@ -167,8 +167,8 @@ Verifiable Credential configuration id) named outside the RFC 6749 section 3.3
 backslash — since every granted scope goes into the `scope` claim (section
 2.2.3); and one of `groups`, `roles` or `entitlements` (lists, section
 2.2.3.1) listed in `access_token_claims` without a translation which yields a
-list (a private scope carrying the claim with
-`are_multiple_claim_values_allowed`). See the configuration guide on
+list (an entry in the translation table which sets `multi_valued` to `true`,
+see below). See the configuration guide on
 [private scopes](3-oidc-configuration.md#private-scopes) and on
 [identity claims and access token claims](3-oidc-configuration.md#identity-claims-and-access-token-claims).
 The module's own resource-server side (the UserInfo endpoint, token
@@ -184,8 +184,7 @@ default, so nothing changes on upgrade. `identity_claims` names claims which
 identify the user (a `voperson_id`, say): they join the `openid` scope and go
 wherever `sub` goes — into the ID token whatever the client's
 `add_claims_to_id_token` setting, the UserInfo response and the access token —
-and they are single-valued like `sub` whatever the multi-value setting of a
-private scope which also carries them.
+and they are single-valued like `sub` (see the note on `multi_valued` below).
 `access_token_claims` names user claims placed in the JWT access token in
 addition to `sub` and the identity claims, each only when a granted scope
 carries it. Both lists are validated against the effective attribute
@@ -596,12 +595,27 @@ so that the clients know the keys did not change. You can set the old
 `ModuleConfig::OPTION_FEDERATION_SIGNATURE_KEY_PAIRS`. Once you do a key
 roll-over, you can omit setting the `kid` manually, so you start using the
 automatically generated thumbprint.
-- In v6 of the module, when defining custom scopes, there was a possibility to
-use standard claims with the 'are_multiple_claim_values_allowed' option.
-This would allow multiple values (array of values) for standard claims which
-have a single value by specification. All [standard claims](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)
-are now hardcoded to have a single value, even when the
-'are_multiple_claim_values_allowed' option is enabled.
+- Whether a claim is a single value or a list is now set on the claim, not on
+the scope. In v6 a private scope's `are_multiple_claim_values_allowed` made
+every claim of the scope a list, even one with a single value, and made the
+claim a list under every other scope too. That setting is no longer read: a
+private scope which still sets it to `true` is refused when the configuration
+is read, and the error names the scope's claims. Set `'multi_valued' => true`
+on the [translation table](3-oidc-configuration.md#single-and-multiple-values)
+entry of each claim which is a list
+(`'eduperson_assurance' => ['multi_valued' => true, 'attributes' => ['eduPersonAssurance']]`,
+say), and remove the setting from the scope. In v6 the setting could also
+reach a member of a `json` claim, by its name; a member's shape is now read
+from its own entry alone, so check which members your relying parties receive
+as lists and set the key on those members' entries. A member of a standard
+claim, such as `address.formatted`, can not stay a list: it is now always a
+single value. A claim without it is a single value wherever it is
+released, so one which shared a scope with list claims
+(an `eduperson_principal_name` next to an `eduperson_affiliation`, say) is now
+a string. The [standard claims](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)
+and the identity claims are always a single value, and
+`'multi_valued' => true` on one is refused; in v6 the scope setting made a
+standard claim a list too.
 - OpenID Federation specific endpoints for subordinate listing and fetching
 statements about subordinates are removed, as the final specification
 explicitly states that leaf entities must not have those endpoints.
