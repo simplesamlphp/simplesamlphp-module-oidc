@@ -409,6 +409,68 @@ class IdTokenBuilderTest extends TestCase
     }
 
 
+    /**
+     * The claims the granted scopes release are translated only when the ID token carries them: with the client's
+     * claim-release setting off they are left to the UserInfo endpoint, so an attribute value of theirs which can
+     * not be converted does not fail the ID token. The 'openid' claim set (the identity claims) and a claim the
+     * 'claims' request parameter asks for are placed either way, the latter also when a granted scope releases it.
+     */
+    #[DataProvider('claimReleaseSettingProvider')]
+    public function testTranslatesTheScopeClaimsOnlyWhenItPlacesThem(bool $addClaimsFromScopes): void
+    {
+        $userClaims = ['uid' => ['raw-identifier']];
+        $claimsRequest = ['id_token' => ['name' => null]];
+        $this->userEntityMock->method('getIdentifier')->willReturn('raw-identifier');
+        $this->userEntityMock->method('getClaims')->willReturn($userClaims);
+        $this->accessTokenEntityMock->method('getSubject')->willReturn('mapped-subject');
+        $this->accessTokenEntityMock->method('getRequestedClaims')->willReturn($claimsRequest);
+
+        $this->stubOpenIdHelpers();
+
+        $extractedFor = [];
+        $this->claimTranslatorExtractorMock->method('extract')
+            ->willReturnCallback(
+                function (array $scopes) use (&$extractedFor): array {
+                    $extractedFor[] = $scopes;
+                    return $scopes === ['openid'] ?
+                        ['sub' => 'mapped-subject', 'voperson_id' => 'v1@example.org'] :
+                        ['name' => 'Firsty Lasty', 'email' => 'u1@example.org'];
+                },
+            );
+        $this->claimTranslatorExtractorMock->expects($this->once())->method('extractAdditionalIdTokenClaims')
+            ->with($claimsRequest, $userClaims)
+            ->willReturn(['name' => 'Firsty Lasty']);
+
+        $this->idTokenFactoryMock->expects($this->once())->method('fromData')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    fn(array $payload): bool => ($payload['voperson_id'] ?? null) === 'v1@example.org' &&
+                        ($payload['name'] ?? null) === 'Firsty Lasty' &&
+                        array_key_exists('email', $payload) === $addClaimsFromScopes,
+                ),
+                $this->anything(),
+            );
+
+        $this->sut()->buildFor(
+            $this->userEntityMock,
+            $this->accessTokenEntityMock,
+            $addClaimsFromScopes,
+            false,
+            null,
+            null,
+            null,
+            null,
+        );
+
+        $this->assertSame(
+            $addClaimsFromScopes ? [['openid'], [$this->scopeEntityMock]] : [['openid']],
+            $extractedFor,
+        );
+    }
+
+
     public function testWillNegotiateIdTokenSignatureAlgorithm(): void
     {
         $this->clientEntityMock->method('getIdTokenSignedResponseAlg')

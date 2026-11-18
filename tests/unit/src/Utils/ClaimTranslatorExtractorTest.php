@@ -308,6 +308,165 @@ class ClaimTranslatorExtractorTest extends TestCase
 
 
     /**
+     * Only the claims the granted scopes release are translated: an attribute value which can not be converted
+     * fails a release which includes its claim, directly or as a member of a 'json' claim, and no other -- not
+     * one which leaves the claim to a scope that was not granted, nor one of a claim no scope releases.
+     */
+    #[DataProvider('scopeReleasingAnUnconvertibleValueProvider')]
+    public function testTranslatesOnlyTheClaimsTheGrantedScopesRelease(string $scope): void
+    {
+        $translate = [
+            'org' => ['orgAttribute'],
+            'level' => ['type' => 'int', 'attributes' => ['levelAttribute']],
+            'assurance' => [
+                'type' => 'json',
+                'claims' => ['level' => ['type' => 'int', 'attributes' => ['levelAttribute']]],
+            ],
+            'unreleased' => ['type' => 'int', 'attributes' => ['levelAttribute']],
+        ];
+        $claimTranslator = $this->mock(
+            [
+                new ClaimSetEntity('org', ['org']),
+                new ClaimSetEntity('level', ['level']),
+                new ClaimSetEntity('assurance', ['assurance']),
+            ],
+            $translate,
+        );
+        $userAttributes = ['uid' => ['u1'], 'orgAttribute' => ['Example'], 'levelAttribute' => ['7890F']];
+
+        $this->assertSame(
+            ['sub' => 'u1', 'org' => 'Example'],
+            $claimTranslator->extract(['openid', 'org', 'unknown'], $userAttributes),
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Cannot convert '7890F' to int");
+
+        $claimTranslator->extract(['org', $scope], $userAttributes);
+    }
+
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function scopeReleasingAnUnconvertibleValueProvider(): array
+    {
+        return [
+            'a claim' => ['level'],
+            'a member of a json claim' => ['assurance'],
+        ];
+    }
+
+
+    /**
+     * A caller which carries only some of the released claims (the JWT access token) names them, and the others
+     * are not translated, so a value of theirs which can not be converted does not fail it. A named claim still
+     * needs a granted scope which releases it, 'sub' included.
+     */
+    public function testTranslatesOnlyTheNamedClaimsOfThoseTheScopesRelease(): void
+    {
+        $claimTranslator = $this->mock(
+            [new ClaimSetEntity('bundle', ['org', 'level']), new ClaimSetEntity('other', ['unit'])],
+            [
+                'org' => ['orgAttribute'],
+                'level' => ['type' => 'int', 'attributes' => ['levelAttribute']],
+                'unit' => ['unitAttribute'],
+            ],
+        );
+        $userAttributes = [
+            'uid' => ['u1'],
+            'orgAttribute' => ['Example'],
+            'levelAttribute' => ['7890F'],
+            'unitAttribute' => ['Unit'],
+        ];
+
+        $this->assertSame(
+            ['org' => 'Example'],
+            $claimTranslator->extract(['openid', 'bundle'], $userAttributes, ['org', 'unit']),
+        );
+        $this->assertSame(
+            ['sub' => 'u1'],
+            $claimTranslator->extract(['openid', 'bundle'], $userAttributes, ['sub']),
+        );
+        $this->assertSame(['org' => 'Example'], $claimTranslator->extract(['bundle'], $userAttributes, ['org', 'sub']));
+        $this->assertSame([], $claimTranslator->extract(['openid', 'bundle'], $userAttributes, []));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Cannot convert '7890F' to int");
+
+        $claimTranslator->extract(['bundle'], $userAttributes, ['org', 'level']);
+    }
+
+
+    /**
+     * A claim is released under a non-empty string name which stays a string as an array key, so an integer, a
+     * decimal integer string or an empty name in a claim set or a claims request releases nothing and is not
+     * translated: the 'int' entry under key 0 would throw on its value. Nor is it advertised in claims_supported
+     * (both found by review).
+     */
+    public function testReleasesNoClaimUnderAnIntegerOrAnEmptyName(): void
+    {
+        $claimTranslator = $this->mock(
+            [new ClaimSetEntity('odd', ['0', 1, '', 'org'])],
+            [
+                0 => ['type' => 'int', 'attributes' => ['levelAttribute']],
+                1 => ['orgAttribute'],
+                '' => ['orgAttribute'],
+                'org' => ['orgAttribute'],
+            ],
+        );
+        $userAttributes = ['orgAttribute' => ['Example'], 'levelAttribute' => ['high']];
+
+        $this->assertSame(['org' => 'Example'], $claimTranslator->extract(['odd'], $userAttributes));
+        $this->assertSame([], $claimTranslator->extract(['odd'], $userAttributes, ['0', '1', '']));
+        $this->assertSame(
+            ['org' => 'Example'],
+            $claimTranslator->extractAdditionalUserInfoClaims(
+                ['userinfo' => ['0' => null, '1' => null, '' => null, 'org' => null]],
+                $userAttributes,
+            ),
+        );
+
+        $supportedClaims = $claimTranslator->getSupportedClaims();
+        $this->assertContains('org', $supportedClaims);
+        $this->assertNotContains(0, $supportedClaims);
+        $this->assertNotContains(1, $supportedClaims);
+        $this->assertNotContains('', $supportedClaims);
+    }
+
+
+    /**
+     * The 'claims' request parameter translates only the claims it asks for, for the ID token and the UserInfo
+     * response alike.
+     */
+    public function testTranslatesOnlyTheClaimsAClaimsRequestAsksFor(): void
+    {
+        $claimTranslator = $this->mock([], ['level' => ['type' => 'int', 'attributes' => ['levelAttribute']]]);
+        $userAttributes = ['cn' => ['bob'], 'levelAttribute' => ['7890F']];
+
+        $this->assertSame(
+            ['name' => 'bob'],
+            $claimTranslator->extractAdditionalUserInfoClaims(['userinfo' => ['name' => null]], $userAttributes),
+        );
+        $this->assertSame(
+            ['name' => 'bob'],
+            $claimTranslator->extractAdditionalIdTokenClaims(
+                ['id_token' => ['name' => ['essential' => true]]],
+                $userAttributes,
+            ),
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Cannot convert '7890F' to int");
+
+        $claimTranslator->extractAdditionalIdTokenClaims(
+            ['id_token' => ['name' => null, 'level' => null]],
+            $userAttributes,
+        );
+    }
+
+
+    /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testExtractRequestClaimsUserInfo(): void

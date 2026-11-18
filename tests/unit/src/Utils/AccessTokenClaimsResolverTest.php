@@ -46,6 +46,8 @@ class AccessTokenClaimsResolverTest extends TestCase
             ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
             'attributes' => ['eduPersonAssurance'],
         ],
+        // Released by the 'aarc' scope next to the assurance; USER_ATTRIBUTES has no value for it.
+        'assurance_level' => ['type' => 'int', 'attributes' => ['assuranceLevel']],
     ];
 
 
@@ -75,7 +77,7 @@ class AccessTokenClaimsResolverTest extends TestCase
                 $claimSetEntityFactory,
                 [
                     // A private scope carrying the assurance, a list.
-                    $claimSetEntityFactory->build('aarc', ['eduperson_assurance']),
+                    $claimSetEntityFactory->build('aarc', ['eduperson_assurance', 'assurance_level']),
                     // The scope a VCI authorization_details request adds under its credential configuration id.
                     $claimSetEntityFactory->build('UniversityDegreeCredential', ['eduperson_assurance']),
                 ],
@@ -164,6 +166,29 @@ class AccessTokenClaimsResolverTest extends TestCase
                 ['openid', 'profile', 'email', 'aarc'],
             ),
         );
+    }
+
+
+    /**
+     * A claim a granted scope releases but neither list names is not translated, so a value of it which can not
+     * be converted does not fail the mint; once a list names it, it does.
+     */
+    public function testTranslatesNoClaimTheTokenDoesNotCarry(): void
+    {
+        $user = $this->user([...self::USER_ATTRIBUTES, 'assuranceLevel' => ['high']]);
+
+        $this->assertSame(
+            ['eduperson_assurance' => self::USER_ATTRIBUTES['eduPersonAssurance']],
+            $this->sut([], ['eduperson_assurance'])->resolve($user, ['openid', 'aarc']),
+        );
+
+        // A stub answers as it was first configured, so the second resolver needs a module configuration of its own.
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage("Cannot convert 'high' to int");
+
+        $this->sut([], ['eduperson_assurance', 'assurance_level'])->resolve($user, ['openid', 'aarc']);
     }
 
 

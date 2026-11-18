@@ -397,14 +397,20 @@ class ClaimTranslatorExtractor
 
 
     /**
+     * The claims the given scopes release, translated from the user's attributes, scope by scope. Only those claims
+     * are translated: an attribute value which can not be converted fails the translation of its claim, and must
+     * not fail a release which does not include that claim.
+     *
      * @param array<array-key, string|\League\OAuth2\Server\Entities\ScopeEntityInterface> $scopes
+     * @param string[]|null $claimNames When given, only these of the claims the scopes release are translated and
+     * returned, for a caller which carries no others.
+     * @throws \RuntimeException When the value of a claim translated here can not be converted to its type, or a
+     * released 'sub' or identity claim is not a non-empty string.
      */
-    public function extract(array $scopes, array $claims): array
+    public function extract(array $scopes, array $claims, ?array $claimNames = null): array
     {
-        $claims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
-
-        $claimData  = [];
-        $keys       = array_keys($claims);
+        $claimSets = [];
+        $releasedClaimNames = [];
 
         foreach ($scopes as $scope) {
             $scopeName = ($scope instanceof ScopeEntityInterface) ? $scope->getIdentifier() : $scope;
@@ -414,6 +420,28 @@ class ClaimTranslatorExtractor
                 continue;
             }
 
+            $claimSets[] = $claimSet;
+            /** @psalm-suppress MixedAssignment */
+            foreach ($claimSet->getClaims() as $claimName) {
+                if ($this->isReleasableClaimName($claimName)) {
+                    $releasedClaimNames[$claimName] = true;
+                }
+            }
+        }
+
+        if ($claimNames !== null) {
+            $releasedClaimNames = array_intersect_key($releasedClaimNames, array_fill_keys($claimNames, true));
+        }
+
+        $claims = $this->translateSamlAttributesToClaims(
+            array_intersect_key($this->translationTable, $releasedClaimNames),
+            $claims,
+        );
+
+        $claimData  = [];
+        $keys       = array_keys($claims);
+
+        foreach ($claimSets as $claimSet) {
             $intersected = array_intersect($claimSet->getClaims(), $keys);
 
             if (empty($intersected)) {
@@ -472,7 +500,8 @@ class ClaimTranslatorExtractor
 
 
     /**
-     * Add any individually requested claims
+     * Add any individually requested claims. Only those are translated, as in extract(), so an attribute value
+     * which can not be converted fails only a request which asks for its claim.
      * @link https://openid.net/specs/openid-connect-core-1_0.html#IndividualClaimsRequests
      * @param array $requestedClaims keys are requested claims, value is array of additional info on the request
      */
@@ -481,17 +510,35 @@ class ClaimTranslatorExtractor
         if (empty($requestedClaims)) {
             return [];
         }
-        $translatedClaims = $this->translateSamlAttributesToClaims($this->translationTable, $claims);
 
-        $additionalClaims = array_filter(
-            $translatedClaims,
-            fn(/** @param array-key $key */ $key) => array_key_exists($key, $requestedClaims),
-            ARRAY_FILTER_USE_KEY,
+        $additionalClaims = $this->translateSamlAttributesToClaims(
+            array_intersect_key(
+                $this->translationTable,
+                array_filter(
+                    $requestedClaims,
+                    $this->isReleasableClaimName(...),
+                    ARRAY_FILTER_USE_KEY,
+                ),
+            ),
+            $claims,
         );
 
         $this->validateSubjectLikeClaims($additionalClaims);
 
         return $additionalClaims;
+    }
+
+
+    /**
+     * Whether a claim set or a claims request names a claim the extractor releases: a non-empty string which PHP
+     * keeps as a string array key. PHP turns a decimal integer string such as '0' into an integer key, and the
+     * ID token and the access token place claims under string names only.
+     *
+     * @psalm-assert-if-true non-empty-string $claimName
+     */
+    private function isReleasableClaimName(mixed $claimName): bool
+    {
+        return is_string($claimName) && $claimName !== '' && (string)(int)$claimName !== $claimName;
     }
 
 
@@ -521,17 +568,19 @@ class ClaimTranslatorExtractor
      * Get supported claims for this OP. This will return all the claims for which the "SAML attribute to OIDC claim
      * translation" has been defined in module config, meaning it is expected for OP to release those claims. The
      * multi-value setting is no translation: an entry which holds it alone is left out, since an entry replaces the
-     * default one whole and so leaves the claim no attribute to read.
+     * default one whole and so leaves the claim no attribute to read. So is an entry under a name the extractor
+     * never releases (isReleasableClaimName()).
      */
     public function getSupportedClaims(): array
     {
         return array_keys(array_filter(
             $this->translationTable,
-            fn(mixed $mappingConfig): bool => !empty(
+            fn(mixed $mappingConfig, int|string $claim): bool => $this->isReleasableClaimName($claim) && !empty(
                 is_array($mappingConfig) ?
                 array_diff_key($mappingConfig, [self::MAPPING_KEY_MULTI_VALUED => null]) :
                 $mappingConfig
             ),
+            ARRAY_FILTER_USE_BOTH,
         ));
     }
 

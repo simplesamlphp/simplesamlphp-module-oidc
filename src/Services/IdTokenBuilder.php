@@ -105,11 +105,12 @@ class IdTokenBuilder
             }
         }
 
-        // Reduce the number of claims by provided scope.
-        $claims = $this->claimExtractor->extract(
-            $accessToken->getScopes(),
-            $userEntity->getClaims(),
-        );
+        // The claims the granted scopes release, translated only when they go into the token: otherwise they are
+        // left to the UserInfo endpoint, and an attribute value of theirs which can not be converted must not fail
+        // an ID token which does not carry them.
+        $claims = $addClaimsFromScopes ?
+        $this->claimExtractor->extract($accessToken->getScopes(), $userEntity->getClaims()) :
+        [];
         $requestedClaims =  $accessToken->getRequestedClaims();
         $additionalClaims = $this->claimExtractor->extractAdditionalIdTokenClaims(
             $requestedClaims,
