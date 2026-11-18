@@ -2872,30 +2872,67 @@ class VciOverviewBuilderTest extends TestCase
 
 
     /**
-     * Pinned rather than endorsed, and queued as a production fix.
-     *
-     * The credential offer row warns when its endpoint is enabled while the module API is off. The
-     * credential status row has no such warning, and the one warning it does have is decided by its
-     * own switch alone. So with the API off it reports that credentials being issued have no entry
-     * to change, about an endpoint VciCredentialStatusApiController refuses to serve at all, and
-     * never mentions the switch which is actually stopping it.
+     * VciCredentialStatusApiController refuses every request while the module API is off, so the row
+     * says so, as the credential offer row does, with the same words. That warning wins over the one
+     * about Status Lists, which would describe what can be done through an endpoint nobody can reach.
+     * A malformed api_enabled reads as off here; the protocol screen reports it, and it is not
+     * reported as a fault of this row's own option.
      */
-    public function testTheCredentialStatusRowDoesNotYetNoticeTheModuleApiIsOff(): void
+    #[DataProvider('moduleApiOffDataProvider')]
+    public function testTheCredentialStatusRowWarnsThatTheModuleApiIsOff(
+        mixed $apiEnabled,
+        bool $statusListsEnabled,
+    ): void {
+        $row = $this->findRowForOption(
+            $this->buildVciOverviewBuilder([
+                ModuleConfig::OPTION_API_ENABLED => $apiEnabled,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => $statusListsEnabled,
+            ])->build(),
+            ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
+        );
+
+        $this->assertNotNull($row);
+        $this->assertSame('Yes', $row->getValue());
+        $this->assertSame(
+            'The module API itself is disabled, so this endpoint is not served. Enable the API on the ' .
+            'protocol settings screen.',
+            $row->getWarning(),
+        );
+    }
+
+
+    /**
+     * @return array<string,array{mixed,bool}>
+     */
+    public static function moduleApiOffDataProvider(): array
+    {
+        return [
+            'the API off, Status Lists off' => [false, false],
+            'the API off, Status Lists on' => [false, true],
+            'api_enabled malformed' => ['yes', true],
+        ];
+    }
+
+
+    /**
+     * The endpoint switched off is not served whatever the API says, and the note already names
+     * the API as a further requirement, so there is nothing to warn about.
+     */
+    public function testTheCredentialStatusRowDoesNotWarnAboutTheApiForAnEndpointSwitchedOff(): void
     {
         $row = $this->findRowForOption(
             $this->buildVciOverviewBuilder([
                 ModuleConfig::OPTION_API_ENABLED => false,
-                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => true,
+                ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED => false,
                 ModuleConfig::OPTION_VCI_STATUS_LIST_ENABLED => false,
             ])->build(),
             ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
         );
 
         $this->assertNotNull($row);
-        // Warns about an endpoint which is not served at all.
-        $this->assertStringContainsString('no entry to change', (string)$row->getWarning());
-        // And says nothing about the switch which is the reason it is not served.
-        $this->assertStringNotContainsString('module API', (string)$row->getWarning());
+        $this->assertSame('No', $row->getValue());
+        $this->assertNull($row->getWarning());
     }
 
 

@@ -7,6 +7,7 @@ namespace SimpleSAML\Module\oidc\VerifiableCredentials;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
+use SimpleSAML\Module\oidc\Factories\VerifiableCredentialsFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements;
@@ -48,10 +49,20 @@ class KeyAttestationVerifier
      */
     protected ?array $trustAnchors = null;
 
+    /** Built on first use, by verifiableCredentials(). */
+    protected ?VerifiableCredentials $verifiableCredentials = null;
 
+
+    /**
+     * The library's credential tooling is taken as its factory and built only once an attestation is verified, as
+     * ConfigController takes FederationFactory. Building it reads the timestamp validation leeway, which throws on a
+     * malformed value, and this class is built for the configuration overview screens and the credential issuer
+     * metadata too, which verify nothing and only ask getTrustAnchors(): the screens are where a malformed leeway is
+     * reported, and the metadata endpoint answers 403 while issuance is off.
+     */
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
-        protected readonly VerifiableCredentials $verifiableCredentials,
+        protected readonly VerifiableCredentialsFactory $verifiableCredentialsFactory,
         protected readonly X509 $x509,
         protected readonly LoggerService $loggerService,
     ) {
@@ -133,7 +144,8 @@ class KeyAttestationVerifier
      * @param ?\SimpleSAML\Module\oidc\VerifiableCredentials\Values\VciKeyAttestationRequirements $requirements What the
      * proof type requires of the levels it states, or null for nothing.
      * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException When it is refused (`invalid_proof`).
-     * @throws \SimpleSAML\Error\ConfigurationError When the trust anchors can not be used.
+     * @throws \SimpleSAML\Error\ConfigurationError When the trust anchors can not be used, or the credential tooling
+     * can not be built.
      * @throws \SimpleSAML\OpenID\Exceptions\X509TrustStoreException When the path validation can not run.
      */
     public function verify(
@@ -142,9 +154,11 @@ class KeyAttestationVerifier
         ?VciKeyAttestationRequirements $requirements,
     ): KeyAttestation {
         $trustAnchors = $this->getTrustAnchors();
+        // Built before the try below, which refuses whatever fails in it as the wallet's fault.
+        $verifiableCredentials = $this->verifiableCredentials();
 
         try {
-            $keyAttestation = $this->verifiableCredentials->keyAttestationFactory()->fromToken($keyAttestationJwt);
+            $keyAttestation = $verifiableCredentials->keyAttestationFactory()->fromToken($keyAttestationJwt);
         } catch (Throwable $throwable) {
             $this->loggerService->warning(
                 'Key attestation could not be parsed, or is not a valid one.',
@@ -173,7 +187,13 @@ class KeyAttestationVerifier
 
         // RFC 7515 section 4.1.6: a JSON array. Read from the header as sent, since decoded into PHP arrays an object
         // whose members are named 0, 1 and so on reads as a list too.
-        if (!$this->protectedHeaderHoldsJsonArray($keyAttestationJwt, ClaimsEnum::X5c->value)) {
+        if (
+            !$this->protectedHeaderHoldsJsonArray(
+                $keyAttestationJwt,
+                ClaimsEnum::X5c->value,
+                'The protected header of the key attestation could not be read.',
+            )
+        ) {
             throw new CredentialRequestException(
                 'invalid_proof',
                 'The x5c header parameter of the key attestation must be a JSON array of certificates.',
@@ -268,25 +288,61 @@ class KeyAttestationVerifier
 
 
     /**
-     * Whether the protected header of the compact JWS given holds a JSON array as the parameter given.
+     * The library's credential tooling, built on the first call (see the constructor).
      *
-     * @param non-empty-string $compactJws
+     * @throws \SimpleSAML\Error\ConfigurationError When it can not be built from the configuration: the issuer's
+     * fault, which OpenId4VciProofValidator lets through to be answered as a server error, where anything else that
+     * fails verifying an attestation becomes `invalid_proof`.
      */
-    protected function protectedHeaderHoldsJsonArray(string $compactJws, string $parameter): bool
+    protected function verifiableCredentials(): VerifiableCredentials
     {
-        try {
-            /** @psalm-suppress MixedAssignment */
-            $header = json_decode(
-                $this->verifiableCredentials->helpers()->base64Url()->decode(explode('.', $compactJws, 2)[0]),
-                false,
-                512,
-                JSON_THROW_ON_ERROR,
-            );
-        } catch (Throwable) {
-            return false;
+        if ($this->verifiableCredentials !== null) {
+            return $this->verifiableCredentials;
         }
 
-        return $header instanceof stdClass && property_exists($header, $parameter) && is_array($header->$parameter);
+        try {
+            return $this->verifiableCredentials = $this->verifiableCredentialsFactory->build();
+        } catch (Throwable $throwable) {
+            throw new ConfigurationError(
+                'The credential tooling which verifies key attestations can not be built from the configuration: ' .
+                $throwable->getMessage(),
+                ModuleConfig::DEFAULT_FILE_NAME,
+            );
+        }
+    }
+
+
+    /**
+     * Whether the protected header of the compact JWS given holds a JSON array as the parameter given.
+     *
+     * The header is decoded into objects, which refuses some headers the library, decoding them into arrays, takes: one
+     * with a member name starting with a NUL character, for one. Such a header is refused as one which can not be
+     * read, with the message given, rather than its parameter being called no array when it may well be one.
+     *
+     * @param non-empty-string $compactJws
+     * @param non-empty-string $unreadableHeaderMessage
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException When the header can not be read as an
+     * object (`invalid_proof`).
+     */
+    protected function protectedHeaderHoldsJsonArray(
+        string $compactJws,
+        string $parameter,
+        string $unreadableHeaderMessage,
+    ): bool {
+        $base64Url = $this->verifiableCredentials()->helpers()->base64Url();
+
+        try {
+            /** @psalm-suppress MixedAssignment */
+            $header = json_decode($base64Url->decode(explode('.', $compactJws, 2)[0]), false, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable) {
+            $header = null;
+        }
+
+        if (!$header instanceof stdClass) {
+            throw new CredentialRequestException('invalid_proof', $unreadableHeaderMessage);
+        }
+
+        return property_exists($header, $parameter) && is_array($header->$parameter);
     }
 
 

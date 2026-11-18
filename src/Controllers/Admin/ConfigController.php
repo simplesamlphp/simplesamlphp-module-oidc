@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SimpleSAML\Module\oidc\Controllers\Admin;
 
 use Exception;
+use InvalidArgumentException;
 use SimpleSAML\Locale\Translate;
 use SimpleSAML\Module\oidc\Admin\Authorization;
 use SimpleSAML\Module\oidc\Admin\ConfigOverview\FederationOverviewBuilder;
@@ -18,7 +19,6 @@ use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\DatabaseMigration;
 use SimpleSAML\Module\oidc\Services\SessionMessagesService;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Federation\TrustMark;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -169,10 +169,61 @@ class ConfigController
         }
 
         if (is_array($trustMarkTokens)) {
-            $trustMarks = array_map(
-                fn(string $token): TrustMark => $federation->trustMarkFactory()->fromToken($token),
-                $trustMarkTokens,
-            );
+            // Each read on its own, and kept to the ones about this OP, as the entity configuration endpoint does:
+            // there a token which can not be read (one which has expired, for one: the library validates it on
+            // parsing) or which was issued for another entity is logged and left out, and this screen is where an
+            // administrator finds that out. Each is reported as a translatable sentence and an untranslatable
+            // detail, as a dynamic trust mark below is; the detail quotes claim values at most, never the token, and
+            // names the entry by its position, not its key, which in an option written by mistake as a map keyed by
+            // the tokens would be one.
+            //
+            // The issuer is read defensively: a malformed one is reported on the Issuer row below, which this screen
+            // has to reach. Without it no subject can be checked, and none is; the endpoint publishes nothing then.
+            try {
+                $issuer = $this->moduleConfig->getIssuer();
+            } catch (Throwable) {
+                $issuer = null;
+            }
+
+            foreach (array_values($trustMarkTokens) as $index => $token) {
+                $entry = sprintf('Entry %s of %s', $index, ModuleConfig::OPTION_FEDERATION_TRUST_MARK_TOKENS);
+
+                try {
+                    if (!is_string($token)) {
+                        throw new InvalidArgumentException('Not a string.');
+                    }
+
+                    $trustMark = $federation->trustMarkFactory()->fromToken($token);
+                    $trustMarkType = $trustMark->getTrustMarkType();
+                    $subject = $trustMark->getSubject();
+                } catch (Throwable $exception) {
+                    $this->sessionMessagesService->addMessage(
+                        Translate::noop(
+                            'A statically configured Trust Mark could not be read, so the entity configuration ' .
+                            'leaves it out:',
+                        ),
+                    );
+                    $this->sessionMessagesService->addMessage($entry . '. ' . $exception->getMessage());
+
+                    continue;
+                }
+
+                if ($issuer !== null && $subject !== $issuer) {
+                    $this->sessionMessagesService->addMessage(
+                        Translate::noop(
+                            'A statically configured Trust Mark was issued for another entity, so the entity ' .
+                            'configuration leaves it out:',
+                        ),
+                    );
+                    $this->sessionMessagesService->addMessage(
+                        "$entry: trust_mark_type => $trustMarkType, sub => $subject.",
+                    );
+
+                    continue;
+                }
+
+                $trustMarks[] = $trustMark;
+            }
         }
 
         if (is_array($dynamicTrustMarks)) {

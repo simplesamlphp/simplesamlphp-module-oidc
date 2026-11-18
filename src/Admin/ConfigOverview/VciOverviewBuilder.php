@@ -108,6 +108,15 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             // Reported on its own row below, where the option which failed to resolve is named.
         }
 
+        // As in buildCredentialOfferSection(): resolved on its own, so that a malformed api_enabled is not reported
+        // as a failure of the credential status endpoint option. The protocol screen, which owns it, reports it; here
+        // it reads as off, the conservative reading for the endpoint warning below.
+        try {
+            $isApiEnabled = $this->moduleConfig->getApiEnabled();
+        } catch (Throwable) {
+            $isApiEnabled = false;
+        }
+
         $rows = [
             $this->guardRow(
                 Translate::noop('Status Lists Enabled'),
@@ -216,7 +225,7 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
             $this->guardRow(
                 Translate::noop('Credential Status Endpoint Enabled'),
                 ModuleConfig::OPTION_API_VCI_CREDENTIAL_STATUS_ENDPOINT_ENABLED,
-                function () use ($isEnabled): Row {
+                function () use ($isEnabled, $isApiEnabled): Row {
                     $isStatusEndpointEnabled = $this->moduleConfig->getApiVciCredentialStatusEndpointEnabled();
 
                     return new Row(
@@ -235,11 +244,21 @@ class VciOverviewBuilder extends AbstractOverviewBuilder
                             'Not served, so credential statuses can only be changed from the ' .
                             'administration screens. Also requires the module API to be enabled.',
                         ),
-                        ($isStatusEndpointEnabled && !$isEnabled) ? Translate::noop(
-                            'Status Lists are disabled, so credentials being issued now have no ' .
-                            'entry to change. Ones issued while they were enabled can still be ' .
-                            'revoked through this endpoint.',
-                        ) : null,
+                        // A row carries one warning. With the module API off VciCredentialStatusApiController
+                        // refuses every request, so that one wins: it names the switch to turn, and the one about
+                        // Status Lists would describe what can be done through an endpoint nobody can reach.
+                        match (true) {
+                            $isStatusEndpointEnabled && !$isApiEnabled => Translate::noop(
+                                'The module API itself is disabled, so this endpoint is not served. Enable the ' .
+                                'API on the protocol settings screen.',
+                            ),
+                            $isStatusEndpointEnabled && !$isEnabled => Translate::noop(
+                                'Status Lists are disabled, so credentials being issued now have no ' .
+                                'entry to change. Ones issued while they were enabled can still be ' .
+                                'revoked through this endpoint.',
+                            ),
+                            default => null,
+                        },
                     );
                 },
             ),

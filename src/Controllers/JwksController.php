@@ -8,7 +8,7 @@ use SimpleSAML\Module\oidc\Codebooks\StatusListKeyProfileEnum;
 use SimpleSAML\Module\oidc\Codebooks\VciIssuerIdentifierModeEnum;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Jwks;
+use SimpleSAML\OpenID\Jwks\Factories\JwksDecoratorFactory;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -17,7 +17,10 @@ class JwksController
 {
     public function __construct(
         protected readonly ModuleConfig $moduleConfig,
-        protected readonly Jwks $jwks,
+        // The decorator factory alone, not the Jwks service: building that reads the timestamp validation
+        // leeway, which publishing a key set has no use for, so a malformed one would take this key set
+        // down with it, and with it the verification of every token this issuer has signed.
+        protected readonly JwksDecoratorFactory $jwksDecoratorFactory,
         protected readonly Routes $routes,
     ) {
     }
@@ -50,7 +53,7 @@ class JwksController
         : [];
 
         return $this->routes->newJsonResponse(
-            $this->jwks->jwksDecoratorFactory()->fromJwkDecorators(
+            $this->jwksDecoratorFactory->fromJwkDecorators(
                 ...$this->moduleConfig->getProtocolSignatureKeyPairBag()->getAllPublicKeys(),
                 ...$federationPublicKeys,
                 ...$vciPublicKeys,

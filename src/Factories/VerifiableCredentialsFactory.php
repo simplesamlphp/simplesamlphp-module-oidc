@@ -25,6 +25,7 @@ class VerifiableCredentialsFactory
     {
         return new VerifiableCredentials(
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
+            timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             logger: $this->loggerService,
         );
     }

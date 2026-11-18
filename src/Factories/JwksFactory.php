@@ -29,6 +29,7 @@ class JwksFactory
     {
         return new Jwks(
             supportedAlgorithms: $this->moduleConfig->getSupportedAlgorithms(),
+            timestampValidationLeeway: $this->moduleConfig->getTimestampValidationLeeway(),
             maxCacheDuration: $this->moduleConfig->getFederationCacheMaxDurationForFetched(),
             cache: $this->federationCache?->cache,
             logger: $this->loggerService,

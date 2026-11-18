@@ -15,7 +15,6 @@ use SimpleSAML\Module\oidc\Controllers\JwksController;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\StatusList\Values\StatusListPoolBag;
 use SimpleSAML\Module\oidc\Utils\Routes;
-use SimpleSAML\OpenID\Jwks;
 use SimpleSAML\OpenID\Jwks\Factories\JwksDecoratorFactory;
 use SimpleSAML\OpenID\Jwks\JwksDecorator;
 use SimpleSAML\OpenID\ValueAbstracts\SignatureKeyPairBag;
@@ -26,8 +25,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 class JwksControllerTest extends TestCase
 {
     protected MockObject $moduleConfigMock;
-
-    protected MockObject $jwks;
 
     protected MockObject $routesMock;
 
@@ -42,7 +39,6 @@ class JwksControllerTest extends TestCase
     protected function setUp(): void
     {
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
-        $this->jwks = $this->createMock(Jwks::class);
         $this->routesMock = $this->createMock(Routes::class);
         $this->routesMock->method('newJsonResponse')->willReturnCallback(
             fn (
@@ -56,23 +52,21 @@ class JwksControllerTest extends TestCase
         $this->jwksDecoratorMock = $this->createMock(JwksDecorator::class);
         $this->jwksDecoratorFactoryMock = $this->createMock(JwksDecoratorFactory::class);
         $this->jwksDecoratorFactoryMock->method('fromJwkDecorators')->willReturn($this->jwksDecoratorMock);
-
-        $this->jwks->method('jwksDecoratorFactory')->willReturn($this->jwksDecoratorFactoryMock);
     }
 
 
     protected function mock(
         ?ModuleConfig $moduleConfig = null,
-        ?Jwks $jwks = null,
+        ?JwksDecoratorFactory $jwksDecoratorFactory = null,
         ?Routes $routes = null,
     ): JwksController {
         $moduleConfig ??= $this->moduleConfigMock;
-        $jwks ??= $this->jwks;
+        $jwksDecoratorFactory ??= $this->jwksDecoratorFactoryMock;
         $routes ??= $this->routesMock;
 
         return new JwksController(
             $moduleConfig,
-            $jwks,
+            $jwksDecoratorFactory,
             $routes,
         );
     }

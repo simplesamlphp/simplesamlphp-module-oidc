@@ -30,9 +30,8 @@ use SimpleSAML\OpenID\SupportedSerializers;
  * `routing/services/services.yml` names `build` as the factory of the `SimpleSAML\OpenID\Jwks` service, which
  * fetches and decorates JWK Sets. What the factory decides is what the library runs with: the configured
  * signature algorithms, the federation cache and the fetched-artifact cache duration, the protocol HTTP client
- * options, the destination policy for the fetches, and the module's logger. The timestamp validation leeway
- * is not among them: it stays at the library's default, as it does for the VerifiableCredentials service,
- * pinned as it stands and queued as a production fix.
+ * options, the destination policy for the fetches, the timestamp validation leeway for signed JWK Sets, and the
+ * module's logger.
  *
  * The policy is taken as its factory rather than built, and not built until a Jwks is, for the reason
  * FederationFactory gives: building it throws on a malformed configuration, and the container reaches this
@@ -61,6 +60,8 @@ class JwksFactoryTest extends TestCase
 
     protected DateInterval $maxCacheDuration;
 
+    protected DateInterval $timestampValidationLeeway;
+
     protected DestinationPolicy $destinationPolicy;
 
 
@@ -68,12 +69,15 @@ class JwksFactoryTest extends TestCase
     {
         $this->supportedAlgorithms = new SupportedAlgorithms();
         $this->maxCacheDuration = new DateInterval('PT7H');
+        $this->timestampValidationLeeway = new DateInterval('PT3M');
         $this->destinationPolicy = new DestinationPolicy();
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getSupportedAlgorithms')->willReturn($this->supportedAlgorithms);
         $this->moduleConfigMock->method('getFederationCacheMaxDurationForFetched')
             ->willReturn($this->maxCacheDuration);
+        $this->moduleConfigMock->method('getTimestampValidationLeeway')
+            ->willReturn($this->timestampValidationLeeway);
         $this->moduleConfigMock->method('getProtocolHttpClientOptions')
             ->willReturn(['timeout' => self::REQUEST_TIMEOUT]);
 
@@ -154,16 +158,12 @@ class JwksFactoryTest extends TestCase
 
 
     /**
-     * The configured leeway is not so much as read, and the Jwks runs with the leeway a bare one has. Pinned
-     * as the present behaviour; the fix is to hand it over as the Federation and Jws factories do.
+     * The configured leeway is handed over as the very object, as the Core, Federation and Jws factories hand
+     * theirs; it is not the library's default of a minute.
      */
-    public function testLeavesTheTimestampValidationLeewayAtTheLibrarysDefault(): void
+    public function testHandsOverTheConfiguredTimestampValidationLeeway(): void
     {
-        $this->moduleConfigMock->expects($this->never())->method('getTimestampValidationLeeway');
-
-        $jwks = $this->sut()->build();
-
-        $this->assertEquals($this->leewayOf(new Jwks()), $this->leewayOf($jwks));
+        $this->assertSame($this->timestampValidationLeeway, $this->leewayOf($this->sut()->build()));
     }
 
 

@@ -6,6 +6,7 @@ namespace SimpleSAML\Test\Module\oidc\unit\Controllers\Admin;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
@@ -25,6 +26,7 @@ use SimpleSAML\Module\oidc\Utils\Routes;
 use SimpleSAML\OpenID\Codebooks\JwtTypesEnum;
 use SimpleSAML\OpenID\Codebooks\WellKnownEnum;
 use SimpleSAML\OpenID\Exceptions\FetchException;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Federation\EntityStatement;
 use SimpleSAML\OpenID\Federation\EntityStatementFetcher;
@@ -65,6 +67,12 @@ class ConfigControllerTest extends TestCase
 
     protected const string DYNAMIC_TRUST_MARKS_UNREADABLE_MESSAGE = 'Dynamically fetched Trust Marks could not be ' .
     'read, so they are not shown. Check that option below.';
+
+    protected const string TRUST_MARK_TOKEN_UNREADABLE_MESSAGE = 'A statically configured Trust Mark could not be ' .
+    'read, so the entity configuration leaves it out:';
+
+    protected const string TRUST_MARK_FOR_ANOTHER_ENTITY_MESSAGE = 'A statically configured Trust Mark was issued ' .
+    'for another entity, so the entity configuration leaves it out:';
 
 
     protected MockObject $moduleConfigMock;
@@ -297,7 +305,7 @@ class ConfigControllerTest extends TestCase
      */
     protected function trustMarkFromToken(string $token): TrustMark
     {
-        $trustMark = $this->createStub(TrustMark::class);
+        $trustMark = $this->trustMarkIssuedFor(self::ISSUER);
         $this->trustMarkFactoryMock->expects($this->once())->method('fromToken')
             ->with($token, JwtTypesEnum::TrustMarkJwt)
             ->willReturn($trustMark);
@@ -398,6 +406,16 @@ class ConfigControllerTest extends TestCase
             $sections,
             RoutesEnum::AdminConfigVerifiableCredential,
         );
+    }
+
+
+    protected function trustMarkIssuedFor(string $subject): TrustMark
+    {
+        $trustMark = $this->createStub(TrustMark::class);
+        $trustMark->method('getSubject')->willReturn($subject);
+        $trustMark->method('getTrustMarkType')->willReturn('trust-mark-type');
+
+        return $trustMark;
     }
 
 
@@ -527,6 +545,120 @@ class ConfigControllerTest extends TestCase
             [
                 'Error fetching dynamic trust mark:',
                 'trust_mark_type => unreachable-type, issuer_id => https://unreachable.example.org. Could not fetch.',
+            ],
+            $this->messages,
+        );
+    }
+
+
+    /**
+     * The entity configuration logs and leaves out a static trust mark which can not be read -- the library
+     * validates one on parsing, so one which has expired can not -- and this screen is where an administrator
+     * finds that out: a message, in two parts as for a dynamic trust mark, naming the entry and why, while the
+     * marks after it are still read and shown.
+     */
+    #[DataProvider('unreadableTrustMarkTokenDataProvider')]
+    public function testReportsAStaticTrustMarkWhichCannotBeReadAndKeepsTheOthers(mixed $unreadable, string $why): void
+    {
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')->willReturn([$unreadable, 'token']);
+        $trustMark = $this->trustMarkIssuedFor(self::ISSUER);
+        $this->trustMarkFactoryMock->method('fromToken')->willReturnCallback(
+            static fn(string $token): TrustMark => $token === 'token' ?
+            $trustMark :
+            throw new JwsException('Expiration Time claim (1) is not after current time.'),
+        );
+        $this->expectNoDynamicTrustMarkFetched();
+        $this->expectFederationOverviewOf([$trustMark]);
+
+        $this->assertSame($this->template, $this->sut()->federationSettings());
+        $this->assertFederationScreenRendered();
+        $this->assertSame(
+            [self::TRUST_MARK_TOKEN_UNREADABLE_MESSAGE, 'Entry 0 of federation_trust_mark_tokens. ' . $why],
+            $this->messages,
+        );
+    }
+
+
+    /**
+     * @return array<string,array{mixed,string}>
+     */
+    public static function unreadableTrustMarkTokenDataProvider(): array
+    {
+        return [
+            'one the library refuses on parsing' => [
+                'expired',
+                'Expiration Time claim (1) is not after current time.',
+            ],
+            'one which is not a string' => [42, 'Not a string.'],
+        ];
+    }
+
+
+    /**
+     * As at the endpoint, an entry is named by its position, not its key, which in an option written by mistake as
+     * a map keyed by the tokens would be one, and would put it on this screen.
+     */
+    public function testNamesAnEntryByItsPositionNotItsKey(): void
+    {
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')
+            ->willReturn(['keyed-token' => true, 'second' => 'token']);
+        $trustMark = $this->trustMarkIssuedFor(self::ISSUER);
+        $this->trustMarkFactoryMock->expects($this->once())->method('fromToken')->with('token')
+            ->willReturn($trustMark);
+        $this->expectNoDynamicTrustMarkFetched();
+        $this->expectFederationOverviewOf([$trustMark]);
+
+        $this->assertSame($this->template, $this->sut()->federationSettings());
+        $this->assertFederationScreenRendered();
+        $this->assertSame(
+            [self::TRUST_MARK_TOKEN_UNREADABLE_MESSAGE, 'Entry 0 of federation_trust_mark_tokens. Not a string.'],
+            $this->messages,
+        );
+    }
+
+
+    /**
+     * A malformed issuer is reported on the Issuer row of the overview, so it must not take this screen down on the
+     * way there. Without an issuer no subject can be checked: a readable static trust mark is listed, and nothing is
+     * said of it being issued for another entity (the endpoint publishes nothing without an issuer in any case).
+     */
+    public function testAMalformedIssuerDoesNotTakeTheScreenDownWithAStaticTrustMark(): void
+    {
+        $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
+        $this->moduleConfigMock->method('getIssuer')->willThrowException(new ConfigurationError('Not a string.'));
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')->willReturn(['token']);
+        $trustMark = $this->trustMarkFromToken('token');
+        $this->expectNoDynamicTrustMarkFetched();
+        $this->expectFederationOverviewOf([$trustMark]);
+
+        $this->assertSame($this->template, $this->sut()->federationSettings());
+        $this->assertFederationScreenRendered();
+        $this->assertSame([], $this->messages);
+    }
+
+
+    /**
+     * Nor does the entity configuration publish one issued for another entity, so neither is it listed here as
+     * resolved: it is reported, with its type and the subject it was issued for.
+     */
+    public function testReportsAStaticTrustMarkIssuedForAnotherEntityAndKeepsTheOthers(): void
+    {
+        $this->moduleConfigMock->method('getFederationTrustMarkTokens')->willReturn(['foreign', 'token']);
+        $foreignTrustMark = $this->trustMarkIssuedFor('https://someone-else.example.org');
+        $trustMark = $this->trustMarkIssuedFor(self::ISSUER);
+        $this->trustMarkFactoryMock->method('fromToken')->willReturnCallback(
+            static fn(string $token): TrustMark => $token === 'token' ? $trustMark : $foreignTrustMark,
+        );
+        $this->expectNoDynamicTrustMarkFetched();
+        $this->expectFederationOverviewOf([$trustMark]);
+
+        $this->assertSame($this->template, $this->sut()->federationSettings());
+        $this->assertFederationScreenRendered();
+        $this->assertSame(
+            [
+                self::TRUST_MARK_FOR_ANOTHER_ENTITY_MESSAGE,
+                'Entry 0 of federation_trust_mark_tokens: trust_mark_type => trust-mark-type, sub => ' .
+                'https://someone-else.example.org.',
             ],
             $this->messages,
         );

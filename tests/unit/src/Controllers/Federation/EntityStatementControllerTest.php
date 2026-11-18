@@ -30,6 +30,7 @@ use SimpleSAML\OpenID\Codebooks\ClientRegistrationTypesEnum;
 use SimpleSAML\OpenID\Codebooks\ContentTypesEnum;
 use SimpleSAML\OpenID\Codebooks\EntityTypesEnum;
 use SimpleSAML\OpenID\Codebooks\HttpHeadersEnum;
+use SimpleSAML\OpenID\Exceptions\JwsException;
 use SimpleSAML\OpenID\Federation;
 use SimpleSAML\OpenID\Federation\EntityStatement;
 use SimpleSAML\OpenID\Federation\EntityStatementFetcher;
@@ -125,7 +126,7 @@ class EntityStatementControllerTest extends TestCase
     /** @var string[]|null */
     protected ?array $authorityHints = null;
 
-    /** @var string[]|null */
+    /** @var array<mixed>|null */
     protected ?array $trustMarkTokens = null;
 
     /** @var array<string,string>|null */
@@ -133,6 +134,9 @@ class EntityStatementControllerTest extends TestCase
 
     /** @var array<string,string> Trust Mark token => the subject it was issued for. */
     protected array $trustMarkSubjects = [];
+
+    /** @var string[] Trust Mark tokens the factory refuses to parse, as it does one which has expired. */
+    protected array $unreadableTrustMarkTokens = [];
 
     protected ?Throwable $issuerStatementFailure = null;
 
@@ -207,6 +211,7 @@ class EntityStatementControllerTest extends TestCase
         $this->trustMarkTokens = null;
         $this->dynamicTrustMarks = null;
         $this->trustMarkSubjects = [self::TRUST_MARK_TOKEN => self::ISSUER];
+        $this->unreadableTrustMarkTokens = [];
         $this->issuerStatementFailure = null;
         $this->trustMarkFetchFailure = null;
         $this->opMetadata = ['issuer' => self::ISSUER, 'response_types_supported' => ['code']];
@@ -334,10 +339,16 @@ class EntityStatementControllerTest extends TestCase
 
         $trustMarkFactoryMock = $this->createMock(TrustMarkFactory::class);
         $trustMarkFactoryMock->method('fromToken')->willReturnCallback(
-            fn(mixed $token): TrustMark => $this->buildTrustMark(
-                (string)$token,
-                $this->trustMarkSubjects[(string)$token] ?? self::ISSUER,
-            ),
+            function (mixed $token): TrustMark {
+                if (in_array($token, $this->unreadableTrustMarkTokens, true)) {
+                    throw new JwsException('Expiration Time claim (1) is not after current time.');
+                }
+
+                return $this->buildTrustMark(
+                    (string)$token,
+                    $this->trustMarkSubjects[(string)$token] ?? self::ISSUER,
+                );
+            },
         );
         $this->federationMock->method('trustMarkFactory')->willReturn($trustMarkFactoryMock);
 
@@ -983,23 +994,115 @@ class EntityStatementControllerTest extends TestCase
 
 
     /**
-     * Pinned as it stands, not endorsed. A Trust Mark issued for another entity is a misconfiguration and
-     * this OP must not publish it -- but refusing it this way fails the whole entity configuration, and
-     * that statement is how every other participant learns this OP exists. Note the asymmetry with the
-     * dynamic Trust Marks below, where a failure is logged and skipped. Recorded in the release plan as a
-     * queued fix; when it is made, this test changes with it.
+     * A Trust Mark issued for another entity must not be published as this OP's, but nor may it take down the
+     * statement by which every other participant learns this OP exists. It is logged, with what an administrator
+     * needs to find it, and left out, as a dynamic one which can not be fetched is, and the configured ones after it
+     * are still published.
      *
      * @throws \Exception
      */
-    public function testRefusesToPublishATrustMarkIssuedForAnotherEntity(): void
+    public function testATrustMarkIssuedForAnotherEntityIsLoggedAndLeftOut(): void
     {
-        $this->trustMarkTokens = [self::TRUST_MARK_TOKEN];
-        $this->trustMarkSubjects[self::TRUST_MARK_TOKEN] = 'https://someone-else.example.org';
+        $this->trustMarkTokens = ['foreign.trust.mark.token', self::TRUST_MARK_TOKEN];
+        $this->trustMarkSubjects['foreign.trust.mark.token'] = 'https://someone-else.example.org';
 
-        $this->expectException(OidcServerException::class);
-        $this->expectExceptionMessage('not intended for this entity');
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->stringContains('issued for another entity'),
+                [
+                    'trustMarkTokenIndex' => 0,
+                    'trustMarkType' => self::TRUST_MARK_TYPE,
+                    'subjectId' => 'https://someone-else.example.org',
+                    'expectedSubjectId' => self::ISSUER,
+                ],
+            );
 
-        $this->sut()->configuration();
+        $this->assertSame(
+            [
+                [
+                    ClaimsEnum::TrustMarkType->value => self::TRUST_MARK_TYPE,
+                    ClaimsEnum::TrustMark->value => self::TRUST_MARK_TOKEN,
+                ],
+            ],
+            $this->publishedPayload()[ClaimsEnum::TrustMarks->value] ?? null,
+        );
+    }
+
+
+    /**
+     * The library validates a Trust Mark on parsing, so one which has expired, or was mis-pasted, can not be read at
+     * all, and a value which is not even a string less so. Each is logged with why and with its place in the option,
+     * and left out, and the configured ones after it are still published.
+     *
+     * @throws \Exception
+     */
+    #[DataProvider('unreadableTrustMarkTokenDataProvider')]
+    public function testAStaticTrustMarkWhichCanNotBeReadIsLoggedAndLeftOut(mixed $unreadable, string $why): void
+    {
+        $this->trustMarkTokens = [$unreadable, self::TRUST_MARK_TOKEN];
+        $this->unreadableTrustMarkTokens = ['expired.trust.mark.token'];
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with($this->stringContains($why), ['trustMarkTokenIndex' => 0]);
+
+        $this->assertSame(
+            [
+                [
+                    ClaimsEnum::TrustMarkType->value => self::TRUST_MARK_TYPE,
+                    ClaimsEnum::TrustMark->value => self::TRUST_MARK_TOKEN,
+                ],
+            ],
+            $this->publishedPayload()[ClaimsEnum::TrustMarks->value] ?? null,
+        );
+    }
+
+
+    /**
+     * The option is meant to be a list, but nothing stops it being written as a map keyed by the tokens. A token in
+     * a key must not reach the log as the entry's name: entries are named by their position.
+     *
+     * @throws \Exception
+     */
+    public function testAnEntryIsNamedByItsPositionNotItsKey(): void
+    {
+        $this->trustMarkTokens = ['keyed.trust.mark.token' => true, 'second' => self::TRUST_MARK_TOKEN];
+
+        $this->loggerServiceMock->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->logicalAnd(
+                    $this->stringContains('Not a string.'),
+                    $this->logicalNot($this->stringContains('keyed.trust.mark.token')),
+                ),
+                ['trustMarkTokenIndex' => 0],
+            );
+
+        $this->assertSame(
+            [
+                [
+                    ClaimsEnum::TrustMarkType->value => self::TRUST_MARK_TYPE,
+                    ClaimsEnum::TrustMark->value => self::TRUST_MARK_TOKEN,
+                ],
+            ],
+            $this->publishedPayload()[ClaimsEnum::TrustMarks->value] ?? null,
+        );
+    }
+
+
+    /**
+     * @return array<string,array{mixed,string}>
+     */
+    public static function unreadableTrustMarkTokenDataProvider(): array
+    {
+        return [
+            'one the library refuses on parsing' => [
+                'expired.trust.mark.token',
+                'Expiration Time claim (1) is not after current time.',
+            ],
+            'one which is not a string' => [['not', 'a', 'token'], 'Not a string.'],
+        ];
     }
 
 

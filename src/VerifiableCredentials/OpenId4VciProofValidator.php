@@ -823,7 +823,11 @@ class OpenId4VciProofValidator
         // The JSON type is read from the header as sent, since decoded into PHP arrays an object whose members are
         // named 0, 1 and so on reads as a list too.
         if (
-            !$this->protectedHeaderHoldsJsonArray($proofJwt, ClaimsEnum::TrustChain->value) ||
+            !$this->protectedHeaderHoldsJsonArray(
+                $proofJwt,
+                ClaimsEnum::TrustChain->value,
+                'The protected header of the key proof could not be read.',
+            ) ||
             !is_array($trustChain) ||
             $trustChain === []
         ) {
@@ -843,23 +847,34 @@ class OpenId4VciProofValidator
     /**
      * Whether the protected header of the compact JWS given holds a JSON array as the parameter given.
      *
+     * The header is decoded into objects, which refuses some headers the library, decoding them into arrays, takes: one
+     * with a member name starting with a NUL character, for one. Such a header is refused as one which can not be
+     * read, with the message given, rather than its parameter being called no array when it may well be one.
+     *
      * @param non-empty-string $compactJws
+     * @param non-empty-string $unreadableHeaderMessage
+     * @throws \SimpleSAML\Module\oidc\Exceptions\CredentialRequestException When the header can not be read as an
+     * object (`invalid_proof`).
      */
-    protected function protectedHeaderHoldsJsonArray(string $compactJws, string $parameter): bool
-    {
+    protected function protectedHeaderHoldsJsonArray(
+        string $compactJws,
+        string $parameter,
+        string $unreadableHeaderMessage,
+    ): bool {
+        $base64Url = $this->verifiableCredentials->helpers()->base64Url();
+
         try {
             /** @psalm-suppress MixedAssignment */
-            $header = json_decode(
-                $this->verifiableCredentials->helpers()->base64Url()->decode(explode('.', $compactJws, 2)[0]),
-                false,
-                512,
-                JSON_THROW_ON_ERROR,
-            );
+            $header = json_decode($base64Url->decode(explode('.', $compactJws, 2)[0]), false, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable) {
-            return false;
+            $header = null;
         }
 
-        return $header instanceof stdClass && property_exists($header, $parameter) && is_array($header->$parameter);
+        if (!$header instanceof stdClass) {
+            throw new CredentialRequestException('invalid_proof', $unreadableHeaderMessage);
+        }
+
+        return property_exists($header, $parameter) && is_array($header->$parameter);
     }
 
 

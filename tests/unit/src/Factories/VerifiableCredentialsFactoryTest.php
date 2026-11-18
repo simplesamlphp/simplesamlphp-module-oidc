@@ -23,12 +23,9 @@ use SimpleSAML\OpenID\VerifiableCredentials;
  *
  * `routing/services/services.yml` names `build` as the factory of the `SimpleSAML\OpenID\VerifiableCredentials`
  * service, the credential offer, credential and transaction code factories of the issuance flow. What the
- * factory decides is what the library runs with: the configured signature algorithms and the module's
- * logger. The timestamp validation leeway, which the library hands its credential factories, is not among
- * them: it stays at the library's default, as it does for the Jwks service, while the Core, Jws,
- * RequestObject, TokenStatusList and Federation services get the configured one. That omission is pinned
- * as it stands and queued as a production fix. The service keeps all of it to itself, so the tests read it
- * back by reflection.
+ * factory decides is what the library runs with: the configured signature algorithms and timestamp validation
+ * leeway, which the library hands its credential factories, and the module's logger. The service keeps all of
+ * it to itself, so the tests read it back by reflection.
  */
 #[CoversClass(VerifiableCredentialsFactory::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -40,13 +37,18 @@ class VerifiableCredentialsFactoryTest extends TestCase
 
     protected SupportedAlgorithms $supportedAlgorithms;
 
+    protected DateInterval $timestampValidationLeeway;
+
 
     protected function setUp(): void
     {
         $this->supportedAlgorithms = new SupportedAlgorithms();
+        $this->timestampValidationLeeway = new DateInterval('PT3M');
 
         $this->moduleConfigMock = $this->createMock(ModuleConfig::class);
         $this->moduleConfigMock->method('getSupportedAlgorithms')->willReturn($this->supportedAlgorithms);
+        $this->moduleConfigMock->method('getTimestampValidationLeeway')
+            ->willReturn($this->timestampValidationLeeway);
 
         $this->loggerServiceMock = $this->createMock(LoggerService::class);
     }
@@ -91,19 +93,12 @@ class VerifiableCredentialsFactoryTest extends TestCase
 
 
     /**
-     * The configured leeway is not so much as read, and the service runs with the leeway a bare one has.
-     * Pinned as the present behaviour; the fix is to hand it over as the other library factories do.
+     * The configured leeway is handed over as the very object, as the other library factories hand theirs; it
+     * is not the library's default of a minute.
      */
-    public function testLeavesTheTimestampValidationLeewayAtTheLibrarysDefault(): void
+    public function testHandsOverTheConfiguredTimestampValidationLeeway(): void
     {
-        $this->moduleConfigMock->expects($this->never())->method('getTimestampValidationLeeway');
-
-        $verifiableCredentials = $this->sut()->build();
-
-        $this->assertEquals(
-            $this->leewayOf(new VerifiableCredentials()),
-            $this->leewayOf($verifiableCredentials),
-        );
+        $this->assertSame($this->timestampValidationLeeway, $this->leewayOf($this->sut()->build()));
     }
 
 

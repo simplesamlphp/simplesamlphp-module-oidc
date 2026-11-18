@@ -2256,6 +2256,16 @@ msgid "Error fetching dynamic trust mark:"
 msgstr ""
 
 msgid ""
+"A statically configured Trust Mark could not be read, so the entity "
+"configuration leaves it out:"
+msgstr ""
+
+msgid ""
+"A statically configured Trust Mark was issued for another entity, so the "
+"entity configuration leaves it out:"
+msgstr ""
+
+msgid ""
 "Federation discovery passed (there were no warnings or errors during the "
 "process)."
 msgstr ""

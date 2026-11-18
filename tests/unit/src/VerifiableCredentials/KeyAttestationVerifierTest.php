@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\unit\VerifiableCredentials;
 
+use DateMalformedIntervalStringException;
 use Jose\Component\Core\JWK;
 use Jose\Component\KeyManagement\JWKFactory;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 use SimpleSAML\Error\ConfigurationError;
 use SimpleSAML\Module\oidc\Codebooks\VciProofTypeEnum;
 use SimpleSAML\Module\oidc\Exceptions\CredentialRequestException;
+use SimpleSAML\Module\oidc\Factories\VerifiableCredentialsFactory;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Services\LoggerService;
 use SimpleSAML\Module\oidc\VerifiableCredentials\KeyAttestationVerifier;
@@ -137,14 +139,25 @@ class KeyAttestationVerifierTest extends TestCase
     }
 
 
-    protected function sut(?X509 $x509 = null): KeyAttestationVerifier
-    {
+    protected function sut(
+        ?X509 $x509 = null,
+        ?VerifiableCredentialsFactory $verifiableCredentialsFactory = null,
+    ): KeyAttestationVerifier {
         return new KeyAttestationVerifier(
             $this->moduleConfigMock,
-            self::$facade,
+            $verifiableCredentialsFactory ?? $this->factoryBuilding(self::$facade),
             $x509 ?? new X509(),
             $this->loggerServiceMock,
         );
+    }
+
+
+    protected function factoryBuilding(VerifiableCredentials $verifiableCredentials): VerifiableCredentialsFactory
+    {
+        $verifiableCredentialsFactoryMock = $this->createMock(VerifiableCredentialsFactory::class);
+        $verifiableCredentialsFactoryMock->method('build')->willReturn($verifiableCredentials);
+
+        return $verifiableCredentialsFactoryMock;
     }
 
 
@@ -643,6 +656,57 @@ class KeyAttestationVerifierTest extends TestCase
 
 
     /**
+     * The configuration overview screens and the credential issuer metadata build this class and only ask for the
+     * trust anchors, so the credential tooling, whose building reads the timestamp validation leeway and throws on a
+     * malformed one, is not built until an attestation is verified.
+     */
+    public function testDoesNotBuildTheCredentialToolingUntilItVerifies(): void
+    {
+        $verifiableCredentialsFactoryMock = $this->createMock(VerifiableCredentialsFactory::class);
+        $verifiableCredentialsFactoryMock->expects($this->never())->method('build');
+
+        $this->assertCount(1, $this->sut(null, $verifiableCredentialsFactoryMock)->getTrustAnchors());
+    }
+
+
+    /**
+     * Built once, and used both to parse the attestation and to read its header as sent.
+     */
+    public function testBuildsTheCredentialToolingOnce(): void
+    {
+        $verifiableCredentialsFactoryMock = $this->createMock(VerifiableCredentialsFactory::class);
+        $verifiableCredentialsFactoryMock->expects($this->once())->method('build')->willReturn(self::$facade);
+        $sut = $this->sut(null, $verifiableCredentialsFactoryMock);
+
+        $sut->verify($this->keyAttestation(), VciProofTypeEnum::Jwt, null);
+        $sut->verify($this->keyAttestation(), VciProofTypeEnum::Attestation, null);
+    }
+
+
+    /**
+     * Tooling which can not be built is this issuer's fault, a malformed timestamp validation leeway for one, so it is
+     * thrown as a configuration error, which OpenId4VciProofValidator lets through to be answered as a server error:
+     * as anything else it would be refused as an invalid proof, the wallet's fault. Nothing is parsed or logged here.
+     */
+    public function testCredentialToolingWhichCanNotBeBuiltIsTheIssuersFault(): void
+    {
+        $verifiableCredentialsFactoryMock = $this->createMock(VerifiableCredentialsFactory::class);
+        $verifiableCredentialsFactoryMock->method('build')
+            ->willThrowException(new DateMalformedIntervalStringException('Unknown or bad format (not-an-interval)'));
+        $this->loggerServiceMock->expects($this->never())->method('warning');
+
+        $this->expectException(ConfigurationError::class);
+        $this->expectExceptionMessage('Unknown or bad format (not-an-interval)');
+
+        $this->sut(null, $verifiableCredentialsFactoryMock)->verify(
+            $this->keyAttestation(),
+            VciProofTypeEnum::Jwt,
+            null,
+        );
+    }
+
+
+    /**
      * A trust store which can not be set up is this issuer's fault, not the wallet's, so it is not answered as an
      * invalid proof.
      */
@@ -665,14 +729,14 @@ class KeyAttestationVerifierTest extends TestCase
     /**
      * The x5c is read as a JSON array from the header as sent, decoded into objects, which refuses a member name
      * starting with a NUL character. The library decodes the header into arrays, which takes one, so such an
-     * attestation is parsed, and then refused here. The refusal names the x5c it was reading, though what could not
-     * be read is the header around it.
+     * attestation is parsed, and then refused here, as a header which can not be read: its x5c is an array of
+     * certificates, so a refusal naming the x5c would send the wallet's developer to the wrong member.
      */
     public function testRefusesAKeyAttestationWhoseHeaderCanNotBeReadAsAnObject(): void
     {
         $this->assertRefused(
             $this->keyAttestation([], ["\0extension" => 'value']),
-            'The x5c header parameter of the key attestation must be a JSON array of certificates.',
+            'The protected header of the key attestation could not be read.',
         );
     }
 
@@ -779,11 +843,6 @@ class KeyAttestationVerifierTest extends TestCase
         $verifiableCredentialsMock->method('keyAttestationFactory')->willReturn($keyAttestationFactoryMock);
         $verifiableCredentialsMock->method('helpers')->willReturn(self::$facade->helpers());
 
-        return new KeyAttestationVerifier(
-            $this->moduleConfigMock,
-            $verifiableCredentialsMock,
-            new X509(),
-            $this->loggerServiceMock,
-        );
+        return $this->sut(null, $this->factoryBuilding($verifiableCredentialsMock));
     }
 }

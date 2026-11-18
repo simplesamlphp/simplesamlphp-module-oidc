@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Test\Module\oidc\integration;
 
+use DateMalformedIntervalStringException;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -253,6 +254,76 @@ class ModuleKernelTest extends TestCase
         oidc_hook_cron($croninfo);
 
         $this->assertSame(['Module `oidc` clean up. Removed expired entries from storage.'], $croninfo['summary']);
+    }
+
+
+    /**
+     * A malformed timestamp validation leeway (ModuleConfig::getTimestampValidationLeeway() throws on one) takes down
+     * whatever validates tokens with it, which is most of the OP, but not what reports it or never needed it: the
+     * configuration screens, the protocol one of which says what is wrong with it, and the migrations screen on the
+     * same controller; the OP's key set, which everything this issuer has signed is verified with; and the credential
+     * issuer metadata. The container builds these with services whose factories read the leeway (Jwks,
+     * VerifiableCredentials) kept out of their way, so a dependency added later can take one of them down, which this
+     * catches. The token endpoint, which needs the leeway, shows that it is malformed while this runs.
+     */
+    public function testAMalformedTimestampValidationLeewayLeavesUpWhatDoesNotNeedIt(): void
+    {
+        $originalModuleConfig = Configuration::getConfig(ModuleConfig::DEFAULT_FILE_NAME);
+        $moduleConfig = $originalModuleConfig->toArray();
+        $moduleConfig[ModuleConfig::OPTION_TIMESTAMP_VALIDATION_LEEWAY] = 'not-an-interval';
+        Configuration::setPreLoadedConfig(Configuration::loadFromArray($moduleConfig), ModuleConfig::DEFAULT_FILE_NAME);
+
+        try {
+            $_SERVER['HTTP_HOST'] = 'localhost';
+            $_SERVER['SERVER_NAME'] = 'localhost';
+            $_SERVER['SERVER_PORT'] = '80';
+            $_SERVER['REQUEST_URI'] = '/module.php/oidc/jwks';
+            $_SERVER['REQUEST_METHOD'] = 'GET';
+            $this->installAdminSession();
+            $container = self::bootKernelWithPublicResolvers();
+            $router = self::router($container);
+            $controllerResolver = $container->get('controller_resolver');
+            $argumentResolver = $container->get('argument_resolver');
+            if (
+                !$controllerResolver instanceof ControllerResolverInterface ||
+                !$argumentResolver instanceof ArgumentResolverInterface
+            ) {
+                throw new RuntimeException('The container holds no controller or argument resolver.');
+            }
+
+            $routes = self::moduleRoutes($router);
+            $failures = [];
+            foreach (
+                [
+                    RoutesEnum::AdminConfigGeneral,
+                    RoutesEnum::AdminConfigProtocol,
+                    RoutesEnum::AdminConfigFederation,
+                    RoutesEnum::AdminConfigVerifiableCredential,
+                    RoutesEnum::AdminMigrations,
+                    RoutesEnum::Jwks,
+                    RoutesEnum::CredentialIssuerConfiguration,
+                    RoutesEnum::Token,
+                ] as $case
+            ) {
+                $route = $routes[$case->name] ?? throw new RuntimeException($case->name . ' is not a route.');
+                $failures[$case->name] = self::dispatchUpToTheAction(
+                    $router,
+                    $controllerResolver,
+                    $argumentResolver,
+                    $case->name,
+                    Request::create($route->getPath(), $route->getMethods()[0] ?? 'GET'),
+                );
+            }
+
+            $this->assertStringContainsString(
+                DateMalformedIntervalStringException::class,
+                (string)$failures[RoutesEnum::Token->name],
+            );
+            unset($failures[RoutesEnum::Token->name]);
+            $this->assertSame([], array_filter($failures));
+        } finally {
+            Configuration::setPreLoadedConfig($originalModuleConfig, ModuleConfig::DEFAULT_FILE_NAME);
+        }
     }
 
 

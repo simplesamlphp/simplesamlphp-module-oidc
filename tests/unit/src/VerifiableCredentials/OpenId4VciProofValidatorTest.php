@@ -3136,8 +3136,9 @@ class OpenId4VciProofValidatorTest extends TestCase
     /**
      * The trust_chain is read as a JSON array from the header as sent, decoded into objects, which refuses a member
      * name starting with a NUL character. The library decodes the header into arrays, which takes one, so such a proof
-     * is parsed, and then refused here; without that member the same proof is accepted
-     * (testAcceptsAttachedJwtsSignedWithAnAdvertisedAlgorithm).
+     * is parsed, and then refused here, as a header which can not be read: its trust_chain is an array of JWTs, so a
+     * refusal naming the trust_chain would send the wallet's developer to the wrong member. Without that member the
+     * same proof is accepted (testAcceptsAttachedJwtsSignedWithAnAdvertisedAlgorithm).
      */
     public function testRefusesATrustChainInAHeaderWhichCanNotBeReadAsAnObject(): void
     {
@@ -3149,7 +3150,7 @@ class OpenId4VciProofValidatorTest extends TestCase
         $this->assertRefusedWith(
             'invalid_proof',
             $this->requestWithRealProofs([$this->realProof($header)]),
-            expectedMessageFragment: 'trust_chain header parameter of the key proof must be a non-empty array of JWTs.',
+            expectedMessageFragment: 'The protected header of the key proof could not be read.',
         );
     }
 

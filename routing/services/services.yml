@@ -171,6 +171,9 @@ services:
   SimpleSAML\OpenID\Jwks:
     factory: [ '@SimpleSAML\Module\oidc\Factories\JwksFactory', 'build' ]
   SimpleSAML\OpenID\Jwk: ~
+  # Reads no configuration, unlike the Jwks service, which is what lets the OP's key set be served whatever the
+  # options only fetching needs say (JwksController).
+  SimpleSAML\OpenID\Jwks\Factories\JwksDecoratorFactory: ~
   # Reads and validates the certificate chains of the credential signing keys; the trust store of each validation is
   # written to the system's temporary directory.
   SimpleSAML\OpenID\X509: ~

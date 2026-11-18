@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SimpleSAML\Module\oidc\Controllers\Federation;
 
+use InvalidArgumentException;
 use SimpleSAML\Module\oidc\Helpers;
 use SimpleSAML\Module\oidc\ModuleConfig;
 use SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException;
@@ -200,21 +201,51 @@ class EntityStatementController
             is_array($trustMarkTokens = $this->moduleConfig->getFederationTrustMarkTokens()) &&
             (!empty($trustMarkTokens))
         ) {
-            $trustMarks = array_map(function (string $token): array {
-                $trustMarkEntity = $this->federation->trustMarkFactory()->fromToken($token);
+            // Each is published only if it can be read - the library validates it on parsing, so one which has
+            // expired can not - and is about this OP. One which is not, stale or mis-pasted, is logged and left out,
+            // as a dynamic Trust Mark which can not be fetched is below: this statement is how every other
+            // participant learns this OP exists, so it must not go down over one Trust Mark. The federation settings
+            // screen reports each such token too. Each is named by its position, not its key: an option written by
+            // mistake as a map keyed by the tokens would otherwise put them into the log.
+            foreach (array_values($trustMarkTokens) as $index => $token) {
+                try {
+                    if (!is_string($token)) {
+                        throw new InvalidArgumentException('Not a string.');
+                    }
 
-                if ($trustMarkEntity->getSubject() !== $this->moduleConfig->getIssuer()) {
-                    throw OidcServerException::serverError(sprintf(
-                        'Trust Mark %s is not intended for this entity.',
-                        $trustMarkEntity->getTrustMarkType(),
-                    ));
+                    $trustMarkEntity = $this->federation->trustMarkFactory()->fromToken($token);
+                    $trustMarkType = $trustMarkEntity->getTrustMarkType();
+                    $subject = $trustMarkEntity->getSubject();
+                } catch (Throwable $exception) {
+                    $this->loggerService->error(
+                        'Could not read a statically configured Trust Mark, so the Entity Configuration is ' .
+                        'published without it: ' . $exception->getMessage(),
+                        ['trustMarkTokenIndex' => $index],
+                    );
+
+                    continue;
                 }
 
-                return [
-                    ClaimsEnum::TrustMarkType->value => $trustMarkEntity->getTrustMarkType(),
+                if ($subject !== $this->moduleConfig->getIssuer()) {
+                    $this->loggerService->error(
+                        'A statically configured Trust Mark is issued for another entity, so the Entity ' .
+                        'Configuration is published without it.',
+                        [
+                            'trustMarkTokenIndex' => $index,
+                            'trustMarkType' => $trustMarkType,
+                            'subjectId' => $subject,
+                            'expectedSubjectId' => $this->moduleConfig->getIssuer(),
+                        ],
+                    );
+
+                    continue;
+                }
+
+                $trustMarks[] = [
+                    ClaimsEnum::TrustMarkType->value => $trustMarkType,
                     ClaimsEnum::TrustMark->value => $token,
                 ];
-            }, $trustMarkTokens);
+            }
         }
 
         if (
