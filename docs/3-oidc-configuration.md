@@ -1324,6 +1324,15 @@ member of a `json` claim too. It is refused when the configuration is read:
 `groups`, `roles` and `entitlements` need it set to `true` to be
 [access token claims](#identity-claims-and-access-token-claims).
 
+Each value a claim releases has to be a single value, read from an attribute
+which is an array of values (its keys play no part). An attribute value which
+is itself an array (an authentication processing filter can set one), or an
+attribute which is not an array at all, is an error when a claim read from it
+is released, rather than a claim of another shape: a single-valued claim would
+become a list, and a list claim a list holding a list or a single value. A
+single-valued claim is read from the attribute's first value alone, so only
+that value counts for it.
+
 ### The subject
 
 The `sub` claim of every token the module issues for a user — the ID token,

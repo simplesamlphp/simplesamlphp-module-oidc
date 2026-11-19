@@ -467,6 +467,260 @@ class ClaimTranslatorExtractorTest extends TestCase
 
 
     /**
+     * An attribute is an array of values, and each value a claim releases a single one: a value which is an array (an
+     * authentication processing filter can set one) would make a single-valued claim a list and a list claim a
+     * list holding a list, so it is refused, whatever the claim's type and for a member of a 'json' claim too. The
+     * error names the claim, a member as `claim.member`, and the attribute.
+     */
+    #[DataProvider('arrayValueProvider')]
+    public function testRefusesAReleasedValueWhichIsAnArray(array $mapping, array $attributeValues, string $path): void
+    {
+        $claimTranslator = $this->mock([new ClaimSetEntity('level', ['level'])], ['level' => $mapping]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            sprintf(
+                "The '%s' claim can not be translated: a value of attribute 'levelAttribute' is an array, not a " .
+                'single value',
+                $path,
+            ),
+        );
+
+        $claimTranslator->extract(['level'], ['levelAttribute' => $attributeValues]);
+    }
+
+
+    /**
+     * @return array<string, array{0: array, 1: array, 2: string}>
+     */
+    public static function arrayValueProvider(): array
+    {
+        $multiValued = ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED;
+        $attributes = ['levelAttribute'];
+
+        return [
+            'the first value of a single-valued claim' => [$attributes, [['a', 'b'], 'c'], 'level'],
+            'an associative array' => [$attributes, [['key' => 'a']], 'level'],
+            'an empty array' => [$attributes, [[]], 'level'],
+            'an int claim' => [['type' => 'int', 'attributes' => $attributes], [['1', '2']], 'level'],
+            'a type which converts nothing' => [['type' => 'raw', 'attributes' => $attributes], [['a']], 'level'],
+            'a later value of a list claim' => [
+                [$multiValued => true, 'attributes' => $attributes],
+                ['a', ['b', 'c']],
+                'level',
+            ],
+            'a bool list claim' => [
+                ['type' => 'bool', $multiValued => true, 'attributes' => $attributes],
+                [['1']],
+                'level',
+            ],
+            'a member of a json claim' => [
+                ['type' => 'json', 'claims' => ['member' => $attributes]],
+                [['a']],
+                'level.member',
+            ],
+            'a list member of a json claim' => [
+                ['type' => 'json', 'claims' => ['member' => [$multiValued => true, 'attributes' => $attributes]]],
+                ['a', ['b']],
+                'level.member',
+            ],
+            'a member of a json member' => [
+                [
+                    'type' => 'json',
+                    'claims' => ['outer' => ['type' => 'json', 'claims' => ['member' => $attributes]]],
+                ],
+                [['a']],
+                'level.outer.member',
+            ],
+        ];
+    }
+
+
+    /**
+     * Nor is an attribute which is not an array of values: it has no first value for a single-valued claim to
+     * take, and would make a list claim a single value.
+     */
+    #[DataProvider('attributeWhichIsNotAnArrayProvider')]
+    public function testRefusesAnAttributeWhichIsNotAnArrayOfValues(bool $multiValued, mixed $attributeValue): void
+    {
+        $claimTranslator = $this->mock(
+            [new ClaimSetEntity('level', ['level'])],
+            [
+                'level' => [
+                    ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => $multiValued,
+                    'attributes' => ['levelAttribute'],
+                ],
+            ],
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            "The 'level' claim can not be translated: attribute 'levelAttribute' is not an array of values",
+        );
+
+        $claimTranslator->extract(['level'], ['levelAttribute' => $attributeValue]);
+    }
+
+
+    /**
+     * @return array<string, array{0: bool, 1: mixed}>
+     */
+    public static function attributeWhichIsNotAnArrayProvider(): array
+    {
+        return [
+            'a string, for a single-valued claim' => [false, 'a'],
+            'a string, for a list claim' => [true, 'a'],
+            'null' => [false, null],
+            'an integer, for a list claim' => [true, 7],
+            'an object' => [false, new stdClass()],
+        ];
+    }
+
+
+    /**
+     * The refusal holds wherever a claim is translated: for 'sub' and an identity claim, ahead of the check that
+     * they are non-empty strings, for the subject alone, and for a claim the 'claims' request parameter asks for.
+     */
+    #[DataProvider('everyTranslationOfAnArrayValueProvider')]
+    public function testRefusesAnArrayValueWhereverAClaimIsTranslated(
+        string $method,
+        array $arguments,
+        string $claim,
+        string $attribute,
+    ): void {
+        $claimTranslator = $this->mock(
+            [],
+            ['voperson_id' => ['voPersonID'], 'level' => ['levelAttribute']],
+            ['voperson_id'],
+        );
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            sprintf(
+                "The '%s' claim can not be translated: a value of attribute '%s' is an array, not a single value",
+                $claim,
+                $attribute,
+            ),
+        );
+
+        $claimTranslator->$method(...$arguments);
+    }
+
+
+    /**
+     * @return array<string, array{0: string, 1: array, 2: string, 3: string}>
+     */
+    public static function everyTranslationOfAnArrayValueProvider(): array
+    {
+        $array = [['v1', 'v2']];
+
+        return [
+            "'sub'" => ['extract', [['openid'], ['uid' => $array]], 'sub', 'uid'],
+            "'sub' alone" => ['extractSubject', [['uid' => $array]], 'sub', 'uid'],
+            'an identity claim' => [
+                'extract',
+                [['openid'], ['uid' => ['u1'], 'voPersonID' => $array]],
+                'voperson_id',
+                'voPersonID',
+            ],
+            'a claim requested for the UserInfo response' => [
+                'extractAdditionalUserInfoClaims',
+                [['userinfo' => ['level' => null]], ['levelAttribute' => $array]],
+                'level',
+                'levelAttribute',
+            ],
+            'a claim requested for the ID token' => [
+                'extractAdditionalIdTokenClaims',
+                [['id_token' => ['level' => null]], ['levelAttribute' => $array]],
+                'level',
+                'levelAttribute',
+            ],
+        ];
+    }
+
+
+    /**
+     * Only the values a claim releases are looked at: a single-valued claim takes its attribute's first value
+     * whatever the later ones are, and an attribute which only a claim not released is read from fails nothing.
+     * The attribute's keys play no part: a list claim takes every value, in order, as a list (keys found by
+     * review).
+     */
+    public function testLooksOnlyAtTheValuesAClaimReleases(): void
+    {
+        $claimTranslator = $this->mock(
+            [new ClaimSetEntity('org', ['org', 'unit']), new ClaimSetEntity('level', ['level', 'rank'])],
+            [
+                'org' => ['orgAttribute'],
+                'unit' => [
+                    ClaimTranslatorExtractor::MAPPING_KEY_MULTI_VALUED => true,
+                    'attributes' => ['unitAttribute'],
+                ],
+                'level' => ['levelAttribute'],
+                'rank' => ['rankAttribute'],
+            ],
+        );
+        $userAttributes = [
+            'orgAttribute' => ['primary' => 'Example', 'secondary' => ['a', 'b']],
+            'unitAttribute' => ['first' => 'Unit A', 'second' => 'Unit B'],
+            'levelAttribute' => [['high']],
+            'rankAttribute' => 'first',
+        ];
+
+        $this->assertSame(
+            ['org' => 'Example', 'unit' => ['Unit A', 'Unit B']],
+            $claimTranslator->extract(['org'], $userAttributes),
+        );
+        $this->assertSame(
+            ['org' => 'Example'],
+            $claimTranslator->extractAdditionalUserInfoClaims(['userinfo' => ['org' => null]], $userAttributes),
+        );
+    }
+
+
+    /**
+     * A single-valued claim takes its attribute's first value, and that is the value checked, wherever the array's
+     * internal pointer is (found by review).
+     */
+    public function testTakesTheFirstValueWhereverTheArrayPointerIs(): void
+    {
+        $claimTranslator = $this->mock([new ClaimSetEntity('org', ['org'])], ['org' => ['orgAttribute']]);
+        $valid = ['Example', ['later']];
+        next($valid);
+        $malformed = [['first'], 'later'];
+        next($malformed);
+
+        $this->assertSame(['org' => 'Example'], $claimTranslator->extract(['org'], ['orgAttribute' => $valid]));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            "The 'org' claim can not be translated: a value of attribute 'orgAttribute' is an array, not a single " .
+            'value',
+        );
+
+        $claimTranslator->extract(['org'], ['orgAttribute' => $malformed]);
+    }
+
+
+    /**
+     * PHP keeps an attribute named '123' under the integer key 123, and an entry may name it so, or by a float
+     * which PHP takes for that key (both found by review).
+     */
+    public function testReadsAnAttributeUnderAnIntegerKey(): void
+    {
+        $this->assertSame(
+            ['org' => 'Example'],
+            $this->mock([new ClaimSetEntity('org', ['org'])], ['org' => [123]])
+                ->extract(['org'], ['123' => ['Example']]),
+        );
+        $this->assertSame(
+            ['org' => 'Example'],
+            $this->mock([new ClaimSetEntity('org', ['org'])], ['org' => [123.0]])
+                ->extract(['org'], ['123' => ['Example']]),
+        );
+    }
+
+
+    /**
      * @throws \SimpleSAML\Module\oidc\Server\Exceptions\OidcServerException
      */
     public function testExtractRequestClaimsUserInfo(): void
@@ -945,10 +1199,10 @@ class ClaimTranslatorExtractorTest extends TestCase
 
     /**
      * An identity claim is held to the rule 'sub' is held to: released only as a non-empty string. The
-     * translation alone can not guarantee it -- an attribute value which is itself an array survives the
-     * string conversion as an array, and an attribute with no value yields '' -- so the extraction refuses
-     * such a value (found by review). The valid subject-like value "0" passes, and a claim which is not an
-     * identity claim is not held to the rule.
+     * translation alone can not guarantee it -- an attribute with no value, or with an empty first value, yields
+     * '' -- so the extraction refuses such a value (found by review). The valid subject-like value "0" passes, and
+     * a claim which is not an identity claim is not held to the rule. A value which is an array is refused for
+     * every claim (testRefusesAnArrayValueWhereverAClaimIsTranslated()).
      */
     #[DataProvider('unusableIdentityClaimValueProvider')]
     public function testRefusesAnIdentityClaimWhichIsNotANonEmptyString(array $attributeValue): void
@@ -980,7 +1234,6 @@ class ClaimTranslatorExtractorTest extends TestCase
     public static function unusableIdentityClaimValueProvider(): array
     {
         return [
-            'a nested array value' => [[['v1', 'v2']]],
             'no value' => [[]],
             'an empty string' => [['']],
         ];
@@ -996,7 +1249,7 @@ class ClaimTranslatorExtractorTest extends TestCase
 
         $claimTranslator->extractAdditionalUserInfoClaims(
             ['userinfo' => ['voperson_id' => null]],
-            ['voPersonID' => [['v1', 'v2']]],
+            ['voPersonID' => ['']],
         );
     }
 

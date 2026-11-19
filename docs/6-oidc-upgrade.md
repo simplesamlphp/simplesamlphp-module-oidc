@@ -615,7 +615,12 @@ released, so one which shared a scope with list claims
 a string. The [standard claims](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)
 and the identity claims are always a single value, and
 `'multi_valued' => true` on one is refused; in v6 the scope setting made a
-standard claim a list too.
+standard claim a list too. An attribute value which is an array (an
+authentication processing filter can set one) is now an error when a claim
+read from it is released, where v6 could release it as a list, even for a
+single-valued claim, or as a list within a list claim. So is an attribute
+which is not an array of values, which v6 could release as a single value for
+a list claim.
 - OpenID Federation specific endpoints for subordinate listing and fetching
 statements about subordinates are removed, as the final specification
 explicitly states that leaf entities must not have those endpoints.

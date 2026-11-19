@@ -286,13 +286,15 @@ class ClaimTranslatorExtractor
 
 
     /**
-     * @param bool $areMembers Whether the table holds the members of a 'json' claim rather than claims: a member's
-     * shape is read from its own entry alone, since its name is not a claim's.
+     * @param string $parentPath The 'json' claim whose members the table holds, with a trailing dot, or '' when it
+     * holds claims: a member's shape is read from its own entry alone, since its name is not a claim's.
+     * @throws \RuntimeException When the attribute a claim is read from, or a value of it, can not be translated
+     * (translateAttribute(), convertType()).
      */
     private function translateSamlAttributesToClaims(
         array $translationTable,
         array $samlAttributes,
-        bool $areMembers = false,
+        string $parentPath = '',
     ): array {
         $claims = [];
         /**
@@ -300,7 +302,8 @@ class ClaimTranslatorExtractor
          * @var array $mappingConfig
          */
         foreach ($translationTable as $claim => $mappingConfig) {
-            $isSingleValue = $areMembers ?
+            $path = $parentPath . $claim;
+            $isSingleValue = $parentPath !== '' ?
             !$this->isMultiValuedMapping($mappingConfig) :
             $this->isSingleValueMapping($claim, $mappingConfig);
             $type = (string)($mappingConfig['type'] ?? 'string');
@@ -308,7 +311,11 @@ class ClaimTranslatorExtractor
             unset($mappingConfig['type'], $mappingConfig[self::MAPPING_KEY_MULTI_VALUED]);
             if ($type === 'json') {
                 $mappingConfigClaims = is_array($mappingConfig['claims']) ? $mappingConfig['claims'] : [];
-                $subClaims = $this->translateSamlAttributesToClaims($mappingConfigClaims, $samlAttributes, true);
+                $subClaims = $this->translateSamlAttributesToClaims(
+                    $mappingConfigClaims,
+                    $samlAttributes,
+                    $path . '.',
+                );
                 $claims[$claim] = $subClaims;
                 continue;
             }
@@ -317,20 +324,83 @@ class ClaimTranslatorExtractor
             $mappingConfig['attributes'] :
             $mappingConfig;
 
-            /** @var string $samlMatch */
+            /** @var int|string $samlMatch */
             foreach ($attributes as $samlMatch) {
                 if (array_key_exists($samlMatch, $samlAttributes)) {
-                    /** @psalm-suppress MixedAssignment, MixedArgument */
-                    $values = $isSingleValue ?
-                    current($samlAttributes[$samlMatch]) :
-                    $samlAttributes[$samlMatch];
                     /** @psalm-suppress MixedAssignment */
-                    $claims[$claim] = $this->convertType($type, $values);
+                    $claims[$claim] = $this->translateAttribute(
+                        $type,
+                        $isSingleValue,
+                        $samlAttributes[$samlMatch],
+                        $path,
+                        (string)$samlMatch,
+                    );
                     break;
                 }
             }
         }
         return $claims;
+    }
+
+
+    /**
+     * A claim's value from the attribute it is read from: the attribute's first value for a single-valued claim,
+     * otherwise a list of all its values in order, each converted to the claim's type; the attribute's keys play no
+     * part. Two shapes an authentication processing filter can set are refused: an attribute which is not an array
+     * of values, which has no first value to take and would make a list claim a single value, and a value which is
+     * an array, which would make a single-valued claim a list and a list claim a list holding a list. Only the
+     * values the claim releases are looked at, so a single-valued claim does not fail on a later value. The error
+     * names the claim and the attribute, not the value, which is the user's.
+     *
+     * @param string $claimPath The claim, or a member of a 'json' claim as `claim.member`.
+     * @throws \RuntimeException
+     */
+    private function translateAttribute(
+        string $type,
+        bool $isSingleValue,
+        mixed $attributeValues,
+        string $claimPath,
+        string $attribute,
+    ): mixed {
+        if (!is_array($attributeValues)) {
+            throw new RuntimeException(
+                sprintf(
+                    "The '%s' claim can not be translated: attribute '%s' is not an array of values",
+                    $claimPath,
+                    $attribute,
+                ),
+            );
+        }
+
+        if ($isSingleValue) {
+            // The first value wherever the array's internal pointer is, read without copying the array; false for
+            // an attribute with no value.
+            $firstKey = array_key_first($attributeValues);
+            $releasedValues = [$firstKey === null ? false : $attributeValues[$firstKey]];
+        } else {
+            $releasedValues = $attributeValues;
+        }
+
+        $values = [];
+
+        /** @psalm-suppress MixedAssignment */
+        foreach ($releasedValues as $value) {
+            if (is_array($value)) {
+                throw new RuntimeException(
+                    sprintf(
+                        "The '%s' claim can not be translated: a value of attribute '%s' is an array, not a " .
+                        'single value',
+                        $claimPath,
+                        $attribute,
+                    ),
+                );
+            }
+
+            /** @psalm-suppress MixedAssignment */
+            $values[] = $this->convertType($type, $value);
+        }
+
+        return $isSingleValue ? reset($values) : $values;
     }
 
 
@@ -363,36 +433,33 @@ class ClaimTranslatorExtractor
     }
 
 
-    private function convertType(string $type, mixed $attributes): mixed
+    /**
+     * Converts a single attribute value to the claim's type; translateAttribute() has refused a value which is an
+     * array.
+     *
+     * @throws \RuntimeException
+     */
+    private function convertType(string $type, mixed $value): mixed
     {
-        if (is_array($attributes)) {
-            $values = [];
-            /** @psalm-suppress MixedAssignment */
-            foreach ($attributes as $attribute) {
-                /** @psalm-suppress MixedAssignment */
-                $values[] = $this->convertType($type, $attribute);
-            }
-            return $values;
-        }
         switch ($type) {
             case 'string':
-                if (is_scalar($attributes) || $attributes instanceof Stringable) {
-                    return (string)$attributes;
+                if (is_scalar($value) || $value instanceof Stringable) {
+                    return (string)$value;
                 }
 
                 throw new RuntimeException(
-                    sprintf('Cannot safely convert %s to string', get_debug_type($attributes)),
+                    sprintf('Cannot safely convert %s to string', get_debug_type($value)),
                 );
             case 'int':
-                if (is_numeric($attributes)) {
-                    return (int)$attributes;
+                if (is_numeric($value)) {
+                    return (int)$value;
                 } else {
-                    throw new RuntimeException("Cannot convert '$attributes' to int");
+                    throw new RuntimeException("Cannot convert '$value' to int");
                 }
             case 'bool':
-                return filter_var($attributes, FILTER_VALIDATE_BOOLEAN);
+                return filter_var($value, FILTER_VALIDATE_BOOLEAN);
         }
-        return $attributes;
+        return $value;
     }
 
 
@@ -544,8 +611,9 @@ class ClaimTranslatorExtractor
 
     /**
      * 'sub' and the identity claims identify the End-User, so each one released must be a non-empty string. The
-     * translation can not guarantee that on its own: an attribute value which is itself an array (an authproc
-     * filter can produce one) survives convertType() as an array, and an attribute with no value yields ''.
+     * translation can not guarantee that on its own: an attribute with no value, or with an empty first value,
+     * yields '', and a type other than 'string' (the factory refuses one on an identity claim) need not yield a
+     * string.
      */
     private function validateSubjectLikeClaims(array $claims): void
     {
